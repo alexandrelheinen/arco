@@ -1,0 +1,11 @@
+# Example configuration for mapping layer
+manhattan_grid:
+  shape: [10, 10]
+euclidean_grid:
+  shape: [10, 10]
+occupancy:
+  type: dummy
+  params:
+    occupied_points:
+      - [1, 1]
+      - [2, 2]

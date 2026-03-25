@@ -1,0 +1,10 @@
+# Example configuration for guidance layer
+exploration_primitive:
+  type: dubins
+  turning_radius: 1.0
+interpolator:
+  type: bspline
+  degree: 3
+controller:
+  type: pure_pursuit
+  lookahead_distance: 1.0

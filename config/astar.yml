@@ -1,0 +1,4 @@
+# Example configuration for A* planner
+heuristic: manhattan  # Options: manhattan, euclidean
+allow_diagonal: false
+max_iterations: 10000
