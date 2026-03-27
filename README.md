@@ -36,6 +36,18 @@ The guidance layer acts as a bridge between abstract graph nodes and physical co
 1.  **Exploration Primitives**: In RRT-based architectures, the graph is grown dynamically. The steering function defines primitives (e.g., Dubins paths) to ensure the graph only contains kinematically reachable states.
 2.  **Interpolation**: Raw output from a graph search is typically a discrete sequence of nodes. The guidance layer applies B-splines or shortcutting algorithms to transform these steps into a continuous trajectory.
 
+<p align="center">
+  <a href="docs/pyreverse/packages.html" target="_blank">
+    <strong>View interactive package architecture (HTML)</strong>
+  </a>
+  <br>
+  <em>Click to open the interactive diagram in your browser.</em>
+</p>
+
+## Arquitetura (Diagrama de Pacotes)
+
+![Package diagram](docs/pyreverse/packages.png)
+
 ## File structure
 
 ```
@@ -61,7 +73,7 @@ The guidance layer acts as a bridge between abstract graph nodes and physical co
 - For the parameters of the algorithms that can be tuned by the user, use a ".yml" file in the config folder. it can contain fields and subfields to quee the file readable. It might not have the same arhiceture of the codebase since it is inteded to be read by the user.
 - Keep a clean, minimalistic, and modern structure. Add subfolders if needed to better groupe the classes that depend on each other or that are closely related. Usually if you are using `"_"` to name things and that you have more than one with the same suffix, the suffix can become a folder and supressed from the file name to avoid duplications.
 - Use [Google](https://google.github.io/styleguide/pyguide.html) and [PEP8](https://peps.python.org/pep-0008/) standards + Black and iSort.
-
+- Variable typing is strongly enforced to help developpers and agents
 
 ## Mapping
 
