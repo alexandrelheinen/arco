@@ -1,9 +1,12 @@
+"""Unit tests for Grid, ManhattanGrid, and EuclideanGrid classes."""
+
 import numpy as np
 
 from arco.mapping import EuclideanGrid, Grid, ManhattanGrid
 
 
 def test_grid_basic():
+    """Test basic Grid creation and occupancy methods."""
     grid = Grid((3, 3))
     assert grid.shape == (3, 3)
     assert grid.data.shape == (3, 3)
@@ -14,12 +17,14 @@ def test_grid_basic():
 
 
 def test_manhattan_neighbors():
+    """Test ManhattanGrid neighbor generation (axis-aligned)."""
     grid = ManhattanGrid((3, 3))
     neighbors = list(grid.neighbors((1, 1)))
     assert set(neighbors) == {(0, 1), (2, 1), (1, 0), (1, 2)}
 
 
 def test_euclidean_neighbors():
+    """Test EuclideanGrid neighbor generation (diagonal included)."""
     grid = EuclideanGrid((3, 3))
     neighbors = set(grid.neighbors((1, 1)))
     expected = {(0, 0), (0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1), (2, 2)}
@@ -27,10 +32,12 @@ def test_euclidean_neighbors():
 
 
 def test_manhattan_distance():
+    """Test ManhattanGrid L1 distance calculation."""
     grid = ManhattanGrid((0,))
     assert grid.distance((0, 0), (2, 3)) == 5
 
 
 def test_euclidean_distance():
+    """Test EuclideanGrid L2 distance calculation."""
     grid = EuclideanGrid((0,))
     assert np.isclose(grid.distance((0, 0), (3, 4)), 5.0)

@@ -1,4 +1,5 @@
-from arco.guidance.controller import MPCController, PIDController, PurePursuitController
+from arco.guidance.controller import (MPCController, PIDController,
+                                      PurePursuitController)
 
 
 def test_pure_pursuit_controller():

@@ -1,6 +1,8 @@
 import numpy as np
+
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete import AStarPlanner
+
 
 def test_astar_planner_simple():
     grid = ManhattanGrid((5, 5))
@@ -16,6 +18,7 @@ def test_astar_planner_simple():
     assert path[-1] == goal
     for node in path:
         assert not grid.is_occupied(node)
+
 
 def test_astar_planner_no_path():
     grid = ManhattanGrid((3, 3))
