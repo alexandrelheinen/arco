@@ -1,0 +1,63 @@
+<html>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+      <div class="mermaid">
+    
+        classDiagram
+          class mapping {
+          }
+          style mapping fill:#77AADD
+          class graph {
+          }
+          style graph fill:#77AADD
+          class grid {
+          }
+          style grid fill:#77AADD
+          class base {
+          }
+          style base fill:#77AADD
+          class euclidean {
+          }
+          style euclidean fill:#77AADD
+          class manhattan {
+          }
+          style manhattan fill:#77AADD
+          class occupancy {
+          }
+          style occupancy fill:#77AADD
+          class planning {
+          }
+          style planning fill:#99DDFF
+          class discrete {
+          }
+          style discrete fill:#99DDFF
+          class astar {
+          }
+          style astar fill:#99DDFF
+          class base {
+          }
+          style base fill:#99DDFF
+          class planner {
+          }
+          style planner fill:#99DDFF
+          mapping --> base
+          mapping --> euclidean
+          mapping --> manhattan
+          mapping --> occupancy
+          grid --> base
+          grid --> euclidean
+          grid --> manhattan
+          base --> graph
+          euclidean --> base
+          manhattan --> base
+          occupancy --> graph
+          planning --> mapping
+          planning --> discrete
+          planning --> planner
+          discrete --> astar
+          discrete --> base
+          astar --> base
+  
+       </div>
+  </body>
+</html>
