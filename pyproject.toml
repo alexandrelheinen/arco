@@ -19,7 +19,8 @@ dev = [
     "pytest",
     "black",
     "isort",
-    "matplotlib"
+    "matplotlib",
+    "pylint"
 ]
 
 [tool.setuptools.packages.find]
