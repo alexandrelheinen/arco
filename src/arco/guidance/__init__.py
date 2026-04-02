@@ -22,3 +22,5 @@ from .interpolator import Interpolator
 from .mpc import MPCController
 from .pid import PIDController
 from .pure_pursuit import PurePursuitController
+from .tracking import TrackingLoop
+from .vehicle import DubinsVehicle
