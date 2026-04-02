@@ -4,10 +4,9 @@ on:
   pull_request:
     types:
       - opened
+      - reopened
       - synchronize
-    paths:
-      - "src/arco/**"
-      - ".github/workflows/pyreverse.yml"
+      - ready_for_review
 
 jobs:
   pyreverse:
