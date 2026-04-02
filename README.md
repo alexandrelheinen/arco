@@ -55,17 +55,9 @@ The guidance layer acts as a bridge between abstract graph nodes and physical co
     └── planning
 ```
 
-## Editorial: Naming Patterns and Architecture
+## Coding Guidelines
 
-- **Map**: Any class that represents a spatial structure is a Map (noun). Maps are passive data structures (e.g., `Grid`, `Occupancy`).
-- **Planner**: Any class that implements a planning algorithm is a Planner (verb-like, with `-er` suffix). Planners take action using a Map (e.g., `AStarPlanner`, `RRTPlanner`).
-- **Guideline**: Maps are always nouns; Planners are always agent nouns with `-er` suffix. This distinction clarifies the architecture: Maps hold data, Planners act on Maps.
-- One main class by file. Small auxiliar classes can be in the same file as the main one. Use nesting if possible to reproduce the namespace effect (e.g `Graph.Node` that becomes even `mapping.Graph.Node`).
-- Tests must de defined at the same time as the structures (V cycle). Maybe not in the same effort, but before moving to the next task.
-- For the parameters of the algorithms that can be tuned by the user, use a ".yml" file in the config folder. it can contain fields and subfields to quee the file readable. It might not have the same arhiceture of the codebase since it is inteded to be read by the user.
-- Keep a clean, minimalistic, and modern structure. Add subfolders if needed to better groupe the classes that depend on each other or that are closely related. Usually if you are using `"_"` to name things and that you have more than one with the same suffix, the suffix can become a folder and supressed from the file name to avoid duplications.
-- Use [Google](https://google.github.io/styleguide/pyguide.html) and [PEP8](https://peps.python.org/pep-0008/) standards + Black and iSort.
-- Variable typing is strongly enforced to help developpers and agents
+See [docs/guidelines.md](docs/guidelines.md) for the complete, authoritative coding conventions (file structure, naming, docstrings, formatting, typing, and testing).
 
 ## Mapping
 
@@ -114,7 +106,7 @@ Python 3.10 or later.
 
 ```bash
 pytest tests/
-black src/ tests/
+black --target-version py312 src/ tests/
 isort src/ tests/
 ```
 

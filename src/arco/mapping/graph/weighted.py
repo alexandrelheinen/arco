@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Dict, Iterator, List, Optional, Tuple
 
-from .graph import Graph
+from .base import Graph
 
 
 class WeightedGraph(Graph):
@@ -62,10 +62,10 @@ class WeightedGraph(Graph):
             node_id: ID of the query node.
 
         Yields:
-            Neighbour node IDs.
+            Neighbor node IDs.
         """
-        for neighbour, _ in self._adjacency.get(node_id, []):
-            yield neighbour
+        for neighbor, _ in self._adjacency.get(node_id, []):
+            yield neighbor
 
     def distance(self, node_a: int, node_b: int) -> float:
         """Return the edge weight between two adjacent nodes.
@@ -79,8 +79,8 @@ class WeightedGraph(Graph):
         Returns:
             Edge weight as a float.
         """
-        for neighbour, weight in self._adjacency.get(node_a, []):
-            if neighbour == node_b:
+        for neighbor, weight in self._adjacency.get(node_a, []):
+            if neighbor == node_b:
                 return weight
         return self._euclidean(node_a, node_b)
 
@@ -108,8 +108,8 @@ class WeightedGraph(Graph):
         """
         seen: set = set()
         result: List[Tuple[int, int, float]] = []
-        for a, neighbours in self._adjacency.items():
-            for b, w in neighbours:
+        for a, neighbors in self._adjacency.items():
+            for b, w in neighbors:
                 key = (min(a, b), max(a, b))
                 if key not in seen:
                     seen.add(key)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .graph import Graph
+from .base import Graph
 
 
 class OrientedGraph(Graph):
