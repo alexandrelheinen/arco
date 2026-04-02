@@ -72,26 +72,33 @@ class RoadGraph(CartesianGraph):
         edge_key = (min(node_a, node_b), max(node_a, node_b))
         return self._edge_geometry.get(edge_key, [])
 
-    def full_edge_geometry(
-        self, node_a: int, node_b: int
-    ) -> List[Tuple[float, float]]:
+    def full_edge_geometry(self, node_a: int, node_b: int) -> List[np.ndarray]:
         """Return the complete edge geometry including start and end nodes.
+
+        All elements are :class:`numpy.ndarray` objects for consistency with
+        the N-dimensional architecture.  Intermediate waypoints (stored as
+        tuples) are converted on the fly.
 
         Args:
             node_a: ID of the first node.
             node_b: ID of the second node.
 
         Returns:
-            List of ``(x, y)`` points starting at node_a, including all
-            intermediate waypoints, and ending at node_b.
+            List of position arrays starting at node_a, including all
+            intermediate waypoints as ``np.ndarray``, and ending at node_b.
         """
         waypoints = self.edge_geometry(node_a, node_b)
         edge_key = (min(node_a, node_b), max(node_a, node_b))
 
-        pos_a: Tuple[float, float] = tuple(self.position(node_a))  # type: ignore[assignment]
-        pos_b: Tuple[float, float] = tuple(self.position(node_b))  # type: ignore[assignment]
+        wp_arrays = [np.array(wp, dtype=float) for wp in waypoints]
 
         if node_a == edge_key[0]:
-            return [pos_a] + waypoints + [pos_b]
+            return (
+                [self.position(node_a)] + wp_arrays + [self.position(node_b)]
+            )
         else:
-            return [pos_a] + waypoints[::-1] + [pos_b]
+            return (
+                [self.position(node_a)]
+                + wp_arrays[::-1]
+                + [self.position(node_b)]
+            )
