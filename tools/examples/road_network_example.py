@@ -26,6 +26,7 @@ Select network type::
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 
@@ -35,10 +36,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import matplotlib
 import matplotlib.pyplot as plt
+from logging_config import configure_logging
 from viewer.graph import draw_graph
 
 from arco.mapping.generator import RoadNetworkGenerator
 from arco.planning.discrete.astar import AStarPlanner
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Parameters
@@ -184,12 +188,13 @@ def main(network_type: str = "grid", save_path: str | None = None) -> None:
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
         fig.savefig(save_path, dpi=150)
-        print(f"Saved road network example to {save_path}")
+        logger.info("Saved road network example to %s", save_path)
     else:
         plt.show()
 
 
 if __name__ == "__main__":
+    configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--type",

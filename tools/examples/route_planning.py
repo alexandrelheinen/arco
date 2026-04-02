@@ -11,8 +11,13 @@ on road networks. It shows:
 This is part of the horse auto-follow system (Phase 1.2).
 """
 
+import logging
+import math
+
 from arco.mapping.graph import WeightedGraph
 from arco.planning.discrete import RouteRouter
+
+logger = logging.getLogger(__name__)
 
 
 def create_road_network() -> WeightedGraph:
@@ -56,117 +61,130 @@ def create_road_network() -> WeightedGraph:
 
 def main():
     """Run route planning examples."""
-    print("=" * 70)
-    print("Route Planning Example: Continuous Coordinate Projection")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("Route Planning Example: Continuous Coordinate Projection")
+    logger.info("=" * 70)
 
     # Create road network
     graph = create_road_network()
-    print(
-        f"\nRoad network: {len(graph.nodes)} intersections, {len(graph.edges)} roads"
+    logger.info(
+        "\nRoad network: %d intersections, %d roads",
+        len(graph.nodes),
+        len(graph.edges),
     )
 
     # Create router with activation radius
     activation_radius = 30.0
     router = RouteRouter(graph, activation_radius=activation_radius)
-    print(f"Activation radius: {activation_radius} units")
+    logger.info("Activation radius: %s units", activation_radius)
 
     # Example 1: Route from top-left to bottom-right
-    print("\n" + "-" * 70)
-    print("Example 1: Route from top-left to bottom-right")
-    print("-" * 70)
+    logger.info("\n" + "-" * 70)
+    logger.info("Example 1: Route from top-left to bottom-right")
+    logger.info("-" * 70)
     start_x, start_y = 5.0, 5.0
     goal_x, goal_y = 95.0, 95.0
 
-    print(f"Start position: ({start_x}, {start_y})")
-    print(f"Goal position: ({goal_x}, {goal_y})")
+    logger.info("Start position: (%s, %s)", start_x, start_y)
+    logger.info("Goal position: (%s, %s)", goal_x, goal_y)
 
     result = router.plan(start_x, start_y, goal_x, goal_y)
     if result is not None:
-        print(f"\n✓ Route found!")
-        print(
-            f"  Start node: {result.start_node} at {result.start_projection}"
+        logger.info("\u2713 Route found!")
+        logger.info(
+            "  Start node: %s at %s", result.start_node, result.start_projection
         )
-        print(f"  Goal node: {result.goal_node} at {result.goal_projection}")
-        print(f"  Start distance: {result.start_distance:.2f} units")
-        print(f"  Goal distance: {result.goal_distance:.2f} units")
-        print(f"  Path length: {len(result.path)} intersections")
-        print(f"  Path: {result.path}")
+        logger.info(
+            "  Goal node: %s at %s", result.goal_node, result.goal_projection
+        )
+        logger.info("  Start distance: %.2f units", result.start_distance)
+        logger.info("  Goal distance: %.2f units", result.goal_distance)
+        logger.info("  Path length: %d intersections", len(result.path))
+        logger.info("  Path: %s", result.path)
     else:
-        print("✗ No route found")
+        logger.warning("\u2717 No route found")
 
     # Example 2: Route from center to right side
-    print("\n" + "-" * 70)
-    print("Example 2: Route from center to right side")
-    print("-" * 70)
+    logger.info("\n" + "-" * 70)
+    logger.info("Example 2: Route from center to right side")
+    logger.info("-" * 70)
     start_x, start_y = 48.0, 52.0
     goal_x, goal_y = 98.0, 48.0
 
-    print(f"Start position: ({start_x}, {start_y})")
-    print(f"Goal position: ({goal_x}, {goal_y})")
+    logger.info("Start position: (%s, %s)", start_x, start_y)
+    logger.info("Goal position: (%s, %s)", goal_x, goal_y)
 
     result = router.plan(start_x, start_y, goal_x, goal_y)
     if result is not None:
-        print(f"\n✓ Route found!")
-        print(
-            f"  Start node: {result.start_node} at {result.start_projection}"
+        logger.info("\u2713 Route found!")
+        logger.info(
+            "  Start node: %s at %s", result.start_node, result.start_projection
         )
-        print(f"  Goal node: {result.goal_node} at {result.goal_projection}")
-        print(f"  Path: {result.path}")
+        logger.info(
+            "  Goal node: %s at %s", result.goal_node, result.goal_projection
+        )
+        logger.info("  Path: %s", result.path)
     else:
-        print("✗ No route found")
+        logger.warning("\u2717 No route found")
 
     # Example 3: Off-road position (should fail)
-    print("\n" + "-" * 70)
-    print("Example 3: Off-road position (outside activation radius)")
-    print("-" * 70)
+    logger.info("\n" + "-" * 70)
+    logger.info("Example 3: Off-road position (outside activation radius)")
+    logger.info("-" * 70)
     start_x, start_y = 200.0, 200.0  # Far from any road
     goal_x, goal_y = 50.0, 50.0
 
-    print(f"Start position: ({start_x}, {start_y}) - OFF ROAD")
-    print(f"Goal position: ({goal_x}, {goal_y})")
+    logger.info("Start position: (%s, %s) - OFF ROAD", start_x, start_y)
+    logger.info("Goal position: (%s, %s)", goal_x, goal_y)
 
     result = router.plan(start_x, start_y, goal_x, goal_y)
     if result is not None:
-        print(f"\n✓ Route found!")
-        print(f"  Path: {result.path}")
+        logger.info("\u2713 Route found!")
+        logger.info("  Path: %s", result.path)
     else:
-        print("\n✗ No route found (start position outside activation radius)")
+        logger.warning(
+            "\u2717 No route found (start position outside activation radius)"
+        )
 
     # Example 4: Nearest node query
-    print("\n" + "-" * 70)
-    print("Example 4: Find nearest intersection to any position")
-    print("-" * 70)
+    logger.info("\n" + "-" * 70)
+    logger.info("Example 4: Find nearest intersection to any position")
+    logger.info("-" * 70)
     query_x, query_y = 35.0, 75.0
-    print(f"Query position: ({query_x}, {query_y})")
+    logger.info("Query position: (%s, %s)", query_x, query_y)
 
     nearest = graph.find_nearest_node(query_x, query_y)
     if nearest is not None:
         pos = graph.position(nearest)
-        import math
-
         dist = math.hypot(query_x - pos[0], query_y - pos[1])
-        print(f"Nearest intersection: {nearest} at {pos}")
-        print(f"Distance: {dist:.2f} units")
+        logger.info("Nearest intersection: %s at %s", nearest, pos)
+        logger.info("Distance: %.2f units", dist)
 
     # Example 5: Project onto nearest edge
-    print("\n" + "-" * 70)
-    print("Example 5: Project position onto nearest road segment")
-    print("-" * 70)
+    logger.info("\n" + "-" * 70)
+    logger.info("Example 5: Project position onto nearest road segment")
+    logger.info("-" * 70)
     query_x, query_y = 55.0, 25.0
-    print(f"Query position: ({query_x}, {query_y})")
+    logger.info("Query position: (%s, %s)", query_x, query_y)
 
     projection = graph.project_to_nearest_edge(query_x, query_y)
     if projection is not None:
         proj_pos, node_a, node_b, dist = projection
-        print(f"Projected point: {proj_pos}")
-        print(f"Edge endpoints: {node_a} - {node_b}")
-        print(f"Distance to road: {dist:.2f} units")
+        logger.info("Projected point: %s", proj_pos)
+        logger.info("Edge endpoints: %s - %s", node_a, node_b)
+        logger.info("Distance to road: %.2f units", dist)
 
-    print("\n" + "=" * 70)
-    print("Route planning demonstration complete!")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("Route planning demonstration complete!")
+    logger.info("=" * 70)
 
 
 if __name__ == "__main__":
+    import sys
+    import os
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    from logging_config import configure_logging
+
+    configure_logging()
     main()

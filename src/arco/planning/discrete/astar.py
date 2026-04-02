@@ -1,9 +1,14 @@
+"""A* discrete path planner."""
+
 from __future__ import annotations
 
 import heapq
+import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .base import DiscretePlanner
+
+logger = logging.getLogger(__name__)
 
 
 class AStarPlanner(DiscretePlanner):
@@ -60,6 +65,7 @@ class AStarPlanner(DiscretePlanner):
         Returns:
             A list of nodes from start to goal, or None if no path exists.
         """
+        logger.debug("A* plan: start=%s goal=%s", start, goal)
         open_set: List[Tuple[float, float, int, Any]] = []
         counter: int = 0
         h_start = self.heuristic(start, goal)
@@ -71,7 +77,9 @@ class AStarPlanner(DiscretePlanner):
         while open_set:
             _, _, _, current = heapq.heappop(open_set)
             if current == goal:
-                return self._reconstruct_path(came_from, current)
+                path = self._reconstruct_path(came_from, current)
+                logger.debug("A* found path: length=%d", len(path))
+                return path
             for neighbor in self.graph.neighbors(current):
                 # If the graph supports is_occupied, skip occupied nodes
                 if hasattr(
@@ -88,6 +96,7 @@ class AStarPlanner(DiscretePlanner):
                     f = tentative_g + h
                     counter += 1
                     heapq.heappush(open_set, (f, h, counter, neighbor))
+        logger.debug("A* found no path from %s to %s", start, goal)
         return None  # No path found
 
     def _reconstruct_path(

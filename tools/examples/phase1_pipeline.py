@@ -40,6 +40,7 @@ https://alexandrelheinen.github.io/articles/2026-03-06-horse-auto-follow/
 from __future__ import annotations
 
 import argparse
+import logging
 import math
 import os
 import sys
@@ -51,6 +52,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import matplotlib
 import matplotlib.pyplot as plt
+from logging_config import configure_logging
 from viewer.road import draw_road_network
 
 from arco.guidance.pure_pursuit import PurePursuitController
@@ -59,6 +61,8 @@ from arco.guidance.vehicle import DubinsVehicle
 from arco.mapping.generator import RoadNetworkGenerator
 from arco.planning.discrete import RouteRouter
 from config import load_config
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Simulation parameters (loaded from tools/config/)
@@ -219,9 +223,9 @@ def main(save_path: str | None = None) -> None:
     # ------------------------------------------------------------------
     # 1. Generate road network
     # ------------------------------------------------------------------
-    print("=" * 60)
-    print("Phase 1 Pipeline — Horse Auto-Follow System")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Phase 1 Pipeline \u2014 Horse Auto-Follow System")
+    logger.info("=" * 60)
 
     generator = RoadNetworkGenerator(seed=SEED)
     graph = generator.generate_medieval_network(
@@ -232,8 +236,10 @@ def main(save_path: str | None = None) -> None:
         curvature=CURVATURE,
         jitter=JITTER,
     )
-    print(
-        f"\n[1] Medieval city network: {len(graph.nodes)} nodes, {len(graph.edges)} edges"
+    logger.info(
+        "[1] Medieval city network: %d nodes, %d edges",
+        len(graph.nodes),
+        len(graph.edges),
     )
 
     # ------------------------------------------------------------------
@@ -260,19 +266,23 @@ def main(save_path: str | None = None) -> None:
     result = router.plan(*start_xy, *goal_xy)
 
     if result is None:
-        print("ERROR: Route planning failed — check start/goal positions.")
+        logger.error(
+            "Route planning failed \u2014 check start/goal positions."
+        )
         return
 
-    print(
-        f"[2] Route planned: {len(result.path)} nodes"
-        f"  ({result.path[0]} → {result.path[-1]})"
+    logger.info(
+        "[2] Route planned: %d nodes  (%s \u2192 %s)",
+        len(result.path),
+        result.path[0],
+        result.path[-1],
     )
 
     # ------------------------------------------------------------------
     # 3. Path smoothing
     # ------------------------------------------------------------------
     smooth_path = build_smooth_path(graph, result.path)
-    print(f"[3] Smooth path: {len(smooth_path)} waypoints")
+    logger.info("[3] Smooth path: %d waypoints", len(smooth_path))
 
     # ------------------------------------------------------------------
     # 4. Tracking simulation
@@ -294,7 +304,7 @@ def main(save_path: str | None = None) -> None:
     controller = PurePursuitController(lookahead_distance=LOOKAHEAD)
     loop = TrackingLoop(vehicle, controller, cruise_speed=CRUISE_SPEED)
 
-    print(f"[4] Simulating up to {MAX_STEPS} steps (dt={DT} s) …")
+    logger.info("[4] Simulating up to %d steps (dt=%s s) \u2026", MAX_STEPS, DT)
     step = 0
     while step < MAX_STEPS:
         loop.step(smooth_path, dt=DT)
@@ -304,9 +314,10 @@ def main(save_path: str | None = None) -> None:
             break
 
     history = loop.history
-    print(
-        f"    Completed {step} steps"
-        f" — final distance to goal: {math.hypot(vehicle.x - goal_x, vehicle.y - goal_y):.1f} m"
+    logger.info(
+        "    Completed %d steps \u2014 final distance to goal: %.1f m",
+        step,
+        math.hypot(vehicle.x - goal_x, vehicle.y - goal_y),
     )
 
     cross_track = [h["cross_track_error"] for h in history]
@@ -372,12 +383,13 @@ def main(save_path: str | None = None) -> None:
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        print(f"\nFigure saved → {save_path}")
+        logger.info("Figure saved \u2192 %s", save_path)
     else:
         plt.show()
 
 
 if __name__ == "__main__":
+    configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--save",

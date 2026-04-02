@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+import math
 from typing import List, NamedTuple, Optional, Tuple
 
 from ...mapping.graph.weighted import WeightedGraph
 from .astar import AStarPlanner
+
+logger = logging.getLogger(__name__)
 
 
 class RouteResult(NamedTuple):
@@ -85,11 +89,19 @@ class RouteRouter:
                 - Goal position is outside activation radius
                 - No path exists between projected nodes (disconnected graph)
         """
+        logger.debug(
+            "RouteRouter.plan: start=(%.2f, %.2f) goal=(%.2f, %.2f)",
+            start_x,
+            start_y,
+            goal_x,
+            goal_y,
+        )
         # Project start position to nearest node
         start_node = self.graph.find_nearest_node(
             start_x, start_y, self.activation_radius
         )
         if start_node is None:
+            logger.debug("RouteRouter: start outside activation radius")
             return None  # Start outside activation radius
 
         # Project goal position to nearest node
@@ -97,13 +109,12 @@ class RouteRouter:
             goal_x, goal_y, self.activation_radius
         )
         if goal_node is None:
+            logger.debug("RouteRouter: goal outside activation radius")
             return None  # Goal outside activation radius
 
         # Compute start/goal projection coordinates and distances
         start_proj_x, start_proj_y = self.graph.position(start_node)
         goal_proj_x, goal_proj_y = self.graph.position(goal_node)
-
-        import math
 
         start_distance = math.hypot(
             start_x - start_proj_x, start_y - start_proj_y
@@ -113,8 +124,19 @@ class RouteRouter:
         # Run A* on the graph
         path = self._planner.plan(start_node, goal_node)
         if path is None:
+            logger.debug(
+                "RouteRouter: no path from node %s to node %s",
+                start_node,
+                goal_node,
+            )
             return None  # No path exists (disconnected graph)
 
+        logger.debug(
+            "RouteRouter: path found (%d nodes, %s \u2192 %s)",
+            len(path),
+            start_node,
+            goal_node,
+        )
         return RouteResult(
             path=path,
             start_node=start_node,
