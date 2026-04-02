@@ -47,7 +47,7 @@ import sys
 
 # Make the package importable when running the script directly (without install).
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-# Expose the tools/viewer package.
+# Expose the tools/viewer and tools/config packages.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import matplotlib
@@ -60,22 +60,26 @@ from arco.guidance.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 from arco.mapping.generator import RoadNetworkGenerator
 from arco.planning.discrete import RouteRouter
+from config import load_config
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Simulation parameters
+# Simulation parameters (loaded from tools/config/)
 # ---------------------------------------------------------------------------
+_rng_cfg = load_config("random")
+SEED: int = int(_rng_cfg["seed"])
 
-SEED = 42
-
-# Medieval city parameters
-CITY_CENTER = (200.0, 200.0)
-NUM_RADIALS = 7
-RING_RADII = [40.0, 90.0, 150.0, 220.0]
-WAYPOINTS_PER_EDGE = 1
-CURVATURE = 0.25
-JITTER = 0.6
+_map_cfg = load_config("map")["medieval_city"]
+CITY_CENTER: tuple[float, float] = (
+    float(_map_cfg["center"][0]),
+    float(_map_cfg["center"][1]),
+)
+NUM_RADIALS: int = int(_map_cfg["num_radials"])
+RING_RADII: list[float] = [float(r) for r in _map_cfg["ring_radii"]]
+WAYPOINTS_PER_EDGE: int = int(_map_cfg["waypoints_per_edge"])
+CURVATURE: float = float(_map_cfg["curvature"])
+JITTER: float = float(_map_cfg["jitter"])
 
 ACTIVATION_RADIUS = 30.0
 
@@ -300,7 +304,9 @@ def main(save_path: str | None = None) -> None:
     controller = PurePursuitController(lookahead_distance=LOOKAHEAD)
     loop = TrackingLoop(vehicle, controller, cruise_speed=CRUISE_SPEED)
 
-    logger.info("[4] Simulating up to %d steps (dt=%s s) \u2026", MAX_STEPS, DT)
+    logger.info(
+        "[4] Simulating up to %d steps (dt=%s s) \u2026", MAX_STEPS, DT
+    )
     step = 0
     while step < MAX_STEPS:
         loop.step(smooth_path, dt=DT)

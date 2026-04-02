@@ -28,7 +28,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..")
-)  # expose tools/viewer
+)  # expose tools/viewer and tools/config
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -37,18 +37,22 @@ from viewer.grid import draw_grid
 
 from arco.mapping import EuclideanGrid
 from arco.planning.discrete.astar import AStarPlanner
+from config import load_config
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Parameters
+# Parameters (loaded from tools/config/grid.yml)
 # ---------------------------------------------------------------------------
-GRID_SIZE = 51  # grid is GRID_SIZE x GRID_SIZE cells
-OBSTACLE_FRACTION = 0.4  # obstacle side length as a fraction of grid size
+_cfg = load_config("grid")
+SIZE_M: list[float] = [float(x) for x in _cfg["size_m"]]
+CELL_SIZE: float = float(_cfg["cell_size"])
+OBSTACLE_FRACTION: float = float(_cfg["obstacle_fraction"])
 
 
 def build_grid_with_obstacle(
-    grid_size: int = GRID_SIZE,
+    size_m: list[float] = SIZE_M,
+    cell_size: float = CELL_SIZE,
     obstacle_fraction: float = OBSTACLE_FRACTION,
 ) -> EuclideanGrid:
     """Build a square Euclidean grid with a centred square obstacle.
@@ -57,16 +61,19 @@ def build_grid_with_obstacle(
     allowed) so that A* can navigate diagonally around the obstacle.
 
     Args:
-        grid_size: Side length of the grid in cells.
-        obstacle_fraction: Side length of the obstacle expressed as a fraction
-            of *grid_size*.
+        size_m: Physical dimensions of the grid in metres ``[rows, cols]``.
+        cell_size: Physical size of one cell in metres.  The grid is
+            extended to the nearest multiple of *cell_size* when needed.
+        obstacle_fraction: Side length of the obstacle expressed as a
+            fraction of the grid size (in cells).
 
     Returns:
         A :class:`~arco.mapping.grid.euclidean.EuclideanGrid` with the central
         obstacle cells marked as occupied.
     """
-    grid = EuclideanGrid((grid_size, grid_size))
+    grid = EuclideanGrid(size_m=size_m, cell_size=cell_size)
 
+    grid_size = grid.shape[0]
     obs_size = int(grid_size * obstacle_fraction)
     margin = (grid_size - obs_size) // 2
     for r in range(margin, margin + obs_size):
@@ -81,7 +88,7 @@ def main(save_path: str | None = None) -> None:
         matplotlib.use("Agg")
 
     grid = build_grid_with_obstacle()
-    n = GRID_SIZE
+    n = grid.shape[0]
     start = (0, 0)
     goal = (n - 1, n - 1)
 

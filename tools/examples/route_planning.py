@@ -92,7 +92,9 @@ def main():
     if result is not None:
         logger.info("\u2713 Route found!")
         logger.info(
-            "  Start node: %s at %s", result.start_node, result.start_projection
+            "  Start node: %s at %s",
+            result.start_node,
+            result.start_projection,
         )
         logger.info(
             "  Goal node: %s at %s", result.goal_node, result.goal_projection
@@ -118,7 +120,9 @@ def main():
     if result is not None:
         logger.info("\u2713 Route found!")
         logger.info(
-            "  Start node: %s at %s", result.start_node, result.start_projection
+            "  Start node: %s at %s",
+            result.start_node,
+            result.start_projection,
         )
         logger.info(
             "  Goal node: %s at %s", result.goal_node, result.goal_projection
@@ -180,8 +184,8 @@ def main():
 
 
 if __name__ == "__main__":
-    import sys
     import os
+    import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from logging_config import configure_logging

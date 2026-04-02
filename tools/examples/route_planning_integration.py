@@ -58,9 +58,7 @@ def main():
     if result is not None:
         logger.info("\u2713 Route found!")
         logger.info("  Path length: %d intersections", len(result.path))
-        logger.info(
-            "  Path: %s...%s", result.path[:5], result.path[-3:]
-        )
+        logger.info("  Path: %s...%s", result.path[:5], result.path[-3:])
         logger.info("  Start projection: %s", result.start_projection)
         logger.info("  Goal projection: %s", result.goal_projection)
 
@@ -117,9 +115,7 @@ def main():
             "  (These can be used for spline interpolation in Phase 1.3)"
         )
     else:
-        logger.warning(
-            "\u2717 No route found (nodes may be too disconnected)"
-        )
+        logger.warning("\u2717 No route found (nodes may be too disconnected)")
 
     # Example 3: Show path smoothing preparation
     logger.info("\n" + "-" * 70)
@@ -160,8 +156,8 @@ def main():
 
 
 if __name__ == "__main__":
-    import sys
     import os
+    import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from logging_config import configure_logging

@@ -62,15 +62,20 @@ References: [Google Python Style Guide](https://google.github.io/styleguide/pygu
 
 ## 4. Code Formatting
 
+Formatting is enforced on **production code only** (`src/` and `tools/`).
+Test files (`tests/`) are excluded — they are not production code and do not
+need to be perfectly formatted or documented.
+
 Run **both** formatters before every commit:
 
 ```bash
-python -m black --target-version py312 src/ tests/
-python -m isort src/ tests/
+python -m black --target-version py312 --line-length 79 src/ tools/
+python -m isort --line-length 79 src/ tools/
 ```
 
-- `black` target version: `py312`.
+- `black` target version: `py312`, line length: `79`.
 - `isort` default profile (no extra configuration needed).
+- CI enforces these rules on `src/` and `tools/` only.
 
 ---
 
