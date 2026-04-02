@@ -1,10 +1,10 @@
-
 """Occupancy: Abstract base for continuous occupancy maps."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Tuple
+
 from arco.mapping.graph import Graph
 
 
@@ -19,5 +19,12 @@ class Occupancy(Graph, ABC):
 
     @abstractmethod
     def is_occupied(self, point: Tuple[float, ...]) -> bool:
-        """Return True if the given point is occupied."""
+        """Return True if the given point is occupied.
+
+        Args:
+            point: The coordinates to check.
+
+        Returns:
+            True if the point is occupied, False otherwise.
+        """
         pass

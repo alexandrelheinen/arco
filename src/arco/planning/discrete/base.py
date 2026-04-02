@@ -1,7 +1,7 @@
-
 """Base class for discrete planners operating on graphs (including grids)."""
 
 from __future__ import annotations
+
 from typing import Any
 
 

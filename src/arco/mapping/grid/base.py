@@ -1,5 +1,3 @@
-
-
 """
 Base N-dimensional grid for discrete planners (A*, D*, etc).
 Implements the Graph interface so that planners can treat grids as graphs.
@@ -11,8 +9,8 @@ import math
 from abc import abstractmethod
 from typing import Iterator, Sequence, Tuple
 
-
 import numpy as np
+
 from arco.mapping.graph import Graph
 
 

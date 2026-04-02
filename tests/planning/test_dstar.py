@@ -1,19 +1,12 @@
-import os
-import sys
-
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src"))
-)
 import numpy as np
 import pytest
 
-dstar_module = pytest.importorskip(
-    "arco.planning.dstar",
-    reason="arco.planning.dstar not yet implemented — skipping D* tests",
+from arco.planning.dstar import DStarLite
+
+
+@pytest.mark.xfail(
+    reason="D* planner not yet implemented", strict=True, raises=NotImplementedError
 )
-DStarLite = dstar_module.DStarLite
-
-
 def test_dstar_simple():
     grid = np.zeros((5, 5), dtype=int)
     grid[2, 1:4] = 1  # Add a wall
@@ -28,6 +21,9 @@ def test_dstar_simple():
         assert grid[node] == 0
 
 
+@pytest.mark.xfail(
+    reason="D* planner not yet implemented", strict=True, raises=NotImplementedError
+)
 def test_dstar_no_path():
     grid = np.ones((3, 3), dtype=int)
     grid[0, 0] = 0
