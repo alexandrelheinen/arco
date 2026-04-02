@@ -4,7 +4,8 @@
 Demonstrates the complete Phase 1 horse auto-follow pipeline:
 
 1. **Road generation** — :class:`~arco.mapping.generator.RoadNetworkGenerator`
-   builds a procedural grid road network with curved edge geometry.
+   builds a procedural medieval-city-style road network with organic radial
+   streets, ring roads, and dead-end alleys.
 2. **Route planning** — :class:`~arco.planning.discrete.RouteRouter` projects
    continuous start/goal positions onto graph nodes and runs A*.
 3. **Path smoothing** — :meth:`~arco.mapping.graph.road.RoadGraph.full_edge_geometry`
@@ -15,7 +16,7 @@ Demonstrates the complete Phase 1 horse auto-follow pipeline:
 
 The output figure shows:
 
-- Road graph with curved edge geometry
+- Road graph with curved edge geometry (organic medieval-city layout)
 - Planned discrete route (highlighted)
 - Smooth path extracted from edge waypoints
 - Actual vehicle trajectory
@@ -63,14 +64,16 @@ from arco.planning.discrete import RouteRouter
 # ---------------------------------------------------------------------------
 
 SEED = 42
-GRID_SIZE = (4, 4)
-CELL_SIZE = 50.0
-WAYPOINTS_PER_EDGE = 4
-CURVATURE = 0.25
 
-START_XY = (5.0, 5.0)
-GOAL_XY = (145.0, 145.0)
-ACTIVATION_RADIUS = 35.0
+# Medieval city parameters
+CITY_CENTER = (200.0, 200.0)
+NUM_RADIALS = 7
+RING_RADII = [40.0, 90.0, 150.0]
+WAYPOINTS_PER_EDGE = 4
+CURVATURE = 0.35
+JITTER = 0.28
+
+ACTIVATION_RADIUS = 30.0
 
 CRUISE_SPEED = 3.0  # m/s
 LOOKAHEAD = 12.0  # m
@@ -80,7 +83,7 @@ MAX_ACCEL = 4.0  # m/s²
 MAX_TURN_RATE_DOT = 4.0  # rad/s²
 
 DT = 0.1  # s
-MAX_STEPS = 2000
+MAX_STEPS = 3000
 GOAL_RADIUS = 10.0  # m — stop when vehicle reaches within this distance of goal
 
 
@@ -169,6 +172,31 @@ def find_lookahead(
     return path[-1]
 
 
+def find_farthest_outer_pair(
+    graph, outer_nodes: list[int]
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Return positions of the two farthest-apart nodes in *outer_nodes*.
+
+    Args:
+        graph: Road graph.
+        outer_nodes: Candidate node IDs to search.
+
+    Returns:
+        Tuple of ``(start_xy, goal_xy)`` for the farthest pair.
+    """
+    best_dist = -1.0
+    best_pair: tuple[int, int] = (outer_nodes[0], outer_nodes[-1])
+    for i in range(len(outer_nodes)):
+        for j in range(i + 1, len(outer_nodes)):
+            xi, yi = graph.position(outer_nodes[i])
+            xj, yj = graph.position(outer_nodes[j])
+            d = math.hypot(xi - xj, yi - yj)
+            if d > best_dist:
+                best_dist = d
+                best_pair = (outer_nodes[i], outer_nodes[j])
+    return graph.position(best_pair[0]), graph.position(best_pair[1])
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -192,19 +220,40 @@ def main(save_path: str | None = None) -> None:
     print("=" * 60)
 
     generator = RoadNetworkGenerator(seed=SEED)
-    graph = generator.generate_grid_network(
-        grid_size=GRID_SIZE,
-        cell_size=CELL_SIZE,
+    graph = generator.generate_medieval_network(
+        center=CITY_CENTER,
+        num_radials=NUM_RADIALS,
+        ring_radii=RING_RADII,
         waypoints_per_edge=WAYPOINTS_PER_EDGE,
         curvature=CURVATURE,
+        jitter=JITTER,
     )
-    print(f"\n[1] Road network: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
+    print(
+        f"\n[1] Medieval city network: {len(graph.nodes)} nodes, {len(graph.edges)} edges"
+    )
 
     # ------------------------------------------------------------------
-    # 2. Route planning
+    # 2. Route planning — start/goal at two farthest outer-ring nodes
     # ------------------------------------------------------------------
+    # Identify outer nodes by distance: nodes farther than 70% of the outer
+    # ring radius are on the outer ring or are dead-end alleys — both are
+    # valid route endpoints that span the full city.
+    cx, cy = CITY_CENTER
+    outer_threshold = RING_RADII[-1] * 0.70
+    outer_nodes = [
+        nid
+        for nid in graph.nodes
+        if math.hypot(graph.position(nid)[0] - cx, graph.position(nid)[1] - cy)
+        >= outer_threshold
+    ]
+
+    start_xy, goal_xy = find_farthest_outer_pair(graph, outer_nodes)
+    # Small offset so the vehicle starts slightly off a node (tests projection)
+    start_xy = (start_xy[0] + 4.0, start_xy[1] + 4.0)
+    goal_xy = (goal_xy[0] - 4.0, goal_xy[1] - 4.0)
+
     router = RouteRouter(graph, activation_radius=ACTIVATION_RADIUS)
-    result = router.plan(*START_XY, *GOAL_XY)
+    result = router.plan(*start_xy, *goal_xy)
 
     if result is None:
         print("ERROR: Route planning failed — check start/goal positions.")
@@ -285,8 +334,7 @@ def main(save_path: str | None = None) -> None:
         tracking_target=tracking_target,
         ax=ax_map,
         title=(
-            f"Phase 1 Pipeline — {GRID_SIZE[0]}×{GRID_SIZE[1]} grid "
-            f"(cell={CELL_SIZE:.0f} m)\n"
+            f"Phase 1 Pipeline — Medieval city network\n"
             f"Route: {result.path[0]} → {result.path[-1]}, "
             f"steps: {step}"
         ),
