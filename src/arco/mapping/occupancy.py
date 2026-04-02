@@ -3,12 +3,12 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Tuple
 from arco.mapping.graph import Graph
 
 
-class Occupancy(Graph):
+class Occupancy(Graph, ABC):
     """
     Abstract base for continuous occupancy maps (for RRT, SST, etc).
 

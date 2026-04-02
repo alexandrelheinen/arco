@@ -42,15 +42,11 @@ class AStar:
 
 class DStarLite:
     """
-    API wrapper for D* planner (stub for compatibility).
+    API wrapper for D* planner (stub — not yet implemented).
     """
 
     def __init__(self, grid):
-        from arco.mapping import Grid
-
-        self.grid = Grid(grid.shape)
-        self.grid.data = np.array(grid, dtype=np.uint8)
-        self._planner = DStarPlanner(self.grid)
+        pass
 
     def search(self, start, goal):
         raise NotImplementedError("D* planner not yet implemented.")
