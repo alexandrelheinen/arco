@@ -7,4 +7,13 @@ interpolator:
   degree: 3
 controller:
   type: pure_pursuit
-  lookahead_distance: 1.0
+  lookahead_distance: 2.0
+vehicle:
+  max_speed: 5.0
+  min_speed: 0.0
+  max_turn_rate: 1.0
+  max_acceleration: 2.0
+  max_turn_rate_dot: 2.0
+tracking:
+  cruise_speed: 1.0
+  dt: 0.1
