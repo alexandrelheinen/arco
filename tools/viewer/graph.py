@@ -74,9 +74,7 @@ def draw_graph(
     path_edge_set: set = set()
     if path:
         path_node_set = set(path[1:-1])  # intermediate nodes (exclude start/goal)
-        path_edge_set = {
-            (min(a, b), max(a, b)) for a, b in zip(path[:-1], path[1:])
-        }
+        path_edge_set = {(min(a, b), max(a, b)) for a, b in zip(path[:-1], path[1:])}
 
     # --- Draw edges ---
     for node_a, node_b, _ in graph.edges:
@@ -111,8 +109,15 @@ def draw_graph(
         else:
             color = default_node_color
         ax.scatter(x, y, color=color, s=node_size, zorder=4)
-        ax.annotate(str(node_id), (x, y), textcoords="offset points",
-                    xytext=(4, 4), fontsize=6, color="dimgray", zorder=5)
+        ax.annotate(
+            str(node_id),
+            (x, y),
+            textcoords="offset points",
+            xytext=(4, 4),
+            fontsize=6,
+            color="dimgray",
+            zorder=5,
+        )
 
     if title:
         ax.set_title(title)
@@ -122,18 +127,46 @@ def draw_graph(
 
     # Legend
     legend_handles = [
-        plt.Line2D([0], [0], marker="o", color="w", markerfacecolor=default_node_color,
-                   markersize=8, label="Node"),
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=default_node_color,
+            markersize=8,
+            label="Node",
+        ),
         plt.Line2D([0], [0], color=default_edge_color, linewidth=1.5, label="Edge"),
     ]
     if path:
         legend_handles += [
-            plt.Line2D([0], [0], marker="o", color="w", markerfacecolor=start_color,
-                       markersize=8, label="Start"),
-            plt.Line2D([0], [0], marker="o", color="w", markerfacecolor=goal_color,
-                       markersize=8, label="Goal"),
-            plt.Line2D([0], [0], marker="o", color="w", markerfacecolor=path_node_color,
-                       markersize=8, label="Path node"),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=start_color,
+                markersize=8,
+                label="Start",
+            ),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=goal_color,
+                markersize=8,
+                label="Goal",
+            ),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=path_node_color,
+                markersize=8,
+                label="Path node",
+            ),
             plt.Line2D([0], [0], color=path_edge_color, linewidth=2.5, label="Path"),
         ]
     ax.legend(handles=legend_handles, loc="upper left", fontsize=8)

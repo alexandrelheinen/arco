@@ -33,10 +33,10 @@ sys.path.insert(0, os.path.dirname(__file__))  # expose tools/visualization
 
 import matplotlib
 import matplotlib.pyplot as plt
+from visualization.grid_viewer import draw_grid
 
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
-from visualization.grid_viewer import draw_grid
 
 # ---------------------------------------------------------------------------
 # Parameters

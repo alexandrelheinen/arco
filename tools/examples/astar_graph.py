@@ -29,17 +29,17 @@ sys.path.insert(0, os.path.dirname(__file__))  # expose tools/visualization
 
 import matplotlib
 import matplotlib.pyplot as plt
+from viewer.graph import draw_graph
 
 from arco.mapping.graph import WeightedGraph
 from arco.planning.discrete.astar import AStarPlanner
-from visualization.graph_viewer import draw_graph
 
 # ---------------------------------------------------------------------------
 # Parameters
 # ---------------------------------------------------------------------------
 SEED = 42
 NUM_NODES = 30
-AREA = 100.0          # nodes are placed in [0, AREA] x [0, AREA]
+AREA = 100.0  # nodes are placed in [0, AREA] x [0, AREA]
 CONNECT_RADIUS = 28.0  # nodes closer than this radius are connected
 
 
