@@ -1,4 +1,4 @@
-"""Graph data structure for mapping problems."""
+"""Graph: base graph data structure."""
 
 # Copyright 2026 Alexandre Loeblein Heinen
 
@@ -30,8 +30,3 @@ class Graph:
                 node_1: The second node.
             """
             pass
-
-
-# Backward-compatible re-export so existing code importing WeightedGraph from
-# arco.mapping.graph continues to work after the class was moved to its own module.
-from .weighted_graph import WeightedGraph  # noqa: E402
