@@ -1,51 +1,62 @@
 # ARCO Tool Scripts
 
-This folder contains utility scripts for visualizing and experimenting with ARCO's planning and mapping modules.
+This folder contains utility scripts for visualising and experimenting with ARCO's
+planning and mapping modules.
 
-## plot_astar_grid.py
+---
 
-Visualizes a 2D Manhattan grid and computes the shortest A* path from one corner to the opposite.
+## Examples
 
-### Parameters
-- **length**: Side length of the grid in meters (default: 100.0)
-- **resolution**: Size of each grid cell in meters (default: 0.5)
+### `astar_graph_example.py`
 
-You can edit these parameters at the top of the script.
+Runs A\* on a randomly generated weighted graph with **30 nodes** arbitrarily
+placed in a 100 × 100 unit plane.  Nodes closer than a configurable radius are
+connected by edges (weighted by Euclidean distance).  The start and goal are
+chosen as the two farthest-apart nodes.
 
+```bash
+# interactive window
+python tools/astar_graph_example.py
 
-### Setup: Create a Virtual Environment and Install Dependencies
+# save to file (headless)
+python tools/astar_graph_example.py --save docs/examples/astar_graph.png
+```
 
-It is recommended to use a Python virtual environment for development and running tools.
+### `astar_grid_obstacle_example.py`
 
-1. Create and activate a virtual environment in the project root:
+Runs A\* on a **51 × 51 Manhattan grid** with a large square obstacle placed
+at the centre (~40 % of the grid size).  The planner finds a path from the
+top-left corner to the bottom-right corner around the obstacle.
+
+```bash
+# interactive window
+python tools/astar_grid_obstacle_example.py
+
+# save to file (headless)
+python tools/astar_grid_obstacle_example.py --save docs/examples/astar_grid_obstacle.png
+```
+
+---
+
+## Visualization modules (`visualization/`)
+
+| Module | Purpose |
+|---|---|
+| `visualization/graph_viewer.py` | `draw_graph()` – renders a `WeightedGraph` with optional path highlighting |
+| `visualization/grid_viewer.py` | `draw_grid()` – renders a 2-D `Grid` with optional path highlighting |
+
+Both viewers accept per-node / per-cell colour overrides so that a planner can
+colour explored nodes, frontier cells, etc. in any colour it chooses.
+
+---
+
+## Setup
+
+Create and activate a virtual environment in the project root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-2. Install ARCO with all development dependencies from the local source:
-
-```bash
-pip install '.[dev]'
-```
-
-This will install ARCO and all required packages (including matplotlib, numpy, pytest, black, isort, etc.).
-
-### How to Run
-
-Run the script from the project root:
-
-```bash
-python ./tools/plot_astar_grid.py
-```
-
-A window will appear showing the empty grid and the A* path (a straight line from start to goal).
-
-- The grid is shown in grayscale.
-- The A* path is shown in red.
-- Start and goal are marked in green and blue, respectively.
-
-### Next Steps
-- In future versions, you will be able to draw obstacles interactively.
-- You can modify the script to experiment with different grid sizes, resolutions, or planner settings.
