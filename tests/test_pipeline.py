@@ -46,10 +46,7 @@ def _build_smooth_path(graph, route: list[int]) -> list[tuple[float, float]]:
     smooth: list[tuple[float, float]] = []
     for i in range(len(route) - 1):
         pts = graph.full_edge_geometry(route[i], route[i + 1])
-        if i == 0:
-            smooth.extend(pts[:-1])
-        else:
-            smooth.extend(pts[1:-1])
+        smooth.extend(pts[:-1])
     smooth.append(graph.position(route[-1]))
     return smooth
 

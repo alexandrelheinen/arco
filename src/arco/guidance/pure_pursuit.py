@@ -158,20 +158,24 @@ def _find_lookahead(
 ) -> tuple[float, float]:
     """Return the lookahead point on *path* at distance *lookahead* from vehicle.
 
-    Searches forward along the path from *start_idx*.  Returns the last
-    waypoint when no segment intersection is found at the requested distance.
+    Searches forward along the path starting from the segment that *ends* at
+    ``path[start_idx]`` (i.e. from ``max(0, start_idx - 1)``).  Including
+    the preceding segment ensures the lookahead is found correctly when the
+    vehicle is between two waypoints and the closest waypoint is the one
+    ahead.  Returns the last waypoint when no segment intersection is found
+    at the requested distance.
 
     Args:
         x: Vehicle x position.
         y: Vehicle y position.
         path: Ordered sequence of ``(x, y)`` waypoints.
-        start_idx: Index to begin searching from.
+        start_idx: Index of the closest waypoint on the path.
         lookahead: Desired lookahead distance (metres).
 
     Returns:
         ``(x, y)`` coordinates of the lookahead point.
     """
-    for i in range(start_idx, len(path) - 1):
+    for i in range(max(0, start_idx - 1), len(path) - 1):
         p0x, p0y = path[i]
         p1x, p1y = path[i + 1]
         # Only inspect segments whose far end is at least *lookahead* away

@@ -121,3 +121,46 @@ def test_control_interface_returns_float() -> None:
 def test_control_interface_proportional() -> None:
     ctrl = PurePursuitController(lookahead_distance=1.0)
     assert ctrl.control(0.5, 2.0) == 1.5
+
+
+# ---------------------------------------------------------------------------
+# Lookahead between widely-spaced waypoints
+# ---------------------------------------------------------------------------
+
+
+def test_lookahead_found_on_enclosing_segment_not_path_end() -> None:
+    """Lookahead must use the segment enclosing the vehicle, not path[-1].
+
+    When the vehicle is past the midpoint between two waypoints, the
+    globally closest waypoint is the one *ahead*.  The lookahead should
+    still intersect the segment that the vehicle is currently traversing
+    (the one ending at that ahead waypoint), not fall back to path[-1].
+
+    Regression test for the bug where ``_find_lookahead`` started scanning
+    from the closest waypoint index and therefore skipped the enclosing
+    segment entirely.
+    """
+    # Path with 50 m spacing — much larger than the 10 m lookahead
+    path = [
+        (0.0, 0.0),
+        (50.0, 0.0),
+        (100.0, 0.0),
+        (150.0, 0.0),
+    ]
+    # Vehicle at x=30, y=2: past the mid-point of segment [0]→[1], 2 m above
+    # the path.  The closest waypoint is [1]=(50,0) at ~20 m; without the fix
+    # _find_lookahead would scan from index 1 onward, find no intersection
+    # (those segments start at x≥50, all > 10 m away), and return path[-1].
+    pose = (30.0, 2.0, 0.0)
+    ctrl = PurePursuitController(lookahead_distance=10.0)
+    _, turn_rate = ctrl.track(pose, path, speed=1.0)
+
+    # With the fix the lookahead lands on segment [0]→[1] at ≈(40, 0),
+    # requiring a noticeable right-turn correction for the 2 m offset.
+    # With the bug the lookahead is path[-1]=(150, 0), far ahead along
+    # the same heading, yielding an almost-zero turn rate.
+    assert turn_rate < -0.02, (
+        f"Turn rate {turn_rate:.4f} rad/s should be noticeably negative "
+        f"(target on enclosing segment); near-zero indicates lookahead "
+        f"fell back to path[-1] instead."
+    )
