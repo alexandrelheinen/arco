@@ -8,7 +8,9 @@ from .controller import Controller
 class PIDController(Controller):
     """PID controller for path tracking."""
 
-    def __init__(self, kp: float = 1.0, ki: float = 0.0, kd: float = 0.1) -> None:
+    def __init__(
+        self, kp: float = 1.0, ki: float = 0.0, kd: float = 0.1
+    ) -> None:
         """Initialize PIDController.
 
         Args:

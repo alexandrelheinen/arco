@@ -72,8 +72,12 @@ class TestRouteRouterBasic:
         assert result is not None
         assert result.start_node == 0
         assert result.goal_node == 8
-        assert math.isclose(result.start_distance, math.hypot(0.5, 0.5), abs_tol=1e-6)
-        assert math.isclose(result.goal_distance, math.hypot(0.5, 0.5), abs_tol=1e-6)
+        assert math.isclose(
+            result.start_distance, math.hypot(0.5, 0.5), abs_tol=1e-6
+        )
+        assert math.isclose(
+            result.goal_distance, math.hypot(0.5, 0.5), abs_tol=1e-6
+        )
 
     def test_plan_same_start_goal(self):
         """Route from a position to itself."""
@@ -177,11 +181,15 @@ class TestRouteRouterProjection:
         assert result is not None
         # Start at (1, 2) projects to node 0 at (0, 0)
         expected_start_dist = math.hypot(1.0, 2.0)
-        assert math.isclose(result.start_distance, expected_start_dist, abs_tol=1e-6)
+        assert math.isclose(
+            result.start_distance, expected_start_dist, abs_tol=1e-6
+        )
 
         # Goal at (19, 18) projects to node 8 at (20, 20)
         expected_goal_dist = math.hypot(1.0, 2.0)
-        assert math.isclose(result.goal_distance, expected_goal_dist, abs_tol=1e-6)
+        assert math.isclose(
+            result.goal_distance, expected_goal_dist, abs_tol=1e-6
+        )
 
 
 class TestRouteRouterEdgeCases:

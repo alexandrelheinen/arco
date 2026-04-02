@@ -59,7 +59,9 @@ def draw_road_network(
     # Build set of route edges for fast lookup
     route_edge_set: set[tuple[int, int]] = set()
     if route:
-        route_edge_set = {(min(a, b), max(a, b)) for a, b in zip(route[:-1], route[1:])}
+        route_edge_set = {
+            (min(a, b), max(a, b)) for a, b in zip(route[:-1], route[1:])
+        }
 
     # --- Draw road edges as polylines through their waypoints ---
     for node_a, node_b, _ in graph.edges:
@@ -111,7 +113,14 @@ def draw_road_network(
     if trajectory and len(trajectory) >= 2:
         tx = [p[0] for p in trajectory]
         ty = [p[1] for p in trajectory]
-        ax.plot(tx, ty, color="dodgerblue", linewidth=1.5, zorder=8, label="Trajectory")
+        ax.plot(
+            tx,
+            ty,
+            color="dodgerblue",
+            linewidth=1.5,
+            zorder=8,
+            label="Trajectory",
+        )
         # Arrow at the final position showing heading
         last = trajectory[-1]
         arrow_len = max(
@@ -181,7 +190,9 @@ def draw_road_network(
         )
     if trajectory:
         legend_handles.append(
-            plt.Line2D([0], [0], color="dodgerblue", linewidth=1.5, label="Trajectory")
+            plt.Line2D(
+                [0], [0], color="dodgerblue", linewidth=1.5, label="Trajectory"
+            )
         )
     if tracking_target is not None:
         legend_handles.append(

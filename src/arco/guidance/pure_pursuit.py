@@ -100,7 +100,9 @@ class PurePursuitController(Controller):
             self.heading_error = 0.0
 
         # --- Find lookahead point ---
-        lookahead = _find_lookahead(x, y, path, closest_idx, self.lookahead_distance)
+        lookahead = _find_lookahead(
+            x, y, path, closest_idx, self.lookahead_distance
+        )
 
         # --- Pure pursuit turn-rate law ---
         lx, ly = lookahead
@@ -174,7 +176,9 @@ def _find_lookahead(
         p1x, p1y = path[i + 1]
         # Only inspect segments whose far end is at least *lookahead* away
         if math.hypot(p1x - x, p1y - y) >= lookahead:
-            pt = _circle_segment_intersection(x, y, lookahead, p0x, p0y, p1x, p1y)
+            pt = _circle_segment_intersection(
+                x, y, lookahead, p0x, p0y, p1x, p1y
+            )
             if pt is not None:
                 return pt
     return path[-1]

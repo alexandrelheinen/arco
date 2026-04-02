@@ -73,8 +73,12 @@ def draw_graph(
     path_node_set: set = set()
     path_edge_set: set = set()
     if path:
-        path_node_set = set(path[1:-1])  # intermediate nodes (exclude start/goal)
-        path_edge_set = {(min(a, b), max(a, b)) for a, b in zip(path[:-1], path[1:])}
+        path_node_set = set(
+            path[1:-1]
+        )  # intermediate nodes (exclude start/goal)
+        path_edge_set = {
+            (min(a, b), max(a, b)) for a, b in zip(path[:-1], path[1:])
+        }
 
     # --- Draw edges ---
     for node_a, node_b, _ in graph.edges:
@@ -136,7 +140,9 @@ def draw_graph(
             markersize=8,
             label="Node",
         ),
-        plt.Line2D([0], [0], color=default_edge_color, linewidth=1.5, label="Edge"),
+        plt.Line2D(
+            [0], [0], color=default_edge_color, linewidth=1.5, label="Edge"
+        ),
     ]
     if path:
         legend_handles += [
@@ -167,7 +173,9 @@ def draw_graph(
                 markersize=8,
                 label="Path node",
             ),
-            plt.Line2D([0], [0], color=path_edge_color, linewidth=2.5, label="Path"),
+            plt.Line2D(
+                [0], [0], color=path_edge_color, linewidth=2.5, label="Path"
+            ),
         ]
     ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
 

@@ -93,7 +93,9 @@ class RouteRouter:
             return None  # Start outside activation radius
 
         # Project goal position to nearest node
-        goal_node = self.graph.find_nearest_node(goal_x, goal_y, self.activation_radius)
+        goal_node = self.graph.find_nearest_node(
+            goal_x, goal_y, self.activation_radius
+        )
         if goal_node is None:
             return None  # Goal outside activation radius
 
@@ -103,7 +105,9 @@ class RouteRouter:
 
         import math
 
-        start_distance = math.hypot(start_x - start_proj_x, start_y - start_proj_y)
+        start_distance = math.hypot(
+            start_x - start_proj_x, start_y - start_proj_y
+        )
         goal_distance = math.hypot(goal_x - goal_proj_x, goal_y - goal_proj_y)
 
         # Run A* on the graph

@@ -58,7 +58,9 @@ class TrackingLoop:
     # Simulation
     # ------------------------------------------------------------------
 
-    def step(self, path: list[tuple[float, float]], dt: float = 0.1) -> dict[str, Any]:
+    def step(
+        self, path: list[tuple[float, float]], dt: float = 0.1
+    ) -> dict[str, Any]:
         """Run one tracking iteration.
 
         Queries the controller for speed and turn-rate commands given the
@@ -81,7 +83,9 @@ class TrackingLoop:
             - ``turn_rate``: current vehicle turn rate (rad/s).
         """
         pose = self.vehicle.pose
-        speed_cmd, turn_rate_cmd = self.controller.track(pose, path, self.cruise_speed)
+        speed_cmd, turn_rate_cmd = self.controller.track(
+            pose, path, self.cruise_speed
+        )
         self.vehicle.step(speed_cmd, turn_rate_cmd, dt)
         entry: dict[str, Any] = {
             "cross_track_error": self.controller.cross_track_error,

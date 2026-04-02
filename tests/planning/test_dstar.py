@@ -5,7 +5,9 @@ from arco.planning.dstar import DStarLite
 
 
 @pytest.mark.xfail(
-    reason="D* planner not yet implemented", strict=True, raises=NotImplementedError
+    reason="D* planner not yet implemented",
+    strict=True,
+    raises=NotImplementedError,
 )
 def test_dstar_simple():
     grid = np.zeros((5, 5), dtype=int)
@@ -22,7 +24,9 @@ def test_dstar_simple():
 
 
 @pytest.mark.xfail(
-    reason="D* planner not yet implemented", strict=True, raises=NotImplementedError
+    reason="D* planner not yet implemented",
+    strict=True,
+    raises=NotImplementedError,
 )
 def test_dstar_no_path():
     grid = np.ones((3, 3), dtype=int)

@@ -53,7 +53,9 @@ class ManhattanGrid(Grid):
                 if all(0 <= n < s for n, s in zip(neighbor, self.shape)):
                     yield neighbor
 
-        def squared_distance(self, a: Tuple[int, ...], b: Tuple[int, ...]) -> int:
+        def squared_distance(
+            self, a: Tuple[int, ...], b: Tuple[int, ...]
+        ) -> int:
             """Return squared L1 (Manhattan) distance between two nodes.
 
             Args:

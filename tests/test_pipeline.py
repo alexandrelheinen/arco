@@ -163,11 +163,15 @@ def test_route_connects_start_to_goal(pipeline) -> None:
     start_node_pos = graph.position(result.path[0])
     goal_node_pos = graph.position(result.path[-1])
     assert (
-        math.hypot(start_node_pos[0] - START_XY[0], start_node_pos[1] - START_XY[1])
+        math.hypot(
+            start_node_pos[0] - START_XY[0], start_node_pos[1] - START_XY[1]
+        )
         <= ACTIVATION_RADIUS
     )
     assert (
-        math.hypot(goal_node_pos[0] - GOAL_XY[0], goal_node_pos[1] - GOAL_XY[1])
+        math.hypot(
+            goal_node_pos[0] - GOAL_XY[0], goal_node_pos[1] - GOAL_XY[1]
+        )
         <= ACTIVATION_RADIUS
     )
 
@@ -224,7 +228,9 @@ def test_simulation_runs_in_finite_wall_time() -> None:
 
     smooth = _build_smooth_path(graph, result.path)
     x0, y0 = smooth[0]
-    theta0 = math.atan2(smooth[1][1] - smooth[0][1], smooth[1][0] - smooth[0][0])
+    theta0 = math.atan2(
+        smooth[1][1] - smooth[0][1], smooth[1][0] - smooth[0][0]
+    )
     vehicle = DubinsVehicle(
         x=x0,
         y=y0,
@@ -266,7 +272,9 @@ def test_vehicle_makes_forward_progress(simulation) -> None:
     history = simulation["loop"].history
     start_pos = smooth[0]
     goal_pos = smooth[-1]
-    straight_dist = math.hypot(goal_pos[0] - start_pos[0], goal_pos[1] - start_pos[1])
+    straight_dist = math.hypot(
+        goal_pos[0] - start_pos[0], goal_pos[1] - start_pos[1]
+    )
     final_pose = history[-1]["pose"]
     dist_covered = math.hypot(
         final_pose[0] - start_pos[0], final_pose[1] - start_pos[1]

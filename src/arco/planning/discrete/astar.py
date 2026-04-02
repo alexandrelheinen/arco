@@ -74,11 +74,13 @@ class AStarPlanner(DiscretePlanner):
                 return self._reconstruct_path(came_from, current)
             for neighbor in self.graph.neighbors(current):
                 # If the graph supports is_occupied, skip occupied nodes
-                if hasattr(self.graph, "is_occupied") and self.graph.is_occupied(
-                    neighbor
-                ):
+                if hasattr(
+                    self.graph, "is_occupied"
+                ) and self.graph.is_occupied(neighbor):
                     continue
-                tentative_g = g_score[current] + self.graph.distance(current, neighbor)
+                tentative_g = g_score[current] + self.graph.distance(
+                    current, neighbor
+                )
                 if neighbor not in g_score or tentative_g < g_score[neighbor]:
                     came_from[neighbor] = current
                     g_score[neighbor] = tentative_g

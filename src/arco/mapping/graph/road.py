@@ -23,7 +23,9 @@ class RoadGraph(WeightedGraph):
         """Initialize an empty road graph."""
         super().__init__()
         # Map from edge (min_id, max_id) to list of waypoints
-        self._edge_geometry: Dict[Tuple[int, int], List[Tuple[float, float]]] = {}
+        self._edge_geometry: Dict[
+            Tuple[int, int], List[Tuple[float, float]]
+        ] = {}
 
     def add_edge(
         self,
@@ -52,7 +54,9 @@ class RoadGraph(WeightedGraph):
         else:
             self._edge_geometry[edge_key] = []
 
-    def edge_geometry(self, node_a: int, node_b: int) -> List[Tuple[float, float]]:
+    def edge_geometry(
+        self, node_a: int, node_b: int
+    ) -> List[Tuple[float, float]]:
         """Return the waypoints defining the geometry of an edge.
 
         Args:
@@ -66,7 +70,9 @@ class RoadGraph(WeightedGraph):
         edge_key = (min(node_a, node_b), max(node_a, node_b))
         return self._edge_geometry.get(edge_key, [])
 
-    def full_edge_geometry(self, node_a: int, node_b: int) -> List[Tuple[float, float]]:
+    def full_edge_geometry(
+        self, node_a: int, node_b: int
+    ) -> List[Tuple[float, float]]:
         """Return the complete edge geometry including start and end nodes.
 
         Args:
@@ -83,7 +89,13 @@ class RoadGraph(WeightedGraph):
         # Determine traversal direction
         if node_a == edge_key[0]:
             # Forward direction: a -> waypoints -> b
-            return [self.position(node_a)] + waypoints + [self.position(node_b)]
+            return (
+                [self.position(node_a)] + waypoints + [self.position(node_b)]
+            )
         else:
             # Reverse direction: a -> reverse(waypoints) -> b
-            return [self.position(node_a)] + waypoints[::-1] + [self.position(node_b)]
+            return (
+                [self.position(node_a)]
+                + waypoints[::-1]
+                + [self.position(node_b)]
+            )

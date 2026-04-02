@@ -58,7 +58,9 @@ def draw_grid(
         ValueError: If *grid* is not 2-D.
     """
     if len(grid.shape) != 2:
-        raise ValueError(f"draw_grid only supports 2-D grids; got shape {grid.shape}")
+        raise ValueError(
+            f"draw_grid only supports 2-D grids; got shape {grid.shape}"
+        )
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -93,7 +95,9 @@ def draw_grid(
                 img[r, c] = path_rgba
 
     # Draw with origin='lower' so that (0,0) is at the bottom-left.
-    ax.imshow(img, origin="lower", interpolation="nearest", extent=[0, cols, 0, rows])
+    ax.imshow(
+        img, origin="lower", interpolation="nearest", extent=[0, cols, 0, rows]
+    )
 
     if title:
         ax.set_title(title)
