@@ -45,15 +45,12 @@ logger = logging.getLogger(__name__)
 # Parameters (loaded from tools/config/grid.yml)
 # ---------------------------------------------------------------------------
 _cfg = load_config("grid")
-SIZE_M: list[float] = [float(x) for x in _cfg["size_m"]]
-CELL_SIZE: float = float(_cfg["cell_size"])
-OBSTACLE_FRACTION: float = float(_cfg["obstacle_fraction"])
 
 
 def build_grid_with_obstacle(
-    size_m: list[float] = SIZE_M,
-    cell_size: float = CELL_SIZE,
-    obstacle_fraction: float = OBSTACLE_FRACTION,
+    size_m: list[float] = [float(x) for x in _cfg["size_m"]],
+    cell_size: float = float(_cfg["cell_size"]),
+    obstacle_fraction: float = float(_cfg["obstacle_fraction"]),
 ) -> EuclideanGrid:
     """Build a square Euclidean grid with a centred square obstacle.
 
@@ -95,7 +92,7 @@ def main(save_path: str | None = None) -> None:
     planner = AStarPlanner(grid)
     path = planner.plan(start, goal)
 
-    obs_size = int(n * OBSTACLE_FRACTION)
+    obs_size = int(n * float(_cfg["obstacle_fraction"]))
     title = (
         f"A* on {n}×{n} Euclidean grid — central {obs_size}×{obs_size} obstacle\n"
         + (f"Path length: {len(path)} steps" if path else "No path found")

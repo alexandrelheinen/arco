@@ -45,19 +45,14 @@ logger = logging.getLogger(__name__)
 # Parameters (loaded from tools/config/)
 # ---------------------------------------------------------------------------
 _rng_cfg = load_config("random")
-SEED: int = int(_rng_cfg["seed"])
-
 _map_cfg = load_config("map")["graph"]
-NUM_NODES: int = int(_map_cfg["num_nodes"])
-AREA: float = float(_map_cfg["area"])
-CONNECT_RADIUS: float = float(_map_cfg["connect_radius"])
 
 
 def build_random_graph(
-    num_nodes: int = NUM_NODES,
-    area: float = AREA,
-    connect_radius: float = CONNECT_RADIUS,
-    seed: int = SEED,
+    num_nodes: int = int(_map_cfg["num_nodes"]),
+    area: float = float(_map_cfg["area"]),
+    connect_radius: float = float(_map_cfg["connect_radius"]),
+    seed: int = int(_rng_cfg["seed"]),
 ) -> CartesianGraph:
     """Build a random planar graph with nodes connected by proximity.
 
@@ -117,7 +112,7 @@ def main(save_path: str | None = None) -> None:
     path = planner.plan(start, goal)
 
     title = (
-        f"A* on random graph — {NUM_NODES} nodes, r={CONNECT_RADIUS:.0f}\n"
+        f"A* on random graph — {int(_map_cfg['num_nodes'])} nodes, r={float(_map_cfg['connect_radius']):.0f}\n"
         f"Start: {start}  Goal: {goal}  "
         + (f"Path length: {len(path)}" if path else "No path found")
     )
