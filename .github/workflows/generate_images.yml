@@ -61,13 +61,13 @@ jobs:
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
         run: |
-          pyreverse --verbose -f PUB_ONLY --colorized -o png -k -m y --no-standalone \
+          pyreverse --verbose -f PUB_ONLY --colorized -o png -k --no-standalone \
             -p classes ./src/arco/
           mv classes_classes.png /tmp/generated_images/pyreverse_classes.png
 
       - name: Generate pyreverse package diagram
         run: |
-          pyreverse --verbose -f PUB_ONLY --colorized -o png -k -m y --no-standalone \
+          pyreverse --verbose -f PUB_ONLY --colorized -o png -k --no-standalone \
             -p packages ./src/arco/
           mv packages_packages.png /tmp/generated_images/pyreverse_packages.png
 
