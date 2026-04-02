@@ -228,7 +228,66 @@ class TestSeedReproducibility:
         assert different_positions
 
 
-class TestAStarIntegration:
+class TestMedievalNetworkGeneration:
+    def test_generate_medieval_network_node_count(self):
+        """Medieval network should have plaza + radial + alley nodes."""
+        gen = RoadNetworkGenerator(seed=42)
+        graph = gen.generate_medieval_network(
+            num_radials=7,
+            ring_radii=[40.0, 90.0, 150.0],
+        )
+        # 4 plaza + 7*3 ring = 25, plus up to 7//2 = 3 alleys → 25..28 nodes
+        assert 25 <= len(graph.nodes) <= 28
+
+    def test_generate_medieval_network_has_edges(self):
+        """Medieval network must have edges."""
+        gen = RoadNetworkGenerator(seed=42)
+        graph = gen.generate_medieval_network()
+        assert len(graph.edges) > 0
+
+    def test_generate_medieval_network_all_edges_have_waypoints(self):
+        """Every edge must have at least one geometry waypoint."""
+        gen = RoadNetworkGenerator(seed=42)
+        graph = gen.generate_medieval_network(waypoints_per_edge=3)
+        for node_a, node_b, _ in graph.edges:
+            pts = graph.edge_geometry(node_a, node_b)
+            assert len(pts) == 3
+
+    def test_generate_medieval_network_connected(self):
+        """The medieval network must be fully connected (A* must find a path)."""
+        from arco.planning.discrete.astar import AStarPlanner
+
+        gen = RoadNetworkGenerator(seed=99)
+        graph = gen.generate_medieval_network()
+        planner = AStarPlanner(graph)
+
+        # Test connectivity from first node to every other node
+        start = graph.nodes[0]
+        reachable = 0
+        for goal in graph.nodes[1:]:
+            if planner.plan(start, goal) is not None:
+                reachable += 1
+        # At least 80 % of nodes must be reachable from the first node
+        assert reachable / (len(graph.nodes) - 1) >= 0.8
+
+    def test_generate_medieval_network_invalid_radials(self):
+        """Fewer than 3 radials must raise ValueError."""
+        gen = RoadNetworkGenerator(seed=42)
+        with pytest.raises(ValueError):
+            gen.generate_medieval_network(num_radials=2)
+
+    def test_generate_medieval_network_reproducible(self):
+        """Same seed must produce identical medieval networks."""
+        gen1 = RoadNetworkGenerator(seed=77)
+        gen2 = RoadNetworkGenerator(seed=77)
+        g1 = gen1.generate_medieval_network()
+        g2 = gen2.generate_medieval_network()
+
+        assert len(g1.nodes) == len(g2.nodes)
+        for nid in g1.nodes:
+            assert g1.position(nid) == g2.position(nid)
+        assert len(g1.edges) == len(g2.edges)
+
     def test_pathfinding_on_grid_network(self):
         """A* should find paths on generated grid networks."""
         from arco.planning.discrete.astar import AStarPlanner

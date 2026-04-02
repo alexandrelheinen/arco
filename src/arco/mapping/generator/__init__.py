@@ -166,6 +166,185 @@ class RoadNetworkGenerator:
 
         return graph
 
+    def generate_medieval_network(
+        self,
+        center: Tuple[float, float] = (200.0, 200.0),
+        num_radials: int = 7,
+        ring_radii: Optional[List[float]] = None,
+        waypoints_per_edge: int = 4,
+        curvature: float = 0.35,
+        jitter: float = 0.25,
+    ) -> RoadGraph:
+        """Generate a medieval-city-style organic road network.
+
+        Creates a radial network reminiscent of organic European medieval city
+        maps, with:
+
+        - A compact central plaza (small cluster of nodes)
+        - Main streets radiating outward at deliberately irregular angles
+        - Ring roads at organic distances connecting adjacent radials
+        - Dead-end alleys branching from outer ring nodes
+        - Random positional jitter applied to every intersection
+
+        The combination of radial geometry, varying ring spacing, and angular
+        jitter avoids the regularity of grid networks while keeping the graph
+        fully connected and path-planner-friendly.
+
+        Args:
+            center: ``(x, y)`` coordinates of the city center / market plaza.
+            num_radials: Number of main streets radiating from the center.
+                Must be at least 3.
+            ring_radii: Distances from center for each ring road.  Defaults
+                to three organically spaced rings at 40 m, 90 m, and 150 m.
+            waypoints_per_edge: Number of intermediate waypoints per segment.
+            curvature: Waypoint curvature factor (fraction of edge length).
+                Higher values produce more winding streets.
+            jitter: Positional jitter applied to each node as a fraction of
+                the innermost ring radius.  Higher values produce a more
+                chaotic, organic layout.
+
+        Returns:
+            A RoadGraph with a medieval city layout.
+
+        Raises:
+            ValueError: If ``num_radials`` is less than 3.
+        """
+        if num_radials < 3:
+            raise ValueError("Need at least 3 radials for a meaningful city layout")
+
+        if ring_radii is None:
+            ring_radii = [40.0, 90.0, 150.0]
+
+        cx, cy = center
+        max_jitter = ring_radii[0] * jitter
+        graph = RoadGraph()
+        node_id = 0
+
+        # ------------------------------------------------------------------
+        # Central plaza: four nodes arranged in a small quadrangle
+        # ------------------------------------------------------------------
+        plaza_radius = ring_radii[0] * 0.22
+        plaza_nodes: List[int] = []
+        for i in range(4):
+            angle = i * (math.pi / 2.0)
+            jx = self._rng.uniform(-max_jitter * 0.3, max_jitter * 0.3)
+            jy = self._rng.uniform(-max_jitter * 0.3, max_jitter * 0.3)
+            x = cx + plaza_radius * math.cos(angle) + jx
+            y = cy + plaza_radius * math.sin(angle) + jy
+            graph.add_node(node_id, x, y)
+            plaza_nodes.append(node_id)
+            node_id += 1
+
+        # Connect the plaza nodes in a loop
+        for i in range(len(plaza_nodes)):
+            a = plaza_nodes[i]
+            b = plaza_nodes[(i + 1) % len(plaza_nodes)]
+            wp = self._generate_waypoints(
+                graph.position(a),
+                graph.position(b),
+                waypoints_per_edge,
+                curvature * 0.4,
+            )
+            graph.add_edge(a, b, waypoints=wp)
+
+        # ------------------------------------------------------------------
+        # Radial streets: irregular angles spread around the full circle
+        # ------------------------------------------------------------------
+        base_step = 2.0 * math.pi / num_radials
+        radial_angles: List[float] = []
+        for i in range(num_radials):
+            base_angle = i * base_step
+            angle_jitter = self._rng.uniform(-base_step * 0.25, base_step * 0.25)
+            radial_angles.append(base_angle + angle_jitter)
+        radial_angles.sort()
+
+        # radial_ring_nodes[ri][ring_idx] = node_id at that intersection
+        radial_ring_nodes: List[List[int]] = [[] for _ in range(num_radials)]
+
+        for ri, angle in enumerate(radial_angles):
+            for ring_idx, radius in enumerate(ring_radii):
+                jx = self._rng.uniform(-max_jitter, max_jitter)
+                jy = self._rng.uniform(-max_jitter, max_jitter)
+                x = cx + radius * math.cos(angle) + jx
+                y = cy + radius * math.sin(angle) + jy
+                graph.add_node(node_id, x, y)
+                radial_ring_nodes[ri].append(node_id)
+
+                if ring_idx == 0:
+                    # Connect innermost ring node to nearest plaza node
+                    nearest_plaza = min(
+                        plaza_nodes,
+                        key=lambda p: math.hypot(
+                            graph.position(p)[0] - x,
+                            graph.position(p)[1] - y,
+                        ),
+                    )
+                    wp = self._generate_waypoints(
+                        graph.position(nearest_plaza),
+                        (x, y),
+                        waypoints_per_edge,
+                        curvature,
+                    )
+                    graph.add_edge(nearest_plaza, node_id, waypoints=wp)
+                else:
+                    # Connect to previous node on the same radial
+                    prev_id = radial_ring_nodes[ri][ring_idx - 1]
+                    wp = self._generate_waypoints(
+                        graph.position(prev_id),
+                        (x, y),
+                        waypoints_per_edge,
+                        curvature,
+                    )
+                    graph.add_edge(prev_id, node_id, waypoints=wp)
+
+                node_id += 1
+
+        # ------------------------------------------------------------------
+        # Ring roads: connect adjacent radials at each ring level
+        # ------------------------------------------------------------------
+        for ring_idx in range(len(ring_radii)):
+            for ri in range(num_radials):
+                next_ri = (ri + 1) % num_radials
+                a = radial_ring_nodes[ri][ring_idx]
+                b = radial_ring_nodes[next_ri][ring_idx]
+                wp = self._generate_waypoints(
+                    graph.position(a),
+                    graph.position(b),
+                    waypoints_per_edge,
+                    curvature,
+                )
+                graph.add_edge(a, b, waypoints=wp)
+
+        # ------------------------------------------------------------------
+        # Dead-end alleys: short branches from outer-ring nodes
+        # ------------------------------------------------------------------
+        outer_ring_nodes = [radial_ring_nodes[ri][-1] for ri in range(num_radials)]
+        num_alleys = max(2, num_radials // 2)
+        alley_parents = self._rng.sample(
+            outer_ring_nodes, min(num_alleys, len(outer_ring_nodes))
+        )
+        alley_length = ring_radii[-1] * 0.3
+
+        for parent_id in alley_parents:
+            px, py = graph.position(parent_id)
+            angle_out = math.atan2(py - cy, px - cx)
+            angle_out += self._rng.uniform(-0.45, 0.45)
+            jx = self._rng.uniform(-max_jitter * 0.5, max_jitter * 0.5)
+            jy = self._rng.uniform(-max_jitter * 0.5, max_jitter * 0.5)
+            end_x = px + alley_length * math.cos(angle_out) + jx
+            end_y = py + alley_length * math.sin(angle_out) + jy
+            graph.add_node(node_id, end_x, end_y)
+            wp = self._generate_waypoints(
+                (px, py),
+                (end_x, end_y),
+                waypoints_per_edge,
+                curvature * 0.6,
+            )
+            graph.add_edge(parent_id, node_id, waypoints=wp)
+            node_id += 1
+
+        return graph
+
     def _generate_waypoints(
         self,
         start: Tuple[float, float],
@@ -229,3 +408,4 @@ class RoadNetworkGenerator:
             waypoints.append((waypoint_x, waypoint_y))
 
         return waypoints
+
