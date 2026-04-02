@@ -1,0 +1,21 @@
+# OSM importer configuration.
+# Used by tools/examples/osm_pipeline.py.
+
+# Source: "address" or "coords"
+source: address
+
+# Used when source = address
+address_start: "Musée du Louvre, Paris, France"
+address_goal: "Tour Eiffel, Paris, France"
+
+# Used when source = coords
+lat_start: 48.8606
+lon_start: 2.3376
+lat_goal: 48.8584
+lon_goal: 2.2945
+
+# Bounding-box padding (metres)
+margin_m: 500
+
+# osmnx network type: bike | walk | drive
+network_type: bike

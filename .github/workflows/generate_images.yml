@@ -58,6 +58,13 @@ jobs:
           MPLBACKEND=Agg python tools/examples/phase1_pipeline.py \
             --save /tmp/generated_images/phase1_pipeline.png
 
+      # Generate OSM pipeline example (mock mode — no network calls required)
+      - name: Generate OSM pipeline example
+        run: |
+          MPLBACKEND=Agg python tools/examples/osm_pipeline.py \
+            --mock \
+            --save /tmp/generated_images/osm_pipeline.png
+
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
         run: |
@@ -107,6 +114,7 @@ jobs:
               '| Image | Description |',
               '|-------|-------------|',
               '| `phase1_pipeline.png` | End-to-end: road network → route planning → path tracking simulation |',
+              '| `osm_pipeline.png` | End-to-end: OSM network → route planning → path tracking simulation (mock mode) |',
               '',
               '### Architecture Diagrams (Pyreverse)',
               '',

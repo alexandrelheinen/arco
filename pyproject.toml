@@ -24,6 +24,9 @@ tools = [
     "matplotlib",
     "pyyaml"
 ]
+osm = [
+    "osmnx>=1.9"
+]
 
 [tool.black]
 line-length = 79
