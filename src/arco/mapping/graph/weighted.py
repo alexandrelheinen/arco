@@ -120,3 +120,103 @@ class WeightedGraph(Graph):
         xa, ya = self._positions[node_a]
         xb, yb = self._positions[node_b]
         return math.hypot(xa - xb, ya - yb)
+
+    def heuristic(self, node_a: int, node_b: int) -> float:
+        """Return the Euclidean distance between two nodes.
+
+        This method provides a heuristic for A* search that is admissible
+        (never overestimates) and consistent for path planning on road graphs.
+
+        Args:
+            node_a: ID of the first node.
+            node_b: ID of the second node.
+
+        Returns:
+            Euclidean distance as a float.
+        """
+        return self._euclidean(node_a, node_b)
+
+    def find_nearest_node(
+        self, x: float, y: float, max_radius: Optional[float] = None
+    ) -> Optional[int]:
+        """Find the node closest to the given position.
+
+        Args:
+            x: X coordinate of the query position.
+            y: Y coordinate of the query position.
+            max_radius: Maximum search radius. If specified, only returns
+                nodes within this distance. Returns None if no node is found
+                within the radius.
+
+        Returns:
+            ID of the nearest node, or None if no node exists within max_radius.
+        """
+        if not self._positions:
+            return None
+
+        nearest_node = None
+        nearest_dist = float("inf")
+
+        for node_id, (nx, ny) in self._positions.items():
+            dist = math.hypot(x - nx, y - ny)
+            if dist < nearest_dist:
+                if max_radius is None or dist <= max_radius:
+                    nearest_dist = dist
+                    nearest_node = node_id
+
+        return nearest_node
+
+    def project_to_nearest_edge(
+        self, x: float, y: float, max_radius: Optional[float] = None
+    ) -> Optional[Tuple[Tuple[float, float], int, int, float]]:
+        """Project a point onto the nearest edge of the graph.
+
+        Finds the closest point on any edge to the query position by computing
+        the perpendicular projection onto each edge line segment.
+
+        Args:
+            x: X coordinate of the query position.
+            y: Y coordinate of the query position.
+            max_radius: Maximum search radius. If specified, only considers
+                edges where the projected point is within this distance.
+
+        Returns:
+            A tuple containing:
+                - (proj_x, proj_y): The projected point coordinates
+                - node_a: ID of the first endpoint of the nearest edge
+                - node_b: ID of the second endpoint of the nearest edge
+                - distance: Distance from the query point to the projection
+            Returns None if no edge is found within max_radius.
+        """
+        if not self.edges:
+            return None
+
+        nearest_projection = None
+        nearest_dist = float("inf")
+
+        for node_a, node_b, _ in self.edges:
+            xa, ya = self._positions[node_a]
+            xb, yb = self._positions[node_b]
+
+            # Compute projection onto line segment [a, b]
+            dx = xb - xa
+            dy = yb - ya
+            length_sq = dx * dx + dy * dy
+
+            if length_sq == 0:
+                # Degenerate edge (both nodes at same position)
+                proj_x, proj_y = xa, ya
+            else:
+                # Parameter t for projection: 0 = at node_a, 1 = at node_b
+                t = max(0.0, min(1.0, ((x - xa) * dx + (y - ya) * dy) / length_sq))
+                proj_x = xa + t * dx
+                proj_y = ya + t * dy
+
+            dist = math.hypot(x - proj_x, y - proj_y)
+
+            if dist < nearest_dist:
+                if max_radius is None or dist <= max_radius:
+                    nearest_dist = dist
+                    nearest_projection = ((proj_x, proj_y), node_a, node_b, dist)
+
+        return nearest_projection

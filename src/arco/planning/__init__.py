@@ -15,5 +15,5 @@
 """Planning module for path planning problems."""
 
 from .astar_api import AStar
-from .discrete import AStarPlanner, DiscretePlanner
+from .discrete import AStarPlanner, DiscretePlanner, RouteResult, RouteRouter
 from .dstar import DStarLite
