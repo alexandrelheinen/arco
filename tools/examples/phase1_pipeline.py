@@ -51,7 +51,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import matplotlib
 import matplotlib.pyplot as plt
-from config import load_config
 from viewer.road import draw_road_network
 
 from arco.guidance.pure_pursuit import PurePursuitController
@@ -59,6 +58,7 @@ from arco.guidance.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 from arco.mapping.generator import RoadNetworkGenerator
 from arco.planning.discrete import RouteRouter
+from config import load_config
 
 # ---------------------------------------------------------------------------
 # Simulation parameters (loaded from tools/config/)

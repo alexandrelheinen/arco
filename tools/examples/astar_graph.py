@@ -31,11 +31,11 @@ sys.path.insert(
 
 import matplotlib
 import matplotlib.pyplot as plt
-from config import load_config
 from viewer.graph import draw_graph
 
 from arco.mapping.graph import WeightedGraph
 from arco.planning.discrete.astar import AStarPlanner
+from config import load_config
 
 # ---------------------------------------------------------------------------
 # Parameters (loaded from tools/config/)
