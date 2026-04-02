@@ -1,0 +1,14 @@
+# Medieval city map generation parameters used by phase1_pipeline.py
+medieval_city:
+  center: [200.0, 200.0]
+  num_radials: 7
+  ring_radii: [40.0, 90.0, 150.0, 220.0]
+  waypoints_per_edge: 1
+  curvature: 0.25
+  jitter: 0.6
+
+# Random graph parameters used by astar_graph.py
+graph:
+  num_nodes: 30
+  area: 100.0
+  connect_radius: 28.0
