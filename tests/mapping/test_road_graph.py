@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
 
 from arco.mapping.graph import RoadGraph
@@ -61,22 +62,22 @@ class TestRoadGraphFullGeometry:
         g = _simple_road()
         full_geom = g.full_edge_geometry(0, 1)
         assert len(full_geom) == 5  # start + 3 waypoints + end
-        assert full_geom[0] == (0.0, 0.0)  # start node
-        assert full_geom[1] == (25.0, 5.0)  # first waypoint
-        assert full_geom[2] == (50.0, -3.0)  # second waypoint
-        assert full_geom[3] == (75.0, 2.0)  # third waypoint
-        assert full_geom[4] == (100.0, 0.0)  # end node
+        assert np.allclose(full_geom[0], [0.0, 0.0])   # start node
+        assert np.allclose(full_geom[1], [25.0, 5.0])  # first waypoint
+        assert np.allclose(full_geom[2], [50.0, -3.0]) # second waypoint
+        assert np.allclose(full_geom[3], [75.0, 2.0])  # third waypoint
+        assert np.allclose(full_geom[4], [100.0, 0.0]) # end node
 
     def test_full_geometry_reverse(self):
         """Full geometry in reverse should reverse waypoint order."""
         g = _simple_road()
         full_geom = g.full_edge_geometry(1, 0)
         assert len(full_geom) == 5
-        assert full_geom[0] == (100.0, 0.0)  # start (was end)
-        assert full_geom[1] == (75.0, 2.0)  # reverse waypoints
-        assert full_geom[2] == (50.0, -3.0)
-        assert full_geom[3] == (25.0, 5.0)
-        assert full_geom[4] == (0.0, 0.0)  # end (was start)
+        assert np.allclose(full_geom[0], [100.0, 0.0]) # start (was end)
+        assert np.allclose(full_geom[1], [75.0, 2.0])  # reverse waypoints
+        assert np.allclose(full_geom[2], [50.0, -3.0])
+        assert np.allclose(full_geom[3], [25.0, 5.0])
+        assert np.allclose(full_geom[4], [0.0, 0.0])   # end (was start)
 
     def test_full_geometry_no_waypoints(self):
         """Full geometry with no waypoints is just start and end."""
@@ -86,8 +87,8 @@ class TestRoadGraphFullGeometry:
         g.add_edge(0, 1)  # no waypoints
         full_geom = g.full_edge_geometry(0, 1)
         assert len(full_geom) == 2
-        assert full_geom[0] == (0.0, 0.0)
-        assert full_geom[1] == (10.0, 5.0)
+        assert np.allclose(full_geom[0], [0.0, 0.0])
+        assert np.allclose(full_geom[1], [10.0, 5.0])
 
 
 class TestRoadGraphWeightedGraphCompatibility:
