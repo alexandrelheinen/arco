@@ -40,6 +40,9 @@
           class OrientedGraph {
           }
           style OrientedGraph fill:#77AADD
+          class WeightedGraph {
+          }
+          style WeightedGraph fill:#77AADD
           class Grid {
           }
           style Grid fill:#77AADD
@@ -55,9 +58,6 @@
           class AStar {
           }
           style AStar fill:#44BB99
-          class DStarLite {
-          }
-          style DStarLite fill:#44BB99
           class AStarPlanner {
           }
           style AStarPlanner fill:#99DDFF
@@ -83,6 +83,7 @@
           PurePursuitController --|> Controller
           OrientedGraph --|> Graph
           Arc --|> Edge
+          WeightedGraph --|> Graph
           Grid --|> Graph
           EuclideanGrid --|> Grid
           ManhattanGrid --|> Grid
@@ -91,7 +92,6 @@
           DStarPlanner --|> Planner
           RRTPlanner --|> Planner
           SSTPlanner --|> Planner
-          Grid --* DStarLite : grid
           EuclideanGrid --* AStar : grid
           ManhattanGrid --* AStar : grid
   
