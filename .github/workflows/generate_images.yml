@@ -52,11 +52,11 @@ jobs:
           MPLBACKEND=Agg python tools/examples/astar_manhattan.py \
             --save /tmp/generated_images/astar_grid_obstacle_manhattan.png
 
-      # Generate Phase 1 pipeline example
-      - name: Generate Phase 1 pipeline example
+      # Generate A* pipeline example
+      - name: Generate A* pipeline example
         run: |
-          MPLBACKEND=Agg python tools/examples/phase1_pipeline.py \
-            --save /tmp/generated_images/phase1_pipeline.png
+          MPLBACKEND=Agg python tools/examples/astar_pipeline.py \
+            --save /tmp/generated_images/astar_pipeline.png
 
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
@@ -102,11 +102,11 @@ jobs:
               '| `astar_grid_obstacle_euclidean.png` | A\\* on Euclidean (8-connected) grid with diagonal paths |',
               '| `astar_grid_obstacle_manhattan.png` | A\\* on Manhattan (4-connected) grid with staircase paths |',
               '',
-              '### Phase 1 Pipeline',
+              '### Complete Pipeline Examples',
               '',
               '| Image | Description |',
               '|-------|-------------|',
-              '| `phase1_pipeline.png` | End-to-end: road network → route planning → path tracking simulation |',
+              '| `astar_pipeline.png` | End-to-end: road network → route planning → path tracking simulation |',
               '',
               '### Architecture Diagrams (Pyreverse)',
               '',
