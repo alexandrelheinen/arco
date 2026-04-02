@@ -62,7 +62,9 @@ def main():
 
     # Create road network
     graph = create_road_network()
-    print(f"\nRoad network: {len(graph.nodes)} intersections, {len(graph.edges)} roads")
+    print(
+        f"\nRoad network: {len(graph.nodes)} intersections, {len(graph.edges)} roads"
+    )
 
     # Create router with activation radius
     activation_radius = 30.0
@@ -82,7 +84,9 @@ def main():
     result = router.plan(start_x, start_y, goal_x, goal_y)
     if result is not None:
         print(f"\n✓ Route found!")
-        print(f"  Start node: {result.start_node} at {result.start_projection}")
+        print(
+            f"  Start node: {result.start_node} at {result.start_projection}"
+        )
         print(f"  Goal node: {result.goal_node} at {result.goal_projection}")
         print(f"  Start distance: {result.start_distance:.2f} units")
         print(f"  Goal distance: {result.goal_distance:.2f} units")
@@ -104,7 +108,9 @@ def main():
     result = router.plan(start_x, start_y, goal_x, goal_y)
     if result is not None:
         print(f"\n✓ Route found!")
-        print(f"  Start node: {result.start_node} at {result.start_projection}")
+        print(
+            f"  Start node: {result.start_node} at {result.start_projection}"
+        )
         print(f"  Goal node: {result.goal_node} at {result.goal_projection}")
         print(f"  Path: {result.path}")
     else:

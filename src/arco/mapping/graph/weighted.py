@@ -208,7 +208,9 @@ class WeightedGraph(Graph):
                 proj_x, proj_y = xa, ya
             else:
                 # Parameter t for projection: 0 = at node_a, 1 = at node_b
-                t = max(0.0, min(1.0, ((x - xa) * dx + (y - ya) * dy) / length_sq))
+                t = max(
+                    0.0, min(1.0, ((x - xa) * dx + (y - ya) * dy) / length_sq)
+                )
                 proj_x = xa + t * dx
                 proj_y = ya + t * dy
 
@@ -217,6 +219,11 @@ class WeightedGraph(Graph):
             if dist < nearest_dist:
                 if max_radius is None or dist <= max_radius:
                     nearest_dist = dist
-                    nearest_projection = ((proj_x, proj_y), node_a, node_b, dist)
+                    nearest_projection = (
+                        (proj_x, proj_y),
+                        node_a,
+                        node_b,
+                        dist,
+                    )
 
         return nearest_projection

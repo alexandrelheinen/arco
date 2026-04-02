@@ -16,9 +16,22 @@ dev = [
     "black",
     "isort",
     "matplotlib",
-    "pylint"
+    "pylint",
+    "pydocstyle"
 ]
 tools = [
     "arco",
     "matplotlib"
 ]
+
+[tool.black]
+line-length = 79
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 79
+
+[tool.pydocstyle]
+convention = "google"
+add_ignore = ["D100", "D104"]  # Ignore module and package docstrings

@@ -29,7 +29,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))  # expose tools/viewer
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..")
+)  # expose tools/viewer
 
 import matplotlib
 import matplotlib.pyplot as plt

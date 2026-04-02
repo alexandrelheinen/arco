@@ -167,7 +167,9 @@ class TestSeedReproducibility:
 
         # Same edges and waypoints
         assert len(graph1.edges) == len(graph2.edges)
-        for (a1, b1, _), (a2, b2, _) in zip(sorted(graph1.edges), sorted(graph2.edges)):
+        for (a1, b1, _), (a2, b2, _) in zip(
+            sorted(graph1.edges), sorted(graph2.edges)
+        ):
             assert a1 == a2 and b1 == b2
             assert graph1.edge_geometry(a1, b1) == graph2.edge_geometry(a2, b2)
 

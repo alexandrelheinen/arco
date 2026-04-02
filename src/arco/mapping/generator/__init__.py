@@ -210,7 +210,9 @@ class RoadNetworkGenerator:
             ValueError: If ``num_radials`` is less than 3.
         """
         if num_radials < 3:
-            raise ValueError("Need at least 3 radials for a meaningful city layout")
+            raise ValueError(
+                "Need at least 3 radials for a meaningful city layout"
+            )
 
         if ring_radii is None:
             ring_radii = [40.0, 90.0, 150.0]
@@ -254,7 +256,9 @@ class RoadNetworkGenerator:
         radial_angles: List[float] = []
         for i in range(num_radials):
             base_angle = i * base_step
-            angle_jitter = self._rng.uniform(-base_step * 0.25, base_step * 0.25)
+            angle_jitter = self._rng.uniform(
+                -base_step * 0.25, base_step * 0.25
+            )
             radial_angles.append(base_angle + angle_jitter)
         radial_angles.sort()
 
@@ -318,7 +322,9 @@ class RoadNetworkGenerator:
         # ------------------------------------------------------------------
         # Dead-end alleys: short branches from outer-ring nodes
         # ------------------------------------------------------------------
-        outer_ring_nodes = [radial_ring_nodes[ri][-1] for ri in range(num_radials)]
+        outer_ring_nodes = [
+            radial_ring_nodes[ri][-1] for ri in range(num_radials)
+        ]
         num_alleys = max(2, num_radials // 2)
         alley_parents = self._rng.sample(
             outer_ring_nodes, min(num_alleys, len(outer_ring_nodes))
@@ -408,4 +414,3 @@ class RoadNetworkGenerator:
             waypoints.append((waypoint_x, waypoint_y))
 
         return waypoints
-

@@ -60,7 +60,9 @@ def main():
 
         # Show geometry for first edge in path
         if len(result.path) >= 2:
-            edge_waypoints = graph.edge_geometry(result.path[0], result.path[1])
+            edge_waypoints = graph.edge_geometry(
+                result.path[0], result.path[1]
+            )
             print(f"  First edge waypoints: {len(edge_waypoints)} points")
             if edge_waypoints:
                 print(f"    First waypoint: {edge_waypoints[0]}")
@@ -80,7 +82,9 @@ def main():
         curvature=0.8,
     )
 
-    print(f"Organic network: {len(graph_curved.nodes)} nodes, {len(graph_curved.edges)} edges")
+    print(
+        f"Organic network: {len(graph_curved.nodes)} nodes, {len(graph_curved.edges)} edges"
+    )
 
     # Plan route on curved network
     router_curved = RouteRouter(graph_curved, activation_radius=40.0)
@@ -114,7 +118,9 @@ def main():
         # Collect full geometry for first few edges
         full_geometry = []
         for i in range(min(3, len(result.path) - 1)):
-            edge_geom = graph.full_edge_geometry(result.path[i], result.path[i + 1])
+            edge_geom = graph.full_edge_geometry(
+                result.path[i], result.path[i + 1]
+            )
             full_geometry.extend(edge_geom[:-1])  # Avoid duplicating endpoints
         full_geometry.append(graph.position(result.path[2]))
 
@@ -122,7 +128,9 @@ def main():
         print(f"  Total points: {len(full_geometry)}")
         print(f"  First 3 points: {full_geometry[:3]}")
         print(f"\n  → These points will be fed to B-spline interpolation")
-        print(f"  → Result: smooth continuous path for Pure Pursuit controller")
+        print(
+            f"  → Result: smooth continuous path for Pure Pursuit controller"
+        )
 
     print("\n" + "=" * 70)
     print("Integration demonstration complete!")

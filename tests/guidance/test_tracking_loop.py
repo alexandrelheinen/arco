@@ -48,7 +48,13 @@ def _make_loop(
 def test_step_returns_all_metric_keys() -> None:
     loop = _make_loop()
     metrics = loop.step(STRAIGHT_PATH, dt=0.1)
-    for key in ("cross_track_error", "heading_error", "pose", "speed", "turn_rate"):
+    for key in (
+        "cross_track_error",
+        "heading_error",
+        "pose",
+        "speed",
+        "turn_rate",
+    ):
         assert key in metrics
 
 
@@ -78,7 +84,13 @@ def test_history_grows_with_steps() -> None:
         loop.step(STRAIGHT_PATH, dt=0.1)
     assert len(loop.history) == 5
     for entry in loop.history:
-        for key in ("cross_track_error", "heading_error", "pose", "speed", "turn_rate"):
+        for key in (
+            "cross_track_error",
+            "heading_error",
+            "pose",
+            "speed",
+            "turn_rate",
+        ):
             assert key in entry
 
 

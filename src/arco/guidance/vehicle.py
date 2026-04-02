@@ -88,7 +88,9 @@ class DubinsVehicle:
     # State management
     # ------------------------------------------------------------------
 
-    def reset(self, x: float = 0.0, y: float = 0.0, heading: float = 0.0) -> None:
+    def reset(
+        self, x: float = 0.0, y: float = 0.0, heading: float = 0.0
+    ) -> None:
         """Reset vehicle state to a new pose with zero speed and turn rate.
 
         Args:
@@ -135,11 +137,17 @@ class DubinsVehicle:
         # --- Turn-rate-dot filtering: rate-limit turn rate change ---
         max_delta_turn = self.max_turn_rate_dot * dt
         delta_turn = float(
-            np.clip(turn_rate_cmd - self._turn_rate, -max_delta_turn, max_delta_turn)
+            np.clip(
+                turn_rate_cmd - self._turn_rate,
+                -max_delta_turn,
+                max_delta_turn,
+            )
         )
         self._turn_rate = float(
             np.clip(
-                self._turn_rate + delta_turn, -self.max_turn_rate, self.max_turn_rate
+                self._turn_rate + delta_turn,
+                -self.max_turn_rate,
+                self.max_turn_rate,
             )
         )
 
@@ -149,6 +157,8 @@ class DubinsVehicle:
         self.heading += self._turn_rate * dt
 
         # Normalise heading to (−π, π]
-        self.heading = math.atan2(math.sin(self.heading), math.cos(self.heading))
+        self.heading = math.atan2(
+            math.sin(self.heading), math.cos(self.heading)
+        )
 
         return self.pose

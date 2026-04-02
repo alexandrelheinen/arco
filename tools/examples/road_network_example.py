@@ -65,7 +65,13 @@ def draw_road_network(graph, path=None, title="Road Network"):
         if waypoints:
             wx, wy = zip(*waypoints)
             ax.scatter(
-                wx, wy, c="lightblue", s=20, alpha=0.6, zorder=2, label="Waypoints"
+                wx,
+                wy,
+                c="lightblue",
+                s=20,
+                alpha=0.6,
+                zorder=2,
+                label="Waypoints",
             )
 
             # Draw the full edge geometry as a polyline

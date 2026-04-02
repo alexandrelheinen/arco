@@ -75,7 +75,9 @@ def test_straight_line_motion() -> None:
 
 def test_heading_normalised() -> None:
     """Heading must remain within [−π, π] after many turns."""
-    vehicle = DubinsVehicle(heading=3.0, max_turn_rate=1000.0, max_turn_rate_dot=1000.0)
+    vehicle = DubinsVehicle(
+        heading=3.0, max_turn_rate=1000.0, max_turn_rate_dot=1000.0
+    )
     for _ in range(100):
         vehicle.step(1.0, 5.0, 0.1)
     assert -math.pi <= vehicle.heading <= math.pi
@@ -94,7 +96,10 @@ def test_reset_restores_state() -> None:
 def test_command_bounds_over_many_steps() -> None:
     """Speed and turn rate must stay within bounds across a long simulation."""
     vehicle = DubinsVehicle(
-        max_speed=3.0, min_speed=0.0, max_turn_rate=1.5, max_acceleration=1000.0
+        max_speed=3.0,
+        min_speed=0.0,
+        max_turn_rate=1.5,
+        max_acceleration=1000.0,
     )
     for _ in range(200):
         vehicle.step(10.0, 10.0, 0.05)

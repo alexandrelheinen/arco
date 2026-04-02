@@ -84,7 +84,9 @@ MAX_TURN_RATE_DOT = 4.0  # rad/s²
 
 DT = 0.1  # s
 MAX_STEPS = 3000
-GOAL_RADIUS = 10.0  # m — stop when vehicle reaches within this distance of goal
+GOAL_RADIUS = (
+    10.0  # m — stop when vehicle reaches within this distance of goal
+)
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +166,8 @@ def find_lookahead(
     if not path:
         return (x, y)
     closest = min(
-        range(len(path)), key=lambda i: math.hypot(path[i][0] - x, path[i][1] - y)
+        range(len(path)),
+        key=lambda i: math.hypot(path[i][0] - x, path[i][1] - y),
     )
     for pt in path[closest:]:
         if math.hypot(pt[0] - x, pt[1] - y) >= lookahead:
@@ -311,7 +314,9 @@ def main(save_path: str | None = None) -> None:
 
     # Final lookahead target (for display)
     last_pose = vehicle.pose
-    tracking_target = find_lookahead(last_pose[0], last_pose[1], smooth_path, LOOKAHEAD)
+    tracking_target = find_lookahead(
+        last_pose[0], last_pose[1], smooth_path, LOOKAHEAD
+    )
 
     # ------------------------------------------------------------------
     # 5. Visualisation
