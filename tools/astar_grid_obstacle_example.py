@@ -1,8 +1,10 @@
 """
 A* on a 2D grid with a large square obstacle in the centre.
 
-The grid has a single large square obstacle placed at its centre.  A* finds
-a path from the top-left corner to the bottom-right corner around the obstacle.
+The grid uses diagonal (Euclidean) connectivity so that A* can cut diagonally
+around the obstacle.  A large square obstacle is placed at the centre of the
+grid and A* finds the shortest diagonal path from the top-left corner to the
+bottom-right corner.
 
 Usage
 -----
@@ -28,7 +30,7 @@ sys.path.insert(0, os.path.dirname(__file__))  # expose tools/visualization
 import matplotlib
 import matplotlib.pyplot as plt
 
-from arco.mapping import ManhattanGrid
+from arco.mapping import EuclideanGrid
 from arco.planning.discrete.astar import AStarPlanner
 from visualization.grid_viewer import draw_grid
 
@@ -42,8 +44,11 @@ OBSTACLE_FRACTION = 0.4  # obstacle side length as a fraction of grid size
 def build_grid_with_obstacle(
     grid_size: int = GRID_SIZE,
     obstacle_fraction: float = OBSTACLE_FRACTION,
-) -> ManhattanGrid:
-    """Build a square Manhattan grid with a centred square obstacle.
+) -> EuclideanGrid:
+    """Build a square Euclidean grid with a centred square obstacle.
+
+    Uses :class:`~arco.mapping.grid.euclidean.EuclideanGrid` (diagonal moves
+    allowed) so that A* can navigate diagonally around the obstacle.
 
     Args:
         grid_size: Side length of the grid in cells.
@@ -51,10 +56,10 @@ def build_grid_with_obstacle(
             of *grid_size*.
 
     Returns:
-        A :class:`~arco.mapping.grid.manhattan.ManhattanGrid` with the central
+        A :class:`~arco.mapping.grid.euclidean.EuclideanGrid` with the central
         obstacle cells marked as occupied.
     """
-    grid = ManhattanGrid((grid_size, grid_size))
+    grid = EuclideanGrid((grid_size, grid_size))
 
     obs_size = int(grid_size * obstacle_fraction)
     margin = (grid_size - obs_size) // 2
@@ -79,7 +84,7 @@ def main(save_path: str | None = None) -> None:
 
     obs_size = int(n * OBSTACLE_FRACTION)
     title = (
-        f"A* on {n}×{n} Manhattan grid — central {obs_size}×{obs_size} obstacle\n"
+        f"A* on {n}×{n} Euclidean grid — central {obs_size}×{obs_size} obstacle\n"
         + (f"Path length: {len(path)} steps" if path else "No path found")
     )
 
