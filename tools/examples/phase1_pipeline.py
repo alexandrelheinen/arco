@@ -52,6 +52,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 from logging_config import configure_logging
 from viewer.road import draw_road_network
 
@@ -257,13 +258,13 @@ def main(save_path: str | None = None) -> None:
         >= outer_threshold
     ]
 
-    start_xy, goal_xy = find_farthest_outer_pair(graph, outer_nodes)
+    start_pos, goal_pos = find_farthest_outer_pair(graph, outer_nodes)
     # Small offset so the vehicle starts slightly off a node (tests projection)
-    start_xy = (start_xy[0] + 4.0, start_xy[1] + 4.0)
-    goal_xy = (goal_xy[0] - 4.0, goal_xy[1] - 4.0)
+    start_xy = np.array([start_pos[0] + 4.0, start_pos[1] + 4.0])
+    goal_xy = np.array([goal_pos[0] - 4.0, goal_pos[1] - 4.0])
 
     router = RouteRouter(graph, activation_radius=ACTIVATION_RADIUS)
-    result = router.plan(*start_xy, *goal_xy)
+    result = router.plan(start_xy, goal_xy)
 
     if result is None:
         logger.error(

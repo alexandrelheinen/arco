@@ -153,8 +153,26 @@ class Grid(Graph):
         """
         pass
 
+    def position(self, idx: Tuple[int, ...]) -> np.ndarray:
+        """Return the Cartesian position of a grid cell.
+
+        Converts a cell index to a continuous position by multiplying each
+        index component by :attr:`cell_size`.
+
+        Args:
+            idx: Cell index tuple, e.g. ``(row, col)`` for a 2-D grid.
+
+        Returns:
+            Position as a :class:`numpy.ndarray` of shape ``(N,)``.
+        """
+        return np.array(idx, dtype=float) * self.cell_size
+
     def heuristic(self, a: Tuple[int, ...], b: Tuple[int, ...]) -> float:
         """Admissible A* heuristic: Euclidean distance between two cells.
+
+        Uses the physical position of each cell (index multiplied by
+        :attr:`cell_size`) so the heuristic is expressed in metres and
+        correctly accounts for non-unit cell sizes.
 
         Euclidean distance is always <= the true path cost for standard
         Manhattan (unit step cost 1) and Euclidean (unit step cost sqrt(2))
@@ -175,4 +193,4 @@ class Grid(Graph):
         Returns:
             Euclidean distance as float.
         """
-        return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+        return float(np.linalg.norm(self.position(a) - self.position(b)))

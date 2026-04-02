@@ -14,13 +14,15 @@ This is part of the horse auto-follow system (Phase 1.2).
 import logging
 import math
 
-from arco.mapping.graph import WeightedGraph
+import numpy as np
+
+from arco.mapping.graph import CartesianGraph
 from arco.planning.discrete import RouteRouter
 
 logger = logging.getLogger(__name__)
 
 
-def create_road_network() -> WeightedGraph:
+def create_road_network() -> CartesianGraph:
     """Create a sample road network resembling a small town.
 
     Layout:
@@ -32,7 +34,7 @@ def create_road_network() -> WeightedGraph:
 
     Each intersection is 50 units apart.
     """
-    graph = WeightedGraph()
+    graph = CartesianGraph()
 
     # Add intersection nodes
     for i in range(3):
@@ -88,7 +90,9 @@ def main():
     logger.info("Start position: (%s, %s)", start_x, start_y)
     logger.info("Goal position: (%s, %s)", goal_x, goal_y)
 
-    result = router.plan(start_x, start_y, goal_x, goal_y)
+    result = router.plan(
+        np.array([start_x, start_y]), np.array([goal_x, goal_y])
+    )
     if result is not None:
         logger.info("\u2713 Route found!")
         logger.info(
@@ -116,7 +120,9 @@ def main():
     logger.info("Start position: (%s, %s)", start_x, start_y)
     logger.info("Goal position: (%s, %s)", goal_x, goal_y)
 
-    result = router.plan(start_x, start_y, goal_x, goal_y)
+    result = router.plan(
+        np.array([start_x, start_y]), np.array([goal_x, goal_y])
+    )
     if result is not None:
         logger.info("\u2713 Route found!")
         logger.info(
@@ -141,7 +147,9 @@ def main():
     logger.info("Start position: (%s, %s) - OFF ROAD", start_x, start_y)
     logger.info("Goal position: (%s, %s)", goal_x, goal_y)
 
-    result = router.plan(start_x, start_y, goal_x, goal_y)
+    result = router.plan(
+        np.array([start_x, start_y]), np.array([goal_x, goal_y])
+    )
     if result is not None:
         logger.info("\u2713 Route found!")
         logger.info("  Path: %s", result.path)
@@ -157,7 +165,7 @@ def main():
     query_x, query_y = 35.0, 75.0
     logger.info("Query position: (%s, %s)", query_x, query_y)
 
-    nearest = graph.find_nearest_node(query_x, query_y)
+    nearest = graph.find_nearest_node(np.array([query_x, query_y]))
     if nearest is not None:
         pos = graph.position(nearest)
         dist = math.hypot(query_x - pos[0], query_y - pos[1])
@@ -171,7 +179,7 @@ def main():
     query_x, query_y = 55.0, 25.0
     logger.info("Query position: (%s, %s)", query_x, query_y)
 
-    projection = graph.project_to_nearest_edge(query_x, query_y)
+    projection = graph.project_to_nearest_edge(np.array([query_x, query_y]))
     if projection is not None:
         proj_pos, node_a, node_b, dist = projection
         logger.info("Projected point: %s", proj_pos)

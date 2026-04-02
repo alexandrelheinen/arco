@@ -1,4 +1,4 @@
-"""Matplotlib viewer for :class:`~arco.mapping.graph.WeightedGraph`."""
+"""Matplotlib viewer for :class:`~arco.mapping.graph.CartesianGraph`."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from arco.mapping.graph import WeightedGraph
+from arco.mapping.graph import CartesianGraph
 
 
 def draw_graph(
-    graph: WeightedGraph,
+    graph: CartesianGraph,
     path: Optional[Sequence[int]] = None,
     *,
     node_colors: Optional[Dict[int, str]] = None,
@@ -28,7 +28,7 @@ def draw_graph(
     title: Optional[str] = None,
     figsize: Tuple[int, int] = (8, 8),
 ) -> Tuple[Figure, Axes]:
-    """Draw a :class:`~arco.mapping.graph.WeightedGraph` with an optional A* path.
+    """Draw a :class:`~arco.mapping.graph.CartesianGraph` with an optional A* path.
 
     The planner can supply per-node and per-edge colour overrides through the
     *node_colors* and *edge_colors* mappings so that it can highlight explored

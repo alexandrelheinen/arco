@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from arco.mapping.generator import RoadNetworkGenerator
@@ -28,10 +29,10 @@ class TestGridNetworkGeneration:
         assert len(graph.nodes) == 4
 
         # Check node positions
-        assert graph.position(0) == (0.0, 0.0)
-        assert graph.position(1) == (100.0, 0.0)
-        assert graph.position(2) == (0.0, 100.0)
-        assert graph.position(3) == (100.0, 100.0)
+        assert np.allclose(graph.position(0), [0.0, 0.0])
+        assert np.allclose(graph.position(1), [100.0, 0.0])
+        assert np.allclose(graph.position(2), [0.0, 100.0])
+        assert np.allclose(graph.position(3), [100.0, 100.0])
 
         # Should have 4 edges in a 2x2 grid:
         # 0-1, 2-3 (horizontal) and 0-2, 1-3 (vertical)
@@ -163,7 +164,9 @@ class TestSeedReproducibility:
         # Same node positions
         assert graph1.nodes == graph2.nodes
         for node_id in graph1.nodes:
-            assert graph1.position(node_id) == graph2.position(node_id)
+            assert np.array_equal(
+                graph1.position(node_id), graph2.position(node_id)
+            )
 
         # Same edges and waypoints
         assert len(graph1.edges) == len(graph2.edges)
@@ -198,7 +201,7 @@ class TestSeedReproducibility:
         for node_id in graph1.nodes:
             pos1 = graph1.position(node_id)
             pos2 = graph2.position(node_id)
-            assert pos1 == pos2
+            assert np.array_equal(pos1, pos2)
 
         # Same edges and waypoints
         edges1 = sorted(graph1.edges)
@@ -224,7 +227,9 @@ class TestSeedReproducibility:
         # At least some node positions should differ
         different_positions = False
         for node_id in range(10):
-            if graph1.position(node_id) != graph2.position(node_id):
+            if not np.array_equal(
+                graph1.position(node_id), graph2.position(node_id)
+            ):
                 different_positions = True
                 break
         assert different_positions
@@ -287,7 +292,7 @@ class TestMedievalNetworkGeneration:
 
         assert len(g1.nodes) == len(g2.nodes)
         for nid in g1.nodes:
-            assert g1.position(nid) == g2.position(nid)
+            assert np.array_equal(g1.position(nid), g2.position(nid))
         assert len(g1.edges) == len(g2.edges)
 
     def test_pathfinding_on_grid_network(self):

@@ -11,6 +11,8 @@ This shows the complete pipeline for Phase 1.2 of the horse auto-follow system.
 
 import logging
 
+import numpy as np
+
 from arco.mapping.generator import RoadNetworkGenerator
 from arco.planning.discrete import RouteRouter
 
@@ -54,7 +56,9 @@ def main():
     logger.info("Start position: (%.1f, %.1f)", start_x, start_y)
     logger.info("Goal position: (%.1f, %.1f)", goal_x, goal_y)
 
-    result = router.plan(start_x, start_y, goal_x, goal_y)
+    result = router.plan(
+        np.array([start_x, start_y]), np.array([goal_x, goal_y])
+    )
     if result is not None:
         logger.info("\u2713 Route found!")
         logger.info("  Path length: %d intersections", len(result.path))
@@ -96,7 +100,9 @@ def main():
 
     # Plan route on curved network
     router_curved = RouteRouter(graph_curved, activation_radius=40.0)
-    result_curved = router_curved.plan(20.0, 20.0, 180.0, 180.0)
+    result_curved = router_curved.plan(
+        np.array([20.0, 20.0]), np.array([180.0, 180.0])
+    )
 
     if result_curved is not None:
         logger.info("\u2713 Route found on organic network!")
