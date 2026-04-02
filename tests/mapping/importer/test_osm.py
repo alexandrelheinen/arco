@@ -108,9 +108,6 @@ def _make_mock_ox(
     mock_ox = MagicMock()
     mock_ox.graph_from_bbox.return_value = raw_graph
     mock_ox.project_graph.return_value = proj_graph
-    mock_ox.utils_graph.get_largest_component.side_effect = (
-        lambda G, strongly: G
-    )
     return mock_ox
 
 
@@ -188,14 +185,19 @@ class TestFromCoords:
                 "_project_latlon",
                 return_value=(50.0, 100.0),
             ):
-                return importer.from_coords(
-                    lat_start=48.86,
-                    lon_start=2.33,
-                    lat_goal=48.85,
-                    lon_goal=2.29,
-                    margin_m=500.0,
-                    network_type="bike",
-                )
+                with patch.object(
+                    OSMImporter,
+                    "_largest_component",
+                    side_effect=lambda ox_mod, G: G,
+                ):
+                    return importer.from_coords(
+                        lat_start=48.86,
+                        lon_start=2.33,
+                        lat_goal=48.85,
+                        lon_goal=2.29,
+                        margin_m=500.0,
+                        network_type="bike",
+                    )
 
     def test_node_count(self):
         graph, _, _ = self._run(_five_node_graph())
@@ -237,7 +239,7 @@ class TestFromCoords:
         assert weight == pytest.approx(250.0)
 
     def test_graph_from_bbox_called(self):
-        """from_coords must call ox.graph_from_bbox with bbox keyword args."""
+        """from_coords must call ox.graph_from_bbox with a bbox tuple."""
         G = _five_node_graph()
         mock_ox = _make_mock_ox(G)
         importer = OSMImporter()
@@ -245,15 +247,20 @@ class TestFromCoords:
             with patch.object(
                 OSMImporter, "_project_latlon", return_value=(0.0, 0.0)
             ):
-                importer.from_coords(
-                    48.86, 2.33, 48.85, 2.29, margin_m=500.0
-                )
+                with patch.object(
+                    OSMImporter,
+                    "_largest_component",
+                    side_effect=lambda ox_mod, G: G,
+                ):
+                    importer.from_coords(
+                        48.86, 2.33, 48.85, 2.29, margin_m=500.0
+                    )
         mock_ox.graph_from_bbox.assert_called_once()
-        call_kwargs = mock_ox.graph_from_bbox.call_args[1]
-        assert "north" in call_kwargs
-        assert "south" in call_kwargs
-        assert "east" in call_kwargs
-        assert "west" in call_kwargs
+        # First positional arg must be a 4-element (left, bottom, right, top)
+        # bbox tuple — no longer uses north/south/east/west keyword args.
+        call_args = mock_ox.graph_from_bbox.call_args
+        bbox_arg = call_args[0][0]  # first positional argument
+        assert len(bbox_arg) == 4
 
     def test_edge_geometry_waypoints_stored(self):
         """Intermediate LineString coordinates must be stored as waypoints."""
@@ -285,60 +292,58 @@ class TestFromCoords:
 
 
 class TestLargestComponent:
-    def test_lcc_uses_osmnx_utility(self):
-        """_largest_component should call ox.utils_graph.get_largest_component."""
-        G = _five_node_graph()
-        mock_ox = MagicMock()
-        mock_ox.utils_graph.get_largest_component.return_value = G
-
-        result = OSMImporter._largest_component(mock_ox, G)
-
-        mock_ox.utils_graph.get_largest_component.assert_called_once_with(
-            G, strongly=False
-        )
-        assert result is G
-
-    def test_disconnected_graph_pruned_via_lcc(self):
-        """When ox.utils_graph raises AttributeError the networkx fallback
-        prunes to the larger component."""
-        # Build two disconnected components: nodes 0-4 and node 5 (isolated)
-        G = _FakeGraph()
-        for i in range(5):
-            G.add_node(i, x=float(i * 100), y=0.0)
-        for i in range(4):
-            G.add_edge(i, i + 1, length=100.0)
-        # Node 5 is isolated
-        G.add_node(5, x=9999.0, y=9999.0)
-
-        mock_ox = MagicMock()
-        # Simulate osmnx 2.x where utils_graph.get_largest_component is gone
-        mock_ox.utils_graph.get_largest_component.side_effect = AttributeError
-
-        # For the networkx fallback we need the graph to support
-        # weakly_connected_components — use a real networkx DiGraph
+    def test_lcc_uses_networkx(self):
+        """_largest_component uses networkx weakly_connected_components."""
         try:
             import networkx as nx
-
-            G_nx = nx.MultiDiGraph()
-            for i in range(6):
-                G_nx.add_node(i)
-            for i in range(4):
-                G_nx.add_edge(i, i + 1, length=100.0)
-            # Node 5 is isolated
-
-            result = OSMImporter._largest_component(mock_ox, G_nx)
-            assert 5 not in result.nodes()
-            assert all(i in result.nodes() for i in range(5))
         except ImportError:
-            pytest.skip("networkx not installed; skipping fallback test")
+            pytest.skip("networkx not installed")
+
+        G_nx = nx.MultiDiGraph()
+        for i in range(5):
+            G_nx.add_node(i)
+        for i in range(4):
+            G_nx.add_edge(i, i + 1)
+
+        mock_ox = MagicMock()
+        result = OSMImporter._largest_component(mock_ox, G_nx)
+        assert result.number_of_nodes() == 5
+
+    def test_disconnected_graph_pruned_via_lcc(self):
+        """The networkx path prunes smaller components."""
+        try:
+            import networkx as nx
+        except ImportError:
+            pytest.skip("networkx not installed")
+
+        G_nx = nx.MultiDiGraph()
+        for i in range(5):
+            G_nx.add_node(i)
+        for i in range(4):
+            G_nx.add_edge(i, i + 1, length=100.0)
+        # Node 5 is isolated
+        G_nx.add_node(5)
+
+        mock_ox = MagicMock()
+        result = OSMImporter._largest_component(mock_ox, G_nx)
+        assert 5 not in result.nodes()
+        assert all(i in result.nodes() for i in range(5))
 
     def test_single_component_unchanged(self):
-        """A fully connected graph should be returned unchanged."""
-        G = _five_node_graph()
-        mock_ox = MagicMock()
-        mock_ox.utils_graph.get_largest_component.return_value = G
+        """A fully connected graph should be returned with all nodes intact."""
+        try:
+            import networkx as nx
+        except ImportError:
+            pytest.skip("networkx not installed")
 
-        result = OSMImporter._largest_component(mock_ox, G)
+        G_nx = nx.MultiDiGraph()
+        for i in range(5):
+            G_nx.add_node(i)
+        for i in range(4):
+            G_nx.add_edge(i, i + 1)
+
+        mock_ox = MagicMock()
+        result = OSMImporter._largest_component(mock_ox, G_nx)
         assert result.number_of_nodes() == 5
 
     def test_lcc_removes_smaller_component(self):
@@ -360,16 +365,21 @@ class TestLargestComponent:
             G_pruned.add_edge(1000 + i, 1001 + i, length=100.0)
 
         mock_ox = _make_mock_ox(raw_graph=G_full, proj_graph=G_pruned)
-        mock_ox.utils_graph.get_largest_component.return_value = G_pruned
 
         importer = OSMImporter()
         with patch.object(OSMImporter, "_require_osmnx", return_value=mock_ox):
             with patch.object(
                 OSMImporter, "_project_latlon", return_value=(0.0, 0.0)
             ):
-                graph, _, _ = importer.from_coords(
-                    48.86, 2.33, 48.85, 2.29, margin_m=500.0
-                )
+                # Patch _largest_component to return the pruned graph
+                with patch.object(
+                    OSMImporter,
+                    "_largest_component",
+                    return_value=G_pruned,
+                ):
+                    graph, _, _ = importer.from_coords(
+                        48.86, 2.33, 48.85, 2.29, margin_m=500.0
+                    )
 
         # Isolated node 9999 must not be in the final RoadGraph
         assert len(graph.nodes) == 5
@@ -411,10 +421,15 @@ class TestFromAddresses:
                 with patch.object(
                     OSMImporter, "_project_latlon", return_value=(0.0, 0.0)
                 ):
-                    importer.from_addresses(
-                        "Musée du Louvre, Paris",
-                        "Tour Eiffel, Paris",
-                    )
+                    with patch.object(
+                        OSMImporter,
+                        "_largest_component",
+                        side_effect=lambda ox_mod, G: G,
+                    ):
+                        importer.from_addresses(
+                            "Musée du Louvre, Paris",
+                            "Tour Eiffel, Paris",
+                        )
             spy.assert_called_once_with(
                 48.86, 2.33, 48.85, 2.29, 500.0, "bike"
             )

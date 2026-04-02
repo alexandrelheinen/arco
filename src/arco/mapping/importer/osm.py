@@ -144,15 +144,27 @@ class OSMImporter:
         )
 
         # 2. Download OSM graph -------------------------------------------
-        G_raw = ox.graph_from_bbox(
-            north=max_lat,
-            south=min_lat,
-            east=max_lon,
-            west=min_lon,
-            network_type=network_type,
-            simplify=True,
-            retain_all=False,
-        )
+        # osmnx 2.x changed graph_from_bbox to accept a (left, bottom, right,
+        # top) bbox tuple; osmnx 1.x used keyword args north/south/east/west.
+        try:
+            # osmnx >= 2.0: bbox = (left, bottom, right, top)
+            G_raw = ox.graph_from_bbox(
+                (min_lon, min_lat, max_lon, max_lat),
+                network_type=network_type,
+                simplify=True,
+                retain_all=False,
+            )
+        except TypeError:
+            # osmnx 1.x fallback: keyword arguments
+            G_raw = ox.graph_from_bbox(  # type: ignore[call-arg]
+                north=max_lat,
+                south=min_lat,
+                east=max_lon,
+                west=min_lon,
+                network_type=network_type,
+                simplify=True,
+                retain_all=False,
+            )
         logger.info(
             "Downloaded: %d nodes, %d edges",
             G_raw.number_of_nodes(),
@@ -266,8 +278,8 @@ class OSMImporter:
     def _largest_component(ox_module, G):
         """Return the largest weakly-connected component of *G*.
 
-        Tries the osmnx 1.x built-in utility first, then falls back to a
-        direct networkx call for other API versions.
+        Uses networkx directly (compatible with all osmnx versions), with a
+        fallback to the osmnx 1.x built-in utility when networkx is absent.
 
         Args:
             ox_module: The osmnx module.
@@ -278,14 +290,16 @@ class OSMImporter:
             component.
         """
         try:
-            return ox_module.utils_graph.get_largest_component(
-                G, strongly=False
-            )
-        except AttributeError:
             import networkx as nx  # noqa: PLC0415
 
             nodes = max(nx.weakly_connected_components(G), key=len)
             return G.subgraph(nodes).copy()
+        except ImportError:
+            # networkx is a transitive dependency of osmnx; should never reach
+            # this branch, but fall back to the osmnx 1.x helper if it does.
+            return ox_module.utils_graph.get_largest_component(
+                G, strongly=False
+            )
 
     @staticmethod
     def _project_latlon(
