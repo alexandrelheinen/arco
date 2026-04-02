@@ -41,13 +41,14 @@ from viewer.graph import draw_graph
 
 from arco.mapping.generator import RoadNetworkGenerator
 from arco.planning.discrete.astar import AStarPlanner
+from config import load_config
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Parameters
+# Parameters (loaded from tools/config/)
 # ---------------------------------------------------------------------------
-SEED = 42
+_rng_cfg = load_config("random")
 
 
 def draw_road_network(graph, path=None, title="Road Network"):
@@ -98,7 +99,7 @@ def draw_road_network(graph, path=None, title="Road Network"):
     return fig, ax
 
 
-def generate_grid_example(seed: int = SEED):
+def generate_grid_example(seed: int = int(_rng_cfg["seed"])):
     """Generate and visualize a grid-based road network.
 
     Args:
@@ -125,7 +126,7 @@ def generate_grid_example(seed: int = SEED):
     return graph, start, goal, path
 
 
-def generate_random_example(seed: int = SEED):
+def generate_random_example(seed: int = int(_rng_cfg["seed"])):
     """Generate and visualize a random road network.
 
     Args:
@@ -170,10 +171,10 @@ def main(network_type: str = "grid", save_path: str | None = None) -> None:
 
     if network_type == "grid":
         graph, start, goal, path = generate_grid_example()
-        title = f"A* on 4×4 Grid Road Network (seed={SEED})"
+        title = f"A* on 4×4 Grid Road Network (seed={int(_rng_cfg['seed'])})"
     elif network_type == "random":
         graph, start, goal, path = generate_random_example()
-        title = f"A* on Random Road Network (seed={SEED})"
+        title = f"A* on Random Road Network (seed={int(_rng_cfg['seed'])})"
     else:
         raise ValueError(f"Unknown network type: {network_type}")
 
