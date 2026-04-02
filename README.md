@@ -36,14 +36,6 @@ The guidance layer acts as a bridge between abstract graph nodes and physical co
 1.  **Exploration Primitives**: In RRT-based architectures, the graph is grown dynamically. The steering function defines primitives (e.g., Dubins paths) to ensure the graph only contains kinematically reachable states.
 2.  **Interpolation**: Raw output from a graph search is typically a discrete sequence of nodes. The guidance layer applies B-splines or shortcutting algorithms to transform these steps into a continuous trajectory.
 
-<p align="center">
-  <a href="docs/pyreverse/packages.html" target="_blank">
-    <strong>View interactive package architecture (HTML)</strong>
-  </a>
-  <br>
-  <em>Click to open the interactive diagram in your browser.</em>
-</p>
-
 ## Arquitetura (Diagrama de Pacotes)
 
 ![Package diagram](docs/pyreverse/packages.png)

@@ -32,7 +32,7 @@ jobs:
 
       - name: Run pyreverse
         run: |
-          pyreverse --verbose -f PUB_ONLY --colorized -d ./docs/pyreverse/ -o html -k -m y --no-standalone ./src/arco/
+          pyreverse --verbose -f PUB_ONLY --colorized -d ./docs/pyreverse/ -o png -k -m y --no-standalone ./src/arco/
 
       - name: Commit updated diagrams
         run: |
