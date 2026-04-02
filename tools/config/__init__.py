@@ -34,8 +34,6 @@ def load_config(name: str) -> dict[str, Any]:
     """
     path = os.path.join(_CONFIG_DIR, f"{name}.yml")
     if not os.path.isfile(path):
-        raise FileNotFoundError(
-            f"Config file not found: {path!r}"
-        )
+        raise FileNotFoundError(f"Config file not found: {path!r}")
     with open(path) as fh:
         return yaml.safe_load(fh) or {}

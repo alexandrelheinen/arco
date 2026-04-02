@@ -35,11 +35,11 @@ sys.path.insert(
 
 import matplotlib
 import matplotlib.pyplot as plt
-from config import load_config
 from viewer.grid import draw_grid
 
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
+from config import load_config
 
 # ---------------------------------------------------------------------------
 # Parameters (loaded from tools/config/grid.yml)
