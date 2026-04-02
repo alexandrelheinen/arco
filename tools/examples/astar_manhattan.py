@@ -25,6 +25,7 @@ Save the output image without opening a window::
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 
@@ -35,10 +36,13 @@ sys.path.insert(
 
 import matplotlib
 import matplotlib.pyplot as plt
+from logging_config import configure_logging
 from viewer.grid import draw_grid
 
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Parameters
@@ -94,12 +98,13 @@ def main(save_path: str | None = None) -> None:
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
         fig.savefig(save_path, dpi=150)
-        print(f"Saved Manhattan grid example to {save_path}")
+        logger.info("Saved Manhattan grid example to %s", save_path)
     else:
         plt.show()
 
 
 if __name__ == "__main__":
+    configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--save",
