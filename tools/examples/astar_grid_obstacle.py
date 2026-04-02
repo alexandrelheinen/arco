@@ -29,15 +29,15 @@ sys.path.insert(0, os.path.dirname(__file__))  # expose tools/visualization
 
 import matplotlib
 import matplotlib.pyplot as plt
+from visualization.grid_viewer import draw_grid
 
 from arco.mapping import EuclideanGrid
 from arco.planning.discrete.astar import AStarPlanner
-from visualization.grid_viewer import draw_grid
 
 # ---------------------------------------------------------------------------
 # Parameters
 # ---------------------------------------------------------------------------
-GRID_SIZE = 51          # grid is GRID_SIZE x GRID_SIZE cells
+GRID_SIZE = 51  # grid is GRID_SIZE x GRID_SIZE cells
 OBSTACLE_FRACTION = 0.4  # obstacle side length as a fraction of grid size
 
 
