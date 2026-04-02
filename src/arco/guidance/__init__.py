@@ -12,54 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC, abstractmethod
+"""Guidance module for path tracking and trajectory generation."""
 
-
-class ExplorationPrimitive(ABC):
-    """
-    Abstract base for exploration primitives (e.g., Dubins, Reeds-Shepp).
-    Used in RRT-based planners to ensure kinematic feasibility.
-    """
-
-    @abstractmethod
-    def steer(self, from_state, to_state):
-        """Return a feasible path segment from from_state to to_state."""
-        pass
-
-
-class DubinsPrimitive(ExplorationPrimitive):
-    """
-    Dubins path primitive for car-like robots (no reverse, minimum turning radius).
-    """
-
-    def __init__(self, turning_radius=1.0):
-        self.turning_radius = turning_radius
-
-    def steer(self, from_state, to_state):
-        # Placeholder: would use a dubins path library in practice
-        return [from_state, to_state]
-
-
-class Interpolator(ABC):
-    """
-    Abstract base for interpolation (e.g., B-splines, shortcutting).
-    Used to convert discrete node sequences to continuous trajectories.
-    """
-
-    @abstractmethod
-    def interpolate(self, path):
-        """Return a continuous trajectory from a discrete path."""
-        pass
-
-
-class BSplineInterpolator(Interpolator):
-    """
-    B-spline interpolator for smoothing discrete paths.
-    """
-
-    def __init__(self, degree=3):
-        self.degree = degree
-
-    def interpolate(self, path):
-        # Placeholder: would use scipy.interpolate in practice
-        return path
+from .bspline import BSplineInterpolator
+from .controller import Controller
+from .dubins import DubinsPrimitive
+from .exploration_primitive import ExplorationPrimitive
+from .interpolator import Interpolator
+from .mpc import MPCController
+from .pid import PIDController
+from .pure_pursuit import PurePursuitController

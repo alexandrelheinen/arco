@@ -12,41 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
+"""Planning module for path planning problems."""
 
+from .astar_api import AStar
 from .discrete import AStarPlanner, DiscretePlanner
-
-
-class AStar:
-    """
-    API wrapper for A* planner compatible with test suite.
-    Accepts a numpy grid (0=free, 1=occupied).
-    By default uses ManhattanGrid; pass grid_type='euclidean' for EuclideanGrid.
-    """
-
-    def __init__(self, grid, grid_type="manhattan"):
-        from arco.mapping import EuclideanGrid, ManhattanGrid
-
-        if grid_type == "euclidean":
-            self.grid = EuclideanGrid(grid.shape)
-        else:
-            self.grid = ManhattanGrid(grid.shape)
-        self.grid.data = np.array(grid, dtype=np.uint8)
-        from .planner import AStarPlanner
-
-        self._planner = AStarPlanner(self.grid)
-
-    def search(self, start, goal):
-        return self._planner.plan(start, goal)
-
-
-class DStarLite:
-    """
-    API wrapper for D* planner (stub — not yet implemented).
-    """
-
-    def __init__(self, grid):
-        pass
-
-    def search(self, start, goal):
-        raise NotImplementedError("D* planner not yet implemented.")
+from .dstar import DStarLite

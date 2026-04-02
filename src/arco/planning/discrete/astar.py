@@ -6,7 +6,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from .base import DiscretePlanner
 
 
-
 class AStarPlanner(DiscretePlanner):
     """
     A* path planner for general graphs (including grids).
@@ -33,6 +32,16 @@ class AStarPlanner(DiscretePlanner):
         graph: Any,
         heuristic: Optional[Callable[[Any, Any], float]] = None,
     ) -> None:
+        """Initialize AStarPlanner.
+
+        Args:
+            graph: The graph or grid to plan on. Must expose ``neighbors``
+                and ``distance`` methods. Optionally exposes ``heuristic``
+                and ``is_occupied``.
+            heuristic: Optional heuristic callable ``(node, goal) -> float``.
+                Defaults to ``graph.heuristic`` if available, else
+                ``graph.distance``.
+        """
         super().__init__(graph)
         if heuristic is not None:
             self.heuristic = heuristic
@@ -41,9 +50,16 @@ class AStarPlanner(DiscretePlanner):
         else:
             self.heuristic = graph.distance
 
-    def plan(
-        self, start: Any, goal: Any
-    ) -> Optional[List[Any]]:
+    def plan(self, start: Any, goal: Any) -> Optional[List[Any]]:
+        """Plan a path from start to goal using A*.
+
+        Args:
+            start: The start node.
+            goal: The goal node.
+
+        Returns:
+            A list of nodes from start to goal, or None if no path exists.
+        """
         open_set: List[Tuple[float, float, int, Any]] = []
         counter: int = 0
         h_start = self.heuristic(start, goal)
@@ -58,7 +74,9 @@ class AStarPlanner(DiscretePlanner):
                 return self._reconstruct_path(came_from, current)
             for neighbor in self.graph.neighbors(current):
                 # If the graph supports is_occupied, skip occupied nodes
-                if hasattr(self.graph, "is_occupied") and self.graph.is_occupied(neighbor):
+                if hasattr(self.graph, "is_occupied") and self.graph.is_occupied(
+                    neighbor
+                ):
                     continue
                 tentative_g = g_score[current] + self.graph.distance(current, neighbor)
                 if neighbor not in g_score or tentative_g < g_score[neighbor]:
@@ -75,6 +93,15 @@ class AStarPlanner(DiscretePlanner):
         came_from: Dict[Any, Any],
         current: Any,
     ) -> List[Any]:
+        """Reconstruct the path from start to current by following came_from.
+
+        Args:
+            came_from: A mapping from each node to its predecessor.
+            current: The goal node to trace back from.
+
+        Returns:
+            A list of nodes from start to current.
+        """
         path: List[Any] = [current]
         while current in came_from:
             current = came_from[current]

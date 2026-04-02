@@ -6,8 +6,10 @@ Euclidean heuristic used by AStarPlanner guides it toward the diagonal,
 so the returned path is a staircase: every intermediate cell satisfies
 |row - col| <= 1.
 """
+
 import numpy as np
 import pytest
+
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
 
@@ -38,9 +40,9 @@ def test_astar_empty_grid_staircase():
     for a, b in zip(path[:-1], path[1:]):
         dr = abs(a[0] - b[0])
         dc = abs(a[1] - b[1])
-        assert (dr == 1 and dc == 0) or (dr == 0 and dc == 1), (
-            f"Non-Manhattan move: {a} -> {b}"
-        )
+        assert (dr == 1 and dc == 0) or (
+            dr == 0 and dc == 1
+        ), f"Non-Manhattan move: {a} -> {b}"
 
     # Staircase property: the path never drifts more than 1 cell from the
     # main diagonal — this rules out the L-shaped path that naive A*
@@ -68,6 +70,6 @@ def test_astar_diagonal_path():
     for a, b in zip(path[:-1], path[1:]):
         dr = abs(a[0] - b[0])
         dc = abs(a[1] - b[1])
-        assert (dr == 1 and dc == 0) or (dr == 0 and dc == 1), (
-            f"Non-Manhattan move: {a} -> {b}"
-        )
+        assert (dr == 1 and dc == 0) or (
+            dr == 0 and dc == 1
+        ), f"Non-Manhattan move: {a} -> {b}"
