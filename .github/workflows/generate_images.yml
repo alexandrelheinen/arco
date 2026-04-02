@@ -2,25 +2,34 @@ name: Generate Images
 
 on:
   workflow_dispatch:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - reopened
       - synchronize
       - ready_for_review
 
+permissions:
+  contents: read
+
 jobs:
   generate-images:
     name: Generate algorithm examples and diagrams
     runs-on: ubuntu-latest
 
+    # Only read access: untrusted PR code is executed here, so no write
+    # permissions are granted to this job.
     permissions:
       contents: read
-      pull-requests: write
+
+    outputs:
+      artifact-url: ${{ steps.upload-artifact.outputs.artifact-url }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -80,12 +89,26 @@ jobs:
           path: /tmp/generated_images/
           retention-days: 30
 
-      # Post PR comment with download link
+  # -----------------------------------------------------------------------
+  # Post PR comment with artifact download link.
+  # Separated from the generation job so that untrusted PR code is never
+  # executed with write permissions.
+  # -----------------------------------------------------------------------
+  post-comment:
+    name: Post PR comment with artifact link
+    needs: generate-images
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+
+    steps:
       - name: Post PR comment with artifact link
         uses: actions/github-script@v7
         with:
           script: |
-            const artifactUrl = '${{ steps.upload-artifact.outputs.artifact-url }}';
+            const artifactUrl = '${{ needs.generate-images.outputs.artifact-url }}';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const body = [
               '## 📊 Generated Images',
