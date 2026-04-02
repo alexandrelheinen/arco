@@ -304,7 +304,9 @@ def main(save_path: str | None = None) -> None:
     controller = PurePursuitController(lookahead_distance=LOOKAHEAD)
     loop = TrackingLoop(vehicle, controller, cruise_speed=CRUISE_SPEED)
 
-    logger.info("[4] Simulating up to %d steps (dt=%s s) \u2026", MAX_STEPS, DT)
+    logger.info(
+        "[4] Simulating up to %d steps (dt=%s s) \u2026", MAX_STEPS, DT
+    )
     step = 0
     while step < MAX_STEPS:
         loop.step(smooth_path, dt=DT)
