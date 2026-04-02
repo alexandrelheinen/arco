@@ -20,8 +20,6 @@ The project emphasizes clear architecture, testability, and documented algorithm
 - [D* notes](docs/planning_dstar.md)
 - [Roadmap](docs/ROADMAP.md)
 
-![Package diagram](docs/pyreverse/packages.png)
-
 ## Architecture
 
 A planner operates on a map object:
@@ -111,8 +109,7 @@ GitHub Actions workflows run for pull requests and can be configured as required
 Recommended required checks:
 
 - Tests / Run unit tests
-- A* Visualization Examples / astar-examples
-- Pyreverse / pyreverse
+- Generate Images / generate-images
 
 ## Contributing
 
