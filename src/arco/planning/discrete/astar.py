@@ -11,49 +11,71 @@ class AStarPlanner(DiscretePlanner):
     """
     A* path planner for general graphs (including grids).
     Accepts any Graph (e.g., Grid, Occupancy, custom Graph).
+
+    Tie-breaking: when multiple nodes share the same f-score the planner
+    uses the heuristic value h as a secondary key (prefer the node closer
+    to the goal) and a monotonically increasing insertion counter as a
+    tertiary key (FIFO among equal h).  This avoids lexicographic
+    comparison of node tuples, which caused systematic L-shaped paths on
+    symmetric grids.
+
+    Default heuristic: ``graph.heuristic`` if the graph exposes it,
+    otherwise ``graph.distance``.  Grid subclasses expose a Euclidean
+    ``heuristic`` which is admissible on both Manhattan and Euclidean
+    grids and guides A* toward diagonal/staircase paths instead of the
+    L-shape that arises when all f-scores are tied.
     """
 
-    heuristic: Callable[[Tuple[int, ...], Tuple[int, ...]], float]
+    heuristic: Callable[[Any, Any], float]
 
     def __init__(
         self,
         graph: Any,
-        heuristic: Optional[Callable[[Tuple[int, ...], Tuple[int, ...]], float]] = None,
+        heuristic: Optional[Callable[[Any, Any], float]] = None,
     ) -> None:
         super().__init__(graph)
-        self.heuristic = heuristic if heuristic is not None else graph.distance
+        if heuristic is not None:
+            self.heuristic = heuristic
+        elif hasattr(graph, "heuristic"):
+            self.heuristic = graph.heuristic
+        else:
+            self.heuristic = graph.distance
 
     def plan(
-        self, start: Tuple[int, ...], goal: Tuple[int, ...]
-    ) -> Optional[List[Tuple[int, ...]]]:
-        open_set: List[Tuple[float, Tuple[int, ...]]] = []
-        heapq.heappush(open_set, (0, start))
-        came_from: Dict[Tuple[int, ...], Tuple[int, ...]] = {}
-        g_score: Dict[Tuple[int, ...], float] = {start: 0}
-        f_score: Dict[Tuple[int, ...], float] = {start: self.heuristic(start, goal)}
+        self, start: Any, goal: Any
+    ) -> Optional[List[Any]]:
+        open_set: List[Tuple[float, float, int, Any]] = []
+        counter: int = 0
+        h_start = self.heuristic(start, goal)
+        f_start = 0.0 + h_start  # g(start)=0, so f=h
+        heapq.heappush(open_set, (f_start, h_start, counter, start))
+        came_from: Dict[Any, Any] = {}
+        g_score: Dict[Any, float] = {start: 0}
 
         while open_set:
-            _, current = heapq.heappop(open_set)
+            _, _, _, current = heapq.heappop(open_set)
             if current == goal:
                 return self._reconstruct_path(came_from, current)
             for neighbor in self.graph.neighbors(current):
                 # If the graph supports is_occupied, skip occupied nodes
-                if hasattr(self.graph, 'is_occupied') and self.graph.is_occupied(neighbor):
+                if hasattr(self.graph, "is_occupied") and self.graph.is_occupied(neighbor):
                     continue
                 tentative_g = g_score[current] + self.graph.distance(current, neighbor)
                 if neighbor not in g_score or tentative_g < g_score[neighbor]:
                     came_from[neighbor] = current
                     g_score[neighbor] = tentative_g
-                    f_score[neighbor] = tentative_g + self.heuristic(neighbor, goal)
-                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
+                    h = self.heuristic(neighbor, goal)
+                    f = tentative_g + h
+                    counter += 1
+                    heapq.heappush(open_set, (f, h, counter, neighbor))
         return None  # No path found
 
     def _reconstruct_path(
         self,
-        came_from: Dict[Tuple[int, ...], Tuple[int, ...]],
-        current: Tuple[int, ...],
-    ) -> List[Tuple[int, ...]]:
-        path: List[Tuple[int, ...]] = [current]
+        came_from: Dict[Any, Any],
+        current: Any,
+    ) -> List[Any]:
+        path: List[Any] = [current]
         while current in came_from:
             current = came_from[current]
             path.append(current)

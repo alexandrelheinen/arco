@@ -7,6 +7,7 @@ Implements the Graph interface so that planners can treat grids as graphs.
 
 from __future__ import annotations
 
+import math
 from abc import abstractmethod
 from typing import Iterator, Sequence, Tuple
 
@@ -79,15 +80,26 @@ class Grid(Graph):
         """
         pass
 
-        @abstractmethod
-        def squared_distance(self, a: Tuple[int, ...], b: Tuple[int, ...]) -> int:
-            """
-            Return the squared distance between two nodes (integer, for fast comparison).
+    def heuristic(self, a: Tuple[int, ...], b: Tuple[int, ...]) -> float:
+        """Admissible A* heuristic: Euclidean distance between two cells.
 
-            Args:
-                a: First node index.
-                b: Second node index.
-            Returns:
-                Squared distance as integer (L1^2 or L2^2 depending on grid type).
-            """
-            pass
+        Euclidean distance is always <= the true path cost for standard
+        Manhattan (unit step cost 1) and Euclidean (unit step cost sqrt(2))
+        grids, so it is admissible for those subclasses.  Subclasses with
+        non-unit or non-uniform step costs should override this method with
+        a tighter admissible bound.
+
+        Using Euclidean distance instead of the grid's own ``distance``
+        method (e.g. Manhattan distance on ``ManhattanGrid``) breaks
+        f-score ties that otherwise cause A* to produce L-shaped paths on
+        symmetric grids: diagonal cells have strictly smaller Euclidean h
+        than off-diagonal cells with the same g-score.
+
+        Args:
+            a: First cell index.
+            b: Second cell index.
+
+        Returns:
+            Euclidean distance as float.
+        """
+        return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
