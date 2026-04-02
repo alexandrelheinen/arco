@@ -31,17 +31,17 @@ jobs:
       - name: Generate A* graph example image
         run: |
           mkdir -p /tmp/astar_images
-          MPLBACKEND=Agg python tools/astar_graph_example.py \
+          MPLBACKEND=Agg python tools/examples/astar_graph.py \
             --save /tmp/astar_images/astar_graph.png
 
       - name: Generate A* grid obstacle example (Euclidean grid)
         run: |
-          MPLBACKEND=Agg python tools/astar_grid_obstacle_example.py \
+          MPLBACKEND=Agg python tools/examples/astar_grid_obstacle.py \
             --save /tmp/astar_images/astar_grid_obstacle_euclidean.png
 
       - name: Generate A* grid obstacle example (Manhattan grid)
         run: |
-          MPLBACKEND=Agg python tools/astar_manhattan_example.py \
+          MPLBACKEND=Agg python tools/examples/astar_manhattan.py \
             --save /tmp/astar_images/astar_grid_obstacle_manhattan.png
 
       - name: Upload example images as artifacts
