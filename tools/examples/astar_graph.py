@@ -25,7 +25,7 @@ import sys
 
 # Make the package importable when running the script directly.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.dirname(__file__))  # expose tools/visualization
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))  # expose tools/viewer
 
 import matplotlib
 import matplotlib.pyplot as plt

@@ -29,11 +29,11 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.dirname(__file__))  # expose tools/visualization
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))  # expose tools/viewer
 
 import matplotlib
 import matplotlib.pyplot as plt
-from visualization.grid_viewer import draw_grid
+from viewer.grid import draw_grid
 
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
