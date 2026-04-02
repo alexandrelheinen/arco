@@ -10,6 +10,16 @@ The route planning system provides the following capabilities:
 3. **Path Planning**: Uses A* to compute optimal routes on the graph
 4. **Failure Modes**: Explicitly handles off-road positions and disconnected networks
 
+### Compatibility with RoadGraph
+
+The projection methods (`find_nearest_node()`, `project_to_nearest_edge()`, `heuristic()`) are implemented on `WeightedGraph` and automatically inherited by `RoadGraph`. This means:
+
+- **RouteRouter works seamlessly** with both `WeightedGraph` and `RoadGraph` instances
+- **RoadGraph adds geometry waypoints** for spline interpolation without affecting route planning
+- **Future path smoothing** (Phase 1.3) will leverage `RoadGraph.full_edge_geometry()` for continuous trajectories
+
+See `tests/planning/discrete/test_route_road_graph.py` for integration tests.
+
 ## Benchmark Scenarios
 
 All benchmark scenarios are implemented as automated tests in `tests/planning/discrete/test_route.py`.
