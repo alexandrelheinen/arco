@@ -21,7 +21,8 @@ dev = [
 ]
 tools = [
     "arco",
-    "matplotlib"
+    "matplotlib",
+    "pyyaml"
 ]
 
 [tool.black]

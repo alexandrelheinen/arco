@@ -27,22 +27,26 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..")
-)  # expose tools/viewer
+)  # expose tools/viewer and tools/config
 
 import matplotlib
 import matplotlib.pyplot as plt
+from config import load_config
 from viewer.graph import draw_graph
 
 from arco.mapping.graph import WeightedGraph
 from arco.planning.discrete.astar import AStarPlanner
 
 # ---------------------------------------------------------------------------
-# Parameters
+# Parameters (loaded from tools/config/)
 # ---------------------------------------------------------------------------
-SEED = 42
-NUM_NODES = 30
-AREA = 100.0  # nodes are placed in [0, AREA] x [0, AREA]
-CONNECT_RADIUS = 28.0  # nodes closer than this radius are connected
+_rng_cfg = load_config("random")
+SEED: int = int(_rng_cfg["seed"])
+
+_map_cfg = load_config("map")["graph"]
+NUM_NODES: int = int(_map_cfg["num_nodes"])
+AREA: float = float(_map_cfg["area"])
+CONNECT_RADIUS: float = float(_map_cfg["connect_radius"])
 
 
 def build_random_graph(

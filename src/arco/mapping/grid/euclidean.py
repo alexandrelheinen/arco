@@ -16,13 +16,23 @@ class EuclideanGrid(Grid):
     Includes diagonal neighbors and uses Euclidean distance.
     """
 
-    def __init__(self, shape: Sequence[int]) -> None:
+    def __init__(
+        self,
+        shape: Sequence[int] | None = None,
+        *,
+        size_m: Sequence[float] | None = None,
+        cell_size: float = 1.0,
+    ) -> None:
         """Initialize a EuclideanGrid.
 
         Args:
-            shape: The shape of the grid as a sequence of integers.
+            shape: Grid dimensions in cells.  Mutually exclusive with
+                *size_m*.
+            size_m: Physical size of the grid in metres for each axis.
+                Mutually exclusive with *shape*.  Requires *cell_size*.
+            cell_size: Physical size of one cell in metres (default 1.0).
         """
-        super().__init__(shape)
+        super().__init__(shape, size_m=size_m, cell_size=cell_size)
 
     def distance(self, a: Tuple[int, ...], b: Tuple[int, ...]) -> float:
         """Return L2 (Euclidean) distance between two nodes.
