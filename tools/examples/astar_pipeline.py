@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""Phase 1 pipeline: road network generation → route planning → path tracking.
+"""A* pipeline: road network generation → route planning → path tracking.
 
-Demonstrates the complete Phase 1 horse auto-follow pipeline:
+Demonstrates the complete A* horse auto-follow pipeline:
 
 1. **Road generation** — :class:`~arco.mapping.generator.RoadNetworkGenerator`
    builds a procedural medieval-city-style road network with organic radial
@@ -21,16 +21,15 @@ The output figure shows:
 - Smooth path extracted from edge waypoints
 - Actual vehicle trajectory
 - Cross-track error and speed over simulation time
-
 Usage
 -----
 Run interactively (opens a Matplotlib window)::
 
-    python tools/examples/phase1_pipeline.py
+    python tools/examples/astar_pipeline.py
 
 Save to file without opening a window (headless / CI mode)::
 
-    python tools/examples/phase1_pipeline.py --save path/to/output.png
+    python tools/examples/astar_pipeline.py --save path/to/output.png
 
 Reference
 ---------
@@ -69,33 +68,9 @@ logger = logging.getLogger(__name__)
 # Simulation parameters (loaded from tools/config/)
 # ---------------------------------------------------------------------------
 _rng_cfg = load_config("random")
-SEED: int = int(_rng_cfg["seed"])
-
 _map_cfg = load_config("map")["medieval_city"]
-CITY_CENTER: tuple[float, float] = (
-    float(_map_cfg["center"][0]),
-    float(_map_cfg["center"][1]),
-)
-NUM_RADIALS: int = int(_map_cfg["num_radials"])
-RING_RADII: list[float] = [float(r) for r in _map_cfg["ring_radii"]]
-WAYPOINTS_PER_EDGE: int = int(_map_cfg["waypoints_per_edge"])
-CURVATURE: float = float(_map_cfg["curvature"])
-JITTER: float = float(_map_cfg["jitter"])
-
-ACTIVATION_RADIUS = 30.0
-
-CRUISE_SPEED = 3.0  # m/s
-LOOKAHEAD = 12.0  # m
-MAX_SPEED = 5.0  # m/s
-MAX_TURN_RATE = 1.5  # rad/s
-MAX_ACCEL = 4.0  # m/s²
-MAX_TURN_RATE_DOT = 4.0  # rad/s²
-
-DT = 0.1  # s
-MAX_STEPS = 3000
-GOAL_RADIUS = (
-    10.0  # m — stop when vehicle reaches within this distance of goal
-)
+_sim_cfg = load_config("simulation")
+_veh_cfg = load_config("vehicle")["dubins"]
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +187,7 @@ def find_farthest_outer_pair(
 
 
 def main(save_path: str | None = None) -> None:
-    """Run the Phase 1 pipeline and render results.
+    """Run the A* pipeline and render results.
 
     Args:
         save_path: File path for saving the figure.  When *None* the figure
@@ -225,17 +200,17 @@ def main(save_path: str | None = None) -> None:
     # 1. Generate road network
     # ------------------------------------------------------------------
     logger.info("=" * 60)
-    logger.info("Phase 1 Pipeline \u2014 Horse Auto-Follow System")
+    logger.info("A* Pipeline \u2014 Horse Auto-Follow System")
     logger.info("=" * 60)
 
-    generator = RoadNetworkGenerator(seed=SEED)
+    generator = RoadNetworkGenerator(seed=_rng_cfg["seed"])
     graph = generator.generate_medieval_network(
-        center=CITY_CENTER,
-        num_radials=NUM_RADIALS,
-        ring_radii=RING_RADII,
-        waypoints_per_edge=WAYPOINTS_PER_EDGE,
-        curvature=CURVATURE,
-        jitter=JITTER,
+        center=_map_cfg["center"][:2],
+        num_radials=int(_map_cfg["num_radials"]),
+        ring_radii=_map_cfg["ring_radii"],
+        waypoints_per_edge=int(_map_cfg["waypoints_per_edge"]),
+        curvature=float(_map_cfg["curvature"]),
+        jitter=float(_map_cfg["jitter"]),
     )
     logger.info(
         "[1] Medieval city network: %d nodes, %d edges",
@@ -249,8 +224,8 @@ def main(save_path: str | None = None) -> None:
     # Identify outer nodes by distance: nodes farther than 70% of the outer
     # ring radius are on the outer ring or are dead-end alleys — both are
     # valid route endpoints that span the full city.
-    cx, cy = CITY_CENTER
-    outer_threshold = RING_RADII[-1] * 0.70
+    cx, cy = _map_cfg["center"][:2]
+    outer_threshold = _map_cfg["ring_radii"][-1] * 0.70
     outer_nodes = [
         nid
         for nid in graph.nodes
@@ -263,7 +238,10 @@ def main(save_path: str | None = None) -> None:
     start_xy = np.array([start_pos[0] + 4.0, start_pos[1] + 4.0])
     goal_xy = np.array([goal_pos[0] - 4.0, goal_pos[1] - 4.0])
 
-    router = RouteRouter(graph, activation_radius=ACTIVATION_RADIUS)
+    router = RouteRouter(
+        graph,
+        activation_radius=float(_sim_cfg.get("activation_radius", 30.0)),
+    )
     result = router.plan(start_xy, goal_xy)
 
     if result is None:
@@ -296,24 +274,32 @@ def main(save_path: str | None = None) -> None:
         x=x0,
         y=y0,
         heading=theta0,
-        max_speed=MAX_SPEED,
+        max_speed=float(_veh_cfg["max_speed"]),
         min_speed=0.0,
-        max_turn_rate=MAX_TURN_RATE,
-        max_acceleration=MAX_ACCEL,
-        max_turn_rate_dot=MAX_TURN_RATE_DOT,
+        max_turn_rate=math.radians(float(_veh_cfg["max_turn_rate"])),
+        max_acceleration=float(_veh_cfg["max_accel"]),
+        max_turn_rate_dot=math.radians(float(_veh_cfg["max_turn_rate_dot"])),
     )
-    controller = PurePursuitController(lookahead_distance=LOOKAHEAD)
-    loop = TrackingLoop(vehicle, controller, cruise_speed=CRUISE_SPEED)
+    controller = PurePursuitController(
+        lookahead_distance=float(_veh_cfg["lookahead"])
+    )
+    loop = TrackingLoop(
+        vehicle,
+        controller,
+        cruise_speed=float(_veh_cfg["cruise_speed"]),
+    )
 
     logger.info(
-        "[4] Simulating up to %d steps (dt=%s s) \u2026", MAX_STEPS, DT
+        "[4] Simulating up to %d steps (dt=%s s) \u2026",
+        int(_sim_cfg["max_steps"]),
+        float(_sim_cfg["timestep"]),
     )
     step = 0
-    while step < MAX_STEPS:
-        loop.step(smooth_path, dt=DT)
+    while step < int(_sim_cfg["max_steps"]):
+        loop.step(smooth_path, dt=float(_sim_cfg["timestep"]))
         step += 1
         dist_to_goal = math.hypot(vehicle.x - goal_x, vehicle.y - goal_y)
-        if dist_to_goal < GOAL_RADIUS:
+        if dist_to_goal < float(_veh_cfg["goal_radius"]):
             break
 
     history = loop.history
@@ -330,13 +316,16 @@ def main(save_path: str | None = None) -> None:
     # Final lookahead target (for display)
     last_pose = vehicle.pose
     tracking_target = find_lookahead(
-        last_pose[0], last_pose[1], smooth_path, LOOKAHEAD
+        last_pose[0],
+        last_pose[1],
+        smooth_path,
+        float(_veh_cfg["lookahead"]),
     )
 
     # ------------------------------------------------------------------
     # 5. Visualisation
     # ------------------------------------------------------------------
-    times = [i * DT for i in range(len(history))]
+    times = [i * float(_sim_cfg["timestep"]) for i in range(len(history))]
 
     fig = plt.figure(figsize=(14, 8))
     gs = fig.add_gridspec(2, 2, width_ratios=[1.6, 1], hspace=0.35, wspace=0.3)
@@ -354,7 +343,7 @@ def main(save_path: str | None = None) -> None:
         tracking_target=tracking_target,
         ax=ax_map,
         title=(
-            f"Phase 1 Pipeline — Medieval city network\n"
+            f"A* Pipeline — Medieval city network\n"
             f"Route: {result.path[0]} → {result.path[-1]}, "
             f"steps: {step}"
         ),
@@ -371,11 +360,11 @@ def main(save_path: str | None = None) -> None:
     # Speed
     ax_spd.plot(times, speeds, color="teal", linewidth=1.2)
     ax_spd.axhline(
-        CRUISE_SPEED,
+        float(_veh_cfg["cruise_speed"]),
         color="gray",
         linewidth=0.8,
         linestyle="--",
-        label=f"Cruise {CRUISE_SPEED} m/s",
+        label=f"Cruise {float(_veh_cfg['cruise_speed'])} m/s",
     )
     ax_spd.set_xlabel("Time (s)")
     ax_spd.set_ylabel("Speed (m/s)")
