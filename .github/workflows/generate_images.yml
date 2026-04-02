@@ -57,13 +57,13 @@ jobs:
         run: |
           pyreverse --verbose -f PUB_ONLY --colorized -o png -k -m y --no-standalone \
             -p classes ./src/arco/
-          mv classes.png /tmp/generated_images/pyreverse_classes.png
+          mv classes_classes.png /tmp/generated_images/pyreverse_classes.png
 
       - name: Generate pyreverse package diagram
         run: |
           pyreverse --verbose -f PUB_ONLY --colorized -o png -k -m y --no-standalone \
             -p packages ./src/arco/
-          mv packages.png /tmp/generated_images/pyreverse_packages.png
+          mv packages_packages.png /tmp/generated_images/pyreverse_packages.png
 
       # Upload all images as a single artifact
       - name: Upload generated images
