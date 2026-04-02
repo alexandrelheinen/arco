@@ -35,7 +35,7 @@ import matplotlib.pyplot as plt
 from logging_config import configure_logging
 from viewer.graph import draw_graph
 
-from arco.mapping.graph import WeightedGraph
+from arco.mapping.graph import CartesianGraph
 from arco.planning.discrete.astar import AStarPlanner
 from config import load_config
 
@@ -58,7 +58,7 @@ def build_random_graph(
     area: float = AREA,
     connect_radius: float = CONNECT_RADIUS,
     seed: int = SEED,
-) -> WeightedGraph:
+) -> CartesianGraph:
     """Build a random planar graph with nodes connected by proximity.
 
     Args:
@@ -68,11 +68,11 @@ def build_random_graph(
         seed: Random seed for reproducibility.
 
     Returns:
-        A :class:`~arco.mapping.graph.WeightedGraph` with at least one
+        A :class:`~arco.mapping.graph.CartesianGraph` with at least one
         connected component containing the two extreme nodes.
     """
     rng = random.Random(seed)
-    graph = WeightedGraph()
+    graph = CartesianGraph()
 
     for i in range(num_nodes):
         x = rng.uniform(0.0, area)
@@ -90,7 +90,7 @@ def build_random_graph(
     return graph
 
 
-def find_farthest_pair(graph: WeightedGraph):
+def find_farthest_pair(graph: CartesianGraph):
     """Return the pair of node IDs that are farthest apart (Euclidean)."""
     nodes = graph.nodes
     best_dist = -1.0

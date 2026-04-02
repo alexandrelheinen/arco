@@ -1,16 +1,18 @@
-"""RoadGraph: weighted graph with per-edge geometry metadata for road networks."""
+"""RoadGraph: Cartesian graph with per-edge geometry metadata for road networks."""
 
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-from .weighted import WeightedGraph
+import numpy as np
+
+from .cartesian import CartesianGraph
 
 
-class RoadGraph(WeightedGraph):
-    """Weighted graph extended with per-edge geometry metadata.
+class RoadGraph(CartesianGraph):
+    """Cartesian graph extended with per-edge geometry metadata.
 
-    In addition to the standard WeightedGraph functionality, this class stores
+    In addition to the standard CartesianGraph functionality, this class stores
     sequential waypoints along each edge. These waypoints can be used for
     spline interpolation, path smoothing, or trajectory generation.
 
@@ -80,22 +82,16 @@ class RoadGraph(WeightedGraph):
             node_b: ID of the second node.
 
         Returns:
-            List of (x, y) points starting at node_a, including all intermediate
-            waypoints, and ending at node_b.
+            List of ``(x, y)`` points starting at node_a, including all
+            intermediate waypoints, and ending at node_b.
         """
         waypoints = self.edge_geometry(node_a, node_b)
         edge_key = (min(node_a, node_b), max(node_a, node_b))
 
-        # Determine traversal direction
+        pos_a: Tuple[float, float] = tuple(self.position(node_a))  # type: ignore[assignment]
+        pos_b: Tuple[float, float] = tuple(self.position(node_b))  # type: ignore[assignment]
+
         if node_a == edge_key[0]:
-            # Forward direction: a -> waypoints -> b
-            return (
-                [self.position(node_a)] + waypoints + [self.position(node_b)]
-            )
+            return [pos_a] + waypoints + [pos_b]
         else:
-            # Reverse direction: a -> reverse(waypoints) -> b
-            return (
-                [self.position(node_a)]
-                + waypoints[::-1]
-                + [self.position(node_b)]
-            )
+            return [pos_a] + waypoints[::-1] + [pos_b]

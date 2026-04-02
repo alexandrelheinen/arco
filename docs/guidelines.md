@@ -110,3 +110,38 @@ Tunable algorithm parameters belong in `.yml` files under `config/`. The YAML st
   - Sampling-based planners (`RRTPlanner`, `SSTPlanner`) require an `Occupancy` subclass.
 - The **guidance** layer is applied after planning; it handles interpolation (B-splines) and exploration primitives (Dubins, Reeds-Shepp) for RRT-family algorithms.
 - The `AStarPlanner` uses `graph.heuristic` (Euclidean distance) as the default heuristic, not `graph.distance` (Manhattan). This prevents L-shaped paths on symmetric Manhattan grids.
+
+---
+
+## 9. Spatial Graph Hierarchy
+
+ARCO separates generic graph topology from spatial geometry through a three-level hierarchy:
+
+```
+Graph                  — pure topology (nodes + edges, no weights)
+  └─ WeightedGraph     — adds numeric edge weights; no positional data
+       └─ CartesianGraph — adds N-dimensional Cartesian node positions
+            └─ RoadGraph — adds per-edge geometry waypoints
+```
+
+- **`WeightedGraph`** is fully generic: `add_node(id)`, `add_edge(a, b, weight)`.
+  It has no concept of position, distance between nodes, or spatial queries.
+- **`CartesianGraph`** extends `WeightedGraph` with N-dimensional positions stored as
+  `numpy.ndarray`. Node positions are added via `add_node(id, *coords)`.
+  Edge weights default to the Euclidean distance between endpoint positions.
+  Provides `heuristic()`, `find_nearest_node()`, and `project_to_nearest_edge()`.
+- **`Grid`** subclasses expose a `position(cell_idx)` method that computes the
+  Cartesian position of a cell from its index and `cell_size`. The heuristic uses this
+  method, so it correctly accounts for non-unit cell sizes.
+
+### N-dimensional design rules
+
+- All node positions in `CartesianGraph` and `Grid` are `numpy.ndarray` objects.
+- `find_nearest_node(position: np.ndarray)` and
+  `project_to_nearest_edge(position: np.ndarray)` accept position arrays
+  of any dimension N.
+- `RouteRouter.plan(start_position: np.ndarray, goal_position: np.ndarray)`
+  accepts position arrays of any dimension N.
+- `RouteResult.start_projection` and `goal_projection` are `numpy.ndarray`.
+- Planners or methods that only support a specific dimension should raise
+  `ValueError` if given a graph or position of the wrong dimension.

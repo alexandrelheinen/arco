@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
 
-from arco.mapping.graph import WeightedGraph
+from arco.mapping.graph import CartesianGraph
 from arco.planning.discrete import RouteRouter
 
 
-def _grid_graph() -> WeightedGraph:
-    """Return a simple 3×3 grid graph for testing.
+def _grid_graph() -> CartesianGraph:
+    """Return a simple 3x3 grid graph for testing.
 
     Layout:
         0 - 1 - 2
@@ -22,7 +23,7 @@ def _grid_graph() -> WeightedGraph:
 
     Each node is 10 units apart.
     """
-    g = WeightedGraph()
+    g = CartesianGraph()
     for i in range(3):
         for j in range(3):
             node_id = i * 3 + j
@@ -52,7 +53,7 @@ class TestRouteRouterBasic:
         """Route from one node to another when query positions are exact."""
         g = _grid_graph()
         router = RouteRouter(g)
-        result = router.plan(0.0, 0.0, 20.0, 20.0)
+        result = router.plan(np.array([0.0, 0.0]), np.array([20.0, 20.0]))
 
         assert result is not None
         assert result.start_node == 0
@@ -66,8 +67,7 @@ class TestRouteRouterBasic:
         """Route from positions near nodes."""
         g = _grid_graph()
         router = RouteRouter(g)
-        # Start near node 0, goal near node 8
-        result = router.plan(0.5, 0.5, 19.5, 19.5)
+        result = router.plan(np.array([0.5, 0.5]), np.array([19.5, 19.5]))
 
         assert result is not None
         assert result.start_node == 0
@@ -83,32 +83,29 @@ class TestRouteRouterBasic:
         """Route from a position to itself."""
         g = _grid_graph()
         router = RouteRouter(g)
-        result = router.plan(10.0, 10.0, 10.1, 10.1)
+        result = router.plan(np.array([10.0, 10.0]), np.array([10.1, 10.1]))
 
         assert result is not None
         assert result.start_node == result.goal_node == 4
-        # Path should be single node
         assert result.path == [4]
 
     def test_plan_disconnected_graph(self):
         """Route fails on disconnected graph."""
-        g = WeightedGraph()
+        g = CartesianGraph()
         g.add_node(0, 0.0, 0.0)
         g.add_node(1, 100.0, 100.0)
-        # No edges – disconnected
 
         router = RouteRouter(g)
-        result = router.plan(0.0, 0.0, 100.0, 100.0)
+        result = router.plan(np.array([0.0, 0.0]), np.array([100.0, 100.0]))
         assert result is None
 
     def test_plan_path_length(self):
         """Route path length is reasonable."""
         g = _grid_graph()
         router = RouteRouter(g)
-        result = router.plan(0.0, 0.0, 20.0, 0.0)
+        result = router.plan(np.array([0.0, 0.0]), np.array([20.0, 0.0]))
 
         assert result is not None
-        # Path from node 0 to node 2 should be [0, 1, 2]
         assert len(result.path) == 3
         assert result.path == [0, 1, 2]
 
@@ -120,24 +117,21 @@ class TestRouteRouterActivationRadius:
         """Route fails when start is outside activation radius."""
         g = _grid_graph()
         router = RouteRouter(g, activation_radius=5.0)
-        # Start at (50, 50) – far from all nodes
-        result = router.plan(50.0, 50.0, 10.0, 10.0)
+        result = router.plan(np.array([50.0, 50.0]), np.array([10.0, 10.0]))
         assert result is None
 
     def test_goal_outside_radius_fails(self):
         """Route fails when goal is outside activation radius."""
         g = _grid_graph()
         router = RouteRouter(g, activation_radius=5.0)
-        # Goal at (50, 50) – far from all nodes
-        result = router.plan(10.0, 10.0, 50.0, 50.0)
+        result = router.plan(np.array([10.0, 10.0]), np.array([50.0, 50.0]))
         assert result is None
 
     def test_both_within_radius_succeeds(self):
         """Route succeeds when both start and goal are within radius."""
         g = _grid_graph()
         router = RouteRouter(g, activation_radius=5.0)
-        # Both positions within 5 units of nearest nodes
-        result = router.plan(2.0, 2.0, 18.0, 18.0)
+        result = router.plan(np.array([2.0, 2.0]), np.array([18.0, 18.0]))
         assert result is not None
         assert result.start_node == 0
         assert result.goal_node == 8
@@ -146,10 +140,10 @@ class TestRouteRouterActivationRadius:
         """Route succeeds at any distance when radius is None."""
         g = _grid_graph()
         router = RouteRouter(g, activation_radius=None)
-        # Very far positions should still work
-        result = router.plan(-100.0, -100.0, 100.0, 100.0)
+        result = router.plan(
+            np.array([-100.0, -100.0]), np.array([100.0, 100.0])
+        )
         assert result is not None
-        # Should snap to corner nodes
         assert result.start_node == 0
         assert result.goal_node == 8
 
@@ -161,31 +155,27 @@ class TestRouteRouterProjection:
         """Result includes projection coordinates."""
         g = _grid_graph()
         router = RouteRouter(g)
-        result = router.plan(5.0, 5.0, 15.0, 15.0)
+        result = router.plan(np.array([5.0, 5.0]), np.array([15.0, 15.0]))
 
         assert result is not None
-        # Start at (5, 5) is closest to node 4 at (10, 10), but (0,0) is also close
-        # Let's check it projects to the nearest node
         start_node_pos = g.position(result.start_node)
-        assert result.start_projection == start_node_pos
+        assert np.allclose(result.start_projection, start_node_pos)
 
         goal_node_pos = g.position(result.goal_node)
-        assert result.goal_projection == goal_node_pos
+        assert np.allclose(result.goal_projection, goal_node_pos)
 
     def test_projection_distances(self):
         """Result includes projection distances."""
         g = _grid_graph()
         router = RouteRouter(g)
-        result = router.plan(1.0, 2.0, 19.0, 18.0)
+        result = router.plan(np.array([1.0, 2.0]), np.array([19.0, 18.0]))
 
         assert result is not None
-        # Start at (1, 2) projects to node 0 at (0, 0)
         expected_start_dist = math.hypot(1.0, 2.0)
         assert math.isclose(
             result.start_distance, expected_start_dist, abs_tol=1e-6
         )
 
-        # Goal at (19, 18) projects to node 8 at (20, 20)
         expected_goal_dist = math.hypot(1.0, 2.0)
         assert math.isclose(
             result.goal_distance, expected_goal_dist, abs_tol=1e-6
@@ -197,17 +187,17 @@ class TestRouteRouterEdgeCases:
 
     def test_empty_graph(self):
         """Route fails on empty graph."""
-        g = WeightedGraph()
+        g = CartesianGraph()
         router = RouteRouter(g)
-        result = router.plan(0.0, 0.0, 10.0, 10.0)
+        result = router.plan(np.array([0.0, 0.0]), np.array([10.0, 10.0]))
         assert result is None
 
     def test_single_node_graph(self):
         """Route succeeds on single-node graph if start and goal snap to it."""
-        g = WeightedGraph()
+        g = CartesianGraph()
         g.add_node(0, 5.0, 5.0)
         router = RouteRouter(g)
-        result = router.plan(4.0, 4.0, 6.0, 6.0)
+        result = router.plan(np.array([4.0, 4.0]), np.array([6.0, 6.0]))
 
         assert result is not None
         assert result.start_node == 0
@@ -216,13 +206,7 @@ class TestRouteRouterEdgeCases:
 
     def test_optimal_path_selection(self):
         """Route selects the optimal (shortest) path."""
-        g = WeightedGraph()
-        # Diamond graph with shortcut
-        #     1
-        #    / \
-        #   0   3
-        #    \ /
-        #     2
+        g = CartesianGraph()
         g.add_node(0, 0.0, 0.0)
         g.add_node(1, 1.0, 1.0)
         g.add_node(2, 1.0, -1.0)
@@ -234,10 +218,9 @@ class TestRouteRouterEdgeCases:
         g.add_edge(0, 3, weight=1.0)  # Direct shortcut
 
         router = RouteRouter(g)
-        result = router.plan(0.0, 0.0, 2.0, 0.0)
+        result = router.plan(np.array([0.0, 0.0]), np.array([2.0, 0.0]))
 
         assert result is not None
-        # Shortest path should be direct: [0, 3]
         assert result.path == [0, 3]
 
 
@@ -246,31 +229,24 @@ class TestRouteRouterDocumentedBenchmarks:
 
     def test_benchmark_straight_road(self):
         """Benchmark: Simple straight road navigation."""
-        g = WeightedGraph()
-        # Straight road: 10 nodes in a line
+        g = CartesianGraph()
         for i in range(10):
             g.add_node(i, float(i * 10), 0.0)
         for i in range(9):
             g.add_edge(i, i + 1)
 
         router = RouteRouter(g, activation_radius=15.0)
-        # Start between nodes, goal near end
-        result = router.plan(5.0, 2.0, 85.0, 2.0)
+        result = router.plan(np.array([5.0, 2.0]), np.array([85.0, 2.0]))
 
         assert result is not None
         assert result.start_node == 0 or result.start_node == 1
         assert result.goal_node == 8 or result.goal_node == 9
-        # Path should be sequential
         for i in range(len(result.path) - 1):
             assert abs(result.path[i + 1] - result.path[i]) == 1
 
     def test_benchmark_intersection(self):
         """Benchmark: T-intersection navigation."""
-        g = WeightedGraph()
-        # T-junction:
-        #     1
-        #     |
-        # 0 - 2 - 3
+        g = CartesianGraph()
         g.add_node(0, 0.0, 0.0)
         g.add_node(1, 10.0, 10.0)
         g.add_node(2, 10.0, 0.0)
@@ -280,27 +256,23 @@ class TestRouteRouterDocumentedBenchmarks:
         g.add_edge(2, 3)
 
         router = RouteRouter(g, activation_radius=5.0)
-        # Route from left to top
-        result = router.plan(1.0, 0.0, 10.0, 9.0)
+        result = router.plan(np.array([1.0, 0.0]), np.array([10.0, 9.0]))
 
         assert result is not None
         assert result.start_node == 0
         assert result.goal_node == 1
-        # Must pass through junction node 2
         assert 2 in result.path
 
     def test_benchmark_off_road_rejection(self):
         """Benchmark: Off-road position outside activation radius is rejected."""
         g = _grid_graph()
         router = RouteRouter(g, activation_radius=10.0)
-        # Position far off-road
-        result = router.plan(100.0, 100.0, 10.0, 10.0)
+        result = router.plan(np.array([100.0, 100.0]), np.array([10.0, 10.0]))
         assert result is None
 
     def test_benchmark_disconnected_network(self):
         """Benchmark: Disconnected road network fails gracefully."""
-        g = WeightedGraph()
-        # Two separate road segments
+        g = CartesianGraph()
         g.add_node(0, 0.0, 0.0)
         g.add_node(1, 10.0, 0.0)
         g.add_edge(0, 1)
@@ -310,22 +282,21 @@ class TestRouteRouterDocumentedBenchmarks:
         g.add_edge(2, 3)
 
         router = RouteRouter(g, activation_radius=20.0)
-        # Route from first segment to second segment
-        result = router.plan(5.0, 0.0, 105.0, 0.0)
-        assert result is None  # Should fail due to disconnection
+        result = router.plan(np.array([5.0, 0.0]), np.array([105.0, 0.0]))
+        assert result is None
 
     def test_benchmark_deterministic_projection(self):
         """Benchmark: Projection behavior is deterministic."""
         g = _grid_graph()
         router = RouteRouter(g, activation_radius=20.0)
 
-        # Run same query multiple times
         results = []
         for _ in range(5):
-            result = router.plan(12.0, 13.0, 18.0, 17.0)
+            result = router.plan(
+                np.array([12.0, 13.0]), np.array([18.0, 17.0])
+            )
             results.append(result)
 
-        # All results should be identical
         assert all(r is not None for r in results)
         paths = [tuple(r.path) for r in results]
-        assert len(set(paths)) == 1  # All paths identical
+        assert len(set(paths)) == 1

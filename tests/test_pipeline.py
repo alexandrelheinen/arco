@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 import time
 
+import numpy as np
 import pytest
 
 from arco.guidance.pure_pursuit import PurePursuitController
@@ -62,7 +63,7 @@ def pipeline():
         curvature=CURVATURE,
     )
     router = RouteRouter(graph, activation_radius=ACTIVATION_RADIUS)
-    result = router.plan(*START_XY, *GOAL_XY)
+    result = router.plan(np.array(START_XY), np.array(GOAL_XY))
     return {
         "graph": graph,
         "result": result,
@@ -194,8 +195,8 @@ def test_smooth_path_starts_and_ends_at_route_nodes(pipeline) -> None:
     result = pipeline["result"]
     assert result is not None
     smooth = _build_smooth_path(graph, result.path)
-    assert smooth[0] == graph.position(result.path[0])
-    assert smooth[-1] == graph.position(result.path[-1])
+    assert np.array_equal(smooth[0], graph.position(result.path[0]))
+    assert np.array_equal(smooth[-1], graph.position(result.path[-1]))
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +221,7 @@ def test_simulation_runs_in_finite_wall_time() -> None:
         curvature=0.2,
     )
     router = RouteRouter(graph, activation_radius=35.0)
-    result = router.plan(5.0, 5.0, 95.0, 95.0)
+    result = router.plan(np.array([5.0, 5.0]), np.array([95.0, 95.0]))
     assert result is not None
 
     smooth = _build_smooth_path(graph, result.path)

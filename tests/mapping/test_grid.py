@@ -108,3 +108,45 @@ def test_grid_invalid_negative_cell_size():
     """Non-positive cell_size raises ValueError."""
     with pytest.raises(ValueError, match="positive"):
         Grid(size_m=[10.0, 10.0], cell_size=-1.0)
+
+
+# ---------------------------------------------------------------------------
+# Grid.position() method
+# ---------------------------------------------------------------------------
+
+
+def test_grid_position_2d():
+    """position() converts cell index to Cartesian coordinates."""
+    grid = ManhattanGrid((5, 5), cell_size=2.0)
+    pos = grid.position((1, 3))
+    assert np.allclose(pos, [2.0, 6.0])
+
+
+def test_grid_position_unit_cell_size():
+    """position() with cell_size=1.0 should equal index as floats."""
+    grid = EuclideanGrid((4, 4))
+    pos = grid.position((2, 3))
+    assert np.allclose(pos, [2.0, 3.0])
+
+
+def test_grid_position_3d():
+    """position() works for 3-D grids."""
+    grid = ManhattanGrid((3, 3, 3), cell_size=1.0)
+    pos = grid.position((1, 2, 0))
+    assert np.allclose(pos, [1.0, 2.0, 0.0])
+
+
+def test_grid_heuristic_respects_cell_size():
+    """heuristic() must account for cell_size in the distance calculation."""
+    # 2-D grid, cell_size=2.0 → positions scaled by 2
+    grid = ManhattanGrid((5, 5), cell_size=2.0)
+    # Cells (0,0) → (0,0), (2,3) → (4,6)
+    # Euclidean distance = sqrt(16 + 36) = sqrt(52)
+    expected = math.sqrt(52)
+    assert math.isclose(grid.heuristic((0, 0), (2, 3)), expected)
+
+
+def test_grid_heuristic_unit_cell_equals_euclidean():
+    """With cell_size=1.0, heuristic equals plain Euclidean index distance."""
+    grid = EuclideanGrid((5, 5))
+    assert math.isclose(grid.heuristic((0, 0), (3, 4)), 5.0)
