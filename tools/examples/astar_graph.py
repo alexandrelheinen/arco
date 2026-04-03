@@ -49,7 +49,7 @@ _map_cfg = load_config("map")["graph"]
 
 
 def build_random_graph(
-    num_nodes: int = int(_map_cfg["num_nodes"]),
+    node_count: int = int(_map_cfg["node_count"]),
     area: float = float(_map_cfg["area"]),
     connect_radius: float = float(_map_cfg["connect_radius"]),
     seed: int = int(_rng_cfg["seed"]),
@@ -57,7 +57,7 @@ def build_random_graph(
     """Build a random planar graph with nodes connected by proximity.
 
     Args:
-        num_nodes: Number of nodes to generate.
+        node_count: Number of nodes to generate.
         area: Side length of the square placement area.
         connect_radius: Maximum distance for connecting two nodes.
         seed: Random seed for reproducibility.
@@ -69,14 +69,14 @@ def build_random_graph(
     rng = random.Random(seed)
     graph = CartesianGraph()
 
-    for i in range(num_nodes):
+    for i in range(node_count):
         x = rng.uniform(0.0, area)
         y = rng.uniform(0.0, area)
         graph.add_node(i, x, y)
 
     # Connect nearby nodes.
-    for i in range(num_nodes):
-        for j in range(i + 1, num_nodes):
+    for i in range(node_count):
+        for j in range(i + 1, node_count):
             xi, yi = graph.position(i)
             xj, yj = graph.position(j)
             if math.hypot(xi - xj, yi - yj) <= connect_radius:
@@ -112,7 +112,7 @@ def main(save_path: str | None = None) -> None:
     path = planner.plan(start, goal)
 
     title = (
-        f"A* on random graph — {int(_map_cfg['num_nodes'])} nodes, r={float(_map_cfg['connect_radius']):.0f}\n"
+        f"A* on random graph — {int(_map_cfg['node_count'])} nodes, r={float(_map_cfg['connect_radius']):.0f}\n"
         f"Start: {start}  Goal: {goal}  "
         + (f"Path length: {len(path)}" if path else "No path found")
     )

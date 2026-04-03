@@ -28,11 +28,11 @@ class Grid(Graph):
 
     1. **Cell-based** (legacy): pass *shape* as a sequence of integers.
        ``cell_size`` defaults to 1.0 m.
-    2. **Metric**: pass *size_m* (physical dimensions in metres) and
+    2. **Metric**: pass *physical_size* (physical dimensions in metres) and
        *cell_size* (metres per cell).  The number of cells along each
-       axis is ``ceil(size_m[i] / cell_size)``, which is then rounded
+       axis is ``ceil(physical_size[i] / cell_size)``, which is then rounded
        up to the nearest integer satisfying any subclass constraints.
-       If the requested *size_m* is not an exact multiple of
+       If the requested *physical_size* is not an exact multiple of
        *cell_size*, the actual physical extent is extended to the next
        multiple of *cell_size* and logged as an approximation.
 
@@ -40,53 +40,55 @@ class Grid(Graph):
         shape: Grid dimensions in cells (rows, cols, …).
         data: Occupancy array (0 = free, 1 = occupied).
         cell_size: Physical size of one cell (metres).
-        size_m: Actual physical extent of the grid in metres per axis.
+        physical_size: Actual physical extent of the grid in metres per axis.
     """
 
     shape: Tuple[int, ...]
     data: np.ndarray
     cell_size: float
-    size_m: Tuple[float, ...]
+    physical_size: Tuple[float, ...]
 
     def __init__(
         self,
         shape: Sequence[int] | None = None,
         *,
-        size_m: Sequence[float] | None = None,
+        physical_size: Sequence[float] | None = None,
         cell_size: float = 1.0,
     ) -> None:
         """Initialize a grid either by cell shape or by physical dimensions.
 
-        Exactly one of *shape* or *size_m* must be provided.
+        Exactly one of *shape* or *physical_size* must be provided.
 
         Args:
             shape: Grid dimensions in cells.  Mutually exclusive with
-                *size_m*.
-            size_m: Physical size of the grid in metres for each axis.
+                *physical_size*.
+            physical_size: Physical size of the grid in metres for each axis.
                 Mutually exclusive with *shape*.  Requires *cell_size*.
             cell_size: Physical size of one cell in metres (default 1.0).
-                Used only when *size_m* is given; ignored otherwise.
+                Used only when *physical_size* is given; ignored otherwise.
 
         Raises:
-            ValueError: If neither or both of *shape* and *size_m* are
+            ValueError: If neither or both of *shape* and *physical_size* are
                 given, or if *cell_size* is not positive.
         """
         super().__init__()
 
-        if shape is None and size_m is None:
+        if shape is None and physical_size is None:
             raise ValueError(
-                "Provide either 'shape' (cells) or 'size_m' (metres)."
+                "Provide either 'shape' (cells) or 'physical_size' (metres)."
             )
-        if shape is not None and size_m is not None:
-            raise ValueError("Provide either 'shape' or 'size_m', not both.")
+        if shape is not None and physical_size is not None:
+            raise ValueError(
+                "Provide either 'shape' or 'physical_size', not both."
+            )
         if cell_size <= 0:
             raise ValueError(f"cell_size must be positive, got {cell_size!r}.")
 
-        if size_m is not None:
+        if physical_size is not None:
             # Metric construction: derive cell count from physical size.
             computed: list[int] = []
             actual: list[float] = []
-            for i, dim in enumerate(size_m):
+            for i, dim in enumerate(physical_size):
                 n_cells = math.ceil(dim / cell_size)
                 actual_dim = n_cells * cell_size
                 if not math.isclose(actual_dim, dim, rel_tol=1e-6):
@@ -103,12 +105,12 @@ class Grid(Graph):
                 actual.append(actual_dim)
             self.shape = tuple(computed)
             self.cell_size = float(cell_size)
-            self.size_m = tuple(actual)
+            self.physical_size = tuple(actual)
         else:
             # Cell-based construction (legacy path).
             self.shape = tuple(shape)  # type: ignore[arg-type]
             self.cell_size = float(cell_size)
-            self.size_m = tuple(s * cell_size for s in self.shape)
+            self.physical_size = tuple(s * cell_size for s in self.shape)
 
         self.data = np.zeros(self.shape, dtype=np.uint8)
 

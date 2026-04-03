@@ -41,7 +41,7 @@ class RoadNetworkGenerator:
         self,
         grid_size: Tuple[int, int] = (3, 3),
         cell_size: float = 100.0,
-        waypoints_per_edge: int = 3,
+        waypoints_per_edge_count: int = 3,
         curvature: float = 0.2,
     ) -> RoadGraph:
         """Generate a grid-based road network with curved roads.
@@ -53,7 +53,7 @@ class RoadNetworkGenerator:
         Args:
             grid_size: Number of intersections in (rows, cols) format.
             cell_size: Distance between adjacent intersections.
-            waypoints_per_edge: Number of intermediate waypoints per road segment.
+            waypoints_per_edge_count: Number of intermediate waypoints per road segment.
             curvature: Maximum perpendicular deviation of waypoints from the
                 straight line between intersections (as fraction of edge length).
                 0.0 = straight roads, 1.0 = highly curved roads.
@@ -90,7 +90,7 @@ class RoadNetworkGenerator:
                 waypoints = self._generate_waypoints(
                     graph.position(nid),
                     graph.position(right_nid),
-                    waypoints_per_edge,
+                    waypoints_per_edge_count,
                     curvature,
                 )
                 graph.add_edge(nid, right_nid, waypoints=waypoints)
@@ -101,7 +101,7 @@ class RoadNetworkGenerator:
                 waypoints = self._generate_waypoints(
                     graph.position(nid),
                     graph.position(down_nid),
-                    waypoints_per_edge,
+                    waypoints_per_edge_count,
                     curvature,
                 )
                 graph.add_edge(nid, down_nid, waypoints=waypoints)
@@ -110,10 +110,10 @@ class RoadNetworkGenerator:
 
     def generate_random_network(
         self,
-        num_intersections: int = 20,
+        intersection_count: int = 20,
         area: float = 500.0,
         connect_radius: float = 150.0,
-        waypoints_per_edge: int = 3,
+        waypoints_per_edge_count: int = 3,
         curvature: float = 0.15,
     ) -> RoadGraph:
         """Generate a random road network with curved roads.
@@ -123,10 +123,10 @@ class RoadNetworkGenerator:
         road networks.
 
         Args:
-            num_intersections: Number of intersection nodes to generate.
+            intersection_count: Number of intersection nodes to generate.
             area: Side length of the square area for placing intersections.
             connect_radius: Maximum distance for connecting two intersections.
-            waypoints_per_edge: Number of intermediate waypoints per road segment.
+            waypoints_per_edge_count: Number of intermediate waypoints per road segment.
             curvature: Maximum perpendicular deviation of waypoints from the
                 straight line between intersections (as fraction of edge length).
 
@@ -135,22 +135,22 @@ class RoadNetworkGenerator:
             segments.
 
         Raises:
-            ValueError: If num_intersections is non-positive.
+            ValueError: If intersection_count is non-positive.
         """
-        if num_intersections <= 0:
+        if intersection_count <= 0:
             raise ValueError("Number of intersections must be positive")
 
         graph = RoadGraph()
 
         # Create randomly placed intersections
-        for i in range(num_intersections):
+        for i in range(intersection_count):
             x = self._rng.uniform(0.0, area)
             y = self._rng.uniform(0.0, area)
             graph.add_node(i, x, y)
 
         # Connect nearby intersections with curved roads
-        for i in range(num_intersections):
-            for j in range(i + 1, num_intersections):
+        for i in range(intersection_count):
+            for j in range(i + 1, intersection_count):
                 xi, yi = graph.position(i)
                 xj, yj = graph.position(j)
                 distance = math.hypot(xi - xj, yi - yj)
@@ -159,7 +159,7 @@ class RoadNetworkGenerator:
                     waypoints = self._generate_waypoints(
                         (xi, yi),
                         (xj, yj),
-                        waypoints_per_edge,
+                        waypoints_per_edge_count,
                         curvature,
                     )
                     graph.add_edge(i, j, waypoints=waypoints)
@@ -168,10 +168,10 @@ class RoadNetworkGenerator:
 
     def generate_medieval_network(
         self,
-        center: Tuple[float, float] = (200.0, 200.0),
-        num_radials: int = 7,
+        center_position: Tuple[float, float] = (200.0, 200.0),
+        radial_count: int = 7,
         ring_radii: Optional[List[float]] = None,
-        waypoints_per_edge: int = 4,
+        waypoints_per_edge_count: int = 4,
         curvature: float = 0.35,
         jitter: float = 0.25,
     ) -> RoadGraph:
@@ -191,12 +191,12 @@ class RoadNetworkGenerator:
         fully connected and path-planner-friendly.
 
         Args:
-            center: ``(x, y)`` coordinates of the city center / market plaza.
-            num_radials: Number of main streets radiating from the center.
+            center_position: ``(x, y)`` coordinates of the city center / market plaza.
+            radial_count: Number of main streets radiating from the center.
                 Must be at least 3.
             ring_radii: Distances from center for each ring road.  Defaults
                 to three organically spaced rings at 40 m, 90 m, and 150 m.
-            waypoints_per_edge: Number of intermediate waypoints per segment.
+            waypoints_per_edge_count: Number of intermediate waypoints per segment.
             curvature: Waypoint curvature factor (fraction of edge length).
                 Higher values produce more winding streets.
             jitter: Positional jitter applied to each node as a fraction of
@@ -207,9 +207,9 @@ class RoadNetworkGenerator:
             A RoadGraph with a medieval city layout.
 
         Raises:
-            ValueError: If ``num_radials`` is less than 3.
+            ValueError: If ``radial_count`` is less than 3.
         """
-        if num_radials < 3:
+        if radial_count < 3:
             raise ValueError(
                 "Need at least 3 radials for a meaningful city layout"
             )
@@ -217,7 +217,7 @@ class RoadNetworkGenerator:
         if ring_radii is None:
             ring_radii = [40.0, 90.0, 150.0]
 
-        cx, cy = center
+        cx, cy = center_position
         max_jitter = ring_radii[0] * jitter
         graph = RoadGraph()
         node_id = 0
@@ -244,7 +244,7 @@ class RoadNetworkGenerator:
             wp = self._generate_waypoints(
                 graph.position(a),
                 graph.position(b),
-                waypoints_per_edge,
+                waypoints_per_edge_count,
                 curvature * 0.4,
             )
             graph.add_edge(a, b, waypoints=wp)
@@ -252,9 +252,9 @@ class RoadNetworkGenerator:
         # ------------------------------------------------------------------
         # Radial streets: irregular angles spread around the full circle
         # ------------------------------------------------------------------
-        base_step = 2.0 * math.pi / num_radials
+        base_step = 2.0 * math.pi / radial_count
         radial_angles: List[float] = []
-        for i in range(num_radials):
+        for i in range(radial_count):
             base_angle = i * base_step
             angle_jitter = self._rng.uniform(
                 -base_step * 0.25, base_step * 0.25
@@ -263,7 +263,7 @@ class RoadNetworkGenerator:
         radial_angles.sort()
 
         # radial_ring_nodes[ri][ring_idx] = node_id at that intersection
-        radial_ring_nodes: List[List[int]] = [[] for _ in range(num_radials)]
+        radial_ring_nodes: List[List[int]] = [[] for _ in range(radial_count)]
 
         for ri, angle in enumerate(radial_angles):
             for ring_idx, radius in enumerate(ring_radii):
@@ -286,7 +286,7 @@ class RoadNetworkGenerator:
                     wp = self._generate_waypoints(
                         graph.position(nearest_plaza),
                         (x, y),
-                        waypoints_per_edge,
+                        waypoints_per_edge_count,
                         curvature,
                     )
                     graph.add_edge(nearest_plaza, node_id, waypoints=wp)
@@ -296,7 +296,7 @@ class RoadNetworkGenerator:
                     wp = self._generate_waypoints(
                         graph.position(prev_id),
                         (x, y),
-                        waypoints_per_edge,
+                        waypoints_per_edge_count,
                         curvature,
                     )
                     graph.add_edge(prev_id, node_id, waypoints=wp)
@@ -307,14 +307,14 @@ class RoadNetworkGenerator:
         # Ring roads: connect adjacent radials at each ring level
         # ------------------------------------------------------------------
         for ring_idx in range(len(ring_radii)):
-            for ri in range(num_radials):
-                next_ri = (ri + 1) % num_radials
+            for ri in range(radial_count):
+                next_ri = (ri + 1) % radial_count
                 a = radial_ring_nodes[ri][ring_idx]
                 b = radial_ring_nodes[next_ri][ring_idx]
                 wp = self._generate_waypoints(
                     graph.position(a),
                     graph.position(b),
-                    waypoints_per_edge,
+                    waypoints_per_edge_count,
                     curvature,
                 )
                 graph.add_edge(a, b, waypoints=wp)
@@ -323,11 +323,11 @@ class RoadNetworkGenerator:
         # Dead-end alleys: short branches from outer-ring nodes
         # ------------------------------------------------------------------
         outer_ring_nodes = [
-            radial_ring_nodes[ri][-1] for ri in range(num_radials)
+            radial_ring_nodes[ri][-1] for ri in range(radial_count)
         ]
-        num_alleys = max(2, num_radials // 2)
+        alley_count = max(2, radial_count // 2)
         alley_parents = self._rng.sample(
-            outer_ring_nodes, min(num_alleys, len(outer_ring_nodes))
+            outer_ring_nodes, min(alley_count, len(outer_ring_nodes))
         )
         alley_length = ring_radii[-1] * 0.3
 
@@ -343,7 +343,7 @@ class RoadNetworkGenerator:
             wp = self._generate_waypoints(
                 (px, py),
                 (end_x, end_y),
-                waypoints_per_edge,
+                waypoints_per_edge_count,
                 curvature * 0.6,
             )
             graph.add_edge(parent_id, node_id, waypoints=wp)
@@ -355,7 +355,7 @@ class RoadNetworkGenerator:
         self,
         start: Tuple[float, float],
         end: Tuple[float, float],
-        num_waypoints: int,
+        waypoint_count: int,
         curvature: float,
     ) -> List[Tuple[float, float]]:
         """Generate intermediate waypoints along an edge with controlled curvature.
@@ -363,7 +363,7 @@ class RoadNetworkGenerator:
         Args:
             start: (x, y) position of the start node.
             end: (x, y) position of the end node.
-            num_waypoints: Number of intermediate waypoints to generate.
+            waypoint_count: Number of intermediate waypoints to generate.
             curvature: Maximum perpendicular deviation from straight line
                 (as fraction of edge length).
 
@@ -371,7 +371,7 @@ class RoadNetworkGenerator:
             List of (x, y) waypoints between start and end (not including
             start and end themselves).
         """
-        if num_waypoints <= 0:
+        if waypoint_count <= 0:
             return []
 
         waypoints: List[Tuple[float, float]] = []
@@ -396,9 +396,9 @@ class RoadNetworkGenerator:
         # Maximum perpendicular deviation
         max_deviation = length * curvature
 
-        for i in range(1, num_waypoints + 1):
+        for i in range(1, waypoint_count + 1):
             # Position along the line (evenly spaced)
-            t = i / (num_waypoints + 1)
+            t = i / (waypoint_count + 1)
             base_x = sx + t * dx
             base_y = sy + t * dy
 

@@ -52,14 +52,14 @@ _cfg = load_config("grid")
 
 
 def build_grid_with_obstacle(
-    size_m: list[float] = [float(x) for x in _cfg["size_m"]],
+    physical_size: list[float] = [float(x) for x in _cfg["physical_size"]],
     cell_size: float = float(_cfg["cell_size"]),
     obstacle_fraction: float = float(_cfg["obstacle_fraction"]),
 ) -> ManhattanGrid:
     """Build a square Manhattan grid with a centred square obstacle.
 
     Args:
-        size_m: Physical dimensions of the grid in metres ``[rows, cols]``.
+        physical_size: Physical dimensions of the grid in metres ``[rows, cols]``.
         cell_size: Physical size of one cell in metres.  The grid is
             extended to the nearest multiple of *cell_size* when needed.
         obstacle_fraction: Obstacle side length as a fraction of the grid
@@ -69,7 +69,7 @@ def build_grid_with_obstacle(
         A :class:`~arco.mapping.grid.manhattan.ManhattanGrid` with the central
         obstacle cells marked as occupied.
     """
-    grid = ManhattanGrid(size_m=size_m, cell_size=cell_size)
+    grid = ManhattanGrid(physical_size=physical_size, cell_size=cell_size)
     grid_size = grid.shape[0]
     obs_size = int(grid_size * obstacle_fraction)
     margin = (grid_size - obs_size) // 2

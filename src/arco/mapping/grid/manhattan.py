@@ -20,19 +20,21 @@ class ManhattanGrid(Grid):
         self,
         shape: Sequence[int] | None = None,
         *,
-        size_m: Sequence[float] | None = None,
+        physical_size: Sequence[float] | None = None,
         cell_size: float = 1.0,
     ) -> None:
         """Initialize a ManhattanGrid.
 
         Args:
             shape: Grid dimensions in cells.  Mutually exclusive with
-                *size_m*.
-            size_m: Physical size of the grid in metres for each axis.
+                *physical_size*.
+            physical_size: Physical size of the grid in metres for each axis.
                 Mutually exclusive with *shape*.  Requires *cell_size*.
             cell_size: Physical size of one cell in metres (default 1.0).
         """
-        super().__init__(shape, size_m=size_m, cell_size=cell_size)
+        super().__init__(
+            shape, physical_size=physical_size, cell_size=cell_size
+        )
 
     def distance(self, a: Tuple[int, ...], b: Tuple[int, ...]) -> int:
         """Return L1 (Manhattan) distance between two nodes.

@@ -66,10 +66,10 @@ class TestGridNetworkGeneration:
         assert len(list(graph.neighbors(1))) == 3
 
     def test_grid_edge_geometry(self):
-        """Edges should have waypoints based on waypoints_per_edge parameter."""
+        """Edges should have waypoints based on waypoints_per_edge_count parameter."""
         gen = RoadNetworkGenerator(seed=42)
         graph = gen.generate_grid_network(
-            grid_size=(2, 2), waypoints_per_edge=5, curvature=0.1
+            grid_size=(2, 2), waypoints_per_edge_count=5, curvature=0.1
         )
 
         # Each edge should have 5 waypoints
@@ -81,7 +81,7 @@ class TestGridNetworkGeneration:
         """Grid with zero waypoints should have straight edges."""
         gen = RoadNetworkGenerator(seed=42)
         graph = gen.generate_grid_network(
-            grid_size=(2, 2), waypoints_per_edge=0, curvature=0.0
+            grid_size=(2, 2), waypoints_per_edge_count=0, curvature=0.0
         )
 
         # Each edge should have no waypoints
@@ -102,7 +102,7 @@ class TestRandomNetworkGeneration:
     def test_generate_random_network(self):
         gen = RoadNetworkGenerator(seed=42)
         graph = gen.generate_random_network(
-            num_intersections=10, area=200.0, connect_radius=80.0
+            intersection_count=10, area=200.0, connect_radius=80.0
         )
 
         # Should have exactly 10 nodes
@@ -118,7 +118,7 @@ class TestRandomNetworkGeneration:
         """Nodes within connect_radius should be connected."""
         gen = RoadNetworkGenerator(seed=42)
         graph = gen.generate_random_network(
-            num_intersections=15, area=300.0, connect_radius=100.0
+            intersection_count=15, area=300.0, connect_radius=100.0
         )
 
         # Graph should have at least some edges
@@ -128,7 +128,7 @@ class TestRandomNetworkGeneration:
         """Random network edges should have waypoints."""
         gen = RoadNetworkGenerator(seed=42)
         graph = gen.generate_random_network(
-            num_intersections=10, waypoints_per_edge=4, curvature=0.2
+            intersection_count=10, waypoints_per_edge_count=4, curvature=0.2
         )
 
         # At least some edges should exist
@@ -143,9 +143,9 @@ class TestRandomNetworkGeneration:
         """Random network generation should fail with invalid parameters."""
         gen = RoadNetworkGenerator(seed=42)
         with pytest.raises(ValueError):
-            gen.generate_random_network(num_intersections=0)
+            gen.generate_random_network(intersection_count=0)
         with pytest.raises(ValueError):
-            gen.generate_random_network(num_intersections=-5)
+            gen.generate_random_network(intersection_count=-5)
 
 
 class TestSeedReproducibility:
@@ -155,10 +155,10 @@ class TestSeedReproducibility:
         gen2 = RoadNetworkGenerator(seed=123)
 
         graph1 = gen1.generate_grid_network(
-            grid_size=(3, 3), waypoints_per_edge=3, curvature=0.3
+            grid_size=(3, 3), waypoints_per_edge_count=3, curvature=0.3
         )
         graph2 = gen2.generate_grid_network(
-            grid_size=(3, 3), waypoints_per_edge=3, curvature=0.3
+            grid_size=(3, 3), waypoints_per_edge_count=3, curvature=0.3
         )
 
         # Same node positions
@@ -182,17 +182,17 @@ class TestSeedReproducibility:
         gen2 = RoadNetworkGenerator(seed=456)
 
         graph1 = gen1.generate_random_network(
-            num_intersections=15,
+            intersection_count=15,
             area=250.0,
             connect_radius=90.0,
-            waypoints_per_edge=2,
+            waypoints_per_edge_count=2,
             curvature=0.15,
         )
         graph2 = gen2.generate_random_network(
-            num_intersections=15,
+            intersection_count=15,
             area=250.0,
             connect_radius=90.0,
-            waypoints_per_edge=2,
+            waypoints_per_edge_count=2,
             curvature=0.15,
         )
 
@@ -221,8 +221,8 @@ class TestSeedReproducibility:
         gen1 = RoadNetworkGenerator(seed=100)
         gen2 = RoadNetworkGenerator(seed=200)
 
-        graph1 = gen1.generate_random_network(num_intersections=10)
-        graph2 = gen2.generate_random_network(num_intersections=10)
+        graph1 = gen1.generate_random_network(intersection_count=10)
+        graph2 = gen2.generate_random_network(intersection_count=10)
 
         # At least some node positions should differ
         different_positions = False
@@ -240,7 +240,7 @@ class TestMedievalNetworkGeneration:
         """Medieval network should have plaza + radial + alley nodes."""
         gen = RoadNetworkGenerator(seed=42)
         graph = gen.generate_medieval_network(
-            num_radials=7,
+            radial_count=7,
             ring_radii=[40.0, 90.0, 150.0],
         )
         # 4 plaza + 7*3 ring = 25, plus up to 7//2 = 3 alleys → 25..28 nodes
@@ -255,7 +255,7 @@ class TestMedievalNetworkGeneration:
     def test_generate_medieval_network_all_edges_have_waypoints(self):
         """Every edge must have at least one geometry waypoint."""
         gen = RoadNetworkGenerator(seed=42)
-        graph = gen.generate_medieval_network(waypoints_per_edge=3)
+        graph = gen.generate_medieval_network(waypoints_per_edge_count=3)
         for node_a, node_b, _ in graph.edges:
             pts = graph.edge_geometry(node_a, node_b)
             assert len(pts) == 3
@@ -281,7 +281,7 @@ class TestMedievalNetworkGeneration:
         """Fewer than 3 radials must raise ValueError."""
         gen = RoadNetworkGenerator(seed=42)
         with pytest.raises(ValueError):
-            gen.generate_medieval_network(num_radials=2)
+            gen.generate_medieval_network(radial_count=2)
 
     def test_generate_medieval_network_reproducible(self):
         """Same seed must produce identical medieval networks."""
@@ -318,7 +318,7 @@ class TestMedievalNetworkGeneration:
         gen = RoadNetworkGenerator(seed=42)
         # Generate with large connect radius to ensure connectivity
         graph = gen.generate_random_network(
-            num_intersections=20, area=300.0, connect_radius=150.0
+            intersection_count=20, area=300.0, connect_radius=150.0
         )
 
         planner = AStarPlanner(graph)

@@ -59,7 +59,7 @@ def pipeline():
     graph = generator.generate_grid_network(
         grid_size=GRID_SIZE,
         cell_size=CELL_SIZE,
-        waypoints_per_edge=WAYPOINTS_PER_EDGE,
+        waypoints_per_edge_count=WAYPOINTS_PER_EDGE,
         curvature=CURVATURE,
     )
     router = RouteRouter(graph, activation_radius=ACTIVATION_RADIUS)
@@ -217,7 +217,7 @@ def test_simulation_runs_in_finite_wall_time() -> None:
     graph = generator.generate_grid_network(
         grid_size=(3, 3),
         cell_size=50.0,
-        waypoints_per_edge=3,
+        waypoints_per_edge_count=3,
         curvature=0.2,
     )
     router = RouteRouter(graph, activation_radius=35.0)
