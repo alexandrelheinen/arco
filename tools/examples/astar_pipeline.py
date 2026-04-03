@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-"""A* pipeline: hand-crafted Paris road network → route planning → path tracking.
+"""A* pipeline: hand-crafted city road network → route planning → path tracking.
 
-Demonstrates the complete A* horse auto-follow pipeline on the Paris downtown
-road network (``tools/config/paris_network.json``):
+Demonstrates the complete A* horse auto-follow pipeline on the city road
+network (``tools/config/city_network.json``):
 
 1. **Road loading** — :func:`~arco.mapping.graph.loader.load_road_graph`
-   deserialises the hand-crafted Paris network descriptor into a
+   deserialises the hand-crafted city network descriptor into a
    :class:`~arco.mapping.graph.road.RoadGraph` with 20 intersections and
-   35 road segments, each carrying S-curve geometry waypoints.
+   40 road segments, each carrying S-curve geometry waypoints.
 2. **Route planning** — :class:`~arco.planning.discrete.RouteRouter` projects
    continuous start/goal positions onto graph nodes and runs A*.
 3. **Path smoothing** — :meth:`~arco.mapping.graph.road.RoadGraph.full_edge_geometry`
@@ -18,7 +18,7 @@ road network (``tools/config/paris_network.json``):
 
 The output figure shows:
 
-- Road graph with curved edge geometry (Paris city-centre layout)
+- Road graph with curved edge geometry (two-ring city layout)
 - Planned discrete route (highlighted)
 - Smooth path extracted from edge waypoints
 - Actual vehicle trajectory
@@ -74,7 +74,7 @@ _sim_cfg = load_config("simulation")
 _veh_cfg = load_config("vehicle")["dubins"]
 
 _NETWORK_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "config", "paris_network.json"
+    os.path.dirname(__file__), "..", "config", "city_network.json"
 )
 
 
@@ -206,25 +206,24 @@ def main(save_path: str | None = None) -> None:
         matplotlib.use("Agg")
 
     logger.info("=" * 60)
-    logger.info("A* Pipeline \u2014 Paris Downtown Road Network")
+    logger.info("A* Pipeline \u2014 City Road Network")
     logger.info("=" * 60)
 
     # ------------------------------------------------------------------
-    # 1. Load hand-crafted Paris road network
+    # 1. Load hand-crafted city road network
     # ------------------------------------------------------------------
     graph = load_road_graph(_NETWORK_PATH)
     logger.info(
-        "[1] Paris network loaded: %d nodes, %d edges",
+        "[1] City network loaded: %d nodes, %d edges",
         len(graph.nodes),
         len(graph.edges),
     )
 
     # ------------------------------------------------------------------
-    # 2. Route planning — start/goal at two farthest outer nodes
+    # 2. Route planning — start/goal at two farthest terminal nodes
     # ------------------------------------------------------------------
-    # The outer nodes are those in the outer ring of the Paris network
-    # (node IDs 12-19 by design, coordinates in the periphery).
-    outer_node_ids = list(range(12, 20))
+    # Terminal nodes are IDs 16-19 (N, E, S, W periphery of the layout).
+    outer_node_ids = list(range(16, 20))
     start_pos, goal_pos = find_farthest_outer_pair(graph, outer_node_ids)
 
     # Small offset so the vehicle starts slightly off a node (tests projection)
@@ -339,7 +338,7 @@ def main(save_path: str | None = None) -> None:
         tracking_target=tracking_target,
         ax=ax_map,
         title=(
-            f"A* Pipeline \u2014 Paris downtown network\n"
+            f"A* Pipeline \u2014 City Road Network\n"
             f"Route: {result.path[0]} \u2192 {result.path[-1]}, "
             f"steps: {step}"
         ),

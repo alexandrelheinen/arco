@@ -12,7 +12,7 @@ from .road import RoadGraph
 def load_road_graph(path: Union[str, os.PathLike]) -> RoadGraph:
     """Load a :class:`RoadGraph` from a JSON network descriptor file.
 
-    The descriptor format is documented in ``docs/paris_network.md``.
+    The descriptor format is documented in ``docs/city_network.md``.
     Each node must have ``id``, ``x``, and ``y`` fields.  Each edge must have
     ``from``, ``to``, and an optional ``waypoints`` list of ``[x, y]`` pairs.
 
@@ -31,7 +31,7 @@ def load_road_graph(path: Union[str, os.PathLike]) -> RoadGraph:
 
         from arco.mapping.graph.loader import load_road_graph
 
-        graph = load_road_graph("tools/config/paris_network.json")
+        graph = load_road_graph("tools/config/city_network.json")
         print(len(graph.nodes), "nodes", len(graph.edges), "edges")
     """
     path = os.fspath(path)

@@ -5,8 +5,8 @@ tracking controller converges with acceptable metrics within a finite time
 budget.  They do *not* pin absolute numeric outputs — only qualitative
 properties such as convergence, stability, and progress are checked.
 
-The road network is loaded from ``tools/config/paris_network.json``, the
-hand-crafted Paris downtown graph that replaces the procedural generator.
+The road network is loaded from ``tools/config/city_network.json``, the
+hand-crafted two-ring city graph that replaces the procedural generator.
 """
 
 from __future__ import annotations
@@ -33,15 +33,15 @@ _NETWORK_PATH = os.path.join(
     "..",
     "tools",
     "config",
-    "paris_network.json",
+    "city_network.json",
 )
 
-# Start near node 13 (340, 220) and goal near node 17 (400, 570).
-# These are two outer nodes on opposite sides of the Paris network.
-START_XY = (345.0, 225.0)
-GOAL_XY = (395.0, 565.0)
+# Start near terminal node 16 (N, 300, 590) and goal near terminal node 18
+# (S, 300, 10). These are the two farthest-apart terminals in the network.
+START_XY = (304.0, 586.0)
+GOAL_XY = (296.0, 14.0)
 
-ACTIVATION_RADIUS = 35.0
+ACTIVATION_RADIUS = 20.0
 CRUISE_SPEED = 5.0
 LOOKAHEAD = 15.0
 DT = 0.1
@@ -127,7 +127,7 @@ def test_graph_has_nodes_and_edges(pipeline) -> None:
     """Loaded graph must have the expected number of nodes and edges."""
     graph = pipeline["graph"]
     assert len(graph.nodes) == 20
-    assert len(graph.edges) == 35
+    assert len(graph.edges) == 40
 
 
 def test_graph_edges_have_waypoints(pipeline) -> None:

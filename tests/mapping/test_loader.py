@@ -12,48 +12,47 @@ import pytest
 from arco.mapping.graph.loader import load_road_graph
 from arco.mapping.graph.road import RoadGraph
 
-_PARIS_NETWORK = os.path.join(
+_CITY_NETWORK = os.path.join(
     os.path.dirname(__file__),
     "..",
     "..",
     "tools",
     "config",
-    "paris_network.json",
+    "city_network.json",
 )
 
 
-class TestLoadRoadGraphParis:
+class TestLoadRoadGraphCity:
     def test_returns_road_graph(self):
-        graph = load_road_graph(_PARIS_NETWORK)
+        graph = load_road_graph(_CITY_NETWORK)
         assert isinstance(graph, RoadGraph)
 
     def test_node_count(self):
-        graph = load_road_graph(_PARIS_NETWORK)
+        graph = load_road_graph(_CITY_NETWORK)
         assert len(graph.nodes) == 20
 
     def test_edge_count(self):
-        graph = load_road_graph(_PARIS_NETWORK)
-        assert len(graph.edges) == 35
+        graph = load_road_graph(_CITY_NETWORK)
+        assert len(graph.edges) == 40
 
     def test_all_edges_have_waypoints(self):
-        graph = load_road_graph(_PARIS_NETWORK)
+        graph = load_road_graph(_CITY_NETWORK)
         for a, b, _ in graph.edges:
             pts = graph.edge_geometry(a, b)
             assert len(pts) >= 1, f"Edge ({a},{b}) has no waypoints"
 
     def test_node_positions_are_finite(self):
-        graph = load_road_graph(_PARIS_NETWORK)
+        graph = load_road_graph(_CITY_NETWORK)
         for nid in graph.nodes:
             pos = graph.position(nid)
             assert np.all(np.isfinite(pos))
 
-    def test_island_node_exists(self):
-        """Node 0 should be the Île de la Cité West node."""
-        graph = load_road_graph(_PARIS_NETWORK)
+    def test_inner_north_node_position(self):
+        """Node 0 is the inner-North node at (300, 410)."""
+        graph = load_road_graph(_CITY_NETWORK)
         pos = graph.position(0)
-        # Approximate position per paris_network.json
-        assert abs(pos[0] - 350.0) < 1.0
-        assert abs(pos[1] - 400.0) < 1.0
+        assert abs(pos[0] - 300.0) < 1.0
+        assert abs(pos[1] - 410.0) < 1.0
 
 
 class TestLoadRoadGraphErrors:

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Real-time Pygame frontend for the ARCO A* horse auto-follow pipeline.
 
-Loads the hand-crafted Paris downtown road network, plans an A* route
-between two outer nodes, and animates the full planning + tracking loop
-in real time using Pygame.
+Loads the hand-crafted city road network, plans an A* route between two
+terminal nodes, and animates the full planning + tracking loop in real time
+using Pygame.
 
 Keyboard controls
 -----------------
@@ -82,20 +82,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Paths and configuration
 # ---------------------------------------------------------------------------
-_NETWORK_PATH = os.path.join(_HERE, "..", "config", "paris_network.json")
+_NETWORK_PATH = os.path.join(_HERE, "..", "config", "city_network.json")
 _veh_cfg = load_config("vehicle")["dubins"]
 
 SCREEN_W = 1280
 SCREEN_H = 800
-TITLE = "ARCO — Paris Road Network — A* Path Tracking (SPACE=pause, R=restart)"
+TITLE = "ARCO — City Road Network — A* Path Tracking (SPACE=pause, R=restart)"
 
 # Small metric offset applied to start/goal so the vehicle begins slightly
 # off a graph node, exercising the projection logic in RouteRouter.
 _ENDPOINT_OFFSET_M = 4.0
 
-# The two farthest outer nodes in the Paris network are used as start/goal.
-# Outer node IDs are 12–19 (periphery of the hand-crafted layout).
-_OUTER_NODE_IDS = list(range(12, 20))
+# Terminal nodes (IDs 16-19: N, E, S, W) are the farthest-apart entry points.
+_OUTER_NODE_IDS = list(range(16, 20))
 _ACTIVATION_RADIUS = 35.0
 
 
@@ -239,7 +238,7 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
     font = pygame.font.SysFont("monospace", 14)
 
     # Load road graph (done once; reused across restarts)
-    logger.info("Loading Paris road network from %s", _NETWORK_PATH)
+    logger.info("Loading city road network from %s", _NETWORK_PATH)
     graph = load_road_graph(_NETWORK_PATH)
     logger.info(
         "Network loaded: %d nodes, %d edges",
