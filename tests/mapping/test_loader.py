@@ -73,9 +73,9 @@ class TestLoadRoadGraphCity:
                 continue
             for wx, wy in graph.edge_geometry(a, b):
                 t = ((wx - xa) * dx + (wy - ya) * dy) / lsq
-                assert 0.0 < t < 1.0, (
-                    f"Edge ({a},{b}) waypoint ({wx},{wy}) has t={t:.3f}"
-                )
+                assert (
+                    0.0 < t < 1.0
+                ), f"Edge ({a},{b}) waypoint ({wx},{wy}) has t={t:.3f}"
 
 
 class TestLoadRoadGraphErrors:

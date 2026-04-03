@@ -56,13 +56,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from graph.generator import generate_graph
 from logging_config import configure_logging
 from viewer.road import draw_road_network
 
 from arco.guidance.pure_pursuit import PurePursuitController
 from arco.guidance.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
-from arco.mapping.graph.loader import load_road_graph
 from arco.planning.discrete import RouteRouter
 from config import load_config
 
@@ -73,10 +73,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _sim_cfg = load_config("simulation")
 _veh_cfg = load_config("vehicle")["dubins"]
-
-_NETWORK_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "config", "city_network.json"
-)
+_graph_cfg = load_config("graph")
 
 
 # ---------------------------------------------------------------------------
@@ -207,15 +204,19 @@ def main(save_path: str | None = None) -> None:
         matplotlib.use("Agg")
 
     logger.info("=" * 60)
-    logger.info("A* Pipeline \u2014 City Road Network")
+    logger.info(
+        "A* Pipeline \u2014 %s graph",
+        _graph_cfg.get("type", "ring").title(),
+    )
     logger.info("=" * 60)
 
     # ------------------------------------------------------------------
-    # 1. Load hand-crafted city road network
+    # 1. Generate road network from config
     # ------------------------------------------------------------------
-    graph = load_road_graph(_NETWORK_PATH)
+    graph = generate_graph(_graph_cfg)
     logger.info(
-        "[1] City network loaded: %d nodes, %d edges",
+        "[1] %r graph generated: %d nodes, %d edges",
+        _graph_cfg.get("type", "ring"),
         len(graph.nodes),
         len(graph.edges),
     )
@@ -223,8 +224,7 @@ def main(save_path: str | None = None) -> None:
     # ------------------------------------------------------------------
     # 2. Route planning — start/goal at two farthest terminal nodes
     # ------------------------------------------------------------------
-    # Terminal nodes are IDs 57-60 (N, E, S, W periphery of the layout).
-    outer_node_ids = list(range(57, 61))
+    outer_node_ids = list(graph.nodes)
     start_pos, goal_pos = find_farthest_outer_pair(graph, outer_node_ids)
 
     # Small offset so the vehicle starts slightly off a node (tests projection)
@@ -339,7 +339,7 @@ def main(save_path: str | None = None) -> None:
         tracking_target=tracking_target,
         ax=ax_map,
         title=(
-            f"A* Pipeline \u2014 City Road Network\n"
+            f"A* Pipeline \u2014 {_graph_cfg.get('type', 'ring').title()} Network\n"
             f"Route: {result.path[0]} \u2192 {result.path[-1]}, "
             f"steps: {step}"
         ),

@@ -22,7 +22,8 @@ dev = [
 tools = [
     "arco",
     "matplotlib",
-    "pyyaml"
+    "pyyaml",
+    "scipy"
 ]
 pygame = [
     "pygame>=2.0.0"
