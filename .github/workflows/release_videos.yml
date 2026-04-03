@@ -41,7 +41,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main.py \
+          python tools/simulator/main/astar.py \
             --fps 30 \
             --camera full \
             --record /tmp/sim_videos/astar_full.mp4 \
@@ -52,7 +52,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main.py \
+          python tools/simulator/main/astar.py \
             --fps 30 \
             --camera follow \
             --record /tmp/sim_videos/astar_follow.mp4 \
@@ -63,7 +63,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/rrt_main.py \
+          python tools/simulator/main/rrt.py \
             --fps 30 \
             --record /tmp/sim_videos/rrt_full.mp4 \
             --record-duration 60
@@ -73,7 +73,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/rrt_main.py \
+          python tools/simulator/main/rrt.py \
             --fps 30 \
             --zoom \
             --record /tmp/sim_videos/rrt_zoom.mp4 \
@@ -84,7 +84,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/sst_main.py \
+          python tools/simulator/main/sst.py \
             --fps 30 \
             --record /tmp/sim_videos/sst_full.mp4 \
             --record-duration 60
@@ -94,7 +94,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/sst_main.py \
+          python tools/simulator/main/sst.py \
             --fps 30 \
             --zoom \
             --record /tmp/sim_videos/sst_zoom.mp4 \
@@ -122,7 +122,7 @@ jobs:
             mv "$TMP" "$SRC"
           done
 
-      - name: Upload A* general view to release
+      - name: Upload A* full view to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -138,7 +138,7 @@ jobs:
             /tmp/sim_videos/astar_follow.mp4 \
             --clobber
 
-      - name: Upload RRT* planning video to release
+      - name: Upload RRT* full view to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -146,7 +146,7 @@ jobs:
             /tmp/sim_videos/rrt_full.mp4 \
             --clobber
 
-      - name: Upload RRT* zoomed video to release
+      - name: Upload RRT* zoomed view to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -154,7 +154,7 @@ jobs:
             /tmp/sim_videos/rrt_zoom.mp4 \
             --clobber
 
-      - name: Upload SST planning video to release
+      - name: Upload SST full view to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -162,7 +162,7 @@ jobs:
             /tmp/sim_videos/sst_full.mp4 \
             --clobber
 
-      - name: Upload SST zoomed video to release
+      - name: Upload SST zoomed view to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

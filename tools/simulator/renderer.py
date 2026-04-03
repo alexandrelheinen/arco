@@ -14,7 +14,8 @@ Draws the following layers (back to front):
 from __future__ import annotations
 
 import math
-from typing import Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any
 
 import pygame
 
@@ -56,8 +57,8 @@ class WorldTransform:
 
     def __init__(
         self,
-        nodes: Sequence[Tuple[float, float]],
-        screen_size: Tuple[int, int],
+        nodes: Sequence[tuple[float, float]],
+        screen_size: tuple[int, int],
         margin: int = 60,
     ) -> None:
         """Initialise the transform from node positions and screen size."""
@@ -83,7 +84,7 @@ class WorldTransform:
             + wy_min * self._scale
         )
 
-    def __call__(self, wx: float, wy: float) -> Tuple[int, int]:
+    def __call__(self, wx: float, wy: float) -> tuple[int, int]:
         """Convert world ``(x, y)`` to screen ``(col, row)`` integer pixels.
 
         Args:
@@ -112,7 +113,7 @@ def draw_road_network(
     surface: pygame.Surface,
     graph,
     transform: WorldTransform,
-    route: Optional[Sequence[int]] = None,
+    route: Sequence[int] | None = None,
 ) -> None:
     """Draw road edges and intersection nodes onto *surface*.
 
@@ -155,7 +156,7 @@ def draw_road_network(
 
 def draw_smooth_path(
     surface: pygame.Surface,
-    smooth_path: Sequence[Tuple[float, float]],
+    smooth_path: Sequence[tuple[float, float]],
     transform: WorldTransform,
 ) -> None:
     """Draw the smooth interpolated path as a dashed orange polyline.
@@ -184,7 +185,7 @@ def draw_smooth_path(
 
 def draw_trajectory(
     surface: pygame.Surface,
-    trajectory: Sequence[Tuple[float, float, float]],
+    trajectory: Sequence[tuple[float, float, float]],
     transform: WorldTransform,
 ) -> None:
     """Draw the vehicle's past trajectory as a fading blue polyline.
@@ -203,7 +204,7 @@ def draw_trajectory(
 
 def draw_tracking_target(
     surface: pygame.Surface,
-    target: Tuple[float, float],
+    target: tuple[float, float],
     transform: WorldTransform,
 ) -> None:
     """Draw the lookahead tracking target as a yellow circle.
@@ -329,3 +330,200 @@ def draw_legend(surface: pygame.Surface, font: pygame.font.Font) -> None:
         text = font.render(label, True, C_HUD)
         surface.blit(text, (x + 16, y))
         y += font.get_linesize() + 2
+
+
+# ---------------------------------------------------------------------------
+# Private helper
+# ---------------------------------------------------------------------------
+
+
+def _render_hud_lines(
+    surface: pygame.Surface,
+    font: pygame.font.Font,
+    lines: list[str],
+) -> None:
+    """Blit *lines* as a shadowed HUD overlay in the top-left corner.
+
+    Args:
+        surface: Target pygame surface.
+        font: Pygame font for rendering text.
+        lines: Text lines to display, from top to bottom.
+    """
+    x, y = 10, 10
+    for line in lines:
+        shadow = font.render(line, True, C_HUD_SHADOW)
+        surface.blit(shadow, (x + 1, y + 1))
+        text = font.render(line, True, C_HUD)
+        surface.blit(text, (x, y))
+        y += font.get_linesize() + 2
+
+
+# ---------------------------------------------------------------------------
+# Shared primitives for sampling-based planner scenes
+# ---------------------------------------------------------------------------
+
+
+def draw_obstacles(
+    surface: pygame.Surface,
+    occ: Any,
+    transform: Any,
+    *,
+    color: tuple[int, int, int] = (160, 60, 60),
+) -> None:
+    """Draw obstacle points from an occupancy map as small filled circles.
+
+    Args:
+        surface: Target pygame surface.
+        occ: Occupancy object exposing an iterable ``points`` attribute.
+        transform: Callable ``(wx, wy) -> (sx, sy)`` world-to-screen.
+        color: RGB fill colour for each obstacle circle.
+    """
+    for pt in occ.points:
+        sx, sy = transform(float(pt[0]), float(pt[1]))
+        pygame.draw.circle(surface, color, (sx, sy), 4)
+
+
+def draw_exploration_tree(
+    surface: pygame.Surface,
+    nodes: Sequence[Any],
+    parent: dict[int, int | None],
+    count: int,
+    transform: Any,
+    *,
+    edge_color: tuple[int, int, int],
+    node_color: tuple[int, int, int],
+) -> None:
+    """Draw the first *count* exploration-tree nodes and their parent edges.
+
+    Args:
+        surface: Target pygame surface.
+        nodes: All tree nodes (full list from planner); each supports
+            index access ``[0]`` and ``[1]`` for x and y.
+        parent: Mapping from node index to parent index, ``None`` for root.
+        count: Number of nodes to draw (starting from index 0).
+        transform: Callable ``(wx, wy) -> (sx, sy)`` world-to-screen.
+        edge_color: RGB colour for tree edges.
+        node_color: RGB colour for tree node circles.
+    """
+    for i in range(min(count, len(nodes))):
+        sx, sy = transform(float(nodes[i][0]), float(nodes[i][1]))
+        p = parent.get(i)
+        if p is not None:
+            px, py = transform(float(nodes[p][0]), float(nodes[p][1]))
+            pygame.draw.line(surface, edge_color, (px, py), (sx, sy), 1)
+        pygame.draw.circle(surface, node_color, (sx, sy), 2)
+
+
+def draw_planned_path(
+    surface: pygame.Surface,
+    path: Sequence[Any],
+    transform: Any,
+    *,
+    color: tuple[int, int, int] = (230, 170, 30),
+) -> None:
+    """Draw the planner solution path as a thick polyline.
+
+    Args:
+        surface: Target pygame surface.
+        path: Ordered sequence of waypoints; each supports index access
+            ``[0]`` and ``[1]`` for x and y.
+        transform: Callable ``(wx, wy) -> (sx, sy)`` world-to-screen.
+        color: RGB colour for the path polyline.
+    """
+    if len(path) < 2:
+        return
+    pts = [transform(float(p[0]), float(p[1])) for p in path]
+    pygame.draw.lines(surface, color, False, pts, 3)
+
+
+def draw_endpoints(
+    surface: pygame.Surface,
+    start: Any,
+    goal: Any,
+    transform: Any,
+    *,
+    start_color: tuple[int, int, int],
+    goal_color: tuple[int, int, int],
+    bg_color: tuple[int, int, int],
+) -> None:
+    """Draw start and goal markers as annular circles.
+
+    Args:
+        surface: Target pygame surface.
+        start: Start position; supports index access ``[0]`` and ``[1]``.
+        goal: Goal position; supports index access ``[0]`` and ``[1]``.
+        transform: Callable ``(wx, wy) -> (sx, sy)`` world-to-screen.
+        start_color: Outer ring RGB colour for the start marker.
+        goal_color: Outer ring RGB colour for the goal marker.
+        bg_color: Inner fill RGB colour (same as background).
+    """
+    sx, sy = transform(float(start[0]), float(start[1]))
+    gx, gy = transform(float(goal[0]), float(goal[1]))
+    pygame.draw.circle(surface, start_color, (sx, sy), 8)
+    pygame.draw.circle(surface, bg_color, (sx, sy), 4)
+    pygame.draw.circle(surface, goal_color, (gx, gy), 8)
+    pygame.draw.circle(surface, bg_color, (gx, gy), 4)
+
+
+def draw_planning_hud(
+    surface: pygame.Surface,
+    font: pygame.font.Font,
+    label: str,
+    revealed: int,
+    total: int,
+    path_found: bool,
+) -> None:
+    """Draw a planning-phase HUD showing exploration progress.
+
+    Args:
+        surface: Target pygame surface.
+        font: Pygame font for rendering text.
+        label: Planner name shown at the top of the HUD (e.g. ``"RRT*"``).
+        revealed: Number of tree nodes currently visible.
+        total: Total number of tree nodes.
+        path_found: Whether a solution path was found.
+    """
+    _render_hud_lines(
+        surface,
+        font,
+        [
+            label,
+            f"Nodes: {revealed}/{total}",
+            f"Path: {'found' if path_found else 'none'}",
+        ],
+    )
+
+
+def draw_tracking_hud(
+    surface: pygame.Surface,
+    font: pygame.font.Font,
+    label: str,
+    step: int,
+    speed: float,
+    cte: float,
+    finished: bool,
+    paused: bool = False,
+) -> None:
+    """Draw a vehicle-tracking HUD showing controller state.
+
+    Args:
+        surface: Target pygame surface.
+        font: Pygame font for rendering text.
+        label: Scene label shown at the top of the HUD.
+        step: Current simulation step count.
+        speed: Current vehicle speed in m/s.
+        cte: Cross-track error in metres.
+        finished: Whether the vehicle has reached the goal.
+        paused: Whether the simulation is currently paused.
+    """
+    lines = [
+        f"{label} — tracking",
+        f"Step: {step}",
+        f"Speed: {speed:.1f} m/s",
+        f"CTE: {cte:+.1f} m",
+    ]
+    if paused:
+        lines.append("[ PAUSED — press SPACE ]")
+    if finished:
+        lines.append("[ GOAL REACHED ]")
+    _render_hud_lines(surface, font, lines)
