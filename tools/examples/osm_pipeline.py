@@ -82,7 +82,9 @@ MAX_ACCEL = 1.5  # m/s²
 MAX_TURN_RATE_DOT = 2.0  # rad/s²
 
 ACTIVATION_RADIUS = (
-    50.0  # m — wider than medieval network (OSM edges are longer)
+    None  # No limit — geocoded addresses may be inside buildings or parks,
+    # 100-300 m from the nearest road intersection.  The router always
+    # projects to the closest node in the graph, regardless of distance.
 )
 
 DT = 0.1  # s
@@ -322,6 +324,29 @@ def main(save_path: str | None = None, mock: bool = False) -> None:
         logger.error(
             "Route planning failed \u2014 check start/goal positions."
         )
+        # Render the network with start/goal markers so the user can inspect
+        # the coordinate layout without a full simulation.
+        fig, ax_map = plt.subplots(figsize=(10, 8))
+        draw_road_network(
+            graph, ax=ax_map, title=f"{map_title}\n(route failed)"
+        )
+        sx, sy = float(start_np[0]), float(start_np[1])
+        gx, gy = float(goal_np[0]), float(goal_np[1])
+        ax_map.scatter(
+            sx, sy, color="limegreen", s=200, zorder=10, label="Start"
+        )
+        ax_map.scatter(
+            gx, gy, color="royalblue", s=200, zorder=10, label="Goal"
+        )
+        ax_map.legend(loc="upper left", fontsize=8)
+        if save_path is not None:
+            os.makedirs(
+                os.path.dirname(os.path.abspath(save_path)), exist_ok=True
+            )
+            fig.savefig(save_path, dpi=150, bbox_inches="tight")
+            logger.info("Partial figure saved \u2192 %s", save_path)
+        else:
+            plt.show()
         return
 
     logger.info(

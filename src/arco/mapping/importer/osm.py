@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from ..graph.road import RoadGraph
 
@@ -205,9 +205,19 @@ class OSMImporter:
                 data["y"] - origin_y,
             )
 
+        # Deduplicate: a directed OSM MultiDiGraph may have both A→B and B→A.
+        # RoadGraph is undirected, so we keep only the first occurrence of each
+        # pair (its length and geometry attributes); the reverse direction is
+        # discarded because the undirected edge already covers both traversals.
+        seen_edge_keys: Set[Tuple[int, int]] = set()
         for u, v, data in G_proj.edges(data=True):
             if u not in id_map or v not in id_map:
                 continue
+            a, b = id_map[u], id_map[v]
+            edge_key = (min(a, b), max(a, b))
+            if edge_key in seen_edge_keys:
+                continue
+            seen_edge_keys.add(edge_key)
             length = float(data.get("length", 1.0))
             geometry = data.get("geometry", None)
             waypoints: List[Tuple[float, float]] = []
@@ -216,9 +226,7 @@ class OSMImporter:
                 waypoints = [
                     (c[0] - origin_x, c[1] - origin_y) for c in coords[1:-1]
                 ]
-            road_graph.add_edge(
-                id_map[u], id_map[v], weight=length, waypoints=waypoints
-            )
+            road_graph.add_edge(a, b, weight=length, waypoints=waypoints)
 
         n_nodes = len(road_graph.nodes)
         n_edges = len(road_graph.edges)
