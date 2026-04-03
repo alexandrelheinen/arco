@@ -43,8 +43,11 @@ Usage
 
 Optional flags::
 
-    python main.py --fps 60     # cap frame rate (default: 30)
-    python main.py --dt 0.05    # simulation timestep in seconds (default: 0.1)
+    python main.py --fps 60            # cap frame rate (default: 30)
+    python main.py --dt 0.05           # simulation timestep in seconds (default: 0.1)
+    python main.py --camera follow     # start in follow-vehicle camera mode
+    python main.py --record out.mp4    # record headless MP4 and exit
+    python main.py --record-duration 45  # max recording length in seconds (default: 60)
 """
 
 from __future__ import annotations
@@ -53,7 +56,10 @@ import argparse
 import logging
 import math
 import os
+import subprocess
 import sys
+
+import numpy as np
 
 # Make arco and tools packages importable without a full install.
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -224,8 +230,6 @@ def build_simulation(graph):
     """
     start_pos, goal_pos = _find_farthest_pair(graph, list(graph.nodes))
 
-    import numpy as np
-
     start_xy = np.array(
         [start_pos[0] + _ENDPOINT_OFFSET_M, start_pos[1] + _ENDPOINT_OFFSET_M]
     )
@@ -275,21 +279,107 @@ def build_simulation(graph):
     }
 
 
+def _open_video_writer(
+    path: str, width: int, height: int, fps: int
+) -> "subprocess.Popen[bytes]":
+    """Open an ffmpeg subprocess that reads raw RGB frames from stdin.
+
+    Args:
+        path: Output MP4 file path.
+        width: Frame width in pixels.
+        height: Frame height in pixels.
+        fps: Frames per second.
+
+    Returns:
+        Running :class:`subprocess.Popen` instance with an open ``stdin``.
+    """
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "-s",
+        f"{width}x{height}",
+        "-r",
+        str(fps),
+        "-i",
+        "pipe:0",
+        "-vcodec",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-crf",
+        "23",
+        path,
+    ]
+    return subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _write_video_frame(
+    proc: "subprocess.Popen[bytes]", surface: "pygame.Surface"
+) -> None:
+    """Capture the current pygame surface and write it to the ffmpeg pipe.
+
+    Args:
+        proc: ffmpeg subprocess with an open ``stdin`` pipe.
+        surface: Pygame surface to capture.
+    """
+    if proc.stdin is None:
+        raise RuntimeError("ffmpeg stdin pipe is not open")
+    # surfarray gives shape (width, height, 3); ffmpeg expects (height, width, 3)
+    frame = pygame.surfarray.array3d(surface)
+    frame = np.ascontiguousarray(frame.transpose(1, 0, 2))
+    proc.stdin.write(frame.tobytes())
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
 
-def main(fps: int = 30, dt: float = 0.1) -> None:
+def main(
+    fps: int = 30,
+    dt: float = 0.1,
+    camera: str = "full",
+    record: str = "",
+    record_duration: float = 60.0,
+) -> None:
     """Run the Pygame real-time simulation.
 
     Args:
         fps: Target frame rate (frames per second).
         dt: Simulation timestep in seconds per frame.
+        camera: Starting camera mode — ``"full"`` for the whole-network view
+            or ``"follow"`` for the vehicle-following zoomed view.
+        record: If non-empty, render headlessly and save an MP4 to this path
+            instead of opening an interactive window.
+        record_duration: Maximum recording duration in seconds when *record*
+            is set.  The simulation stops automatically when the goal is
+            reached or this limit is exceeded.
     """
+    recording = bool(record)
+    max_record_frames = int(fps * record_duration)
+
+    if recording:
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+        os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+
     pygame.init()
-    screen_w, screen_h = _resolve_window_size()
-    logger.info("Window size: %dx%d", screen_w, screen_h)
+
+    if recording:
+        screen_w, screen_h = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
+    else:
+        screen_w, screen_h = _resolve_window_size()
+        logger.info("Window size: %dx%d", screen_w, screen_h)
     screen = pygame.display.set_mode((screen_w, screen_h))
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
@@ -316,7 +406,7 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
         node_positions, (screen_w, screen_h), margin=60
     )
 
-    camera_follow = False
+    camera_follow = camera == "follow"
     follow_zoom = _FOLLOW_ZOOM_DEFAULT
     cam_x = 0.0
     cam_y = 0.0
@@ -363,45 +453,56 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
     sim, trajectory, finished, paused, step = restart()
     goal_radius = float(_veh_cfg["goal_radius"])
 
+    video_writer = None
+    if recording:
+        video_writer = _open_video_writer(record, screen_w, screen_h, fps)
+        logger.info(
+            "Recording to %r (%dx%d @ %d fps)", record, screen_w, screen_h, fps
+        )
+        if camera_follow:
+            _reset_camera_to_vehicle(sim)
+
     running = True
+    record_frames = 0
     while running:
         # ----------------------------------------------------------------
-        # Event handling
+        # Event handling (interactive mode only)
         # ----------------------------------------------------------------
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_q, pygame.K_ESCAPE):
+        if not recording:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     running = False
-                elif event.key == pygame.K_SPACE:
-                    paused = not paused
-                elif event.key == pygame.K_r:
-                    sim, trajectory, finished, paused, step = restart()
-                elif event.key == pygame.K_c:
-                    camera_follow = not camera_follow
-                    logger.info(
-                        "Camera mode: %s",
-                        "follow" if camera_follow else "full",
-                    )
-                    if camera_follow:
-                        _reset_camera_to_vehicle(sim)
-                elif event.key in (
-                    pygame.K_PLUS,
-                    pygame.K_EQUALS,
-                    pygame.K_KP_PLUS,
-                ):
-                    follow_zoom = min(
-                        _FOLLOW_ZOOM_MAX,
-                        follow_zoom + _FOLLOW_ZOOM_STEP,
-                    )
-                    logger.info("Follow camera zoom: %.2fx", follow_zoom)
-                elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
-                    follow_zoom = max(
-                        _FOLLOW_ZOOM_MIN,
-                        follow_zoom - _FOLLOW_ZOOM_STEP,
-                    )
-                    logger.info("Follow camera zoom: %.2fx", follow_zoom)
+                elif event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_q, pygame.K_ESCAPE):
+                        running = False
+                    elif event.key == pygame.K_SPACE:
+                        paused = not paused
+                    elif event.key == pygame.K_r:
+                        sim, trajectory, finished, paused, step = restart()
+                    elif event.key == pygame.K_c:
+                        camera_follow = not camera_follow
+                        logger.info(
+                            "Camera mode: %s",
+                            "follow" if camera_follow else "full",
+                        )
+                        if camera_follow:
+                            _reset_camera_to_vehicle(sim)
+                    elif event.key in (
+                        pygame.K_PLUS,
+                        pygame.K_EQUALS,
+                        pygame.K_KP_PLUS,
+                    ):
+                        follow_zoom = min(
+                            _FOLLOW_ZOOM_MAX,
+                            follow_zoom + _FOLLOW_ZOOM_STEP,
+                        )
+                        logger.info("Follow camera zoom: %.2fx", follow_zoom)
+                    elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                        follow_zoom = max(
+                            _FOLLOW_ZOOM_MIN,
+                            follow_zoom - _FOLLOW_ZOOM_STEP,
+                        )
+                        logger.info("Follow camera zoom: %.2fx", follow_zoom)
 
         # ----------------------------------------------------------------
         # Simulation step
@@ -446,8 +547,25 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
         draw_hud(screen, font, step, speed, cte, finished, paused)
         draw_legend(screen, font)
 
-        pygame.display.flip()
-        clock.tick(fps)
+        if recording:
+            _write_video_frame(video_writer, screen)
+            record_frames += 1
+            if finished or record_frames >= max_record_frames:
+                running = False
+        else:
+            pygame.display.flip()
+            clock.tick(fps)
+
+    if video_writer is not None:
+        video_writer.stdin.close()
+        returncode = video_writer.wait()
+        if returncode != 0:
+            logger.error(
+                "ffmpeg exited with code %d; video may be incomplete.",
+                returncode,
+            )
+        else:
+            logger.info("Video saved to %r", record)
 
     pygame.quit()
 
@@ -472,5 +590,32 @@ if __name__ == "__main__":
         metavar="S",
         help="Simulation timestep in seconds per frame (default: 0.1)",
     )
+    parser.add_argument(
+        "--camera",
+        choices=["full", "follow"],
+        default="full",
+        help="Starting camera mode: 'full' (whole network) or 'follow' "
+        "(vehicle-following zoomed view). Default: full",
+    )
+    parser.add_argument(
+        "--record",
+        metavar="FILE",
+        default="",
+        help="Record a headless MP4 to FILE and exit (requires ffmpeg).",
+    )
+    parser.add_argument(
+        "--record-duration",
+        type=float,
+        default=60.0,
+        metavar="S",
+        dest="record_duration",
+        help="Maximum recording duration in seconds (default: 60).",
+    )
     args = parser.parse_args()
-    main(fps=args.fps, dt=args.dt)
+    main(
+        fps=args.fps,
+        dt=args.dt,
+        camera=args.camera,
+        record=args.record,
+        record_duration=args.record_duration,
+    )

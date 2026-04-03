@@ -46,6 +46,22 @@ python main.py
 |---|---|---|
 | `--fps N` | `30` | Cap the animation frame rate |
 | `--dt S` | `0.1` | Simulation timestep per frame (seconds) |
+| `--camera {full,follow}` | `full` | Starting camera mode: whole-network view (`full`) or vehicle-following zoomed view (`follow`) |
+| `--record FILE` | _(none)_ | Record headless MP4 to FILE and exit (requires `ffmpeg`) |
+| `--record-duration S` | `60` | Maximum recording length in seconds when `--record` is used |
+
+### Recording examples
+
+```bash
+# Record the full-network view (general camera):
+python tools/simulator/main.py --record general.mp4
+
+# Record the follow-vehicle zoomed view:
+python tools/simulator/main.py --camera follow --record zoomed.mp4
+
+# 30-second clip at 60 fps:
+python tools/simulator/main.py --record clip.mp4 --fps 60 --record-duration 30
+```
 
 ## Keyboard controls
 
@@ -53,6 +69,8 @@ python main.py
 |---|---|
 | `SPACE` | Pause / resume simulation |
 | `R` | Restart from the beginning |
+| `C` | Toggle camera mode (full view / follow vehicle) |
+| `+` / `-` | Zoom in / out in follow camera mode |
 | `Q` / `Escape` | Quit |
 
 ## Architecture
