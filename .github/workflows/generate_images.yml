@@ -58,6 +58,18 @@ jobs:
           MPLBACKEND=Agg python tools/examples/astar_pipeline.py \
             --save /tmp/generated_images/astar_pipeline.png
 
+      # Generate RRT* example image
+      - name: Generate RRT* planning example
+        run: |
+          MPLBACKEND=Agg python tools/examples/rrt_planning.py \
+            --save /tmp/generated_images/rrt_planning.png
+
+      # Generate SST example image
+      - name: Generate SST planning example
+        run: |
+          MPLBACKEND=Agg python tools/examples/sst_planning.py \
+            --save /tmp/generated_images/sst_planning.png
+
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
         run: |
@@ -107,6 +119,13 @@ jobs:
               '| Image | Description |',
               '|-------|-------------|',
               '| `astar_pipeline.png` | End-to-end: road network → route planning → path tracking simulation |',
+              '',
+              '### Continuous Planner Examples',
+              '',
+              '| Image | Description |',
+              '|-------|-------------|',
+              '| `rrt_planning.png` | RRT\\* path through a 2-D environment with a wall and scattered obstacles |',
+              '| `sst_planning.png` | SST path through the same environment (sparse active tree) |',
               '',
               '### Architecture Diagrams (Pyreverse)',
               '',

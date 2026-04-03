@@ -7,7 +7,8 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "numpy"
+    "numpy",
+    "scipy"
 ]
 
 [project.optional-dependencies]
@@ -22,8 +23,7 @@ dev = [
 tools = [
     "arco",
     "matplotlib",
-    "pyyaml",
-    "scipy"
+    "pyyaml"
 ]
 pygame = [
     "pygame>=2.0.0"
