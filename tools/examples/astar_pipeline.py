@@ -205,10 +205,10 @@ def main(save_path: str | None = None) -> None:
 
     generator = RoadNetworkGenerator(seed=_rng_cfg["seed"])
     graph = generator.generate_medieval_network(
-        center=_map_cfg["center"][:2],
-        num_radials=int(_map_cfg["num_radials"]),
+        center_position=_map_cfg["center_position"][:2],
+        radial_count=int(_map_cfg["radial_count"]),
         ring_radii=_map_cfg["ring_radii"],
-        waypoints_per_edge=int(_map_cfg["waypoints_per_edge"]),
+        waypoints_per_edge_count=int(_map_cfg["waypoints_per_edge_count"]),
         curvature=float(_map_cfg["curvature"]),
         jitter=float(_map_cfg["jitter"]),
     )
@@ -224,7 +224,7 @@ def main(save_path: str | None = None) -> None:
     # Identify outer nodes by distance: nodes farther than 70% of the outer
     # ring radius are on the outer ring or are dead-end alleys — both are
     # valid route endpoints that span the full city.
-    cx, cy = _map_cfg["center"][:2]
+    cx, cy = _map_cfg["center_position"][:2]
     outer_threshold = _map_cfg["ring_radii"][-1] * 0.70
     outer_nodes = [
         nid

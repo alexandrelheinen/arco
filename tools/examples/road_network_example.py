@@ -112,7 +112,7 @@ def generate_grid_example(seed: int = int(_rng_cfg["seed"])):
     graph = gen.generate_grid_network(
         grid_size=(4, 4),
         cell_size=100.0,
-        waypoints_per_edge=4,
+        waypoints_per_edge_count=4,
         curvature=0.2,
     )
 
@@ -137,10 +137,10 @@ def generate_random_example(seed: int = int(_rng_cfg["seed"])):
     """
     gen = RoadNetworkGenerator(seed=seed)
     graph = gen.generate_random_network(
-        num_intersections=25,
+        intersection_count=25,
         area=400.0,
         connect_radius=120.0,
-        waypoints_per_edge=3,
+        waypoints_per_edge_count=3,
         curvature=0.15,
     )
 

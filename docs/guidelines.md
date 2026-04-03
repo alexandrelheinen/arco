@@ -28,6 +28,43 @@ This document is the single authoritative reference for coding conventions in th
 - **No `_`-separated suffixes when a sub-package can replace them** (see §1 above).
 - Config files (`.yml`) in the `config/` folder may use a flat structure tailored for human readability; they do not need to mirror the code architecture.
 
+### Physical Variable Naming
+
+All physical variables must follow the `who_what` (or `who_what_where` when frame of reference matters) convention. The rules below are **mandatory** for all layers.
+
+**Physical quantity, not unit.** Never suffix a variable with its SI unit. Use the quantity name instead.
+
+| Wrong | Correct |
+|---|---|
+| `size_m` | `physical_size` or `cell_size` |
+| `radius_m` | `lookahead_distance` |
+| `speed_ms` | `max_speed` |
+
+Non-SI config parameters are explicitly exempt: a configuration value expressed in deg/s for human readability may keep its unit suffix (e.g. `max_turn_rate_deg_s` in a YAML file). The exemption must be documented with a comment in the config file.
+
+**Qualifiers are prefixes.** `max`, `min`, `avg`, and similar qualifiers always come first.
+
+| Wrong | Correct |
+|---|---|
+| `speed_max` | `max_speed` |
+| `value_avg` | `avg_value` |
+
+**Integers are suffixed with `_count`.** Never use a `num_` prefix or leave an integer qualifier implicit.
+
+| Wrong | Correct |
+|---|---|
+| `num_obstacles` | `obstacle_count` |
+| `waypoints_per_edge` | `waypoints_per_edge_count` |
+| `num_intersections` | `intersection_count` |
+
+**Lists use the plural form**, unless the list represents a coordinate sequence.
+
+| Wrong | Correct |
+|---|---|
+| `ring_radius` (list of radii) | `ring_radii` |
+
+**Two-word quantity names are valid** and should not be collapsed. `turn_rate`, `cell_size`, and `obstacle_fraction` are all acceptable base names.
+
 ---
 
 ## 3. Documentation — Google Style

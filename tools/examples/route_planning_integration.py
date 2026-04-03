@@ -39,7 +39,10 @@ def main():
     # Generate a 5×5 grid road network
     logger.info("Generating 5\u00d75 grid road network...")
     graph = generator.generate_grid_network(
-        grid_size=(5, 5), cell_size=50.0, waypoints_per_edge=3, curvature=0.3
+        grid_size=(5, 5),
+        cell_size=50.0,
+        waypoints_per_edge_count=3,
+        curvature=0.3,
     )
 
     logger.info("  Nodes: %d", len(graph.nodes))
@@ -93,10 +96,10 @@ def main():
     # Generate organic network
     generator_curved = RoadNetworkGenerator(seed=123)
     graph_curved = generator_curved.generate_random_network(
-        num_intersections=15,
+        intersection_count=15,
         area=200.0,
         connect_radius=80.0,
-        waypoints_per_edge=5,
+        waypoints_per_edge_count=5,
         curvature=0.8,
     )
 

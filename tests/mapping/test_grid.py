@@ -57,49 +57,49 @@ def test_euclidean_distance():
 def test_grid_metric_exact_multiple():
     """Grid from metric dimensions that are exact multiples of cell_size."""
     # 51 m x 51 m, 1 m cells → 51 x 51 cells
-    grid = ManhattanGrid(size_m=[51.0, 51.0], cell_size=1.0)
+    grid = ManhattanGrid(physical_size=[51.0, 51.0], cell_size=1.0)
     assert grid.shape == (51, 51)
     assert math.isclose(grid.cell_size, 1.0)
-    assert grid.size_m == (51.0, 51.0)
+    assert grid.physical_size == (51.0, 51.0)
 
 
 def test_grid_metric_sub_cell():
     """Grid from metric dimensions with sub-metre cell size."""
     # 51 m x 51 m, 0.5 m cells → 102 x 102 cells
-    grid = EuclideanGrid(size_m=[51.0, 51.0], cell_size=0.5)
+    grid = EuclideanGrid(physical_size=[51.0, 51.0], cell_size=0.5)
     assert grid.shape == (102, 102)
     assert math.isclose(grid.cell_size, 0.5)
-    assert grid.size_m == (51.0, 51.0)
+    assert grid.physical_size == (51.0, 51.0)
 
 
 def test_grid_metric_rounds_up(caplog):
     """Grid size is extended upward when not a multiple of cell_size."""
     # 100 m, 3 m cells → ceil(100/3) = 34 cells → 102 m actual
     with caplog.at_level(logging.WARNING, logger="arco.mapping.grid.base"):
-        grid = ManhattanGrid(size_m=[100.0, 100.0], cell_size=3.0)
+        grid = ManhattanGrid(physical_size=[100.0, 100.0], cell_size=3.0)
 
     assert grid.shape == (34, 34)
-    assert math.isclose(grid.size_m[0], 102.0)
-    assert math.isclose(grid.size_m[1], 102.0)
+    assert math.isclose(grid.physical_size[0], 102.0)
+    assert math.isclose(grid.physical_size[1], 102.0)
     # A warning must have been emitted for each extended axis.
     assert len(caplog.records) == 2
 
 
 def test_grid_cell_based_has_default_cell_size():
-    """Cell-based grids report cell_size=1.0 and size_m equal to shape."""
+    """Cell-based grids report cell_size=1.0 and physical_size equal to shape."""
     grid = ManhattanGrid((5, 7))
     assert math.isclose(grid.cell_size, 1.0)
-    assert grid.size_m == (5.0, 7.0)
+    assert grid.physical_size == (5.0, 7.0)
 
 
-def test_grid_invalid_both_shape_and_size_m():
-    """Providing both shape and size_m raises ValueError."""
+def test_grid_invalid_both_shape_and_physical_size():
+    """Providing both shape and physical_size raises ValueError."""
     with pytest.raises(ValueError, match="not both"):
-        Grid((3, 3), size_m=[3.0, 3.0])
+        Grid((3, 3), physical_size=[3.0, 3.0])
 
 
 def test_grid_invalid_neither():
-    """Providing neither shape nor size_m raises ValueError."""
+    """Providing neither shape nor physical_size raises ValueError."""
     with pytest.raises(ValueError, match="either"):
         Grid()
 
@@ -107,7 +107,7 @@ def test_grid_invalid_neither():
 def test_grid_invalid_negative_cell_size():
     """Non-positive cell_size raises ValueError."""
     with pytest.raises(ValueError, match="positive"):
-        Grid(size_m=[10.0, 10.0], cell_size=-1.0)
+        Grid(physical_size=[10.0, 10.0], cell_size=-1.0)
 
 
 # ---------------------------------------------------------------------------
