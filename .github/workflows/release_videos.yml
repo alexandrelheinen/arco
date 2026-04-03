@@ -65,7 +65,7 @@ jobs:
         run: |
           python tools/simulator/rrt_main.py \
             --fps 30 \
-            --record /tmp/sim_videos/rrt_planning.mp4 \
+            --record /tmp/sim_videos/rrt_full.mp4 \
             --record-duration 60
 
       - name: Generate SST planning visualisation
@@ -75,7 +75,7 @@ jobs:
         run: |
           python tools/simulator/sst_main.py \
             --fps 30 \
-            --record /tmp/sim_videos/sst_planning.mp4 \
+            --record /tmp/sim_videos/sst_full.mp4 \
             --record-duration 60
 
       - name: Mix racing chiptune into all videos
@@ -84,8 +84,8 @@ jobs:
           for VIDEO in \
             simulation_full \
             simulation_follow \
-            rrt_planning \
-            sst_planning; do
+            rrt_full \
+            sst_full; do
             SRC=/tmp/sim_videos/${VIDEO}.mp4
             TMP=/tmp/sim_videos/${VIDEO}_audio.mp4
             ffmpeg -y \
@@ -112,4 +112,20 @@ jobs:
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
             /tmp/sim_videos/simulation_follow.mp4 \
+            --clobber
+
+      - name: Upload RRT* planning video to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            /tmp/sim_videos/rrt_full.mp4 \
+            --clobber
+
+      - name: Upload SST planning video to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            /tmp/sim_videos/sst_full.mp4 \
             --clobber
