@@ -6,8 +6,9 @@ network (``tools/config/city_network.json``):
 
 1. **Road loading** — :func:`~arco.mapping.graph.loader.load_road_graph`
    deserialises the hand-crafted city network descriptor into a
-   :class:`~arco.mapping.graph.road.RoadGraph` with 20 intersections and
-   40 road segments, each carrying S-curve geometry waypoints.
+   :class:`~arco.mapping.graph.road.RoadGraph` with 61 nodes and
+   110 road segments forming a triangular mesh, each carrying S-curve geometry
+   waypoints computed in the canonical direction (no back-and-forth loops).
 2. **Route planning** — :class:`~arco.planning.discrete.RouteRouter` projects
    continuous start/goal positions onto graph nodes and runs A*.
 3. **Path smoothing** — :meth:`~arco.mapping.graph.road.RoadGraph.full_edge_geometry`
@@ -18,7 +19,7 @@ network (``tools/config/city_network.json``):
 
 The output figure shows:
 
-- Road graph with curved edge geometry (two-ring city layout)
+- Road graph with curved edge geometry (triangular mesh with symmetric holes)
 - Planned discrete route (highlighted)
 - Smooth path extracted from edge waypoints
 - Actual vehicle trajectory
@@ -222,8 +223,8 @@ def main(save_path: str | None = None) -> None:
     # ------------------------------------------------------------------
     # 2. Route planning — start/goal at two farthest terminal nodes
     # ------------------------------------------------------------------
-    # Terminal nodes are IDs 16-19 (N, E, S, W periphery of the layout).
-    outer_node_ids = list(range(16, 20))
+    # Terminal nodes are IDs 57-60 (N, E, S, W periphery of the layout).
+    outer_node_ids = list(range(57, 61))
     start_pos, goal_pos = find_farthest_outer_pair(graph, outer_node_ids)
 
     # Small offset so the vehicle starts slightly off a node (tests projection)

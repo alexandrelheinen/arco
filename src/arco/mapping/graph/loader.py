@@ -56,6 +56,13 @@ def load_road_graph(path: Union[str, os.PathLike]) -> RoadGraph:
             raise ValueError(f"Edge references unknown node id {dst!r}")
         raw_wps = edge.get("waypoints", [])
         waypoints = [(float(wp[0]), float(wp[1])) for wp in raw_wps]
+        # RoadGraph stores waypoints at canonical key (min_id, max_id).
+        # full_edge_geometry() returns them in the min→max direction for
+        # forward traversal and reverses them for reverse traversal.
+        # So waypoints must always describe the min_id→max_id direction;
+        # if the JSON defines from > to, reverse them here.
+        if src > dst:
+            waypoints = waypoints[::-1]
         graph.add_edge(src, dst, waypoints=waypoints)
 
     return graph

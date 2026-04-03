@@ -93,8 +93,8 @@ TITLE = "ARCO — City Road Network — A* Path Tracking (SPACE=pause, R=restart
 # off a graph node, exercising the projection logic in RouteRouter.
 _ENDPOINT_OFFSET_M = 4.0
 
-# Terminal nodes (IDs 16-19: N, E, S, W) are the farthest-apart entry points.
-_OUTER_NODE_IDS = list(range(16, 20))
+# Terminal nodes (IDs 57-60: N, E, S, W) are the farthest-apart entry points.
+_OUTER_NODE_IDS = list(range(57, 61))
 _ACTIVATION_RADIUS = 35.0
 
 
