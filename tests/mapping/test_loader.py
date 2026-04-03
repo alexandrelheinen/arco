@@ -12,14 +12,30 @@ import pytest
 from arco.mapping.graph.loader import load_road_graph
 from arco.mapping.graph.road import RoadGraph
 
-_CITY_NETWORK = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "tools",
-    "config",
-    "city_network.json",
-)
+def _resolve_city_network_path() -> str:
+    """Return the existing city-network descriptor path.
+
+    Supports both the legacy ``city_network.json`` and the newer
+    ``city.json`` filenames.
+    """
+    config_dir = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "tools",
+        "config",
+    )
+    for filename in ("city_network.json", "city.json"):
+        path = os.path.join(config_dir, filename)
+        if os.path.isfile(path):
+            return path
+    raise FileNotFoundError(
+        "City network descriptor not found in tools/config/. "
+        "Expected city_network.json or city.json."
+    )
+
+
+_CITY_NETWORK = _resolve_city_network_path()
 
 
 class TestLoadRoadGraphCity:

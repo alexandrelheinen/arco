@@ -28,7 +28,7 @@ try:
 except ImportError as exc:
     raise ImportError(
         "scipy is required for procedural graph generation. "
-        "Install it with: pip install 'arco[generators]'"
+        "Install it with: pip install 'arco[tools]'"
     ) from exc
 
 # Make arco importable when running the script directly.
