@@ -76,6 +76,7 @@ jobs:
           python tools/simulator/main/rrt.py \
             --fps 30 \
             --zoom \
+            --camera follow \
             --record /tmp/sim_videos/rrt_zoom.mp4 \
             --record-duration 60
 
@@ -97,6 +98,7 @@ jobs:
           python tools/simulator/main/sst.py \
             --fps 30 \
             --zoom \
+            --camera follow \
             --record /tmp/sim_videos/sst_zoom.mp4 \
             --record-duration 60
 
