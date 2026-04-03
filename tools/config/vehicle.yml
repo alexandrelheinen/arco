@@ -2,7 +2,7 @@ dubins:
   cruise_speed: 20.0  # m/s (80 km/h)
   lookahead: 10.0  # m
   max_speed: 40.0  # m/s (150 km/h)
-  max_turn_rate: 15.0  # deg/s
+  max_turn_rate: 45.0  # deg/s
   max_accel: 4.0  # m/s²
   max_turn_rate_dot: 360.0  # deg/s²
   goal_radius: 10.0  # m (> 3 timesteps worth of cruise speed)

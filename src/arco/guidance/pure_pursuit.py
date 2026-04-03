@@ -167,8 +167,13 @@ def _find_lookahead(
     ``path[start_idx]`` (i.e. from ``max(0, start_idx - 1)``).  Including
     the preceding segment ensures the lookahead is found correctly when the
     vehicle is between two waypoints and the closest waypoint is the one
-    ahead.  Returns the last waypoint when no segment intersection is found
-    at the requested distance.
+    ahead.
+
+    When no segment intersection is found (e.g. the vehicle drifted far
+    off-track so the lookahead circle does not reach the path), the function
+    returns the **next forward waypoint** ``path[start_idx + 1]`` rather than
+    ``path[-1]`` (the goal).  This ensures the vehicle is steered back toward
+    the correct path segment instead of jumping straight to the goal.
 
     Args:
         x: Vehicle x position.
@@ -190,7 +195,13 @@ def _find_lookahead(
             )
             if pt is not None:
                 return pt
-    return path[-1]
+    # Fallback: steer toward the next forward waypoint rather than the goal.
+    # This handles the case where the vehicle is so far off-track that the
+    # lookahead circle cannot intersect any path segment.  Returning path[-1]
+    # here would cause the vehicle to bypass all remaining waypoints.
+    next_idx = min(start_idx + 1, len(path) - 1)
+    next_pt = path[next_idx]
+    return (float(next_pt[0]), float(next_pt[1]))
 
 
 def _circle_segment_intersection(

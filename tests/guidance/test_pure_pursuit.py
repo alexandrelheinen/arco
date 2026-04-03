@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from arco.guidance.pure_pursuit import PurePursuitController
+from arco.guidance.pure_pursuit import PurePursuitController, _find_lookahead
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -116,6 +116,42 @@ def test_control_interface_returns_float() -> None:
     ctrl = PurePursuitController(lookahead_distance=1.0)
     cmd = ctrl.control(0.0, 1.0)
     assert isinstance(cmd, float)
+
+
+# ---------------------------------------------------------------------------
+# _find_lookahead fallback regression test
+# ---------------------------------------------------------------------------
+
+
+def test_find_lookahead_does_not_return_goal_when_vehicle_is_far_off_track() -> None:
+    """Fallback must target the next forward waypoint, not path[-1].
+
+    Regression test for a bug where `_find_lookahead` returned ``path[-1]``
+    (the goal) whenever the lookahead circle was too small to reach any path
+    segment.  This caused the vehicle to steer directly to the goal whenever
+    it drifted far off-track, bypassing all remaining waypoints.
+
+    Scenario: straight path along y=0 from x=0 to x=100 (11 waypoints).
+    Vehicle is 100 m above the path at (50, 100), lookahead radius = 5 m.
+    The circle cannot intersect the path (which is 100 m below), so the
+    fallback is triggered.  The correct behaviour is to return the next
+    forward waypoint (60, 0), not the goal (100, 0).
+    """
+    path: list[tuple[float, float]] = [(float(x), 0.0) for x in range(0, 101, 10)]
+    start_idx = 5  # closest waypoint: (50, 0)
+
+    result = _find_lookahead(50.0, 100.0, path, start_idx, lookahead=5.0)
+
+    goal = path[-1]  # (100, 0)
+    assert result[0] != goal[0] or result[1] != goal[1], (
+        f"_find_lookahead returned path[-1]={goal} while vehicle was 100 m "
+        "off-track — lookahead fell back to goal instead of next waypoint."
+    )
+    # The fallback target must be close to the current path position, not at the far end.
+    assert result[0] < 70.0, (
+        f"Fallback target x={result[0]:.1f} is too far ahead (expected ≤60, "
+        "i.e. the next waypoint, not the goal)."
+    )
 
 
 # ---------------------------------------------------------------------------

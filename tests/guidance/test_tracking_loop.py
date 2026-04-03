@@ -265,3 +265,74 @@ def test_control_stability_no_divergence() -> None:
     for r in loop.run(STRAIGHT_PATH, steps=150, dt=0.1):
         # Error should not grow beyond the initial offset
         assert abs(r["cross_track_error"]) <= initial_offset + 1e-3
+
+
+# ---------------------------------------------------------------------------
+# Off-track recovery regression test
+# ---------------------------------------------------------------------------
+
+
+def test_vehicle_returns_to_path_when_far_off_track() -> None:
+    """Vehicle starting far off-track must be steered back to path, not to path[-1].
+
+    Regression test for a bug where ``_find_lookahead`` returned ``path[-1]``
+    (the goal) whenever the lookahead circle was too small to reach any path
+    segment.  A vehicle that is far off-track would then aim directly for the
+    goal, bypassing all intermediate waypoints.
+
+    Scenario:
+        - Path: vertical segment along x=0 from y=0 to y=200, then east to
+          (100, 200).  Goal is at (100, 200).
+        - Vehicle starts at (50, 100), heading north — 50 m east of the
+          vertical segment.
+        - Lookahead radius = 5 m.  The circle cannot intersect x=0 (50 m
+          away), so the fallback is triggered on the first step.
+
+    Expected (correct) behaviour:
+        The fallback steers toward the next forward waypoint on x=0.  The
+        vehicle turns left (west) and its x-coordinate decreases back toward
+        0 before it continues to the goal.
+
+    Buggy behaviour:
+        The fallback returns path[-1] = (100, 200).  The vehicle turns right
+        (east) and its x-coordinate increases — it never returns to the path.
+    """
+    # Vertical path along x=0, then eastward leg to goal (100, 200).
+    path: list[tuple[float, float]] = [
+        (0.0, float(y)) for y in range(0, 201, 10)
+    ] + [(float(x), 200.0) for x in range(10, 101, 10)]
+
+    vehicle = DubinsVehicle(
+        x=50.0,
+        y=100.0,
+        heading=math.pi / 2,  # heading north, 50 m east of the path
+        max_speed=5.0,
+        min_speed=0.0,
+        max_turn_rate=2.0,
+        max_acceleration=5.0,
+        max_turn_rate_dot=5.0,
+    )
+    loop = TrackingLoop(
+        vehicle,
+        PurePursuitController(lookahead_distance=5.0),
+        cruise_speed=5.0,
+    )
+
+    goal = path[-1]
+    for _ in range(2000):
+        loop.step(path, dt=0.1)
+        x, y, _ = vehicle.pose
+        if math.hypot(x - goal[0], y - goal[1]) < 10.0:
+            break
+
+    xs = [h["pose"][0] for h in loop.history]
+    min_x = min(xs)
+
+    # With the bug: vehicle turns right (east) toward (100, 200), x never
+    # drops below the starting 50 m.
+    # After the fix: vehicle turns left (west) back to the path, minimum x ≈ 0.
+    assert min_x < 10.0, (
+        f"Vehicle x never approached the path (minimum x = {min_x:.1f} m, "
+        "expected < 10 m).  The lookahead likely fell back to path[-1] while "
+        "the vehicle was far off-track."
+    )
