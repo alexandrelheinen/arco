@@ -58,6 +58,12 @@ jobs:
           MPLBACKEND=Agg python tools/examples/astar_pipeline.py \
             --save /tmp/generated_images/astar_pipeline.png
 
+      # Generate PPP 3D pipeline example
+      - name: Generate PPP 3D pipeline example
+        run: |
+          MPLBACKEND=Agg python tools/examples/ppp_pipeline.py \
+            --save /tmp/generated_images/ppp_pipeline.png
+
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
         run: |
@@ -107,6 +113,7 @@ jobs:
               '| Image | Description |',
               '|-------|-------------|',
               '| `astar_pipeline.png` | End-to-end: road network → route planning → path tracking simulation |',
+              '| `ppp_pipeline.png` | 3D planning: PPP robot with obstacles → A\\* path → voxel visualization |',
               '',
               '### Architecture Diagrams (Pyreverse)',
               '',

@@ -68,11 +68,11 @@ CELL_SIZE = 0.5  # metres per cell
 # Obstacles: each is [x_min, x_max, y_min, y_max, height_m]
 # All obstacles sit on ground plane (z=0) and extend upward
 # Pre-inflated to account for end-effector volume
+# At least one obstacle spans full width/length to force 3D path planning
 OBSTACLES = [
-    [2.0, 4.0, 2.0, 4.0, 3.0],  # Central pillar, 3m tall
-    [6.0, 7.0, 1.0, 3.0, 5.0],  # Tall narrow obstacle
-    [1.0, 3.0, 6.0, 8.0, 2.0],  # Low wide obstacle
-    [7.0, 9.0, 6.0, 9.0, 4.0],  # Corner obstacle
+    [0.0, 10.0, 4.0, 6.0, 3.0],  # Wall spanning full x-axis, 3m tall
+    [3.0, 5.0, 0.0, 4.0, 5.0],  # Tall pillar blocking lower area
+    [6.0, 8.0, 6.0, 10.0, 2.0],  # Low obstacle in upper corner
 ]
 
 # Start and goal positions (cell indices)
