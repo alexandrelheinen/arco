@@ -118,6 +118,39 @@ def test_control_interface_returns_float() -> None:
     assert isinstance(cmd, float)
 
 
+# ---------------------------------------------------------------------------
+# Curvature attribute tests
+# ---------------------------------------------------------------------------
+
+
+def test_curvature_is_float() -> None:
+    ctrl = PurePursuitController(lookahead_distance=1.0)
+    ctrl.track((0.0, 0.0, 0.0), STRAIGHT_PATH, speed=1.0)
+    assert isinstance(ctrl.curvature, float)
+
+
+def test_curvature_zero_on_straight_aligned_path() -> None:
+    """Vehicle on path and aligned with it → curvature ≈ 0."""
+    ctrl = PurePursuitController(lookahead_distance=2.0)
+    ctrl.track((0.0, 0.0, 0.0), STRAIGHT_PATH, speed=1.0)
+    assert abs(ctrl.curvature) < 0.05
+
+
+def test_curvature_sign_matches_turn_direction() -> None:
+    """Vehicle above path (positive y) steers right → negative curvature."""
+    ctrl = PurePursuitController(lookahead_distance=2.0)
+    ctrl.track((0.0, 1.0, 0.0), STRAIGHT_PATH, speed=1.0)
+    assert ctrl.curvature < 0.0
+
+
+def test_curvature_magnitude_consistent_with_turn_rate() -> None:
+    """turn_rate_cmd must equal speed * curvature."""
+    ctrl = PurePursuitController(lookahead_distance=2.0)
+    speed = 2.0
+    _, turn_rate = ctrl.track((0.0, 1.0, 0.0), STRAIGHT_PATH, speed=speed)
+    assert math.isclose(turn_rate, speed * ctrl.curvature, rel_tol=1e-9)
+
+
 def test_control_interface_proportional() -> None:
     ctrl = PurePursuitController(lookahead_distance=1.0)
     assert ctrl.control(0.5, 2.0) == 1.5

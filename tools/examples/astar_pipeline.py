@@ -287,6 +287,7 @@ def main(save_path: str | None = None) -> None:
         vehicle,
         controller,
         cruise_speed=float(_veh_cfg["cruise_speed"]),
+        curvature_gain=float(_veh_cfg["curvature_gain"]),
     )
 
     logger.info(
@@ -311,6 +312,7 @@ def main(save_path: str | None = None) -> None:
 
     cross_track = [h["cross_track_error"] for h in history]
     speeds = [h["speed"] for h in history]
+    curvatures = [h["curvature"] for h in history]
     trajectory = [h["pose"] for h in history]
 
     # Final lookahead target (for display)
@@ -327,12 +329,13 @@ def main(save_path: str | None = None) -> None:
     # ------------------------------------------------------------------
     times = [i * float(_sim_cfg["timestep"]) for i in range(len(history))]
 
-    fig = plt.figure(figsize=(14, 8))
-    gs = fig.add_gridspec(2, 2, width_ratios=[1.6, 1], hspace=0.35, wspace=0.3)
+    fig = plt.figure(figsize=(14, 10))
+    gs = fig.add_gridspec(3, 2, width_ratios=[1.6, 1], hspace=0.45, wspace=0.3)
 
     ax_map = fig.add_subplot(gs[:, 0])
     ax_cte = fig.add_subplot(gs[0, 1])
     ax_spd = fig.add_subplot(gs[1, 1])
+    ax_kap = fig.add_subplot(gs[2, 1])
 
     # Road network + overlays
     draw_road_network(
@@ -371,6 +374,14 @@ def main(save_path: str | None = None) -> None:
     ax_spd.set_title("Vehicle speed")
     ax_spd.legend(fontsize=8)
     ax_spd.grid(True, alpha=0.4)
+
+    # Curvature
+    ax_kap.plot(times, curvatures, color="darkorange", linewidth=1.0)
+    ax_kap.axhline(0.0, color="gray", linewidth=0.8, linestyle="--")
+    ax_kap.set_xlabel("Time (s)")
+    ax_kap.set_ylabel("Curvature (rad/m)")
+    ax_kap.set_title("Path curvature")
+    ax_kap.grid(True, alpha=0.4)
 
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)

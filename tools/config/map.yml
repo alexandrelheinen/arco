@@ -4,8 +4,8 @@ medieval_city:
   num_radials: 18
   ring_radii: [500.0, 1200.0, 2000.0]
   waypoints_per_edge: 1
-  curvature: 0.5
-  jitter: 0.25
+  curvature: 0.25
+  jitter: 0.45
 
 # Random graph parameters used by astar_graph.py
 graph:
