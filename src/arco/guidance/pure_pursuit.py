@@ -29,6 +29,9 @@ class PurePursuitController(Controller):
             nearest path segment (positive = vehicle is left of path).
         heading_error: Difference between vehicle heading and path tangent
             at the nearest segment, wrapped to ``(−π, π]`` (radians).
+        curvature: Signed geometric curvature at the lookahead point
+            (rad/m), updated after each :meth:`track` call.  Computed as
+            ``2·sin(α)/L_d`` — the standard pure pursuit curvature.
     """
 
     def __init__(self, lookahead_distance: float = 1.0) -> None:
@@ -41,6 +44,7 @@ class PurePursuitController(Controller):
         self.lookahead_distance = lookahead_distance
         self.cross_track_error: float = 0.0
         self.heading_error: float = 0.0
+        self.curvature: float = 0.0
 
     def track(
         self,
@@ -112,7 +116,8 @@ class PurePursuitController(Controller):
         dx_v = math.cos(theta) * dx + math.sin(theta) * dy
         dy_v = -math.sin(theta) * dx + math.cos(theta) * dy
         alpha = math.atan2(dy_v, dx_v)
-        turn_rate_cmd = 2.0 * speed * math.sin(alpha) / self.lookahead_distance
+        self.curvature = 2.0 * math.sin(alpha) / self.lookahead_distance
+        turn_rate_cmd = speed * self.curvature
 
         return speed, turn_rate_cmd
 

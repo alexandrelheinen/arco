@@ -20,6 +20,10 @@ class TrackingLoop:
         vehicle: Kinematic vehicle model.
         controller: Pure pursuit path-tracking controller.
         cruise_speed: Desired forward speed passed to the controller (m/s).
+        curvature_gain: Curvature-to-speed scaling factor (m).  Speed is
+            modulated as ``v = cruise_speed / (1 + curvature_gain * |κ|)``
+            where *κ* is the pure pursuit curvature from the previous step.
+            A value of ``0.0`` (default) disables modulation.
     """
 
     def __init__(
@@ -27,6 +31,7 @@ class TrackingLoop:
         vehicle: DubinsVehicle,
         controller: PurePursuitController,
         cruise_speed: float = 1.0,
+        curvature_gain: float = 0.0,
     ) -> None:
         """Initialize TrackingLoop.
 
@@ -34,10 +39,14 @@ class TrackingLoop:
             vehicle: Kinematic vehicle model.
             controller: Pure pursuit path-tracking controller.
             cruise_speed: Desired forward speed (m/s).
+            curvature_gain: Speed-modulation gain (m).  Set to ``0.0`` to
+                keep a constant cruise speed.  Positive values slow the
+                vehicle on curves: ``v = cruise_speed / (1 + gain * |κ|)``.
         """
         self.vehicle = vehicle
         self.controller = controller
         self.cruise_speed = cruise_speed
+        self.curvature_gain = curvature_gain
         self._history: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------
@@ -81,10 +90,14 @@ class TrackingLoop:
             - ``pose``: current vehicle pose ``(x, y, heading)``.
             - ``speed``: current vehicle speed (m/s).
             - ``turn_rate``: current vehicle turn rate (rad/s).
+            - ``curvature``: pure pursuit curvature used this step (rad/m).
         """
         pose = self.vehicle.pose
+        speed_ref = self.cruise_speed / (
+            1.0 + self.curvature_gain * abs(self.controller.curvature)
+        )
         speed_cmd, turn_rate_cmd = self.controller.track(
-            pose, path, self.cruise_speed
+            pose, path, speed_ref
         )
         self.vehicle.step(speed_cmd, turn_rate_cmd, dt)
         entry: dict[str, Any] = {
@@ -93,6 +106,7 @@ class TrackingLoop:
             "pose": self.vehicle.pose,
             "speed": self.vehicle.speed,
             "turn_rate": self.vehicle.turn_rate,
+            "curvature": self.controller.curvature,
         }
         self._history.append(entry)
         return entry

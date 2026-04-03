@@ -6,3 +6,4 @@ dubins:
   max_accel: 4.0  # m/s²
   max_turn_rate_dot: 360.0  # deg/s²
   goal_radius: 10.0  # m (> 3 timesteps worth of cruise speed)
+  curvature_gain: 5.0  # m  (v = cruise / (1 + gain * |κ|); 0 = constant speed)
