@@ -100,3 +100,19 @@ class KDTreeOccupancy(Occupancy):
     def dimension(self) -> int:
         """Spatial dimension of the obstacle space."""
         return int(self._points.shape[1])
+
+    def query_distances(self, points: np.ndarray) -> np.ndarray:
+        """Return the distance from each query point to its nearest obstacle.
+
+        Batch counterpart of :meth:`nearest_obstacle` — uses a single
+        KD-tree query for efficiency when many points are queried at once.
+
+        Args:
+            points: Query positions as an array of shape ``(M, D)``.
+
+        Returns:
+            Distance array of shape ``(M,)`` where entry *i* is the
+            Euclidean distance from ``points[i]`` to the nearest obstacle.
+        """
+        distances, _ = self._tree.query(np.asarray(points, dtype=float))
+        return np.asarray(distances, dtype=float)
