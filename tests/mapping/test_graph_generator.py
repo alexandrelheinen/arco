@@ -8,6 +8,8 @@ import sys
 
 import pytest
 
+pytest.importorskip("scipy")
+
 # Expose arco package and tools/ config loader.
 sys.path.insert(
     0,
