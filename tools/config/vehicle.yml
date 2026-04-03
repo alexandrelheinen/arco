@@ -1,9 +1,9 @@
 dubins:
   cruise_speed: 20.0  # m/s (80 km/h)
-  lookahead: 10.0  # m
+  lookahead: 20.0  # m (1 second at cruise speed)
   max_speed: 40.0  # m/s (150 km/h)
-  max_turn_rate: 45.0  # deg/s
-  max_accel: 4.0  # m/s²
-  max_turn_rate_dot: 360.0  # deg/s²
+  max_turn_rate: 90.0  # deg/s
+  max_accel: 4.9  # m/s² (0.5 g)
+  max_turn_rate_dot: 3600.0  # deg/s² (very high to avoid limiting turn rate changes)
   goal_radius: 10.0  # m (> 3 timesteps worth of cruise speed)
-  curvature_gain: 5.0  # m  (v = cruise / (1 + gain * |κ|); 0 = constant speed)
+  curvature_gain: 10.0  # m  (v = cruise speed / (1 + gain * |κ|); 0 = constant speed)
