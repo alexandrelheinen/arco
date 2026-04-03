@@ -1,11 +1,11 @@
 # Medieval city map generation
 medieval_city:
   center: [1200.0, 1200.0]
-  num_radials: 18
-  ring_radii: [500.0, 1200.0, 2000.0]
-  waypoints_per_edge: 1
+  num_radials: 32
+  ring_radii: [600.0, 1000.0, 1600.0, 2000.0]
+  waypoints_per_edge: 2
   curvature: 0.25
-  jitter: 0.45
+  jitter: 0.4
 
 # Random graph parameters used by astar_graph.py
 graph:
