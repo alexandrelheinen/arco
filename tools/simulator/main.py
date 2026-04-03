@@ -79,8 +79,8 @@ from renderer import (
     draw_vehicle,
 )
 
-from arco.guidance.pure_pursuit import PurePursuitController
-from arco.guidance.tracking import TrackingLoop
+from arco.guidance.control.pure_pursuit import PurePursuitController
+from arco.guidance.control.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 from arco.planning.discrete import RouteRouter
 from config import load_config

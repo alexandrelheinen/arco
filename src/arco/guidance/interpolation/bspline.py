@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, List
 
-from .interpolator import Interpolator
+from .base import Interpolator
 
 
 class BSplineInterpolator(Interpolator):

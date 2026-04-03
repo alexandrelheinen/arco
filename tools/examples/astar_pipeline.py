@@ -13,9 +13,9 @@ network (``tools/config/city_network.json``):
    continuous start/goal positions onto graph nodes and runs A*.
 3. **Path smoothing** — :meth:`~arco.mapping.graph.road.RoadGraph.full_edge_geometry`
    collects the waypoint-dense smooth path from discrete route edges.
-4. **Tracking simulation** — :class:`~arco.guidance.tracking.TrackingLoop`
+4. **Tracking simulation** — :class:`~arco.guidance.control.tracking.TrackingLoop`
    closes the loop between a :class:`~arco.guidance.vehicle.DubinsVehicle` and
-   a :class:`~arco.guidance.pure_pursuit.PurePursuitController`.
+   a :class:`~arco.guidance.control.pure_pursuit.PurePursuitController`.
 
 The output figure shows:
 
@@ -60,8 +60,8 @@ from graph.generator import generate_graph
 from logging_config import configure_logging
 from viewer.road import draw_road_network
 
-from arco.guidance.pure_pursuit import PurePursuitController
-from arco.guidance.tracking import TrackingLoop
+from arco.guidance.control.pure_pursuit import PurePursuitController
+from arco.guidance.control.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 from arco.planning.discrete import RouteRouter
 from config import load_config

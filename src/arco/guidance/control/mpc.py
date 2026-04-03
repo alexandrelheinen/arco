@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .controller import Controller
+from .base import Controller
 
 
 class MPCController(Controller):

@@ -63,8 +63,16 @@ Guidance is applied after planning:
 ├── docs
 ├── src/arco
 │   ├── guidance
+│   │   ├── control        ← feedback controllers and tracking loop
+│   │   ├── interpolation  ← path smoothing and trajectory generation
+│   │   ├── primitive      ← kinematic exploration primitives
+│   │   └── vehicle.py     ← unicycle kinematic model
 │   ├── mapping
+│   │   ├── graph          ← graph topology hierarchy
+│   │   └── grid           ← discrete grid structures
 │   └── planning
+│       ├── discrete       ← graph-search planners (A*, D*)
+│       └── continuous     ← sampling-based planners (RRT, SST)
 ├── tests
 └── tools
 ```
@@ -90,8 +98,8 @@ pytest tests/ -v
 ### Format code
 
 ```bash
-python -m black --target-version py312 src/ tests/
-python -m isort src/ tests/
+python -m black --target-version py312 --line-length 79 src/ tools/
+python -m isort --line-length 79 src/ tools/
 ```
 
 ### Local examples
