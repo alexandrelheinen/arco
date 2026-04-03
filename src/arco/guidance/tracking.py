@@ -96,9 +96,7 @@ class TrackingLoop:
         speed_ref = self.cruise_speed / (
             1.0 + self.curvature_gain * abs(self.controller.curvature)
         )
-        speed_cmd, turn_rate_cmd = self.controller.track(
-            pose, path, speed_ref
-        )
+        speed_cmd, turn_rate_cmd = self.controller.track(pose, path, speed_ref)
         self.vehicle.step(speed_cmd, turn_rate_cmd, dt)
         entry: dict[str, Any] = {
             "cross_track_error": self.controller.cross_track_error,
