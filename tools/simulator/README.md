@@ -33,10 +33,10 @@ pip install pygame
 
 ```bash
 # From the repository root:
-python tools/pygame_sim/main.py
+python tools/simulator/main.py
 
 # Or from this folder:
-cd tools/pygame_sim
+cd tools/simulator
 python main.py
 ```
 
@@ -58,7 +58,7 @@ python main.py
 ## Architecture
 
 ```
-tools/pygame_sim/
+tools/simulator/
 ├── main.py        — entry point: event loop, simulation stepping, render calls
 ├── renderer.py    — pure drawing functions (no simulation logic)
 ├── requirements.txt

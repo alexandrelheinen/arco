@@ -9,6 +9,8 @@ Keyboard controls
 -----------------
 SPACE       Pause / resume simulation
 R           Restart from the beginning
+C           Toggle camera mode (full view / follow vehicle)
++ / -       Zoom in / out in follow camera mode
 Q / Escape  Quit
 
 What is displayed
@@ -32,12 +34,12 @@ Usage
 -----
 ::
 
-    cd tools/pygame_sim
+    cd tools/simulator
     pip install -r requirements.txt     # installs pygame
     python main.py
 
     # Or from the repo root (after installing arco):
-    python tools/pygame_sim/main.py
+    python tools/simulator/main.py
 
 Optional flags::
 
@@ -59,6 +61,7 @@ sys.path.insert(0, os.path.join(_HERE, "..", "..", "src"))
 sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import pygame
+from graph.generator import generate_graph
 from renderer import (
     WorldTransform,
     draw_hud,
@@ -73,7 +76,6 @@ from renderer import (
 from arco.guidance.pure_pursuit import PurePursuitController
 from arco.guidance.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
-from graph.generator import generate_graph
 from arco.planning.discrete import RouteRouter
 from config import load_config
 
@@ -85,12 +87,11 @@ logger = logging.getLogger(__name__)
 _veh_cfg = load_config("vehicle")["dubins"]
 _graph_cfg = load_config("graph")
 
-SCREEN_W = 1280
-SCREEN_H = 800
+_DEFAULT_SCREEN_W = 1280
+_DEFAULT_SCREEN_H = 800
 TITLE = (
-    "ARCO — "
-    f"{_graph_cfg.get('type', 'ring').title()} Network — "
-    "A* Path Tracking (SPACE=pause, R=restart)"
+    f"{_graph_cfg.get('type', 'ring').title()}: "
+    "Path Tracking (SPACE=pause, R=restart)"
 )
 
 # Small metric offset applied to start/goal so the vehicle begins slightly
@@ -98,6 +99,15 @@ TITLE = (
 _ENDPOINT_OFFSET_M = 4.0
 
 _ACTIVATION_RADIUS = 35.0
+
+_FOLLOW_ZOOM_DEFAULT = 2.0
+_FOLLOW_ZOOM_MIN = 0.4
+_FOLLOW_ZOOM_MAX = 8.0
+_FOLLOW_ZOOM_STEP = 0.2
+
+# 2nd-order linear camera center filter parameters.
+_CAMERA_DAMPING_RATIO = 1.0
+_CAMERA_NATURAL_FREQUENCY = 3.0
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +166,50 @@ def _find_lookahead(x, y, path, lookahead):
         if math.hypot(pt[0] - x, pt[1] - y) >= lookahead:
             return pt
     return path[-1]
+
+
+def _resolve_window_size() -> tuple[int, int]:
+    """Return window size from system display info, or fallback defaults."""
+    info = pygame.display.Info()
+    width = int(getattr(info, "current_w", 0) or 0)
+    height = int(getattr(info, "current_h", 0) or 0)
+    if width <= 0 or height <= 0:
+        logger.warning(
+            "Display size unavailable; using fallback %dx%d",
+            _DEFAULT_SCREEN_W,
+            _DEFAULT_SCREEN_H,
+        )
+        return (_DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H)
+
+    # Keep a small margin from full-screen to avoid WM quirks.
+    width = max(640, int(width * 0.9))
+    height = max(480, int(height * 0.9))
+    return (width, height)
+
+
+class _FollowTransform:
+    """World-to-screen transform centred on a filtered camera position."""
+
+    def __init__(
+        self,
+        center_x: float,
+        center_y: float,
+        screen_size: tuple[int, int],
+        scale: float,
+    ) -> None:
+        self._center_x = center_x
+        self._center_y = center_y
+        self._screen_w, self._screen_h = screen_size
+        self._scale = scale
+
+    def __call__(self, wx: float, wy: float) -> tuple[int, int]:
+        sx = int(self._screen_w / 2 + (wx - self._center_x) * self._scale)
+        sy = int(self._screen_h / 2 - (wy - self._center_y) * self._scale)
+        return (sx, sy)
+
+    @property
+    def scale(self) -> float:
+        return self._scale
 
 
 def build_simulation(graph):
@@ -234,7 +288,9 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
         dt: Simulation timestep in seconds per frame.
     """
     pygame.init()
-    screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
+    screen_w, screen_h = _resolve_window_size()
+    logger.info("Window size: %dx%d", screen_w, screen_h)
+    screen = pygame.display.set_mode((screen_w, screen_h))
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("monospace", 14)
@@ -256,10 +312,52 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
         (float(graph.position(n)[0]), float(graph.position(n)[1]))
         for n in graph.nodes
     ]
-    transform = WorldTransform(node_positions, (SCREEN_W, SCREEN_H), margin=60)
+    full_transform = WorldTransform(
+        node_positions, (screen_w, screen_h), margin=60
+    )
+
+    camera_follow = False
+    follow_zoom = _FOLLOW_ZOOM_DEFAULT
+    cam_x = 0.0
+    cam_y = 0.0
+    cam_vx = 0.0
+    cam_vy = 0.0
+
+    def _reset_camera_to_vehicle(sim_state) -> None:
+        nonlocal cam_x, cam_y, cam_vx, cam_vy
+        veh = sim_state["vehicle"]
+        cam_x = float(veh.x)
+        cam_y = float(veh.y)
+        cam_vx = 0.0
+        cam_vy = 0.0
+
+    def _update_camera(sim_state, step_dt: float) -> None:
+        nonlocal cam_x, cam_y, cam_vx, cam_vy
+        veh = sim_state["vehicle"]
+        target_x = float(veh.x)
+        target_y = float(veh.y)
+        wn = _CAMERA_NATURAL_FREQUENCY
+        zeta = _CAMERA_DAMPING_RATIO
+        ax = (wn * wn) * (target_x - cam_x) - 2.0 * zeta * wn * cam_vx
+        ay = (wn * wn) * (target_y - cam_y) - 2.0 * zeta * wn * cam_vy
+        cam_vx += ax * step_dt
+        cam_vy += ay * step_dt
+        cam_x += cam_vx * step_dt
+        cam_y += cam_vy * step_dt
+
+    def _current_transform():
+        if not camera_follow:
+            return full_transform
+        return _FollowTransform(
+            center_x=cam_x,
+            center_y=cam_y,
+            screen_size=(screen_w, screen_h),
+            scale=full_transform.scale * follow_zoom,
+        )
 
     def restart():
         sim = build_simulation(graph)
+        _reset_camera_to_vehicle(sim)
         return sim, [], False, False, 0
 
     sim, trajectory, finished, paused, step = restart()
@@ -280,6 +378,30 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
                     paused = not paused
                 elif event.key == pygame.K_r:
                     sim, trajectory, finished, paused, step = restart()
+                elif event.key == pygame.K_c:
+                    camera_follow = not camera_follow
+                    logger.info(
+                        "Camera mode: %s",
+                        "follow" if camera_follow else "full",
+                    )
+                    if camera_follow:
+                        _reset_camera_to_vehicle(sim)
+                elif event.key in (
+                    pygame.K_PLUS,
+                    pygame.K_EQUALS,
+                    pygame.K_KP_PLUS,
+                ):
+                    follow_zoom = min(
+                        _FOLLOW_ZOOM_MAX,
+                        follow_zoom + _FOLLOW_ZOOM_STEP,
+                    )
+                    logger.info("Follow camera zoom: %.2fx", follow_zoom)
+                elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                    follow_zoom = max(
+                        _FOLLOW_ZOOM_MIN,
+                        follow_zoom - _FOLLOW_ZOOM_STEP,
+                    )
+                    logger.info("Follow camera zoom: %.2fx", follow_zoom)
 
         # ----------------------------------------------------------------
         # Simulation step
@@ -294,10 +416,15 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
                 finished = True
                 logger.info("Goal reached in %d steps.", step)
 
+        if camera_follow:
+            _update_camera(sim, dt)
+
         # ----------------------------------------------------------------
         # Rendering
         # ----------------------------------------------------------------
         screen.fill((28, 28, 35))
+
+        transform = _current_transform()
 
         draw_road_network(screen, graph, transform, sim["route"])
         draw_smooth_path(screen, sim["smooth_path"], transform)
