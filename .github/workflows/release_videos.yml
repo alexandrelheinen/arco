@@ -55,7 +55,7 @@ jobs:
           python tools/simulator/main/astar.py \
             --fps 30 \
             --camera follow \
-            --record /tmp/sim_videos/astar_follow.mp4 \
+            --record /tmp/sim_videos/astar_zoom.mp4 \
             --record-duration 60
 
       - name: Generate RRT* planning visualisation
@@ -105,7 +105,7 @@ jobs:
           AUDIO=/tmp/sim_videos/racing_theme.wav
           for VIDEO in \
             astar_full \
-            astar_follow \
+            astar_zoom \
             rrt_full \
             rrt_zoom \
             sst_full \
@@ -135,7 +135,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/astar_follow.mp4 \
+            /tmp/sim_videos/astar_zoom.mp4 \
             --clobber
 
       - name: Upload RRT* full view to release
