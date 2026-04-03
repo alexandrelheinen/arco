@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import random
 import struct
 import wave
 from pathlib import Path
@@ -34,7 +35,14 @@ _SIXTEENTH: float = _BEAT / 4
 
 
 def _semitone(st_from_a4: float) -> float:
-    """Return frequency in Hz for *st_from_a4* semitones above/below A4."""
+    """Return frequency in Hz for *st_from_a4* semitones above/below A4.
+
+    Args:
+        st_from_a4: Number of semitones relative to A4 (440 Hz).
+
+    Returns:
+        Frequency in Hz.
+    """
     return 440.0 * (2.0 ** (st_from_a4 / 12.0))
 
 
@@ -52,6 +60,12 @@ def note(name: str, octave: int) -> float:
 
     Returns:
         Frequency in Hz.
+
+    Examples:
+        >>> round(note('A', 4), 2)
+        440.0
+        >>> round(note('C', 4), 2)
+        261.63
     """
     base = _CHROMA[name[0]]
     if len(name) > 1 and name[1] == "#":
@@ -66,6 +80,16 @@ def note(name: str, octave: int) -> float:
 
 
 def _square(freq: float, duration: float, duty: float = 0.5) -> list[float]:
+    """Generate a square wave.
+
+    Args:
+        freq: Frequency in Hz (use 0 for silence).
+        duration: Duration in seconds.
+        duty: Duty cycle in [0, 1] (default 0.5 = 50%).
+
+    Returns:
+        List of samples in [-1, 1].
+    """
     n = int(SAMPLE_RATE * duration)
     if freq <= 0:
         return [0.0] * n
@@ -74,6 +98,15 @@ def _square(freq: float, duration: float, duty: float = 0.5) -> list[float]:
 
 
 def _triangle(freq: float, duration: float) -> list[float]:
+    """Generate a triangle wave.
+
+    Args:
+        freq: Frequency in Hz (use 0 for silence).
+        duration: Duration in seconds.
+
+    Returns:
+        List of samples in [-1, 1].
+    """
     n = int(SAMPLE_RATE * duration)
     if freq <= 0:
         return [0.0] * n
@@ -86,6 +119,14 @@ def _triangle(freq: float, duration: float) -> list[float]:
 
 
 def _silence(duration: float) -> list[float]:
+    """Return a list of zero samples.
+
+    Args:
+        duration: Duration in seconds.
+
+    Returns:
+        List of zero-valued samples.
+    """
     return [0.0] * int(SAMPLE_RATE * duration)
 
 
@@ -126,6 +167,14 @@ def _seq(
 
 
 def _mix(tracks: list[list[float]]) -> list[float]:
+    """Mix multiple sample tracks together with hard clipping.
+
+    Args:
+        tracks: List of sample lists (may have different lengths).
+
+    Returns:
+        Mixed sample list clipped to [-1, 1], as long as the longest track.
+    """
     n = max(len(t) for t in tracks)
     result: list[float] = []
     for i in range(n):
@@ -251,9 +300,15 @@ _KICK_DURATION = _E * 0.25  # short attack noise
 
 
 def _kick_track(n_bars: int) -> list[float]:
-    """Build a kick-drum track using decaying white noise."""
-    import random
+    """Build a kick/snare percussion track using decaying white noise.
 
+    Args:
+        n_bars: Number of 4/4 bars to generate.
+
+    Returns:
+        Flat list of audio samples with kick on every beat and snare on
+        beats 2 and 4.
+    """
     rng = random.Random(42)
     out: list[float] = []
     steps_per_bar = 8
@@ -284,6 +339,14 @@ def generate(output: str = "racing_theme.wav") -> None:
 
     Args:
         output: Destination WAV file path.
+
+    Examples:
+        >>> import os, tempfile
+        >>> tmp = tempfile.mktemp(suffix='.wav')
+        >>> generate(tmp)  # doctest: +ELLIPSIS
+        Generated ...
+        >>> os.path.exists(tmp)
+        True
     """
     n_bars = 4
 
