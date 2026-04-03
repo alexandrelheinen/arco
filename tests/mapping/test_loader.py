@@ -29,11 +29,11 @@ class TestLoadRoadGraphCity:
 
     def test_node_count(self):
         graph = load_road_graph(_CITY_NETWORK)
-        assert len(graph.nodes) == 20
+        assert len(graph.nodes) == 61
 
     def test_edge_count(self):
         graph = load_road_graph(_CITY_NETWORK)
-        assert len(graph.edges) == 40
+        assert len(graph.edges) == 110
 
     def test_all_edges_have_waypoints(self):
         graph = load_road_graph(_CITY_NETWORK)
@@ -47,12 +47,35 @@ class TestLoadRoadGraphCity:
             pos = graph.position(nid)
             assert np.all(np.isfinite(pos))
 
-    def test_inner_north_node_position(self):
-        """Node 0 is the inner-North node at (300, 410)."""
+    def test_terminal_north_node_position(self):
+        """Terminal N node (id=57) should be at (365, 1070)."""
         graph = load_road_graph(_CITY_NETWORK)
-        pos = graph.position(0)
-        assert abs(pos[0] - 300.0) < 1.0
-        assert abs(pos[1] - 410.0) < 1.0
+        pos = graph.position(57)
+        assert abs(pos[0] - 365.0) < 1.0
+        assert abs(pos[1] - 1070.0) < 1.0
+
+    def test_terminal_south_node_position(self):
+        """Terminal S node (id=59) should be at (365, -70)."""
+        graph = load_road_graph(_CITY_NETWORK)
+        pos = graph.position(59)
+        assert abs(pos[0] - 365.0) < 1.0
+        assert abs(pos[1] - (-70.0)) < 1.0
+
+    def test_waypoints_no_back_and_forth(self):
+        """All waypoint t-values must lie in (0, 1) for canonical direction."""
+        graph = load_road_graph(_CITY_NETWORK)
+        for a, b, _ in graph.edges:
+            xa, ya = graph.position(a)
+            xb, yb = graph.position(b)
+            dx, dy = xb - xa, yb - ya
+            lsq = dx * dx + dy * dy
+            if lsq < 1e-9:
+                continue
+            for wx, wy in graph.edge_geometry(a, b):
+                t = ((wx - xa) * dx + (wy - ya) * dy) / lsq
+                assert 0.0 < t < 1.0, (
+                    f"Edge ({a},{b}) waypoint ({wx},{wy}) has t={t:.3f}"
+                )
 
 
 class TestLoadRoadGraphErrors:
@@ -122,5 +145,36 @@ class TestLoadRoadGraphErrors:
             graph = load_road_graph(path)
             assert len(graph.edges) == 1
             assert graph.edge_geometry(0, 1) == []
+        finally:
+            os.unlink(path)
+
+    def test_reverse_edge_waypoints_are_normalised(self):
+        """Loader must reverse waypoints when from > to (canonical direction)."""
+        data = {
+            "nodes": [
+                {"id": 0, "x": 0.0, "y": 0.0},
+                {"id": 5, "x": 10.0, "y": 0.0},
+            ],
+            # Edge defined "backwards": from=5 > to=0
+            # Waypoints designed for 5→0: wp1 at x=7, wp2 at x=3
+            "edges": [
+                {
+                    "from": 5,
+                    "to": 0,
+                    "waypoints": [[7.0, 0.5], [3.0, -0.5]],
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as fh:
+            json.dump(data, fh)
+            path = fh.name
+        try:
+            graph = load_road_graph(path)
+            # Waypoints defined for 5→0: [7.0, 0.5] then [3.0, -0.5].
+            # Loader reverses them to canonical 0→5 order: [(3.0, -0.5), (7.0, 0.5)].
+            wps = graph.edge_geometry(0, 5)
+            assert wps == [(3.0, -0.5), (7.0, 0.5)]
         finally:
             os.unlink(path)

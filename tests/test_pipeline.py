@@ -6,7 +6,7 @@ budget.  They do *not* pin absolute numeric outputs — only qualitative
 properties such as convergence, stability, and progress are checked.
 
 The road network is loaded from ``tools/config/city_network.json``, the
-hand-crafted two-ring city graph that replaces the procedural generator.
+hand-crafted triangular-mesh city graph that replaces the procedural generator.
 """
 
 from __future__ import annotations
@@ -36,16 +36,16 @@ _NETWORK_PATH = os.path.join(
     "city_network.json",
 )
 
-# Start near terminal node 16 (N, 300, 590) and goal near terminal node 18
-# (S, 300, 10). These are the two farthest-apart terminals in the network.
-START_XY = (304.0, 586.0)
-GOAL_XY = (296.0, 14.0)
+# Terminal N (id=57) is at (365, 1070); terminal S (id=59) is at (365, -70).
+# Small offsets so the vehicle starts slightly off a graph node.
+START_XY = (369.0, 1066.0)
+GOAL_XY = (361.0, -74.0)
 
-ACTIVATION_RADIUS = 20.0
+ACTIVATION_RADIUS = 30.0
 CRUISE_SPEED = 5.0
 LOOKAHEAD = 15.0
 DT = 0.1
-MAX_STEPS = 3000
+MAX_STEPS = 5000
 
 
 def _build_smooth_path(graph, route: list[int]) -> list[tuple[float, float]]:
@@ -126,8 +126,8 @@ def simulation(pipeline):
 def test_graph_has_nodes_and_edges(pipeline) -> None:
     """Loaded graph must have the expected number of nodes and edges."""
     graph = pipeline["graph"]
-    assert len(graph.nodes) == 20
-    assert len(graph.edges) == 40
+    assert len(graph.nodes) == 61
+    assert len(graph.edges) == 110
 
 
 def test_graph_edges_have_waypoints(pipeline) -> None:

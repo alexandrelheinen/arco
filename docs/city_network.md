@@ -12,12 +12,12 @@ topology and edge geometry are included.
 ```json
 {
   "nodes": [
-    {"id": 0, "x": 300, "y": 410},
+    {"id": 0, "x": 365, "y": 110},
     ...
   ],
   "edges": [
-    {"from": 0, "to": 1, "waypoints": [[329, 406], [349, 382]]},
-    {"from": 0, "to": 8},
+    {"from": 0, "to": 1, "waypoints": [[395, 118], [425, 102]]},
+    {"from": 0, "to": 5},
     ...
   ]
 }
@@ -35,95 +35,84 @@ topology and edge geometry are included.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `from` | integer | **yes** | Source node `id` |
-| `to` | integer | **yes** | Destination node `id` |
-| `waypoints` | array of `[x, y]` | no | Ordered intermediate control points between the two endpoint nodes. Omit or use `[]` for a straight segment. |
+| `from` | integer | **yes** | First endpoint node `id` |
+| `to` | integer | **yes** | Second endpoint node `id` |
+| `waypoints` | array of `[x, y]` | no | Ordered intermediate control points. Omit or use `[]` for a straight segment. |
 
 Edges are **undirected**: a single entry covers both traversal directions.
 
-## Waypoint geometry
+## Waypoint convention
 
-Each `[x, y]` waypoint is an intermediate control point along a road segment.
-The rendering and planning layers draw/interpolate a polyline through:
+Waypoints are always stored in the **canonical direction** — going from the
+lower node `id` to the higher node `id`. The loader enforces this automatically:
+if a JSON edge defines `from > to`, the waypoints are reversed on load before
+being passed to the graph.
 
-```
-[start_node] → waypoint_1 → waypoint_2 → ... → [end_node]
-```
+`RoadGraph.full_edge_geometry(a, b)` returns waypoints in the correct order
+for both `a < b` (forward) and `a > b` (reversed) traversal, ensuring smooth
+S-curve paths in both directions with no back-and-forth motion.
 
-### S-curve convention
+### S-curve formula
 
-All waypoints in `city_network.json` are generated with the S-curve formula:
+All waypoints in `city_network.json` are generated with:
 
 ```
 wp1 = A + (1/3)*(B-A) + d * perp(B-A)
 wp2 = A + (2/3)*(B-A) - d * perp(B-A)
 ```
 
-where `d = 0.08 * |AB|` and `perp(v)` is the left-perpendicular unit vector.
-This ensures:
+where `d = 0.09 * |AB|`, `perp(v)` is the left-perpendicular unit vector, and
+`A`, `B` are the positions of the lower-id and higher-id nodes respectively.
 
-- **No back-and-forth**: both waypoints have projection parameter `t ∈ (0, 1)`
-  onto the chord `AB`, so the path always progresses from A toward B.
-- **Gentle S-curve**: the first third curves left, the second third curves right,
-  creating a smooth, natural-looking shape without sharp turns.
+Properties:
+- **No back-and-forth**: both waypoints have projection `t ∈ (0, 1)` along the
+  chord AB, so the path always progresses from A toward B.
+- **Symmetric reversal**: traversing B→A with reversed waypoints yields a
+  valid S-curve in the opposite direction.
 
 ## Network topology
 
-The network has **20 nodes** and **40 edges** arranged in two concentric rings
-with four terminal entry/exit nodes:
+The network has **61 nodes** and **110 edges** arranged as a triangular
+(hexagonal-cell) mesh with four symmetric holes and four terminal nodes.
 
 ```
-              [16]              ← terminal N (300, 590)
-             /    \
-           [8]    [9]           ← outer NNW / NNE
-          / |      | \
-        [7][0]--[0][1][2]       ← inner ring (r=110)
-        ...  inner ring  ...
-        [6]----[6]---[2]
-          \ |      | /
-          [15]   [10]           ← outer WNW / ENE
-           |      |
-          [14]  [11]            ← outer WSW / ESE
-             \  /
-             [13][12]           ← outer SSW / SSE
-                |
-               [18]             ← terminal S (300, 10)
+         [57]                ← terminal N (365, 1070)
+          |
+     ─ ─ ─ ─ ─ ─ ─ ─
+    |  ┌───╲   ╱───┐  |
+    | /  hole  hole  \ |
+[60]─── mesh  mesh ───[58]  ← terminals W / E
+    | \  hole  hole  / |
+    |  └───╱   ╲───┘  |
+     ─ ─ ─ ─ ─ ─ ─ ─
+          |
+         [59]                ← terminal S (365, -70)
 ```
-
-*(Simplified — see JSON for exact positions.)*
 
 ### Node groups
 
 | IDs | Description |
 |---|---|
-| 0–7 | **Inner ring** — 8 nodes at radius 110 m, centred at (300, 300) |
-| 8–15 | **Outer ring** — 8 nodes at radius 220 m, angularly offset by 22.5° from inner ring |
-| 16–19 | **Terminals** — 4 entry/exit nodes (N, E, S, W) at radius ~290 m |
+| 0–56 | **Mesh nodes** — hexagonal triangular lattice, radius ~415 m from centre |
+| 57 | **Terminal N** — (365, 1070) |
+| 58 | **Terminal E** — (1085, 422) |
+| 59 | **Terminal S** — (365, -70) |
+| 60 | **Terminal W** — (−85, 422) |
 
-### Edge groups
+### Mesh structure
 
-| Description | Count |
-|---|---|
-| Inner ring edges (closed ring) | 8 |
-| Inner → outer radial connections (each inner node → 2 outer nodes) | 16 |
-| Outer ring edges (closed ring) | 8 |
-| Terminal → outer connections (each terminal → 2 outer nodes) | 8 |
-| **Total** | **40** |
+- **Cell spacing**: 90 m horizontal, ≈78 m vertical (equilateral triangles)
+- **Boundary**: elliptical, semi-axes ≈415 m
+- **Holes**: 4 symmetric open regions (NE, SE, SW, NW quadrants), each
+  removing ~6 nodes and ~10 edges from the lattice
+- **Node degree distribution**: mostly 3–5 connections (interior nodes up to 6)
 
 ## Route variety
 
-The two-ring topology gives multiple geometrically distinct routes between
-any pair of terminals. For example, from terminal N (16) to terminal S (18):
-
-| Route | Path | Character |
-|---|---|---|
-| Outer-ring East | 16→9→10→11→12→18 | Fast perimeter (5 nodes) |
-| Outer-ring West | 16→8→15→14→13→18 | Symmetric perimeter (5 nodes) |
-| Inner shortcut E | 16→9→(inner ring E side)→12→18 | Shorter via inner ring |
-| Inner shortcut W | 16→8→(inner ring W side)→13→18 | Symmetric inner shortcut |
-| Mixed | 16→8→0→1→…→4→12→18 | Cross-ring route |
-
-A* with a Euclidean heuristic finds the optimal of these automatically.
+The two-ring-plus-mesh topology gives many geometrically distinct routes. For
+example, from terminal E (58) to terminal W (60) A* must navigate across the
+full width of the mesh, choosing between paths that go above or below the
+central holes.
 
 ## Loading the network
 
@@ -131,8 +120,8 @@ A* with a Euclidean heuristic finds the optimal of these automatically.
 from arco.mapping.graph.loader import load_road_graph
 
 graph = load_road_graph("tools/config/city_network.json")
-print(len(graph.nodes), "nodes")   # 20
-print(len(graph.edges), "edges")   # 40
+print(len(graph.nodes), "nodes")   # 61
+print(len(graph.edges), "edges")   # 110
 ```
 
 The loader is implemented in `src/arco/mapping/graph/loader.py`.
