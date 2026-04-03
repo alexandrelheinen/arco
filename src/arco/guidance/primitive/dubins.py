@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, List
 
-from .exploration_primitive import ExplorationPrimitive
+from .base import ExplorationPrimitive
 
 
 class DubinsPrimitive(ExplorationPrimitive):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Sequence
 
-from .controller import Controller
+from .base import Controller
 
 
 class PurePursuitController(Controller):

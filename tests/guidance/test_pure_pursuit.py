@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from arco.guidance.pure_pursuit import PurePursuitController, _find_lookahead
+from arco.guidance.control.pure_pursuit import PurePursuitController, _find_lookahead
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..vehicle import DubinsVehicle
 from .pure_pursuit import PurePursuitController
-from .vehicle import DubinsVehicle
 
 
 class TrackingLoop:
