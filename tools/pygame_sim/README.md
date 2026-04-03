@@ -1,7 +1,7 @@
 # ARCO — Pygame Real-Time Simulation
 
 Real-time animation of the **A* horse auto-follow pipeline** on the
-hand-crafted Paris downtown road network, rendered with [Pygame](https://www.pygame.org/).
+hand-crafted city road network, rendered with [Pygame](https://www.pygame.org/).
 
 ## What is shown
 
@@ -67,8 +67,8 @@ tools/pygame_sim/
 
 `main.py` orchestrates the simulation:
 
-1. Loads `tools/config/paris_network.json` via `arco.mapping.graph.loader`.
-2. Plans an A* route between two outer nodes using `arco.planning.discrete.RouteRouter`.
+1. Loads `tools/config/city_network.json` via `arco.mapping.graph.loader`.
+2. Plans an A* route between two terminal nodes using `arco.planning.discrete.RouteRouter`.
 3. Builds a dense smooth path from edge waypoints.
 4. Drives a `arco.guidance.vehicle.DubinsVehicle` with a
    `arco.guidance.pure_pursuit.PurePursuitController` at each frame.
@@ -81,5 +81,5 @@ touching only `renderer.py` and `main.py`.
 
 ## Network descriptor
 
-The road network is defined in `tools/config/paris_network.json`.
-See `docs/paris_network.md` for the full format specification.
+The road network is defined in `tools/config/city_network.json`.
+See `docs/city_network.md` for the full format specification.
