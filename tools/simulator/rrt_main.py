@@ -21,6 +21,14 @@ Headless MP4 recording::
         --fps 30 \\
         --record /tmp/rrt_planning.mp4 \\
         --record-duration 60
+
+Zoomed-in recording (path bounding box)::
+
+    python tools/simulator/rrt_main.py \\
+        --fps 30 \\
+        --zoom \\
+        --record /tmp/rrt_zoom.mp4 \\
+        --record-duration 60
 """
 
 from __future__ import annotations
@@ -291,6 +299,7 @@ def main(
     fps: int = 30,
     record: str = "",
     record_duration: float = 60.0,
+    zoom: bool = False,
 ) -> None:
     """Run the pygame RRT* visualisation.
 
@@ -298,6 +307,8 @@ def main(
         fps: Target frame rate (frames per second).
         record: If non-empty, render headlessly and save an MP4 to this path.
         record_duration: Maximum recording duration in seconds.
+        zoom: If True, fit the camera to the path bounding box instead of
+            the full planning bounds.
     """
     recording = bool(record)
     max_record_frames = int(fps * record_duration)
@@ -343,11 +354,24 @@ def main(
         "found" if path is not None else "none",
     )
 
-    # World-to-screen transform fitted to the planning bounds
-    corner_pts: List[Tuple[float, float]] = [
-        (float(bounds[0][0]), float(bounds[1][0])),
-        (float(bounds[0][1]), float(bounds[1][1])),
-    ]
+    # World-to-screen transform fitted to the planning bounds (or path bbox)
+    if zoom and path is not None:
+        path_xs = [float(p[0]) for p in path]
+        path_ys = [float(p[1]) for p in path]
+        pad = max(
+            (max(path_xs) - min(path_xs)) * 0.15,
+            (max(path_ys) - min(path_ys)) * 0.15,
+            5.0,
+        )
+        corner_pts = [
+            (min(path_xs) - pad, min(path_ys) - pad),
+            (max(path_xs) + pad, max(path_ys) + pad),
+        ]
+    else:
+        corner_pts = [
+            (float(bounds[0][0]), float(bounds[1][0])),
+            (float(bounds[0][1]), float(bounds[1][1])),
+        ]
     transform = WorldTransform(corner_pts, (screen_w, screen_h), margin=60)
 
     # Compute how many nodes to reveal per frame so the animation fills
@@ -444,7 +468,16 @@ if __name__ == "__main__":
         dest="record_duration",
         help="Maximum recording duration in seconds (default: 60).",
     )
+    parser.add_argument(
+        "--zoom",
+        action="store_true",
+        default=False,
+        help="Zoom camera to the path bounding box instead of full bounds.",
+    )
     args = parser.parse_args()
     main(
-        fps=args.fps, record=args.record, record_duration=args.record_duration
+        fps=args.fps,
+        record=args.record,
+        record_duration=args.record_duration,
+        zoom=args.zoom,
     )
