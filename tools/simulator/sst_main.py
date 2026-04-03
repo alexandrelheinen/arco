@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import os
 import subprocess
 import sys
@@ -48,8 +49,16 @@ sys.path.insert(0, os.path.join(_HERE, "..", "..", "src"))
 sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import pygame
-from renderer import WorldTransform
+from renderer import (
+    WorldTransform,
+    draw_tracking_target,
+    draw_trajectory,
+    draw_vehicle,
+)
 
+from arco.guidance.control.pure_pursuit import PurePursuitController
+from arco.guidance.control.tracking import TrackingLoop
+from arco.guidance.vehicle import DubinsVehicle
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import SSTPlanner
 from config import load_config
@@ -73,6 +82,21 @@ _DEFAULT_SCREEN_W = 1280
 _DEFAULT_SCREEN_H = 800
 
 _cfg = load_config("sst")
+
+# ---------------------------------------------------------------------------
+# Vehicle parameters scaled for the 50 × 50 m planning environment
+# ---------------------------------------------------------------------------
+_VEH_MAX_SPEED = 5.0
+_VEH_CRUISE_SPEED = 3.0
+_VEH_LOOKAHEAD = 4.0
+_VEH_GOAL_RADIUS = 3.0
+_VEH_MAX_TURN_RATE = math.radians(90.0)
+_VEH_MAX_ACCEL = 4.9
+_VEH_MAX_TURN_RATE_DOT = math.radians(3600.0)
+_VEH_DT = 1.0 / 30.0
+
+# Frames to hold the completed tree before transitioning to the vehicle phase
+_HOLD_FRAMES = 60
 
 
 # ---------------------------------------------------------------------------
@@ -106,6 +130,91 @@ def _build_occupancy() -> KDTreeOccupancy:
     return KDTreeOccupancy(
         all_pts, clearance=float(_cfg["obstacle_clearance"])
     )
+
+
+# ---------------------------------------------------------------------------
+# Vehicle simulation helpers
+# ---------------------------------------------------------------------------
+
+
+def _initial_heading(path: List[np.ndarray]) -> float:
+    """Return heading (radians) from path[0] toward path[1].
+
+    Args:
+        path: Ordered list of numpy waypoints.
+
+    Returns:
+        Heading angle in radians, or 0.0 if fewer than 2 points.
+    """
+    if len(path) < 2:
+        return 0.0
+    dx = float(path[1][0]) - float(path[0][0])
+    dy = float(path[1][1]) - float(path[0][1])
+    return math.atan2(dy, dx)
+
+
+def _find_lookahead(
+    x: float,
+    y: float,
+    path: List[Tuple[float, float]],
+    lookahead: float,
+) -> Tuple[float, float]:
+    """Return the lookahead point on *path* at least *lookahead* metres away.
+
+    Args:
+        x: Current x-position in world metres.
+        y: Current y-position in world metres.
+        path: Ordered list of ``(x, y)`` waypoints.
+        lookahead: Minimum distance to the lookahead target in metres.
+
+    Returns:
+        ``(x, y)`` of the lookahead target.
+    """
+    if not path:
+        return (x, y)
+    closest = min(
+        range(len(path)),
+        key=lambda i: math.hypot(path[i][0] - x, path[i][1] - y),
+    )
+    for pt in path[closest:]:
+        if math.hypot(pt[0] - x, pt[1] - y) >= lookahead:
+            return pt
+    return path[-1]
+
+
+def _build_vehicle_sim(
+    path: List[np.ndarray],
+) -> Tuple[DubinsVehicle, TrackingLoop, List[Tuple[float, float]]]:
+    """Create a Dubins vehicle and tracking loop initialised at path start.
+
+    Args:
+        path: Planned path as ordered numpy waypoints.
+
+    Returns:
+        Tuple of ``(vehicle, tracking_loop, smooth_path)`` where
+        *smooth_path* is the path converted to ``(x, y)`` tuples.
+    """
+    smooth_path = [(float(p[0]), float(p[1])) for p in path]
+    x0, y0 = smooth_path[0]
+    theta0 = _initial_heading(path)
+    vehicle = DubinsVehicle(
+        x=x0,
+        y=y0,
+        heading=theta0,
+        max_speed=_VEH_MAX_SPEED,
+        min_speed=0.0,
+        max_turn_rate=_VEH_MAX_TURN_RATE,
+        max_acceleration=_VEH_MAX_ACCEL,
+        max_turn_rate_dot=_VEH_MAX_TURN_RATE_DOT,
+    )
+    controller = PurePursuitController(lookahead_distance=_VEH_LOOKAHEAD)
+    loop = TrackingLoop(
+        vehicle,
+        controller,
+        cruise_speed=_VEH_CRUISE_SPEED,
+        curvature_gain=0.0,
+    )
+    return vehicle, loop, smooth_path
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +400,41 @@ def _draw_hud(
         y += font.get_linesize() + 2
 
 
+def _draw_vehicle_hud(
+    surface: pygame.Surface,
+    font: "pygame.font.Font",
+    step: int,
+    speed: float,
+    cte: float,
+    finished: bool,
+) -> None:
+    """Draw a HUD showing Dubins vehicle tracking state.
+
+    Args:
+        surface: Target pygame surface.
+        font: Pygame font for rendering text.
+        step: Current simulation step count.
+        speed: Current vehicle speed in m/s.
+        cte: Cross-track error in metres.
+        finished: Whether the vehicle has reached the goal.
+    """
+    lines = [
+        f"Step: {step}",
+        f"Speed: {speed:.1f} m/s",
+        f"CTE: {cte:+.1f} m",
+        "SST — execution",
+    ]
+    if finished:
+        lines.append("[ GOAL REACHED ]")
+    x, y = 10, 10
+    for line in lines:
+        shadow = font.render(line, True, C_HUD_SHADOW)
+        surface.blit(shadow, (x + 1, y + 1))
+        text = font.render(line, True, C_HUD)
+        surface.blit(text, (x, y))
+        y += font.get_linesize() + 2
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -388,7 +532,19 @@ def main(
             "Recording to %r (%dx%d @ %d fps)", record, screen_w, screen_h, fps
         )
 
+    # Two-phase state: "tree" → exploration animation; "vehicle" → execution
+    phase = "tree"
     revealed = 0
+    hold = 0  # frames held after tree is complete before vehicle phase
+
+    # Vehicle phase state (initialised when phase transitions)
+    vehicle: Optional[DubinsVehicle] = None
+    veh_loop: Optional[TrackingLoop] = None
+    smooth_path: List[Tuple[float, float]] = []
+    veh_trajectory: List[Tuple[float, float, float]] = []
+    veh_finished = False
+    veh_step = 0
+
     record_frames = 0
     running = True
 
@@ -401,29 +557,83 @@ def main(
                     if event.key in (pygame.K_q, pygame.K_ESCAPE):
                         running = False
 
-        # Reveal more nodes each frame until all are shown
-        if revealed < total_nodes:
-            revealed = min(revealed + nodes_per_frame, total_nodes)
+        # ----------------------------------------------------------------
+        # Phase logic
+        # ----------------------------------------------------------------
+        if phase == "tree":
+            if revealed < total_nodes:
+                revealed = min(revealed + nodes_per_frame, total_nodes)
+            else:
+                hold += 1
+                # Transition to vehicle phase after hold or at half-way point
+                transition = hold >= _HOLD_FRAMES or (
+                    recording and record_frames >= half_frames
+                )
+                if transition and path is not None:
+                    vehicle, veh_loop, smooth_path = _build_vehicle_sim(path)
+                    veh_trajectory = []
+                    veh_finished = False
+                    veh_step = 0
+                    phase = "vehicle"
+                    logger.info("Switching to vehicle execution phase.")
+        elif phase == "vehicle":
+            assert vehicle is not None and veh_loop is not None
+            if not veh_finished:
+                veh_loop.step(smooth_path, dt=_VEH_DT)
+                veh_step += 1
+                veh_trajectory.append(vehicle.pose)
+                gx, gy = smooth_path[-1]
+                if (
+                    math.hypot(vehicle.x - gx, vehicle.y - gy)
+                    < _VEH_GOAL_RADIUS
+                ):
+                    veh_finished = True
+                    logger.info("Vehicle reached goal in %d steps.", veh_step)
 
+        # ----------------------------------------------------------------
         # Render
+        # ----------------------------------------------------------------
         screen.fill(C_BG)
         _draw_obstacles(screen, occ, transform)
-        _draw_tree(screen, tree_nodes, tree_parent, revealed, transform)
-        if revealed >= total_nodes and path is not None:
-            _draw_path(screen, path, transform)
-        _draw_endpoints(screen, start, goal, transform)
-        _draw_hud(
-            screen,
-            font,
-            revealed,
-            total_nodes,
-            path is not None,
-        )
+
+        if phase == "tree":
+            _draw_tree(screen, tree_nodes, tree_parent, revealed, transform)
+            if revealed >= total_nodes and path is not None:
+                _draw_path(screen, path, transform)
+            _draw_endpoints(screen, start, goal, transform)
+            _draw_hud(screen, font, revealed, total_nodes, path is not None)
+        else:
+            # Show full tree and path as background context
+            _draw_tree(screen, tree_nodes, tree_parent, total_nodes, transform)
+            if path is not None:
+                _draw_path(screen, path, transform)
+            _draw_endpoints(screen, start, goal, transform)
+            assert vehicle is not None
+            if len(veh_trajectory) >= 2:
+                draw_trajectory(screen, veh_trajectory, transform)
+            la = _find_lookahead(
+                vehicle.x, vehicle.y, smooth_path, _VEH_LOOKAHEAD
+            )
+            draw_tracking_target(screen, la, transform)
+            draw_vehicle(
+                screen, vehicle.x, vehicle.y, vehicle.heading, transform
+            )
+            metrics = veh_loop.metrics if veh_loop is not None else {}
+            _draw_vehicle_hud(
+                screen,
+                font,
+                veh_step,
+                float(metrics.get("speed", 0.0)),
+                float(metrics.get("cross_track_error", 0.0)),
+                veh_finished,
+            )
 
         if recording:
             _write_video_frame(video_writer, screen)
             record_frames += 1
             if record_frames >= max_record_frames:
+                running = False
+            elif phase == "vehicle" and veh_finished:
                 running = False
         else:
             pygame.display.flip()

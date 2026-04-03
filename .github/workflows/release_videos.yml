@@ -36,7 +36,7 @@ jobs:
           python tools/simulator/generate_chiptune.py \
             --output /tmp/sim_videos/racing_theme.wav
 
-      - name: Generate general view (full network camera)
+      - name: Generate A* general view (full network camera)
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
@@ -44,10 +44,10 @@ jobs:
           python tools/simulator/main.py \
             --fps 30 \
             --camera full \
-            --record /tmp/sim_videos/simulation_full.mp4 \
+            --record /tmp/sim_videos/astar_full.mp4 \
             --record-duration 60
 
-      - name: Generate zoomed view (follow-vehicle camera)
+      - name: Generate A* zoomed view (follow-vehicle camera)
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
@@ -55,7 +55,7 @@ jobs:
           python tools/simulator/main.py \
             --fps 30 \
             --camera follow \
-            --record /tmp/sim_videos/simulation_follow.mp4 \
+            --record /tmp/sim_videos/astar_follow.mp4 \
             --record-duration 60
 
       - name: Generate RRT* planning visualisation
@@ -104,8 +104,8 @@ jobs:
         run: |
           AUDIO=/tmp/sim_videos/racing_theme.wav
           for VIDEO in \
-            simulation_full \
-            simulation_follow \
+            astar_full \
+            astar_follow \
             rrt_full \
             rrt_zoom \
             sst_full \
@@ -122,20 +122,20 @@ jobs:
             mv "$TMP" "$SRC"
           done
 
-      - name: Upload general view to release
+      - name: Upload A* general view to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/simulation_full.mp4 \
+            /tmp/sim_videos/astar_full.mp4 \
             --clobber
 
-      - name: Upload zoomed view to release
+      - name: Upload A* zoomed view to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/simulation_follow.mp4 \
+            /tmp/sim_videos/astar_follow.mp4 \
             --clobber
 
       - name: Upload RRT* planning video to release
