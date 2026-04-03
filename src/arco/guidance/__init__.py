@@ -21,6 +21,7 @@ from .exploration_primitive import ExplorationPrimitive
 from .interpolator import Interpolator
 from .mpc import MPCController
 from .pid import PIDController
+from .ppp import PPPRobot
 from .pure_pursuit import PurePursuitController
 from .tracking import TrackingLoop
 from .vehicle import DubinsVehicle
