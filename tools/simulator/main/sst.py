@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
 sys.path.insert(0, os.path.join(_HERE, "..", ".."))
 sys.path.insert(0, os.path.join(_HERE, ".."))
 
-from env.sst import SSTScene
+from scenes.sst import SSTScene
 from sim import run_sim
 
 from config import load_config
