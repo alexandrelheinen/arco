@@ -4,11 +4,15 @@ These tests validate that the full pipeline runs end-to-end and that the
 tracking controller converges with acceptable metrics within a finite time
 budget.  They do *not* pin absolute numeric outputs — only qualitative
 properties such as convergence, stability, and progress are checked.
+
+The road network is loaded from ``tools/config/paris_network.json``, the
+hand-crafted Paris downtown graph that replaces the procedural generator.
 """
 
 from __future__ import annotations
 
 import math
+import os
 import time
 
 import numpy as np
@@ -17,51 +21,49 @@ import pytest
 from arco.guidance.pure_pursuit import PurePursuitController
 from arco.guidance.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
-from arco.mapping.generator import RoadNetworkGenerator
+from arco.mapping.graph.loader import load_road_graph
 from arco.planning.discrete import RouteRouter
 
 # ---------------------------------------------------------------------------
 # Shared test fixtures
 # ---------------------------------------------------------------------------
 
-SEED = 7
-GRID_SIZE = (3, 3)
-CELL_SIZE = 50.0
-WAYPOINTS_PER_EDGE = 3
-CURVATURE = 0.25
+_NETWORK_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "tools",
+    "config",
+    "paris_network.json",
+)
+
+# Start near node 13 (340, 220) and goal near node 17 (400, 570).
+# These are two outer nodes on opposite sides of the Paris network.
+START_XY = (345.0, 225.0)
+GOAL_XY = (395.0, 565.0)
+
 ACTIVATION_RADIUS = 35.0
-
-START_XY = (5.0, 5.0)
-GOAL_XY = (95.0, 95.0)
-
-CRUISE_SPEED = 3.0
-LOOKAHEAD = 10.0
+CRUISE_SPEED = 5.0
+LOOKAHEAD = 15.0
 DT = 0.1
-MAX_STEPS = 1200
+MAX_STEPS = 3000
 
 
 def _build_smooth_path(graph, route: list[int]) -> list[tuple[float, float]]:
     """Collect dense smooth path from route edge geometry."""
     if len(route) < 2:
-        return [graph.position(route[0])] if route else []
+        return [tuple(graph.position(route[0]))] if route else []
     smooth: list[tuple[float, float]] = []
     for i in range(len(route) - 1):
         pts = graph.full_edge_geometry(route[i], route[i + 1])
         smooth.extend(pts[:-1])
-    smooth.append(graph.position(route[-1]))
+    smooth.append(tuple(graph.position(route[-1])))
     return smooth
 
 
 @pytest.fixture(scope="module")
 def pipeline():
     """Build the complete pipeline once and return all artifacts."""
-    generator = RoadNetworkGenerator(seed=SEED)
-    graph = generator.generate_grid_network(
-        grid_size=GRID_SIZE,
-        cell_size=CELL_SIZE,
-        waypoints_per_edge_count=WAYPOINTS_PER_EDGE,
-        curvature=CURVATURE,
-    )
+    graph = load_road_graph(_NETWORK_PATH)
     router = RouteRouter(graph, activation_radius=ACTIVATION_RADIUS)
     result = router.plan(np.array(START_XY), np.array(GOAL_XY))
     return {
@@ -90,7 +92,7 @@ def simulation(pipeline):
         x=x0,
         y=y0,
         heading=theta0,
-        max_speed=5.0,
+        max_speed=10.0,
         min_speed=0.0,
         max_turn_rate=1.5,
         max_acceleration=4.0,
@@ -117,15 +119,15 @@ def simulation(pipeline):
 
 
 # ---------------------------------------------------------------------------
-# Stage 1 — Road network generation
+# Stage 1 — Road network loading
 # ---------------------------------------------------------------------------
 
 
 def test_graph_has_nodes_and_edges(pipeline) -> None:
-    """Generated graph must have nodes and edges."""
+    """Loaded graph must have the expected number of nodes and edges."""
     graph = pipeline["graph"]
-    assert len(graph.nodes) == GRID_SIZE[0] * GRID_SIZE[1]
-    assert len(graph.edges) > 0
+    assert len(graph.nodes) == 20
+    assert len(graph.edges) == 35
 
 
 def test_graph_edges_have_waypoints(pipeline) -> None:
@@ -162,13 +164,15 @@ def test_route_connects_start_to_goal(pipeline) -> None:
     goal_node_pos = graph.position(result.path[-1])
     assert (
         math.hypot(
-            start_node_pos[0] - START_XY[0], start_node_pos[1] - START_XY[1]
+            start_node_pos[0] - START_XY[0],
+            start_node_pos[1] - START_XY[1],
         )
         <= ACTIVATION_RADIUS
     )
     assert (
         math.hypot(
-            goal_node_pos[0] - GOAL_XY[0], goal_node_pos[1] - GOAL_XY[1]
+            goal_node_pos[0] - GOAL_XY[0],
+            goal_node_pos[1] - GOAL_XY[1],
         )
         <= ACTIVATION_RADIUS
     )
@@ -180,12 +184,12 @@ def test_route_connects_start_to_goal(pipeline) -> None:
 
 
 def test_smooth_path_has_enough_waypoints(pipeline) -> None:
-    """Smooth path must contain at least as many points as the route has edges."""
+    """Smooth path must contain at least as many points as the route has nodes."""
     graph = pipeline["graph"]
     result = pipeline["result"]
     assert result is not None
     smooth = _build_smooth_path(graph, result.path)
-    min_expected = len(result.path)  # at minimum one point per node
+    min_expected = len(result.path)
     assert len(smooth) >= min_expected
 
 
@@ -210,18 +214,12 @@ def test_simulation_runs_in_finite_steps(simulation) -> None:
 
 
 def test_simulation_runs_in_finite_wall_time() -> None:
-    """Full pipeline including simulation must complete in under 10 seconds."""
+    """Full pipeline including simulation must complete in under 30 seconds."""
     start = time.monotonic()
 
-    generator = RoadNetworkGenerator(seed=99)
-    graph = generator.generate_grid_network(
-        grid_size=(3, 3),
-        cell_size=50.0,
-        waypoints_per_edge_count=3,
-        curvature=0.2,
-    )
-    router = RouteRouter(graph, activation_radius=35.0)
-    result = router.plan(np.array([5.0, 5.0]), np.array([95.0, 95.0]))
+    graph = load_road_graph(_NETWORK_PATH)
+    router = RouteRouter(graph, activation_radius=ACTIVATION_RADIUS)
+    result = router.plan(np.array(START_XY), np.array(GOAL_XY))
     assert result is not None
 
     smooth = _build_smooth_path(graph, result.path)
@@ -233,23 +231,27 @@ def test_simulation_runs_in_finite_wall_time() -> None:
         x=x0,
         y=y0,
         heading=theta0,
-        max_speed=5.0,
+        max_speed=10.0,
         min_speed=0.0,
         max_turn_rate=1.5,
         max_acceleration=4.0,
         max_turn_rate_dot=4.0,
     )
-    loop = TrackingLoop(vehicle, PurePursuitController(10.0), cruise_speed=3.0)
-    loop.run(smooth, steps=600, dt=0.1)
+    loop = TrackingLoop(
+        vehicle,
+        PurePursuitController(LOOKAHEAD),
+        cruise_speed=CRUISE_SPEED,
+    )
+    loop.run(smooth, steps=1000, dt=DT)
 
     elapsed = time.monotonic() - start
-    assert elapsed < 10.0, f"Pipeline took {elapsed:.1f} s (limit 10 s)"
+    assert elapsed < 30.0, f"Pipeline took {elapsed:.1f} s (limit 30 s)"
 
 
 def test_vehicle_speed_bounded_throughout(simulation) -> None:
     """Vehicle speed must remain within [0, max_speed] for all steps."""
     for entry in simulation["loop"].history:
-        assert 0.0 - 1e-9 <= entry["speed"] <= 5.0 + 1e-9
+        assert 0.0 - 1e-9 <= entry["speed"] <= 10.0 + 1e-9
 
 
 def test_vehicle_turn_rate_bounded_throughout(simulation) -> None:
@@ -277,27 +279,25 @@ def test_vehicle_makes_forward_progress(simulation) -> None:
     dist_covered = math.hypot(
         final_pose[0] - start_pos[0], final_pose[1] - start_pos[1]
     )
-    assert (
-        dist_covered > straight_dist * 0.5
-    ), f"Vehicle only traveled {dist_covered:.1f} m of {straight_dist:.1f} m straight-line distance"
+    assert dist_covered > straight_dist * 0.5, (
+        f"Vehicle only traveled {dist_covered:.1f} m of "
+        f"{straight_dist:.1f} m straight-line distance"
+    )
 
 
 def test_cross_track_error_reduces_over_time(simulation) -> None:
-    """Cross-track error in the second half must be lower on average than the first half."""
+    """Cross-track error in the last quarter must not exceed 3× the first quarter average, with a minimum tolerance of 30 m."""
     history = simulation["loop"].history
     n = len(history)
     if n < 40:
         pytest.skip("Simulation too short to assess convergence")
 
     quarter = n // 4
-    # Compare the first quarter vs the last quarter of the simulation
     early_errors = [abs(h["cross_track_error"]) for h in history[:quarter]]
     late_errors = [abs(h["cross_track_error"]) for h in history[-quarter:]]
     avg_early = sum(early_errors) / len(early_errors)
     avg_late = sum(late_errors) / len(late_errors)
-    # Allow some margin: late error should not exceed 3× the early error
-    # (controller should track at least as well as at startup)
-    assert avg_late <= max(avg_early * 3.0, 20.0), (
+    assert avg_late <= max(avg_early * 3.0, 30.0), (
         f"Cross-track error did not reduce: early avg={avg_early:.2f} m, "
         f"late avg={avg_late:.2f} m"
     )
@@ -308,6 +308,7 @@ def test_vehicle_reaches_goal_vicinity(simulation) -> None:
     final_pose = simulation["loop"].history[-1]["pose"]
     goal = simulation["goal"]
     dist = math.hypot(final_pose[0] - goal[0], final_pose[1] - goal[1])
-    assert (
-        dist < LOOKAHEAD * 2
-    ), f"Vehicle ended {dist:.1f} m from goal (tolerance {LOOKAHEAD * 2:.1f} m)"
+    assert dist < LOOKAHEAD * 2, (
+        f"Vehicle ended {dist:.1f} m from goal "
+        f"(tolerance {LOOKAHEAD * 2:.1f} m)"
+    )

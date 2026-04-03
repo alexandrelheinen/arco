@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-"""A* pipeline: road network generation → route planning → path tracking.
+"""A* pipeline: hand-crafted Paris road network → route planning → path tracking.
 
-Demonstrates the complete A* horse auto-follow pipeline:
+Demonstrates the complete A* horse auto-follow pipeline on the Paris downtown
+road network (``tools/config/paris_network.json``):
 
-1. **Road generation** — :class:`~arco.mapping.generator.RoadNetworkGenerator`
-   builds a procedural medieval-city-style road network with organic radial
-   streets, ring roads, and dead-end alleys.
+1. **Road loading** — :func:`~arco.mapping.graph.loader.load_road_graph`
+   deserialises the hand-crafted Paris network descriptor into a
+   :class:`~arco.mapping.graph.road.RoadGraph` with 20 intersections and
+   35 road segments, each carrying S-curve geometry waypoints.
 2. **Route planning** — :class:`~arco.planning.discrete.RouteRouter` projects
    continuous start/goal positions onto graph nodes and runs A*.
 3. **Path smoothing** — :meth:`~arco.mapping.graph.road.RoadGraph.full_edge_geometry`
@@ -16,11 +18,12 @@ Demonstrates the complete A* horse auto-follow pipeline:
 
 The output figure shows:
 
-- Road graph with curved edge geometry (organic medieval-city layout)
+- Road graph with curved edge geometry (Paris city-centre layout)
 - Planned discrete route (highlighted)
 - Smooth path extracted from edge waypoints
 - Actual vehicle trajectory
-- Cross-track error and speed over simulation time
+- Cross-track error, speed, and curvature over simulation time
+
 Usage
 -----
 Run interactively (opens a Matplotlib window)::
@@ -58,19 +61,21 @@ from viewer.road import draw_road_network
 from arco.guidance.pure_pursuit import PurePursuitController
 from arco.guidance.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
-from arco.mapping.generator import RoadNetworkGenerator
+from arco.mapping.graph.loader import load_road_graph
 from arco.planning.discrete import RouteRouter
 from config import load_config
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Simulation parameters (loaded from tools/config/)
+# Configuration
 # ---------------------------------------------------------------------------
-_rng_cfg = load_config("random")
-_map_cfg = load_config("map")["medieval_city"]
 _sim_cfg = load_config("simulation")
 _veh_cfg = load_config("vehicle")["dubins"]
+
+_NETWORK_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "config", "paris_network.json"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +87,8 @@ def build_smooth_path(graph, route: list[int]) -> list[tuple[float, float]]:
     """Collect the full waypoint-dense path along the discrete route.
 
     Concatenates :meth:`~arco.mapping.graph.road.RoadGraph.full_edge_geometry`
-    for each consecutive pair of nodes in *route*, avoiding endpoint duplication.
+    for each consecutive pair of nodes in *route*, avoiding endpoint
+    duplication.
 
     Args:
         graph: Road graph with edge geometry metadata.
@@ -92,13 +98,13 @@ def build_smooth_path(graph, route: list[int]) -> list[tuple[float, float]]:
         List of ``(x, y)`` waypoints forming the smooth path.
     """
     if len(route) < 2:
-        return [graph.position(route[0])] if route else []
+        return [tuple(graph.position(route[0]))] if route else []
 
     smooth: list[tuple[float, float]] = []
     for i in range(len(route) - 1):
         pts = graph.full_edge_geometry(route[i], route[i + 1])
         smooth.extend(pts[:-1])
-    smooth.append(graph.position(route[-1]))
+    smooth.append(tuple(graph.position(route[-1])))
     return smooth
 
 
@@ -178,7 +184,10 @@ def find_farthest_outer_pair(
             if d > best_dist:
                 best_dist = d
                 best_pair = (outer_nodes[i], outer_nodes[j])
-    return graph.position(best_pair[0]), graph.position(best_pair[1])
+    return (
+        tuple(graph.position(best_pair[0])),
+        tuple(graph.position(best_pair[1])),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -196,51 +205,35 @@ def main(save_path: str | None = None) -> None:
     if save_path is not None:
         matplotlib.use("Agg")
 
-    # ------------------------------------------------------------------
-    # 1. Generate road network
-    # ------------------------------------------------------------------
     logger.info("=" * 60)
-    logger.info("A* Pipeline \u2014 Horse Auto-Follow System")
+    logger.info("A* Pipeline \u2014 Paris Downtown Road Network")
     logger.info("=" * 60)
 
-    generator = RoadNetworkGenerator(seed=_rng_cfg["seed"])
-    graph = generator.generate_medieval_network(
-        center_position=_map_cfg["center_position"][:2],
-        radial_count=int(_map_cfg["radial_count"]),
-        ring_radii=_map_cfg["ring_radii"],
-        waypoints_per_edge_count=int(_map_cfg["waypoints_per_edge_count"]),
-        curvature=float(_map_cfg["curvature"]),
-        jitter=float(_map_cfg["jitter"]),
-    )
+    # ------------------------------------------------------------------
+    # 1. Load hand-crafted Paris road network
+    # ------------------------------------------------------------------
+    graph = load_road_graph(_NETWORK_PATH)
     logger.info(
-        "[1] Medieval city network: %d nodes, %d edges",
+        "[1] Paris network loaded: %d nodes, %d edges",
         len(graph.nodes),
         len(graph.edges),
     )
 
     # ------------------------------------------------------------------
-    # 2. Route planning — start/goal at two farthest outer-ring nodes
+    # 2. Route planning — start/goal at two farthest outer nodes
     # ------------------------------------------------------------------
-    # Identify outer nodes by distance: nodes farther than 70% of the outer
-    # ring radius are on the outer ring or are dead-end alleys — both are
-    # valid route endpoints that span the full city.
-    cx, cy = _map_cfg["center_position"][:2]
-    outer_threshold = _map_cfg["ring_radii"][-1] * 0.70
-    outer_nodes = [
-        nid
-        for nid in graph.nodes
-        if math.hypot(graph.position(nid)[0] - cx, graph.position(nid)[1] - cy)
-        >= outer_threshold
-    ]
+    # The outer nodes are those in the outer ring of the Paris network
+    # (node IDs 12-19 by design, coordinates in the periphery).
+    outer_node_ids = list(range(12, 20))
+    start_pos, goal_pos = find_farthest_outer_pair(graph, outer_node_ids)
 
-    start_pos, goal_pos = find_farthest_outer_pair(graph, outer_nodes)
     # Small offset so the vehicle starts slightly off a node (tests projection)
     start_xy = np.array([start_pos[0] + 4.0, start_pos[1] + 4.0])
     goal_xy = np.array([goal_pos[0] - 4.0, goal_pos[1] - 4.0])
 
     router = RouteRouter(
         graph,
-        activation_radius=float(_sim_cfg.get("activation_radius", 30.0)),
+        activation_radius=float(_sim_cfg.get("activation_radius", 35.0)),
     )
     result = router.plan(start_xy, goal_xy)
 
@@ -346,8 +339,8 @@ def main(save_path: str | None = None) -> None:
         tracking_target=tracking_target,
         ax=ax_map,
         title=(
-            f"A* Pipeline — Medieval city network\n"
-            f"Route: {result.path[0]} → {result.path[-1]}, "
+            f"A* Pipeline \u2014 Paris downtown network\n"
+            f"Route: {result.path[0]} \u2192 {result.path[-1]}, "
             f"steps: {step}"
         ),
     )
@@ -398,8 +391,10 @@ if __name__ == "__main__":
         "--save",
         metavar="PATH",
         default=None,
-        help="Save the figure to PATH instead of opening an interactive window. "
-        "Accepts any .png or .pdf path.",
+        help=(
+            "Save the figure to PATH instead of opening an interactive "
+            "window. Accepts any .png or .pdf path."
+        ),
     )
     args = parser.parse_args()
     main(save_path=args.save)

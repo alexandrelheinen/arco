@@ -1,0 +1,331 @@
+"""Pygame rendering adapter for the ARCO road network and vehicle simulation.
+
+Draws the following layers (back to front):
+
+- Road network edges as polylines with waypoint geometry
+- Route edges highlighted in a distinct colour
+- Smooth path as a dashed polyline
+- Past vehicle trajectory as a fading blue trace
+- Tracking lookahead target as a yellow circle
+- Current vehicle as a green rectangle with heading arrow
+- HUD text overlay (speed, cross-track error, step counter)
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Optional, Sequence, Tuple
+
+import pygame
+
+# ---------------------------------------------------------------------------
+# Colour palette
+# ---------------------------------------------------------------------------
+C_BG = (28, 28, 35)
+C_ROAD = (90, 90, 100)
+C_ROAD_ROUTE = (220, 80, 60)
+C_NODE = (70, 100, 130)
+C_NODE_START = (60, 200, 90)
+C_NODE_GOAL = (60, 100, 220)
+C_NODE_ROUTE = (200, 100, 80)
+C_SMOOTH_PATH = (230, 140, 40)
+C_TRAJECTORY = (60, 140, 220)
+C_TRACKING_TARGET = (240, 200, 0)
+C_VEHICLE = (80, 220, 100)
+C_VEHICLE_ARROW = (30, 255, 80)
+C_HUD = (220, 220, 220)
+C_HUD_SHADOW = (40, 40, 50)
+
+# Vehicle display dimensions in *screen pixels*
+_VEH_LENGTH_PX = 14
+_VEH_WIDTH_PX = 7
+
+
+class WorldTransform:
+    """Maps world (metre) coordinates to pygame screen pixels.
+
+    Preserves aspect ratio and adds a uniform margin.  World y-axis points
+    **up**; screen y-axis points **down** — this class handles the flip.
+
+    Args:
+        nodes: Iterable of ``(x, y)`` world positions used to compute the
+            bounding box automatically.
+        screen_size: ``(width, height)`` of the pygame display in pixels.
+        margin: Pixel margin added on every side.
+    """
+
+    def __init__(
+        self,
+        nodes: Sequence[Tuple[float, float]],
+        screen_size: Tuple[int, int],
+        margin: int = 60,
+    ) -> None:
+        """Initialise the transform from node positions and screen size."""
+        xs = [n[0] for n in nodes]
+        ys = [n[1] for n in nodes]
+        wx_min, wx_max = min(xs), max(xs)
+        wy_min, wy_max = min(ys), max(ys)
+
+        w_avail = screen_size[0] - 2 * margin
+        h_avail = screen_size[1] - 2 * margin
+        scale_x = w_avail / max(wx_max - wx_min, 1.0)
+        scale_y = h_avail / max(wy_max - wy_min, 1.0)
+        self._scale = min(scale_x, scale_y)
+
+        # Centring offsets so the bounding box is centred in the available area
+        map_w_px = (wx_max - wx_min) * self._scale
+        map_h_px = (wy_max - wy_min) * self._scale
+        self._ox = margin + (w_avail - map_w_px) / 2.0 - wx_min * self._scale
+        self._oy = (
+            screen_size[1]
+            - margin
+            - (h_avail - map_h_px) / 2.0
+            + wy_min * self._scale
+        )
+
+    def __call__(self, wx: float, wy: float) -> Tuple[int, int]:
+        """Convert world ``(x, y)`` to screen ``(col, row)`` integer pixels.
+
+        Args:
+            wx: World x-coordinate in metres.
+            wy: World y-coordinate in metres.
+
+        Returns:
+            Integer ``(screen_x, screen_y)`` pixel coordinates.
+        """
+        sx = int(self._ox + wx * self._scale)
+        sy = int(self._oy - wy * self._scale)
+        return (sx, sy)
+
+    @property
+    def scale(self) -> float:
+        """Pixels per metre."""
+        return self._scale
+
+
+# ---------------------------------------------------------------------------
+# Drawing helpers
+# ---------------------------------------------------------------------------
+
+
+def draw_road_network(
+    surface: pygame.Surface,
+    graph,
+    transform: WorldTransform,
+    route: Optional[Sequence[int]] = None,
+) -> None:
+    """Draw road edges and intersection nodes onto *surface*.
+
+    Args:
+        surface: Target pygame surface.
+        graph: :class:`~arco.mapping.graph.road.RoadGraph` instance.
+        transform: World-to-screen coordinate transform.
+        route: Optional ordered sequence of node IDs defining the planned
+            route.  Route edges are drawn in a highlight colour.
+    """
+    route_edge_set: set[tuple[int, int]] = set()
+    if route:
+        route_edge_set = {
+            (min(a, b), max(a, b)) for a, b in zip(route[:-1], route[1:])
+        }
+
+    for node_a, node_b, _ in graph.edges:
+        pts = graph.full_edge_geometry(node_a, node_b)
+        screen_pts = [transform(float(p[0]), float(p[1])) for p in pts]
+        key = (min(node_a, node_b), max(node_a, node_b))
+        color = C_ROAD_ROUTE if key in route_edge_set else C_ROAD
+        width = 3 if key in route_edge_set else 1
+        if len(screen_pts) >= 2:
+            pygame.draw.lines(surface, color, False, screen_pts, width)
+
+    route_set = set(route) if route else set()
+    for nid in graph.nodes:
+        x, y = graph.position(nid)
+        sx, sy = transform(float(x), float(y))
+        if route and nid == route[0]:
+            col, r = C_NODE_START, 6
+        elif route and nid == route[-1]:
+            col, r = C_NODE_GOAL, 6
+        elif nid in route_set:
+            col, r = C_NODE_ROUTE, 4
+        else:
+            col, r = C_NODE, 3
+        pygame.draw.circle(surface, col, (sx, sy), r)
+
+
+def draw_smooth_path(
+    surface: pygame.Surface,
+    smooth_path: Sequence[Tuple[float, float]],
+    transform: WorldTransform,
+) -> None:
+    """Draw the smooth interpolated path as a dashed orange polyline.
+
+    Args:
+        surface: Target pygame surface.
+        smooth_path: Ordered sequence of ``(x, y)`` world waypoints.
+        transform: World-to-screen coordinate transform.
+    """
+    if len(smooth_path) < 2:
+        return
+    pts = [transform(float(p[0]), float(p[1])) for p in smooth_path]
+    dash_len = 6
+    gap_len = 4
+    draw_seg = True
+    count = 0
+    for i in range(len(pts) - 1):
+        color = C_SMOOTH_PATH if draw_seg else None
+        if color:
+            pygame.draw.line(surface, color, pts[i], pts[i + 1], 1)
+        count += 1
+        if count >= (dash_len if draw_seg else gap_len):
+            draw_seg = not draw_seg
+            count = 0
+
+
+def draw_trajectory(
+    surface: pygame.Surface,
+    trajectory: Sequence[Tuple[float, float, float]],
+    transform: WorldTransform,
+) -> None:
+    """Draw the vehicle's past trajectory as a fading blue polyline.
+
+    Args:
+        surface: Target pygame surface.
+        trajectory: Ordered sequence of ``(x, y, heading)`` poses.
+        transform: World-to-screen coordinate transform.
+    """
+    if len(trajectory) < 2:
+        return
+    pts = [transform(float(p[0]), float(p[1])) for p in trajectory]
+    for i in range(1, len(pts)):
+        pygame.draw.line(surface, C_TRAJECTORY, pts[i - 1], pts[i], 1)
+
+
+def draw_tracking_target(
+    surface: pygame.Surface,
+    target: Tuple[float, float],
+    transform: WorldTransform,
+) -> None:
+    """Draw the lookahead tracking target as a yellow circle.
+
+    Args:
+        surface: Target pygame surface.
+        target: World ``(x, y)`` of the lookahead target.
+        transform: World-to-screen coordinate transform.
+    """
+    sx, sy = transform(float(target[0]), float(target[1]))
+    pygame.draw.circle(surface, C_TRACKING_TARGET, (sx, sy), 6)
+    pygame.draw.circle(surface, C_BG, (sx, sy), 3)
+
+
+def draw_vehicle(
+    surface: pygame.Surface,
+    x: float,
+    y: float,
+    heading: float,
+    transform: WorldTransform,
+) -> None:
+    """Draw the vehicle as a green oriented rectangle with a heading arrow.
+
+    Args:
+        surface: Target pygame surface.
+        x: Vehicle x-position in world metres.
+        y: Vehicle y-position in world metres.
+        heading: Vehicle heading in radians (0 = east, π/2 = north).
+        transform: World-to-screen coordinate transform.
+    """
+    cx, cy = transform(float(x), float(y))
+    cos_h = math.cos(heading)
+    sin_h = math.sin(heading)
+
+    half_l = _VEH_LENGTH_PX / 2
+    half_w = _VEH_WIDTH_PX / 2
+
+    # Four corners of the rectangle in local frame → rotated to world/screen
+    # Screen y is inverted; forward direction is (cos_h, -sin_h) in screen space
+    corners = []
+    for lx, ly in [
+        (half_l, half_w),
+        (half_l, -half_w),
+        (-half_l, -half_w),
+        (-half_l, half_w),
+    ]:
+        # Rotate by heading (screen y inverted so sin negated)
+        rx = lx * cos_h - ly * sin_h
+        ry = -(lx * sin_h + ly * cos_h)
+        corners.append((cx + rx, cy + ry))
+
+    pygame.draw.polygon(surface, C_VEHICLE, corners)
+    pygame.draw.polygon(surface, C_VEHICLE_ARROW, corners, 1)
+
+    # Forward arrow
+    arr_end = (
+        cx + _VEH_LENGTH_PX * 0.7 * cos_h,
+        cy - _VEH_LENGTH_PX * 0.7 * sin_h,
+    )
+    pygame.draw.line(surface, C_VEHICLE_ARROW, (cx, cy), arr_end, 2)
+
+
+def draw_hud(
+    surface: pygame.Surface,
+    font: pygame.font.Font,
+    step: int,
+    speed: float,
+    cross_track: float,
+    finished: bool,
+    paused: bool,
+) -> None:
+    """Draw heads-up display text in the top-left corner.
+
+    Args:
+        surface: Target pygame surface.
+        font: Pygame font for rendering text.
+        step: Current simulation step count.
+        speed: Current vehicle speed in m/s.
+        cross_track: Cross-track error in metres.
+        finished: Whether the vehicle has reached the goal.
+        paused: Whether the simulation is paused.
+    """
+    lines = [
+        f"Step: {step}",
+        f"Speed: {speed:.1f} m/s",
+        f"CTE: {cross_track:+.1f} m",
+    ]
+    if paused:
+        lines.append("  [ PAUSED — press SPACE ]")
+    if finished:
+        lines.append("  [ GOAL REACHED ]")
+
+    x, y = 10, 10
+    for line in lines:
+        shadow = font.render(line, True, C_HUD_SHADOW)
+        surface.blit(shadow, (x + 1, y + 1))
+        text = font.render(line, True, C_HUD)
+        surface.blit(text, (x, y))
+        y += font.get_linesize() + 2
+
+
+def draw_legend(surface: pygame.Surface, font: pygame.font.Font) -> None:
+    """Draw a small colour legend in the bottom-left corner.
+
+    Args:
+        surface: Target pygame surface.
+        font: Pygame font for rendering text.
+    """
+    items = [
+        (C_ROAD, "Road"),
+        (C_ROAD_ROUTE, "Route"),
+        (C_SMOOTH_PATH, "Smooth path"),
+        (C_TRAJECTORY, "Trajectory"),
+        (C_NODE_START, "Start"),
+        (C_NODE_GOAL, "Goal"),
+        (C_TRACKING_TARGET, "Lookahead"),
+        (C_VEHICLE, "Vehicle"),
+    ]
+    bh = surface.get_height()
+    x, y = 10, bh - len(items) * (font.get_linesize() + 2) - 10
+    for color, label in items:
+        pygame.draw.rect(surface, color, (x, y + 3, 12, 10))
+        text = font.render(label, True, C_HUD)
+        surface.blit(text, (x + 16, y))
+        y += font.get_linesize() + 2
