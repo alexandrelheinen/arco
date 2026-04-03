@@ -1,0 +1,204 @@
+{
+  "name": "Paris Downtown",
+  "description": "Hand-crafted road network inspired by Paris city centre. Includes Île de la Cité (central island), Left Bank (Rive Gauche) to the south, Right Bank (Rive Droite) to the north, bridges connecting the island to both banks, and radiating outer boulevards. Coordinates are in metres; the bounding box is roughly [140, 190] × [480, 590] = 650 m × 400 m.",
+  "coordinate_unit": "metres",
+  "nodes": [
+    {"id":  0, "x": 350, "y": 400, "label": "Île de la Cité Ouest"},
+    {"id":  1, "x": 385, "y": 415, "label": "Île de la Cité Nord"},
+    {"id":  2, "x": 385, "y": 387, "label": "Île de la Cité Sud"},
+    {"id":  3, "x": 425, "y": 400, "label": "Île de la Cité Est"},
+    {"id":  4, "x": 290, "y": 345, "label": "Saint-Michel"},
+    {"id":  5, "x": 395, "y": 300, "label": "Boulevard Saint-Germain"},
+    {"id":  6, "x": 500, "y": 330, "label": "Rue Saint-Antoine"},
+    {"id":  7, "x": 205, "y": 365, "label": "Quai des Grands-Augustins"},
+    {"id":  8, "x": 270, "y": 465, "label": "Palais-Royal"},
+    {"id":  9, "x": 395, "y": 490, "label": "Grands Boulevards"},
+    {"id": 10, "x": 510, "y": 460, "label": "République"},
+    {"id": 11, "x": 600, "y": 450, "label": "Bastille Est"},
+    {"id": 12, "x": 160, "y": 340, "label": "Montparnasse Ouest"},
+    {"id": 13, "x": 340, "y": 220, "label": "Place Denfert-Rochereau"},
+    {"id": 14, "x": 510, "y": 225, "label": "Place d'Italie"},
+    {"id": 15, "x": 615, "y": 375, "label": "Vincennes Ouest"},
+    {"id": 16, "x": 615, "y": 510, "label": "Père Lachaise"},
+    {"id": 17, "x": 400, "y": 570, "label": "Pigalle"},
+    {"id": 18, "x": 180, "y": 510, "label": "Place de Clichy"},
+    {"id": 19, "x": 155, "y": 430, "label": "Porte Maillot"}
+  ],
+  "edges": [
+    {
+      "from": 0, "to": 1,
+      "label": "Île de la Cité – Rue de la Cité NW",
+      "waypoints": [[365, 403], [378, 411]]
+    },
+    {
+      "from": 0, "to": 2,
+      "label": "Île de la Cité – Rue de la Cité SW",
+      "waypoints": [[363, 397], [378, 391]]
+    },
+    {
+      "from": 1, "to": 3,
+      "label": "Île de la Cité – Rue de la Cité NE",
+      "waypoints": [[402, 416], [416, 408]]
+    },
+    {
+      "from": 2, "to": 3,
+      "label": "Île de la Cité – Rue de la Cité SE",
+      "waypoints": [[400, 385], [415, 393]]
+    },
+    {
+      "from": 0, "to": 4,
+      "label": "Pont Saint-Michel (bridge to Left Bank SW)",
+      "waypoints": [[328, 382], [307, 362]]
+    },
+    {
+      "from": 2, "to": 5,
+      "label": "Petit Pont (bridge to Left Bank centre)",
+      "waypoints": [[388, 360], [392, 328]]
+    },
+    {
+      "from": 3, "to": 6,
+      "label": "Pont de Sully (bridge to Left Bank SE)",
+      "waypoints": [[448, 383], [476, 355]]
+    },
+    {
+      "from": 0, "to": 8,
+      "label": "Pont Neuf (bridge to Right Bank NW)",
+      "waypoints": [[320, 413], [293, 443]]
+    },
+    {
+      "from": 1, "to": 9,
+      "label": "Pont Notre-Dame (bridge to Right Bank centre)",
+      "waypoints": [[388, 443], [392, 467]]
+    },
+    {
+      "from": 3, "to": 10,
+      "label": "Pont Marie (bridge to Right Bank NE)",
+      "waypoints": [[459, 415], [488, 442]]
+    },
+    {
+      "from": 4, "to": 5,
+      "label": "Boulevard Saint-Germain Ouest",
+      "waypoints": [[328, 338], [363, 316]]
+    },
+    {
+      "from": 5, "to": 6,
+      "label": "Boulevard Saint-Germain Est",
+      "waypoints": [[438, 296], [472, 313]]
+    },
+    {
+      "from": 7, "to": 4,
+      "label": "Quai de la Tournelle / Rue du Bac",
+      "waypoints": [[235, 361], [263, 352]]
+    },
+    {
+      "from": 6, "to": 15,
+      "label": "Rue de Bercy / Avenue du Trône",
+      "waypoints": [[548, 332], [584, 355]]
+    },
+    {
+      "from": 4, "to": 13,
+      "label": "Boulevard Saint-Michel",
+      "waypoints": [[296, 298], [315, 257]]
+    },
+    {
+      "from": 5, "to": 13,
+      "label": "Rue Saint-Jacques",
+      "waypoints": [[378, 268], [360, 245]]
+    },
+    {
+      "from": 5, "to": 14,
+      "label": "Avenue des Gobelins",
+      "waypoints": [[440, 277], [478, 249]]
+    },
+    {
+      "from": 7, "to": 12,
+      "label": "Rue de Vaugirard Ouest",
+      "waypoints": [[188, 360], [171, 350]]
+    },
+    {
+      "from": 12, "to": 13,
+      "label": "Boulevard du Montparnasse",
+      "waypoints": [[225, 300], [280, 258]]
+    },
+    {
+      "from": 13, "to": 14,
+      "label": "Boulevard Arago / Avenue d'Italie",
+      "waypoints": [[412, 215], [458, 218]]
+    },
+    {
+      "from": 8, "to": 9,
+      "label": "Rue de Rivoli Ouest",
+      "waypoints": [[318, 470], [360, 483]]
+    },
+    {
+      "from": 9, "to": 10,
+      "label": "Rue de Rivoli Est",
+      "waypoints": [[447, 486], [482, 472]]
+    },
+    {
+      "from": 10, "to": 11,
+      "label": "Boulevard de la Bastille",
+      "waypoints": [[548, 459], [578, 455]]
+    },
+    {
+      "from": 19, "to": 8,
+      "label": "Avenue de Clichy",
+      "waypoints": [[188, 438], [232, 454]]
+    },
+    {
+      "from": 11, "to": 16,
+      "label": "Avenue Ledru-Rollin",
+      "waypoints": [[603, 473], [610, 494]]
+    },
+    {
+      "from": 8, "to": 18,
+      "label": "Rue Saint-Honoré Ouest",
+      "waypoints": [[238, 478], [207, 498]]
+    },
+    {
+      "from": 9, "to": 17,
+      "label": "Boulevard des Italiens / Rue Montmartre",
+      "waypoints": [[393, 522], [398, 548]]
+    },
+    {
+      "from": 10, "to": 16,
+      "label": "Avenue de la République",
+      "waypoints": [[555, 475], [589, 497]]
+    },
+    {
+      "from": 18, "to": 17,
+      "label": "Boulevard de Clichy",
+      "waypoints": [[268, 540], [337, 558]]
+    },
+    {
+      "from": 17, "to": 16,
+      "label": "Boulevard de Rochechouart",
+      "waypoints": [[490, 555], [557, 535]]
+    },
+    {
+      "from": 18, "to": 19,
+      "label": "Avenue de la Grande Armée",
+      "waypoints": [[173, 480], [162, 453]]
+    },
+    {
+      "from": 7, "to": 19,
+      "label": "Quai d'Orsay / Avenue du Président Wilson",
+      "waypoints": [[183, 384], [164, 409]]
+    },
+    {
+      "from": 14, "to": 15,
+      "label": "Boulevard Soult",
+      "waypoints": [[545, 268], [583, 322]]
+    },
+    {
+      "from": 15, "to": 11,
+      "label": "Avenue Daumesnil",
+      "waypoints": [[614, 403], [609, 430]]
+    },
+    {
+      "from": 15, "to": 16,
+      "label": "Rue de la Roquette",
+      "waypoints": [[614, 425], [614, 470]]
+    }
+  ]
+}

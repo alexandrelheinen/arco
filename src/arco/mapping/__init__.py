@@ -6,6 +6,7 @@ from .graph import (
     OrientedGraph,
     RoadGraph,
     WeightedGraph,
+    load_road_graph,
 )
 from .grid.base import Grid
 from .grid.euclidean import EuclideanGrid
