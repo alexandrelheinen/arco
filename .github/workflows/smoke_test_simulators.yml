@@ -55,7 +55,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main.py \
+          python tools/simulator/main/astar.py \
             --fps 30 \
             --record /tmp/smoke_astar.mp4 \
             --record-duration 5
@@ -65,7 +65,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/rrt_main.py \
+          python tools/simulator/main/rrt.py \
             --fps 30 \
             --record /tmp/smoke_rrt.mp4 \
             --record-duration 5
@@ -75,7 +75,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/sst_main.py \
+          python tools/simulator/main/sst.py \
             --fps 30 \
             --record /tmp/smoke_sst.mp4 \
             --record-duration 5
