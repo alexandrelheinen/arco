@@ -1,0 +1,19 @@
+# Configuration for SST (Stable Sparse Trees) planner.
+#
+# bounds           – sampling region as [[x_min, x_max], [y_min, y_max]].
+# max_sample_count – maximum number of propagation attempts.
+# step_size        – maximum extension length per step (world units).
+# goal_tolerance   – distance at which a node is considered to reach the goal.
+# witness_radius   – witness cell half-width (δ_s).  Must be less than
+#                    step_size to allow tree growth.
+# collision_check_count – intermediate points for segment collision checks.
+# goal_bias        – probability of sampling the goal instead of a random state.
+# obstacle_clearance – clearance radius used by the KDTree occupancy map.
+bounds: [[0.0, 50.0], [0.0, 50.0]]
+max_sample_count: 3000
+step_size: 2.0
+goal_tolerance: 2.0
+witness_radius: 1.0
+collision_check_count: 10
+goal_bias: 0.05
+obstacle_clearance: 1.5

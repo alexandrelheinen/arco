@@ -11,4 +11,5 @@ from .graph import (
 from .grid.base import Grid
 from .grid.euclidean import EuclideanGrid
 from .grid.manhattan import ManhattanGrid
+from .kdtree import KDTreeOccupancy
 from .occupancy import Occupancy
