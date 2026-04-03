@@ -123,7 +123,9 @@ def test_control_interface_returns_float() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_find_lookahead_does_not_return_goal_when_vehicle_is_far_off_track() -> None:
+def test_find_lookahead_does_not_return_goal_when_vehicle_is_far_off_track() -> (
+    None
+):
     """Fallback must target the next forward waypoint, not path[-1].
 
     Regression test for a bug where `_find_lookahead` returned ``path[-1]``
@@ -137,7 +139,9 @@ def test_find_lookahead_does_not_return_goal_when_vehicle_is_far_off_track() -> 
     fallback is triggered.  The correct behaviour is to return the next
     forward waypoint (60, 0), not the goal (100, 0).
     """
-    path: list[tuple[float, float]] = [(float(x), 0.0) for x in range(0, 101, 10)]
+    path: list[tuple[float, float]] = [
+        (float(x), 0.0) for x in range(0, 101, 10)
+    ]
     start_idx = 5  # closest waypoint: (50, 0)
 
     result = _find_lookahead(50.0, 100.0, path, start_idx, lookahead=5.0)

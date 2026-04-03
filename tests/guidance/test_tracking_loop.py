@@ -143,7 +143,9 @@ def test_curvature_gain_zero_does_not_change_speed_command() -> None:
     for _ in range(20):
         loop.step(STRAIGHT_PATH, dt=0.1)
         loop_ref.step(STRAIGHT_PATH, dt=0.1)
-    assert math.isclose(loop.vehicle.speed, loop_ref.vehicle.speed, rel_tol=1e-9)
+    assert math.isclose(
+        loop.vehicle.speed, loop_ref.vehicle.speed, rel_tol=1e-9
+    )
 
 
 def test_curvature_gain_slows_vehicle_on_curve() -> None:
