@@ -111,3 +111,27 @@ def test_points_property_is_copy():
     copy = occ.points
     copy[0, 0] = 999.0
     assert occ.points[0, 0] == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# query_distances
+# ---------------------------------------------------------------------------
+
+
+def test_query_distances_batch():
+    occ = KDTreeOccupancy([[0.0, 0.0]], clearance=0.5)
+    pts = np.array([[0.0, 0.0], [3.0, 4.0], [1.0, 0.0]])
+    dists = occ.query_distances(pts)
+    assert dists.shape == (3,)
+    assert dists[0] == pytest.approx(0.0, abs=1e-9)
+    assert dists[1] == pytest.approx(5.0)
+    assert dists[2] == pytest.approx(1.0)
+
+
+def test_query_distances_matches_nearest_obstacle():
+    occ = KDTreeOccupancy([[2.0, 3.0], [7.0, 8.0]], clearance=0.5)
+    pts = np.array([[1.0, 1.0], [6.0, 8.0]])
+    dists = occ.query_distances(pts)
+    for i, p in enumerate(pts):
+        d, _ = occ.nearest_obstacle(p)
+        assert dists[i] == pytest.approx(d)

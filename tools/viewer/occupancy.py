@@ -89,7 +89,7 @@ def draw_occupancy(
     ys = np.linspace(y_min, y_max, resolution)
     xx, yy = np.meshgrid(xs, ys)
     grid_pts = np.stack([xx.ravel(), yy.ravel()], axis=1)
-    distances, _ = occupancy._tree.query(grid_pts)
+    distances = occupancy.query_distances(grid_pts)
     dist_img = distances.reshape(resolution, resolution)
 
     ax.imshow(
