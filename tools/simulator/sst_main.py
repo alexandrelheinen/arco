@@ -619,7 +619,7 @@ def main(
             draw_vehicle(
                 screen, vehicle.x, vehicle.y, vehicle.heading, transform
             )
-            metrics = veh_loop.metrics if veh_loop is not None else {}
+            metrics = (veh_loop.metrics or {}) if veh_loop is not None else {}
             _draw_vehicle_hud(
                 screen,
                 font,
