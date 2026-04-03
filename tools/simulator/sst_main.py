@@ -84,7 +84,7 @@ _DEFAULT_SCREEN_H = 800
 _cfg = load_config("sst")
 
 # ---------------------------------------------------------------------------
-# Vehicle parameters scaled for the 50 × 50 m planning environment
+# Vehicle parameters scaled for the 50 x 50 m planning environment
 # ---------------------------------------------------------------------------
 _VEH_MAX_SPEED = 5.0
 _VEH_CRUISE_SPEED = 3.0
@@ -217,6 +217,7 @@ def _build_vehicle_sim(
     return vehicle, loop, smooth_path
 
 
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Video helpers (mirror of main.py)
 # ---------------------------------------------------------------------------
