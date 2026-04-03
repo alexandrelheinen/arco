@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Real-time Pygame frontend for the ARCO A* horse auto-follow pipeline.
 
-Loads the hand-crafted city road network, plans an A* route between two
-terminal nodes, and animates the full planning + tracking loop in real time
-using Pygame.
+Builds a procedural road network from ``tools/config/graph.yml``, plans an A*
+route, and animates the full planning + tracking loop in real time using
+Pygame.
 
 Keyboard controls
 -----------------
@@ -73,28 +73,30 @@ from renderer import (
 from arco.guidance.pure_pursuit import PurePursuitController
 from arco.guidance.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
-from arco.mapping.graph.loader import load_road_graph
+from graph.generator import generate_graph
 from arco.planning.discrete import RouteRouter
 from config import load_config
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Paths and configuration
+# Configuration
 # ---------------------------------------------------------------------------
-_NETWORK_PATH = os.path.join(_HERE, "..", "config", "city_network.json")
 _veh_cfg = load_config("vehicle")["dubins"]
+_graph_cfg = load_config("graph")
 
 SCREEN_W = 1280
 SCREEN_H = 800
-TITLE = "ARCO — City Road Network — A* Path Tracking (SPACE=pause, R=restart)"
+TITLE = (
+    "ARCO — "
+    f"{_graph_cfg.get('type', 'ring').title()} Network — "
+    "A* Path Tracking (SPACE=pause, R=restart)"
+)
 
 # Small metric offset applied to start/goal so the vehicle begins slightly
 # off a graph node, exercising the projection logic in RouteRouter.
 _ENDPOINT_OFFSET_M = 4.0
 
-# Terminal nodes (IDs 57-60: N, E, S, W) are the farthest-apart entry points.
-_OUTER_NODE_IDS = list(range(57, 61))
 _ACTIVATION_RADIUS = 35.0
 
 
@@ -166,7 +168,7 @@ def build_simulation(graph):
         Dict with keys ``route``, ``smooth_path``, ``vehicle``,
         ``controller``, ``loop``, ``goal_xy``.
     """
-    start_pos, goal_pos = _find_farthest_pair(graph, _OUTER_NODE_IDS)
+    start_pos, goal_pos = _find_farthest_pair(graph, list(graph.nodes))
 
     import numpy as np
 
@@ -237,11 +239,14 @@ def main(fps: int = 30, dt: float = 0.1) -> None:
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("monospace", 14)
 
-    # Load road graph (done once; reused across restarts)
-    logger.info("Loading city road network from %s", _NETWORK_PATH)
-    graph = load_road_graph(_NETWORK_PATH)
+    # Build road graph (done once; reused across restarts)
     logger.info(
-        "Network loaded: %d nodes, %d edges",
+        "Generating %r graph from tools/config/graph.yml",
+        _graph_cfg.get("type", "ring"),
+    )
+    graph = generate_graph(_graph_cfg)
+    logger.info(
+        "Network generated: %d nodes, %d edges",
         len(graph.nodes),
         len(graph.edges),
     )

@@ -45,13 +45,13 @@ logger = logging.getLogger(__name__)
 # Parameters (loaded from tools/config/)
 # ---------------------------------------------------------------------------
 _rng_cfg = load_config("random")
-_map_cfg = load_config("map")["graph"]
+_graph_cfg = load_config("graph")
 
 
 def build_random_graph(
-    node_count: int = int(_map_cfg["node_count"]),
-    area: float = float(_map_cfg["area"]),
-    connect_radius: float = float(_map_cfg["connect_radius"]),
+    node_count: int = int(_graph_cfg["node_count"]),
+    area: float = float(_graph_cfg["area"]),
+    connect_radius: float = float(_graph_cfg["connect_radius"]),
     seed: int = int(_rng_cfg["seed"]),
 ) -> CartesianGraph:
     """Build a random planar graph with nodes connected by proximity.
@@ -112,7 +112,7 @@ def main(save_path: str | None = None) -> None:
     path = planner.plan(start, goal)
 
     title = (
-        f"A* on random graph — {int(_map_cfg['node_count'])} nodes, r={float(_map_cfg['connect_radius']):.0f}\n"
+        f"A* on random graph — {int(_graph_cfg['node_count'])} nodes, r={float(_graph_cfg['connect_radius']):.0f}\n"
         f"Start: {start}  Goal: {goal}  "
         + (f"Path length: {len(path)}" if path else "No path found")
     )
