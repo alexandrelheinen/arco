@@ -31,6 +31,11 @@ jobs:
       - name: Create output directory
         run: mkdir -p /tmp/sim_videos
 
+      - name: Generate racing chiptune (CC0)
+        run: |
+          python tools/simulator/generate_chiptune.py \
+            --output /tmp/sim_videos/racing_theme.wav
+
       - name: Generate general view (full network camera)
         env:
           SDL_VIDEODRIVER: dummy
@@ -52,6 +57,46 @@ jobs:
             --camera follow \
             --record /tmp/sim_videos/simulation_follow.mp4 \
             --record-duration 60
+
+      - name: Generate RRT* planning visualisation
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          python tools/simulator/rrt_main.py \
+            --fps 30 \
+            --record /tmp/sim_videos/rrt_planning.mp4 \
+            --record-duration 60
+
+      - name: Generate SST planning visualisation
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          python tools/simulator/sst_main.py \
+            --fps 30 \
+            --record /tmp/sim_videos/sst_planning.mp4 \
+            --record-duration 60
+
+      - name: Mix racing chiptune into all videos
+        run: |
+          AUDIO=/tmp/sim_videos/racing_theme.wav
+          for VIDEO in \
+            simulation_full \
+            simulation_follow \
+            rrt_planning \
+            sst_planning; do
+            SRC=/tmp/sim_videos/${VIDEO}.mp4
+            TMP=/tmp/sim_videos/${VIDEO}_audio.mp4
+            ffmpeg -y \
+              -i "$SRC" \
+              -stream_loop -1 -i "$AUDIO" \
+              -shortest \
+              -map 0:v -map 1:a \
+              -c:v copy -c:a aac -b:a 128k \
+              "$TMP"
+            mv "$TMP" "$SRC"
+          done
 
       - name: Upload general view to release
         env:
