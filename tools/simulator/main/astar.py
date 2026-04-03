@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
 sys.path.insert(0, os.path.join(_HERE, "..", ".."))
 sys.path.insert(0, os.path.join(_HERE, ".."))
 
-from env.astar import AStarScene
+from scenes.astar import AStarScene
 from sim import run_sim
 
 from config import load_config
