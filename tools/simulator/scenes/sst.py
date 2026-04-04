@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 import pygame
 from renderer import (
+    bake_sdf_surface,
     draw_endpoints,
     draw_exploration_tree,
     draw_obstacles,
@@ -32,6 +33,7 @@ _C_TREE_NODE: tuple[int, int, int] = (50, 140, 120)
 _C_PATH: tuple[int, int, int] = (230, 170, 30)
 _C_START: tuple[int, int, int] = (60, 200, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
+_C_SDF_NEAR: tuple[int, int, int] = (80, 35, 35)
 
 # Vehicle parameters matched to the 50 × 50 m SST planning environment.
 _VEHICLE_CONFIG = VehicleConfig(
@@ -66,6 +68,7 @@ class SSTScene(SimScene):
         self._start: Any = None
         self._goal: Any = None
         self._bounds: list[tuple[float, float]] = []
+        self._sdf_surface: pygame.Surface | None = None
 
     # ------------------------------------------------------------------
     # SimScene interface
@@ -103,6 +106,12 @@ class SSTScene(SimScene):
         )
         self._tree_nodes, self._tree_parent, self._path = planner.get_tree(
             self._start, self._goal
+        )
+        self._sdf_surface = bake_sdf_surface(
+            self._occ,
+            self._bounds,
+            bg_color=_C_BG,
+            near_color=_C_SDF_NEAR,
         )
 
     @property
@@ -173,6 +182,14 @@ class SSTScene(SimScene):
             transform: World-to-screen callable.
             revealed: Number of tree nodes to show (0 = none, total = all).
         """
+        if self._sdf_surface is not None:
+            surface.blit(
+                pygame.transform.smoothscale(
+                    self._sdf_surface,
+                    (surface.get_width(), surface.get_height()),
+                ),
+                (0, 0),
+            )
         draw_obstacles(surface, self._occ, transform, color=_C_OBSTACLE)
         draw_exploration_tree(
             surface,

@@ -527,3 +527,84 @@ def draw_tracking_hud(
     if finished:
         lines.append("[ GOAL REACHED ]")
     _render_hud_lines(surface, font, lines)
+
+
+# ---------------------------------------------------------------------------
+# SDF background baking
+# ---------------------------------------------------------------------------
+
+
+def bake_sdf_surface(
+    occ: Any,
+    bounds: list[tuple[float, float]],
+    *,
+    bg_color: tuple[int, int, int],
+    near_color: tuple[int, int, int],
+    resolution: int = 200,
+) -> pygame.Surface:
+    """Bake the signed-distance field of *occ* into a small pygame.Surface.
+
+    Builds a *resolution* × *resolution* grid over *bounds*, queries obstacle
+    distances in one batch, normalises to ``[0, 1]`` (vmax = 80th percentile),
+    linearly interpolates between *near_color* (distance = 0) and *bg_color*
+    (distance ≥ vmax), and returns a ``(resolution, resolution)`` surface.
+
+    Callers should smooth-scale the returned surface to the actual display
+    dimensions at draw time::
+
+        scaled = pygame.transform.smoothscale(sdf_surface, screen_size)
+        display_surface.blit(scaled, (0, 0))
+
+    Args:
+        occ: Occupancy object exposing ``query_distances(points)`` where
+            ``points`` has shape ``(N, 2)`` and the return value has shape
+            ``(N,)``.
+        bounds: ``[(x_min, x_max), (y_min, y_max)]`` world-space extents.
+        bg_color: RGB colour for far-from-obstacle regions.
+        near_color: RGB colour for obstacle-adjacent regions.
+        resolution: Grid side length in pixels before upscaling.
+
+    Returns:
+        A ``pygame.Surface`` of size ``(resolution, resolution)``.
+    """
+    import numpy as np
+
+    x_min, x_max = float(bounds[0][0]), float(bounds[0][1])
+    y_min, y_max = float(bounds[1][0]), float(bounds[1][1])
+
+    xs = np.linspace(x_min, x_max, resolution)
+    # Y decreases as row index increases so row 0 maps to the top of the
+    # screen (world y_max), matching pygame's top-left origin convention.
+    ys = np.linspace(y_max, y_min, resolution)
+
+    xx, yy = np.meshgrid(xs, ys)
+    grid_pts = np.stack([xx.ravel(), yy.ravel()], axis=1)
+    distances = occ.query_distances(grid_pts)
+
+    vmax = float(np.percentile(distances, 80))
+    if vmax > 0.0:
+        t = np.clip(distances / vmax, 0.0, 1.0)
+    else:
+        t = np.ones_like(distances)
+
+    t_img = t.reshape(resolution, resolution)  # (rows=y, cols=x)
+
+    # Lerp: t=0 → near_color, t=1 → bg_color
+    r = (near_color[0] + t_img * (bg_color[0] - near_color[0])).astype(
+        np.uint8
+    )
+    g = (near_color[1] + t_img * (bg_color[1] - near_color[1])).astype(
+        np.uint8
+    )
+    b = (near_color[2] + t_img * (bg_color[2] - near_color[2])).astype(
+        np.uint8
+    )
+
+    # pygame.surfarray.blit_array expects shape (width, height, 3) i.e.
+    # (cols, rows, 3).  Stack channels as (rows, cols, 3) then transpose.
+    rgb = np.stack([r, g, b], axis=2)
+    rgb_hw = np.ascontiguousarray(rgb.transpose(1, 0, 2))  # (cols, rows, 3)
+
+    surf = pygame.Surface((resolution, resolution))
+    pygame.surfarray.blit_array(surf, rgb_hw)
+    return surf
