@@ -97,6 +97,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glLineWidth,
     glLoadIdentity,
     glMatrixMode,
+    glMultMatrixf,
     glNormal3f,
     glOrtho,
     glPolygonOffset,
@@ -109,10 +110,6 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex2f,
     glVertex3f,
 )
-from OpenGL.GLU import (  # type: ignore[import-untyped]
-    gluLookAt,
-    gluPerspective,
-)
 from scenes.ppp import PPPScene
 from scenes.ppp import is_wall as _is_wall_box
 from sim.video import VideoWriter
@@ -120,6 +117,94 @@ from sim.video import VideoWriter
 from config import load_config
 
 logger = logging.getLogger(__name__)
+
+
+def _perspective_matrix(
+    fovy_deg: float, aspect: float, z_near: float, z_far: float
+) -> np.ndarray:
+    """Build a perspective projection matrix in OpenGL column-major order.
+
+    Equivalent to ``gluPerspective`` without requiring GLU.
+
+    Args:
+        fovy_deg: Vertical field-of-view in degrees.
+        aspect: Viewport width / height.
+        z_near: Near clipping plane distance.
+        z_far: Far clipping plane distance.
+
+    Returns:
+        16-element float32 array in column-major order for ``glMultMatrixf``.
+    """
+    f = 1.0 / math.tan(math.radians(fovy_deg) * 0.5)
+    dz = z_near - z_far
+    return np.array(
+        [
+            f / aspect,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            f,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            (z_far + z_near) / dz,
+            -1.0,
+            0.0,
+            0.0,
+            2.0 * z_far * z_near / dz,
+            0.0,
+        ],
+        dtype=np.float32,
+    )
+
+
+def _look_at_matrix(
+    eye: list[float], center: list[float], up: list[float]
+) -> np.ndarray:
+    """Build a look-at view matrix in OpenGL column-major order.
+
+    Equivalent to ``gluLookAt`` without requiring GLU.
+
+    Args:
+        eye: Camera position (x, y, z).
+        center: Look-at target (x, y, z).
+        up: World up vector (x, y, z).
+
+    Returns:
+        16-element float32 array in column-major order for ``glMultMatrixf``.
+    """
+    e = np.array(eye, dtype=np.float64)
+    c = np.array(center, dtype=np.float64)
+    u = np.array(up, dtype=np.float64)
+    f = c - e
+    f /= np.linalg.norm(f)
+    s = np.cross(f, u)
+    s /= np.linalg.norm(s)
+    u = np.cross(s, f)
+    return np.array(
+        [
+            s[0],
+            u[0],
+            -f[0],
+            0.0,
+            s[1],
+            u[1],
+            -f[1],
+            0.0,
+            s[2],
+            u[2],
+            -f[2],
+            0.0,
+            -np.dot(s, e),
+            -np.dot(u, e),
+            np.dot(f, e),
+            1.0,
+        ],
+        dtype=np.float32,
+    )
+
 
 _DEFAULT_SCREEN_W = 1280
 _DEFAULT_SCREEN_H = 800
@@ -247,7 +332,7 @@ def _gl_init(sw: int, sh: int) -> None:
 
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(45.0, sw / max(sh, 1), 0.1, 1000.0)
+    glMultMatrixf(_perspective_matrix(45.0, sw / max(sh, 1), 0.1, 1000.0))
     glMatrixMode(GL_MODELVIEW)
 
 
@@ -260,7 +345,7 @@ def _set_camera(camera: Camera3D) -> None:
     glLoadIdentity()
     ex, ey, ez = camera.eye
     cx, cy, cz = camera.center
-    gluLookAt(ex, ey, ez, cx, cy, cz, 0.0, 0.0, 1.0)
+    glMultMatrixf(_look_at_matrix([ex, ey, ez], [cx, cy, cz], [0.0, 0.0, 1.0]))
 
 
 # ---------------------------------------------------------------------------

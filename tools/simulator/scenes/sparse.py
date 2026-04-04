@@ -24,9 +24,9 @@ from sim.tracking import VehicleConfig
 # ---------------------------------------------------------------------------
 # Colour palette
 # ---------------------------------------------------------------------------
-_C_BG: tuple[int, int, int] = (22, 24, 30)           # dark asphalt
-_C_BUILDING: tuple[int, int, int] = (145, 125, 100)   # concrete facade
-_C_ROAD_DOT: tuple[int, int, int] = (65, 60, 50)      # faded lane marking
+_C_BG: tuple[int, int, int] = (22, 24, 30)  # dark asphalt
+_C_BUILDING: tuple[int, int, int] = (145, 125, 100)  # concrete facade
+_C_ROAD_DOT: tuple[int, int, int] = (65, 60, 50)  # faded lane marking
 
 # RRT* — blue family
 _C_RRT_EDGE: tuple[int, int, int] = (60, 120, 200)
@@ -40,7 +40,7 @@ _C_SST_PATH: tuple[int, int, int] = (100, 240, 210)
 
 _C_START: tuple[int, int, int] = (60, 220, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
-_C_SDF_NEAR: tuple[int, int, int] = (62, 50, 38)      # warm shadow near buildings
+_C_SDF_NEAR: tuple[int, int, int] = (62, 50, 38)  # warm shadow near buildings
 
 # World-space ring radii for start/goal markers.
 _RING_OUTER = 1.2  # metres
@@ -96,10 +96,14 @@ def _make_blocks(
     blocks: list[tuple[float, float, float, float]] = []
     for x_lo, x_hi in obs_cfg["block_columns"]:
         for y_lo, y_hi in obs_cfg["block_rows"]:
-            blocks.append((
-                float(x_lo), float(x_hi),
-                float(y_lo), float(y_hi),
-            ))
+            blocks.append(
+                (
+                    float(x_lo),
+                    float(x_hi),
+                    float(y_lo),
+                    float(y_hi),
+                )
+            )
     return blocks
 
 
@@ -163,8 +167,8 @@ class SparseScene:
         self._road_dots = _make_road_dots(obs_cfg)
         self._vehicle_cfg = _make_vehicle_config(obs_cfg)
         # Marker radii scale with world size
-        self._ring_outer = w * 0.014   # ≈ 18 m at 1280 m world
-        self._ring_inner = w * 0.007   # ≈  9 m
+        self._ring_outer = w * 0.014  # ≈ 18 m at 1280 m world
+        self._ring_inner = w * 0.007  # ≈  9 m
 
         # RRT* planner output
         self._rrt_nodes: list[Any] = []
@@ -397,4 +401,3 @@ def _build_occupancy(
             for y in ys:
                 all_pts.append([float(x), float(y)])
     return KDTreeOccupancy(all_pts, clearance=float(cfg["obstacle_clearance"]))
-
