@@ -298,7 +298,7 @@ def _build_occupancy(cfg: dict[str, Any]) -> Any:
     top_y = mid_y + 10.0  # 35.0
     bot_y = mid_y - 10.0  # 15.0
     wall_x_start = 12.0
-    wall_x_close = 33.0
+    wall_x_close = 33.0  # right closing wall
 
     xs_h = list(np.arange(wall_x_start, wall_x_close + spacing, spacing))
     ys_v = list(np.arange(bot_y, top_y + spacing, spacing))

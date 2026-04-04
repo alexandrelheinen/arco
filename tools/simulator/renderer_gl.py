@@ -537,13 +537,9 @@ def draw_ring(
     r: float,
     g: float,
     b: float,
+    segments: int = 24,
 ) -> None:
-    """Draw an annular ring using two ``GL_TRIANGLE_FAN`` calls.
-
-    Draws the outer disc filled with the given colour.  This function does
-    **not** draw the inner disc — callers must explicitly call
-    ``draw_disc(cx, cy, r_inner, bg_r, bg_g, bg_b)`` afterwards to paint
-    the centre with the scene background colour and create the ring effect.
+    """Draw a filled annular ring using ``GL_TRIANGLE_STRIP``.
 
     Args:
         cx: Centre x in world metres.
@@ -553,8 +549,18 @@ def draw_ring(
         r: Red component ``[0, 1]``.
         g: Green component ``[0, 1]``.
         b: Blue component ``[0, 1]``.
+        segments: Number of strip segments (higher = smoother).
     """
-    draw_disc(cx, cy, r_outer, r, g, b)
+    glDisable(GL_LIGHTING)
+    glColor3f(r, g, b)
+    glBegin(GL_TRIANGLE_STRIP)
+    for i in range(segments + 1):
+        angle = 2.0 * math.pi * i / segments
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
+        glVertex2f(cx + r_outer * cos_a, cy + r_outer * sin_a)
+        glVertex2f(cx + r_inner * cos_a, cy + r_inner * sin_a)
+    glEnd()
 
 
 # ---------------------------------------------------------------------------
