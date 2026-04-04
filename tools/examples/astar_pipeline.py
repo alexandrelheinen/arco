@@ -228,8 +228,8 @@ def main(save_path: str | None = None) -> None:
     start_pos, goal_pos = find_farthest_outer_pair(graph, outer_node_ids)
 
     # Small offset so the vehicle starts slightly off a node (tests projection)
-    start_xy = np.array([start_pos[0] + 4.0, start_pos[1] + 4.0])
-    goal_xy = np.array([goal_pos[0] - 4.0, goal_pos[1] - 4.0])
+    start_xy = np.array([start_pos[0] + 1.0, start_pos[1] + 1.0])
+    goal_xy = np.array([goal_pos[0] - 1.0, goal_pos[1] - 1.0])
 
     router = RouteRouter(
         graph,

@@ -1,9 +1,9 @@
 dubins:
-  cruise_speed: 20.0  # m/s (80 km/h)
-  lookahead: 20.0  # m (1 second at cruise speed)
-  max_speed: 40.0  # m/s (150 km/h)
+  cruise_speed: 3.0  # m/s (~11 km/h; inferred: ~75 m path in 25 s for a 50 m scene)
+  lookahead: 3.0  # m (1 second at cruise speed)
+  max_speed: 5.0  # m/s (short-burst sprint)
   max_turn_rate: 90.0  # deg/s
-  max_accel: 4.9  # m/s² (0.5 g)
+  max_accel: 1.5  # m/s² (safe indoor acceleration)
   max_turn_rate_dot: 3600.0  # deg/s² (very high to avoid limiting turn rate changes)
-  goal_radius: 10.0  # m (> 3 timesteps worth of cruise speed)
-  curvature_gain: 10.0  # m  (v = cruise speed / (1 + gain * |κ|); 0 = constant speed)
+  goal_radius: 3.0  # m (> 10 timesteps at cruise speed; robust pure-pursuit stopping)
+  curvature_gain: 3.0  # m  (v = cruise speed / (1 + gain * |κ|); 0 = constant speed)
