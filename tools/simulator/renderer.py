@@ -17,6 +17,7 @@ import math
 from collections.abc import Sequence
 from typing import Any
 
+import numpy as np
 import pygame
 
 # ---------------------------------------------------------------------------
@@ -494,6 +495,38 @@ def draw_planning_hud(
     )
 
 
+def check_trajectory_clearance(
+    path: Sequence[Any],
+    occ: Any,
+    safety_dist: float,
+) -> tuple[bool, float]:
+    """Return ``(is_safe, min_clearance)`` for *path* against *occ*.
+
+    Iterates over all points in *path* and queries the occupancy map for the
+    distance to the nearest obstacle.  A trajectory is considered safe when
+    every point is at least *safety_dist* metres from the nearest obstacle.
+
+    Args:
+        path: Ordered sequence of waypoints.  Each element must support
+            index access ``[0]``/``[1]`` for (x, y).
+        occ: Occupancy map exposing
+            ``nearest_obstacle(point) -> (float, np.ndarray)``.
+        safety_dist: Minimum required clearance from any obstacle (metres).
+            Recommended: 1.0 m (= 4 × half-side of a 0.5 m vehicle square).
+
+    Returns:
+        A tuple ``(is_safe, min_clearance)`` where *is_safe* is ``True`` when
+        the entire trajectory satisfies the clearance requirement and
+        *min_clearance* is the smallest observed obstacle distance.
+    """
+    min_d = float("inf")
+    for p in path:
+        d, _ = occ.nearest_obstacle(np.asarray(p[:2], dtype=float))
+        if d < min_d:
+            min_d = d
+    return (min_d >= safety_dist, min_d)
+
+
 def draw_tracking_hud(
     surface: pygame.Surface,
     font: pygame.font.Font,
@@ -503,6 +536,7 @@ def draw_tracking_hud(
     cte: float,
     finished: bool,
     paused: bool = False,
+    extra_lines: list[str] | None = None,
 ) -> None:
     """Draw a vehicle-tracking HUD showing controller state.
 
@@ -515,6 +549,8 @@ def draw_tracking_hud(
         cte: Cross-track error in metres.
         finished: Whether the vehicle has reached the goal.
         paused: Whether the simulation is currently paused.
+        extra_lines: Optional additional text lines appended after the
+            standard HUD rows (e.g. a safety-clearance report).
     """
     lines = [
         f"{label} — tracking",
@@ -526,6 +562,8 @@ def draw_tracking_hud(
         lines.append("[ PAUSED — press SPACE ]")
     if finished:
         lines.append("[ GOAL REACHED ]")
+    if extra_lines:
+        lines.extend(extra_lines)
     _render_hud_lines(surface, font, lines)
 
 

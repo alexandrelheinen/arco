@@ -47,6 +47,11 @@ class AStarScene(SimScene):
         self._smooth_path: list[tuple[float, float]] = []
         self._vehicle_config: VehicleConfig | None = None
         self._font: pygame.font.Font | None = None
+        # Road-network paths are inherently obstacle-free; no occupancy model
+        # is available to run a numeric clearance check.
+        self._finish_hud_lines: list[str] = [
+            "Safety: N/A (road network — no obstacle model)"
+        ]
 
     # ------------------------------------------------------------------
     # SimScene interface
@@ -153,6 +158,11 @@ class AStarScene(SimScene):
     def background_total(self) -> int:
         """Zero — A* skips the background-reveal phase."""
         return 0
+
+    @property
+    def finish_hud_lines(self) -> list[str]:
+        """Safety note shown when the vehicle reaches the goal."""
+        return self._finish_hud_lines
 
     def draw_background(
         self,

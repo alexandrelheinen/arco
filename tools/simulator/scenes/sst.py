@@ -19,6 +19,7 @@ import numpy as np
 import pygame
 from renderer import (
     bake_sdf_surface,
+    check_trajectory_clearance,
     draw_endpoints,
     draw_exploration_tree,
     draw_obstacles,
@@ -86,6 +87,7 @@ class SSTScene(SimScene):
         self._goal: Any = None
         self._bounds: list[tuple[float, float]] = []
         self._sdf_surface: pygame.Surface | None = None
+        self._finish_hud_lines: list[str] = []
 
     # ------------------------------------------------------------------
     # SimScene interface
@@ -156,6 +158,21 @@ class SSTScene(SimScene):
             )
             self._traj = opt.optimize(self._path)
 
+        # Post-optimization safety check: verify that every trajectory point
+        # (or raw path point if the optimizer returned None) has at least
+        # traj_safety_distance clearance from the nearest obstacle.
+        # Vehicle footprint: 0.5 m × 0.5 m square → 4 × 0.25 m = 1.0 m.
+        path_to_check = self._traj if self._traj is not None else self._path
+        if path_to_check is not None:
+            safety_dist = float(self._cfg.get("traj_safety_distance", 1.0))
+            is_safe, min_d = check_trajectory_clearance(
+                path_to_check, self._occ, safety_dist
+            )
+            status = "OK  " if is_safe else "FAIL"
+            self._finish_hud_lines = [
+                f"Safety: {status}  min {min_d:.2f} m  (thr {safety_dist:.1f} m)",
+            ]
+
     @property
     def title(self) -> str:
         """Human-readable scene label."""
@@ -212,6 +229,11 @@ class SSTScene(SimScene):
     def background_total(self) -> int:
         """Total background reveal ticks: tree nodes plus trajectory-reveal frames."""
         return self._tree_total + _TRAJ_REVEAL_FRAMES
+
+    @property
+    def finish_hud_lines(self) -> list[str]:
+        """Safety-clearance report shown when the vehicle reaches the goal."""
+        return self._finish_hud_lines
 
     def draw_background(
         self,

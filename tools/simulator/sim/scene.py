@@ -108,3 +108,16 @@ class SimScene(ABC):
             font: Monospace font for HUD text.
             revealed: Number of background items revealed so far.
         """
+
+    @property
+    def finish_hud_lines(self) -> list[str]:
+        """Extra HUD lines appended when the vehicle reaches the goal.
+
+        Override in subclasses to add scene-specific information such as a
+        post-optimization safety-clearance report.
+
+        Returns:
+            Ordered list of text strings shown at goal-reached time.
+            Default implementation returns an empty list.
+        """
+        return []

@@ -315,6 +315,9 @@ def run_sim(
                     float(metrics.get("cross_track_error", 0.0)),
                     veh_finished,
                     paused,
+                    extra_lines=(
+                        scene.finish_hud_lines if veh_finished else None
+                    ),
                 )
 
             # ------------------------------------------------------------------
