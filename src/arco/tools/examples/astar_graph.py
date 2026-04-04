@@ -8,11 +8,11 @@ Usage
 -----
 Run interactively (opens a matplotlib window)::
 
-    python tools/astar_graph_example.py
+    python -m arco.tools.examples.astar_graph
 
 Save the output image without opening a window::
 
-    python tools/astar_graph_example.py --save path/to/output.png
+    python -m arco.tools.examples.astar_graph --save path/to/output.png
 """
 
 from __future__ import annotations
@@ -22,19 +22,15 @@ import logging
 import math
 import os
 import random
-import sys
-
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..")
 
 import matplotlib
 import matplotlib.pyplot as plt
-from arco.tools.logging_config import configure_logging
-from arco.tools.viewer.graph import draw_graph
 
 from arco.mapping.graph import CartesianGraph
 from arco.planning.discrete.astar import AStarPlanner
 from arco.tools.config import load_config
+from arco.tools.logging_config import configure_logging
+from arco.tools.viewer.graph import draw_graph
 
 logger = logging.getLogger(__name__)
 

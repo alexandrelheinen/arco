@@ -15,11 +15,11 @@ Usage
 -----
 Run interactively (opens a matplotlib window)::
 
-    python tools/astar_manhattan_example.py
+    python -m arco.tools.examples.astar_manhattan
 
 Save the output image without opening a window::
 
-    python tools/astar_manhattan_example.py --save path/to/output.png
+    python -m arco.tools.examples.astar_manhattan --save path/to/output.png
 """
 
 from __future__ import annotations
@@ -27,19 +27,15 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
-
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..")
 
 import matplotlib
 import matplotlib.pyplot as plt
-from arco.tools.logging_config import configure_logging
-from arco.tools.viewer.grid import draw_grid
 
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
 from arco.tools.config import load_config
+from arco.tools.logging_config import configure_logging
+from arco.tools.viewer.grid import draw_grid
 
 logger = logging.getLogger(__name__)
 

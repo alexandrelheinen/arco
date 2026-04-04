@@ -79,22 +79,58 @@ Guidance is applied after planning:
 │   │   ├── grid           ← discrete grid structures (Manhattan, Euclidean)
 │   │   ├── occupancy.py   ← continuous-space obstacle interface
 │   │   └── kdtree.py      ← KDTree-based occupancy implementation
-│   └── planning
-│       ├── discrete       ← graph-search planners (A*, route planning)
-│       └── continuous     ← sampling-based planners (RRT*, SST)
-├── tests                  ← mirrored test layout
-└── tools                  ← examples and visualization utilities
+│   ├── planning
+│   │   ├── discrete       ← graph-search planners (A*, route planning)
+│   │   └── continuous     ← sampling-based planners (RRT*, SST)
+│   └── tools              ← optional utilities (install with pip install -e ".[tools]")
+│       ├── config         ← YAML configuration files
+│       ├── examples       ← example scripts demonstrating algorithms
+│       ├── graph          ← procedural graph generators
+│       ├── simulator      ← interactive simulators (pygame/OpenGL)
+│       └── viewer         ← matplotlib-based visualization helpers
+└── tests                  ← mirrored test layout
 ```
 
 ## Installation
 
+Core library (mapping, planning, guidance):
+
 ```bash
 git clone https://github.com/alexandrelheinen/arco.git
 cd arco
+pip install -e .
+```
+
+With development tools:
+
+```bash
 pip install -e ".[dev]"
 ```
 
+With examples and visualization utilities:
+
+```bash
+pip install -e ".[tools]"
+```
+
+With interactive simulators (requires pygame and OpenGL):
+
+```bash
+pip install -e ".[simulator]"
+```
+
 Requires Python 3.10+
+
+## Configuration
+
+The tools package uses configuration files from `${ARCO_ROOT_DIR}/config/`.
+By default, `ARCO_ROOT_DIR` points to `<repo>/src/arco/tools`, but you can
+override it to use custom configurations:
+
+```bash
+export ARCO_ROOT_DIR=/path/to/custom/root
+# Configs will be loaded from /path/to/custom/root/config/
+```
 
 ## Development
 
@@ -107,19 +143,21 @@ pytest tests/ -v
 ### Format code
 
 ```bash
-python -m black --target-version py312 --line-length 79 src/ tools/
-python -m isort --line-length 79 src/ tools/
+python -m black --target-version py312 --line-length 79 src/
+python -m isort --line-length 79 src/
 ```
 
-### Local examples
+### Run examples
 
 ```bash
-python tools/examples/astar_graph.py
-python tools/examples/astar_grid_obstacle.py
-python tools/examples/astar_manhattan.py
-python tools/examples/route_planning.py
-python tools/examples/rrt_planning.py
-python tools/examples/sst_planning.py
+python -m arco.tools.examples.astar_graph
+python -m arco.tools.examples.astar_grid_obstacle
+python -m arco.tools.examples.astar_manhattan
+python -m arco.tools.examples.route_planning
+python -m arco.tools.examples.rrt_planning
+python -m arco.tools.examples.sst_planning
+python -m arco.tools.examples.ppp_planning
+python -m arco.tools.examples.astar_pipeline
 ```
 
 ## CI and Merge Policy
