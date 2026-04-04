@@ -6,7 +6,6 @@ import pytest
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import SSTPlanner
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -142,12 +141,8 @@ def test_get_tree_sparser_than_rrt():
         max_sample_count=1000,
         step_size=1.0,
     )
-    sst_nodes, _, _ = sst.get_tree(
-        np.array([0.5, 0.5]), np.array([9.5, 9.5])
-    )
-    rrt_nodes, _, _ = rrt.get_tree(
-        np.array([0.5, 0.5]), np.array([9.5, 9.5])
-    )
+    sst_nodes, _, _ = sst.get_tree(np.array([0.5, 0.5]), np.array([9.5, 9.5]))
+    rrt_nodes, _, _ = rrt.get_tree(np.array([0.5, 0.5]), np.array([9.5, 9.5]))
     # SST should have fewer active nodes than RRT* total nodes
     assert len(sst_nodes) <= len(rrt_nodes)
 

@@ -102,6 +102,16 @@ jobs:
             --record /tmp/sim_videos/sst_zoom.mp4 \
             --record-duration 60
 
+      - name: Generate RRT* vs SST cul-de-sac race
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          python tools/simulator/main/sparse.py \
+            --fps 30 \
+            --record /tmp/sim_videos/sparse.mp4 \
+            --record-duration 90
+
       - name: Mix racing chiptune into all videos
         run: |
           AUDIO=/tmp/sim_videos/racing_theme.wav
@@ -111,7 +121,8 @@ jobs:
             rrt_full \
             rrt_zoom \
             sst_full \
-            sst_zoom; do
+            sst_zoom \
+            sparse; do
             SRC=/tmp/sim_videos/${VIDEO}.mp4
             TMP=/tmp/sim_videos/${VIDEO}_audio.mp4
             ffmpeg -y \
@@ -170,4 +181,12 @@ jobs:
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
             /tmp/sim_videos/sst_zoom.mp4 \
+            --clobber
+
+      - name: Upload RRT* vs SST cul-de-sac race to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            /tmp/sim_videos/sparse.mp4 \
             --clobber

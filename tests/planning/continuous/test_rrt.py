@@ -6,7 +6,6 @@ import pytest
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import RRTPlanner
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
