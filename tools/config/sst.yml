@@ -9,11 +9,20 @@
 # collision_check_count – intermediate points for segment collision checks.
 # goal_bias        – probability of sampling the goal instead of a random state.
 # obstacle_clearance – clearance radius used by the KDTree occupancy map.
+
+# Main parameters
 bounds: [[0.0, 50.0], [0.0, 50.0]]
 max_sample_count: 3000
-step_size: 2.0
-goal_tolerance: 10.0
-witness_radius: 1.0
-collision_check_count: 10
-goal_bias: 0.05
-obstacle_clearance: 1.5
+step_size: 1.0  # Grid also uses 1 m of cell size
+
+# Those might be factors of the main ones
+goal_tolerance: 2.1  # Twice the step size is OK
+witness_radius: 0.4  # Must be less than step_size to allow tree growth
+collision_check_count: 1  # collision_check_count ≥ step_size / obstacle_clearance
+goal_bias: 0.05  # 5% is a staple value
+obstacle_clearance: 2.0 # Twice the step, like the goal tolerance to ensure safety
+
+# When true, planning stops as soon as the first node within goal_tolerance
+# of the goal is found.  Set to false to run all iterations for a
+# lower-cost (asymptotically optimal) solution.
+early_stop: true
