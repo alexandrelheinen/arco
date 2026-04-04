@@ -64,12 +64,12 @@ _POST_FINISH_SECS = 2.0
 # ---------------------------------------------------------------------------
 _C_RRT_VEH: tuple[int, int, int] = (100, 160, 255)
 _C_RRT_ARROW: tuple[int, int, int] = (180, 210, 255)
-_C_RRT_TRAJ: tuple[int, int, int] = (60, 120, 200)
+_C_RRT_TRAJ: tuple[int, int, int] = (130, 190, 255)
 _C_RRT_HUD: tuple[int, int, int] = (130, 190, 255)
 
 _C_SST_VEH: tuple[int, int, int] = (60, 235, 210)
 _C_SST_ARROW: tuple[int, int, int] = (160, 255, 235)
-_C_SST_TRAJ: tuple[int, int, int] = (40, 180, 155)
+_C_SST_TRAJ: tuple[int, int, int] = (100, 240, 210)
 _C_SST_HUD: tuple[int, int, int] = (100, 240, 210)
 
 _C_HUD: tuple[int, int, int] = (220, 220, 220)
@@ -471,7 +471,11 @@ def run_race(
             screen.fill(scene.bg_color)
 
             scene.draw_background(
-                screen, transform, rrt_revealed, sst_revealed
+                screen,
+                transform,
+                rrt_revealed,
+                sst_revealed,
+                racing=(phase in ("racing", "done")),
             )
 
             if phase == "background":
