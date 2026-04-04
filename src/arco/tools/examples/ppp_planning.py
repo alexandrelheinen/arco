@@ -12,11 +12,11 @@ Usage
 -----
 Run interactively (opens a matplotlib window)::
 
-    python tools/examples/ppp_planning.py
+    python -m arco.tools.examples.ppp_planning
 
 Save the output image without opening a window::
 
-    python tools/examples/ppp_planning.py --save path/to/output.png
+    python -m arco.tools.examples.ppp_planning --save path/to/output.png
 """
 
 from __future__ import annotations
@@ -24,25 +24,21 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "simulator"))
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from logging_config import configure_logging
-from scenes.ppp import BOXES as _BOXES
-from scenes.ppp import (
+from arco.tools.logging_config import configure_logging
+from arco.tools.simulator.scenes.ppp import BOXES as _BOXES
+from arco.tools.simulator.scenes.ppp import (
     _sample_box_surface,
 )
-from scenes.ppp import is_wall as _is_wall
+from arco.tools.simulator.scenes.ppp import is_wall as _is_wall
 
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import RRTPlanner, SSTPlanner
-from config import load_config
+from arco.tools.config import load_config
 
 logger = logging.getLogger(__name__)
 

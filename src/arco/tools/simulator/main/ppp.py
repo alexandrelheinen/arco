@@ -27,12 +27,11 @@ Usage
 -----
 ::
 
-    cd tools/simulator
-    python main/ppp.py
+    python -m arco.tools.simulator.main.ppp
 
 Record a video (requires a real or virtual display with OpenGL support)::
 
-    xvfb-run -a python main/ppp.py --record /tmp/ppp.mp4 --record-duration 90
+    xvfb-run -a python -m arco.tools.simulator.main.ppp --record /tmp/ppp.mp4 --record-duration 90
 """
 
 from __future__ import annotations
@@ -41,12 +40,8 @@ import argparse
 import logging
 import math
 import os
-import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", ".."))
-sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import numpy as np
 import pygame
@@ -110,11 +105,11 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex2f,
     glVertex3f,
 )
-from scenes.ppp import PPPScene
-from scenes.ppp import is_wall as _is_wall_box
+from arco.tools.simulator.scenes.ppp import PPPScene
+from arco.tools.simulator.scenes.ppp import is_wall as _is_wall_box
 from sim.video import VideoWriter
 
-from config import load_config
+from arco.tools.config import load_config
 
 logger = logging.getLogger(__name__)
 

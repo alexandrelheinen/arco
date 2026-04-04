@@ -18,13 +18,12 @@ Usage
 -----
 ::
 
-    cd tools/simulator
-    python main/sparse.py
+    python -m arco.tools.simulator.main.sparse
 
 Optional flags::
 
-    python main/sparse.py --fps 30
-    python main/sparse.py --record /tmp/race.mp4 --record-duration 90
+    python -m arco.tools.simulator.main.sparse --fps 30
+    python -m arco.tools.simulator.main.sparse --record /tmp/race.mp4 --record-duration 90
 """
 
 from __future__ import annotations
@@ -33,13 +32,9 @@ import argparse
 import logging
 import math
 import os
-import sys
 
 # Make arco and tools packages importable without a full install.
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", ".."))
-sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import pygame
 import renderer_gl
@@ -58,11 +53,11 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
-from scenes.sparse import SparseScene
+from arco.tools.simulator.scenes.sparse import SparseScene
 from sim.tracking import VehicleConfig, build_vehicle_sim, find_lookahead
 from sim.video import VideoWriter
 
-from config import load_config
+from arco.tools.config import load_config
 
 logger = logging.getLogger(__name__)
 

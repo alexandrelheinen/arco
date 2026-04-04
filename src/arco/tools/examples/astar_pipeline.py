@@ -29,11 +29,11 @@ Usage
 -----
 Run interactively (opens a Matplotlib window)::
 
-    python tools/examples/astar_pipeline.py
+    python -m arco.tools.examples.astar_pipeline
 
 Save to file without opening a window (headless / CI mode)::
 
-    python tools/examples/astar_pipeline.py --save path/to/output.png
+    python -m arco.tools.examples.astar_pipeline --save path/to/output.png
 
 Reference
 ---------
@@ -46,25 +46,19 @@ import argparse
 import logging
 import math
 import os
-import sys
-
-# Make the package importable when running the script directly (without install).
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-# Expose the tools/viewer and tools/config packages.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from graph.generator import generate_graph
-from logging_config import configure_logging
-from viewer.road import draw_road_network
 
 from arco.guidance.control.pure_pursuit import PurePursuitController
 from arco.guidance.control.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 from arco.planning.discrete import RouteRouter
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.graph.generator import generate_graph
+from arco.tools.logging_config import configure_logging
+from arco.tools.viewer.road import draw_road_network
 
 logger = logging.getLogger(__name__)
 

@@ -1,26 +1,14 @@
-"""Tests for tools/graph/generator.py."""
+"""Tests for arco.tools.graph.generator."""
 
 from __future__ import annotations
 
 import math
-import os
-import sys
 
 import pytest
 
 pytest.importorskip("scipy")
 
-# Expose arco package and tools/ config loader.
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "src"),
-)
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "tools"),
-)
-
-from graph.generator import generate_graph
+from arco.tools.graph.generator import generate_graph
 
 # ---------------------------------------------------------------------------
 # Shared fixture config

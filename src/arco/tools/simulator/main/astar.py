@@ -16,16 +16,15 @@ Usage
 -----
 ::
 
-    cd tools/simulator
-    python main/astar.py
+    python -m arco.tools.simulator.main.astar
 
 Optional flags::
 
-    python main/astar.py --fps 60
-    python main/astar.py --dt 0.05
-    python main/astar.py --camera follow
-    python main/astar.py --zoom
-    python main/astar.py --record out.mp4 --record-duration 45
+    python -m arco.tools.simulator.main.astar --fps 60
+    python -m arco.tools.simulator.main.astar --dt 0.05
+    python -m arco.tools.simulator.main.astar --camera follow
+    python -m arco.tools.simulator.main.astar --zoom
+    python -m arco.tools.simulator.main.astar --record out.mp4 --record-duration 45
 """
 
 from __future__ import annotations
@@ -33,18 +32,14 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
 
 # Make arco and tools packages importable without a full install.
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", ".."))
-sys.path.insert(0, os.path.join(_HERE, ".."))
 
-from scenes.astar import AStarScene
-from sim import run_sim
+from arco.tools.simulator.scenes.astar import AStarScene
+from arco.tools.simulator.sim import run_sim
 
-from config import load_config
+from arco.tools.config import load_config
 
 
 def main() -> None:

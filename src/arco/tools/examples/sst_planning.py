@@ -10,15 +10,15 @@ Usage
 -----
 Run interactively (opens a matplotlib window)::
 
-    python tools/examples/sst_planning.py
+    python -m arco.tools.examples.sst_planning
 
 Save the output image without opening a window::
 
-    python tools/examples/sst_planning.py --save path/to/output.png
+    python -m arco.tools.examples.sst_planning --save path/to/output.png
 
 Show the exploration tree as well::
 
-    python tools/examples/sst_planning.py --tree
+    python -m arco.tools.examples.sst_planning --tree
 """
 
 from __future__ import annotations
@@ -26,20 +26,17 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from logging_config import configure_logging
-from viewer.occupancy import draw_occupancy
+from arco.tools.logging_config import configure_logging
+from arco.tools.viewer.occupancy import draw_occupancy
 
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import SSTPlanner
-from config import load_config
+from arco.tools.config import load_config
 
 logger = logging.getLogger(__name__)
 

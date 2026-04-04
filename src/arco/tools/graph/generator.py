@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import sys
 from typing import Any
 
 import numpy as np
@@ -31,9 +30,6 @@ except ImportError as exc:
         "Install it with: pip install 'arco[tools]'"
     ) from exc
 
-# Make arco importable when running the script directly.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from arco.mapping.graph import RoadGraph  # noqa: E402
 

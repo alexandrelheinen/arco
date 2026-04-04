@@ -24,20 +24,17 @@ import os
 import random
 import sys
 
-# Make the package importable when running the script directly.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..")
-)  # expose tools/viewer and tools/config
 
 import matplotlib
 import matplotlib.pyplot as plt
-from logging_config import configure_logging
-from viewer.graph import draw_graph
+from arco.tools.logging_config import configure_logging
+from arco.tools.viewer.graph import draw_graph
 
 from arco.mapping.graph import CartesianGraph
 from arco.planning.discrete.astar import AStarPlanner
-from config import load_config
+from arco.tools.config import load_config
 
 logger = logging.getLogger(__name__)
 

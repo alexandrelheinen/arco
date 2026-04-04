@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""SST planning simulator — thin entrypoint.
+"""RRT* planning simulator — thin entrypoint.
 
-Runs the SST algorithm to completion on a 2-D obstacle environment, reveals
+Runs the RRT* algorithm to completion on a 2-D obstacle environment, reveals
 the exploration tree incrementally, then tracks the solution path with a
 Dubins vehicle.
 
@@ -17,14 +17,13 @@ Usage
 -----
 ::
 
-    cd tools/simulator
-    python main/sst.py
+    python -m arco.tools.simulator.main.rrt
 
 Optional flags::
 
-    python main/sst.py --fps 30
-    python main/sst.py --zoom
-    python main/sst.py --record /tmp/sst.mp4 --record-duration 60
+    python -m arco.tools.simulator.main.rrt --fps 30
+    python -m arco.tools.simulator.main.rrt --zoom
+    python -m arco.tools.simulator.main.rrt --record /tmp/rrt.mp4 --record-duration 60
 """
 
 from __future__ import annotations
@@ -32,22 +31,18 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
 
 # Make arco and tools packages importable without a full install.
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", ".."))
-sys.path.insert(0, os.path.join(_HERE, ".."))
 
-from scenes.sst import SSTScene
-from sim import run_sim
+from arco.tools.simulator.scenes.rrt import RRTScene
+from arco.tools.simulator.sim import run_sim
 
-from config import load_config
+from arco.tools.config import load_config
 
 
 def main() -> None:
-    """Parse CLI arguments and launch the SST simulator."""
+    """Parse CLI arguments and launch the RRT* simulator."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
@@ -95,7 +90,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    scene = SSTScene(load_config("sst"))
+    scene = RRTScene(load_config("rrt"))
     run_sim(
         scene,
         fps=args.fps,

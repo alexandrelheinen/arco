@@ -1,20 +1,25 @@
 """
-A* on a 2D grid with a large square obstacle in the centre.
+A* on a 2D Manhattan grid with a large central square obstacle.
 
-The grid uses diagonal (Euclidean) connectivity so that A* can cut diagonally
-around the obstacle.  A large square obstacle is placed at the centre of the
-grid and A* finds the shortest diagonal path from the top-left corner to the
-bottom-right corner.
+Uses 4-connectivity (axis-aligned moves only) and the Euclidean heuristic,
+which is admissible on a Manhattan grid (Euclidean <= Manhattan) and guides
+A* toward the diagonal rather than producing the L-shaped path that naive
+tie-breaking causes.
+
+The result is a staircase path: the planner moves diagonally toward the
+goal until the obstacle forces a detour, navigates around the obstacle's
+corner that is closest to the start-to-goal straight line, then continues
+in staircase fashion to the goal.
 
 Usage
 -----
 Run interactively (opens a matplotlib window)::
 
-    python tools/astar_grid_obstacle_example.py
+    python tools/astar_manhattan_example.py
 
 Save the output image without opening a window::
 
-    python tools/astar_grid_obstacle_example.py --save path/to/output.png
+    python tools/astar_manhattan_example.py --save path/to/output.png
 """
 
 from __future__ import annotations
@@ -24,20 +29,17 @@ import logging
 import os
 import sys
 
-# Make the package importable when running the script directly.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..")
-)  # expose tools/viewer and tools/config
 
 import matplotlib
 import matplotlib.pyplot as plt
-from logging_config import configure_logging
-from viewer.grid import draw_grid
+from arco.tools.logging_config import configure_logging
+from arco.tools.viewer.grid import draw_grid
 
-from arco.mapping import EuclideanGrid
+from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
-from config import load_config
+from arco.tools.config import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -51,32 +53,27 @@ def build_grid_with_obstacle(
     physical_size: list[float] = [float(x) for x in _cfg["physical_size"]],
     cell_size: float = float(_cfg["cell_size"]),
     obstacle_fraction: float = float(_cfg["obstacle_fraction"]),
-) -> EuclideanGrid:
-    """Build a square Euclidean grid with a centred square obstacle.
-
-    Uses :class:`~arco.mapping.grid.euclidean.EuclideanGrid` (diagonal moves
-    allowed) so that A* can navigate diagonally around the obstacle.
+) -> ManhattanGrid:
+    """Build a square Manhattan grid with a centred square obstacle.
 
     Args:
         physical_size: Physical dimensions of the grid in metres ``[rows, cols]``.
         cell_size: Physical size of one cell in metres.  The grid is
             extended to the nearest multiple of *cell_size* when needed.
-        obstacle_fraction: Side length of the obstacle expressed as a
-            fraction of the grid size (in cells).
+        obstacle_fraction: Obstacle side length as a fraction of the grid
+            size (in cells).
 
     Returns:
-        A :class:`~arco.mapping.grid.euclidean.EuclideanGrid` with the central
+        A :class:`~arco.mapping.grid.manhattan.ManhattanGrid` with the central
         obstacle cells marked as occupied.
     """
-    grid = EuclideanGrid(physical_size=physical_size, cell_size=cell_size)
-
+    grid = ManhattanGrid(physical_size=physical_size, cell_size=cell_size)
     grid_size = grid.shape[0]
     obs_size = int(grid_size * obstacle_fraction)
     margin = (grid_size - obs_size) // 2
     for r in range(margin, margin + obs_size):
         for c in range(margin, margin + obs_size):
             grid.set_occupied((r, c))
-
     return grid
 
 
@@ -94,7 +91,7 @@ def main(save_path: str | None = None) -> None:
 
     obs_size = int(n * float(_cfg["obstacle_fraction"]))
     title = (
-        f"A* on {n}×{n} Euclidean grid — central {obs_size}×{obs_size} obstacle\n"
+        f"A* on {n}×{n} Manhattan grid — central {obs_size}×{obs_size} obstacle\n"
         + (f"Path length: {len(path)} steps" if path else "No path found")
     )
 
@@ -104,7 +101,7 @@ def main(save_path: str | None = None) -> None:
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
         fig.savefig(save_path, dpi=150)
-        logger.info("Saved grid obstacle example to %s", save_path)
+        logger.info("Saved Manhattan grid example to %s", save_path)
     else:
         plt.show()
 

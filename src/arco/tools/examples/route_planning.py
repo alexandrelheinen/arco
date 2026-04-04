@@ -14,15 +14,10 @@ This is part of the horse auto-follow system (Phase 1.2).
 import logging
 import math
 import os
-import sys
 
-# Make the package importable when running the script directly (without install).
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-# Expose the tools/viewer and tools/config packages.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import numpy as np
-from logging_config import configure_logging
+from arco.tools.logging_config import configure_logging
 
 from arco.mapping.graph import CartesianGraph
 from arco.planning.discrete import RouteRouter

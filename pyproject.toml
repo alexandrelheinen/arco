@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "arco"
 version = "0.1.1"
@@ -21,14 +25,21 @@ dev = [
     "pydocstyle"
 ]
 tools = [
-    "arco",
     "matplotlib",
     "pyyaml"
 ]
-pygame = [
+simulator = [
     "pygame>=2.0.0",
     "PyOpenGL>=3.1.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["arco*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"arco.tools.config" = ["*.yml", "*.json"]
 
 [tool.black]
 line-length = 79
