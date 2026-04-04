@@ -41,8 +41,7 @@ jobs:
 
       - name: Generate PPP race video
         run: |
-          cd tools/simulator
-          xvfb-run -a python main/ppp.py \
+          xvfb-run -a python -m arco.tools.simulator.main.ppp \
             --record /tmp/ppp.mp4 \
             --record-duration 90
 

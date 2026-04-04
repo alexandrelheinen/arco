@@ -39,41 +39,41 @@ jobs:
       # Generate A* example images
       - name: Generate A* graph example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar_graph.py \
+          MPLBACKEND=Agg python -m arco.tools.examples.astar_graph \
             --save /tmp/generated_images/astar_graph.png
 
       - name: Generate A* Euclidean grid example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar_grid_obstacle.py \
+          MPLBACKEND=Agg python -m arco.tools.examples.astar_grid_obstacle \
             --save /tmp/generated_images/astar_grid_obstacle_euclidean.png
 
       - name: Generate A* Manhattan grid example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar_manhattan.py \
+          MPLBACKEND=Agg python -m arco.tools.examples.astar_manhattan \
             --save /tmp/generated_images/astar_grid_obstacle_manhattan.png
 
       # Generate A* pipeline example
       - name: Generate A* pipeline example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar_pipeline.py \
+          MPLBACKEND=Agg python -m arco.tools.examples.astar_pipeline \
             --save /tmp/generated_images/astar_pipeline.png
 
       # Generate RRT* example image
       - name: Generate RRT* planning example
         run: |
-          MPLBACKEND=Agg python tools/examples/rrt_planning.py \
+          MPLBACKEND=Agg python -m arco.tools.examples.rrt_planning \
             --save /tmp/generated_images/rrt_planning.png
 
       # Generate SST example image
       - name: Generate SST planning example
         run: |
-          MPLBACKEND=Agg python tools/examples/sst_planning.py \
+          MPLBACKEND=Agg python -m arco.tools.examples.sst_planning \
             --save /tmp/generated_images/sst_planning.png
 
       # Generate PPP 3-D example image (RRT* vs SST in 3-D warehouse)
       - name: Generate PPP 3-D planning example
         run: |
-          MPLBACKEND=Agg python tools/examples/ppp_planning.py \
+          MPLBACKEND=Agg python -m arco.tools.examples.ppp_planning \
             --save /tmp/generated_images/ppp_planning.png
 
       # Generate pyreverse diagrams

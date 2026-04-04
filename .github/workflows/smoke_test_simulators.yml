@@ -47,14 +47,14 @@ jobs:
 
       - name: Smoke test chiptune generator
         run: |
-          python tools/simulator/generate_chiptune.py \
+          python -m arco.tools.simulator.generate_chiptune \
             --output /tmp/smoke_chiptune.wav
 
       - name: Smoke test A* simulator
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/astar.py \
+          xvfb-run -a python -m arco.tools.simulator.main.astar \
             --fps 30 \
             --record /tmp/smoke_astar.mp4 \
             --record-duration 5
@@ -63,7 +63,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rrt.py \
+          xvfb-run -a python -m arco.tools.simulator.main.rrt \
             --fps 30 \
             --record /tmp/smoke_rrt.mp4 \
             --record-duration 5
@@ -72,7 +72,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/sst.py \
+          xvfb-run -a python -m arco.tools.simulator.main.sst \
             --fps 30 \
             --record /tmp/smoke_sst.mp4 \
             --record-duration 5
@@ -81,7 +81,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/sparse.py \
+          xvfb-run -a python -m arco.tools.simulator.main.sparse \
             --fps 30 \
             --record /tmp/smoke_sparse.mp4 \
             --record-duration 5
@@ -90,7 +90,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/ppp.py \
+          xvfb-run -a python -m arco.tools.simulator.main.ppp \
             --fps 30 \
             --record /tmp/smoke_ppp.mp4 \
             --record-duration 5
