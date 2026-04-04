@@ -113,7 +113,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 from scenes.ppp import PPPScene
 from scenes.ppp import is_wall as _is_wall_box
 from sim.video import VideoWriter
-import marmot as _marmot
+import marmot as _marmot  # noqa: E402 — local simulator module added to path above
 
 from config import load_config
 

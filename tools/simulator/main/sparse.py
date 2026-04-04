@@ -41,6 +41,7 @@ sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
 sys.path.insert(0, os.path.join(_HERE, "..", ".."))
 sys.path.insert(0, os.path.join(_HERE, ".."))
 
+import marmot as _marmot
 import pygame
 import renderer_gl
 from OpenGL.GL import (  # type: ignore[import-untyped]
@@ -58,7 +59,6 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
-import marmot as _marmot
 from scenes.sparse import SparseScene
 from sim.tracking import VehicleConfig, build_vehicle_sim, find_lookahead
 from sim.video import VideoWriter
