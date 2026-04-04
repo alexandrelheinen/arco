@@ -13,13 +13,29 @@ from typing import Any
 
 import numpy as np
 import pygame
-from renderer import draw_legend, draw_road_network, draw_smooth_path
+import renderer_gl
 from sim.scene import SimScene
 from sim.tracking import VehicleConfig
 
 # Small metric offset applied to start/goal to exercise the projection logic.
 _ENDPOINT_OFFSET_M = 1.0
 _ACTIVATION_RADIUS = 12.0
+
+# Colour palette (int tuples → _c() converts to float)
+_C_BG = (28, 28, 35)
+_C_ROAD = (90, 90, 100)
+_C_ROAD_ROUTE = (220, 80, 60)
+_C_NODE = (70, 100, 130)
+_C_NODE_START = (60, 200, 90)
+_C_NODE_GOAL = (60, 100, 220)
+_C_NODE_ROUTE = (200, 100, 80)
+_C_SMOOTH_PATH = (230, 140, 40)
+_C_HUD = (220, 220, 220)
+_C_HUD_SHADOW = (40, 40, 50)
+
+
+def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
+    return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
 class AStarScene(SimScene):
@@ -46,7 +62,6 @@ class AStarScene(SimScene):
         self._route: list[int] = []
         self._smooth_path: list[tuple[float, float]] = []
         self._vehicle_config: VehicleConfig | None = None
-        self._font: pygame.font.Font | None = None
         # Road-network paths are inherently obstacle-free; no occupancy model
         # is available to run a numeric clearance check.
         self._finish_hud_lines: list[str] = [
@@ -108,7 +123,6 @@ class AStarScene(SimScene):
             max_turn_rate_dot=math.radians(float(dubins["max_turn_rate_dot"])),
             curvature_gain=float(dubins.get("curvature_gain", 0.0)),
         )
-        self._font = pygame.font.SysFont("monospace", 14)
 
     @property
     def title(self) -> str:
@@ -119,7 +133,7 @@ class AStarScene(SimScene):
     @property
     def bg_color(self) -> tuple[int, int, int]:
         """Background fill colour."""
-        return (28, 28, 35)
+        return _C_BG
 
     @property
     def world_points(self) -> list[tuple[float, float]]:
@@ -164,35 +178,64 @@ class AStarScene(SimScene):
         """Safety note shown when the vehicle reaches the goal."""
         return self._finish_hud_lines
 
-    def draw_background(
-        self,
-        surface: pygame.Surface,
-        transform: object,
-        revealed: int,
-    ) -> None:
+    def draw_background(self, revealed: int) -> None:
         """Draw the road network, route, and smooth path.
 
         Args:
-            surface: Pygame surface to draw onto.
-            transform: World-to-screen callable.
             revealed: Ignored (always 0 for A*).
         """
-        draw_road_network(surface, self._graph, transform, self._route)
-        draw_smooth_path(surface, self._smooth_path, transform)
-        if self._font is not None:
-            draw_legend(surface, self._font)
+        route_edge_set: set[tuple[int, int]] = set()
+        if self._route:
+            route_edge_set = {
+                (min(a, b), max(a, b))
+                for a, b in zip(self._route[:-1], self._route[1:])
+            }
+
+        for node_a, node_b, _ in self._graph.edges:
+            pts = self._graph.full_edge_geometry(node_a, node_b)
+            key = (min(node_a, node_b), max(node_a, node_b))
+            if key in route_edge_set:
+                renderer_gl.draw_road_edge(pts, *_c(_C_ROAD_ROUTE), width=3.0)
+            else:
+                renderer_gl.draw_road_edge(pts, *_c(_C_ROAD), width=1.0)
+
+        route_set = set(self._route) if self._route else set()
+        node_r = 0.3  # world metres
+        for nid in self._graph.nodes:
+            x, y = self._graph.position(nid)
+            if self._route and nid == self._route[0]:
+                renderer_gl.draw_disc(
+                    float(x), float(y), node_r * 2, *_c(_C_NODE_START)
+                )
+            elif self._route and nid == self._route[-1]:
+                renderer_gl.draw_disc(
+                    float(x), float(y), node_r * 2, *_c(_C_NODE_GOAL)
+                )
+            elif nid in route_set:
+                renderer_gl.draw_disc(
+                    float(x), float(y), node_r * 1.4, *_c(_C_NODE_ROUTE)
+                )
+            else:
+                renderer_gl.draw_disc(float(x), float(y), node_r, *_c(_C_NODE))
+
+        if len(self._smooth_path) >= 2:
+            renderer_gl.draw_dashed_path(
+                self._smooth_path, *_c(_C_SMOOTH_PATH)
+            )
 
     def draw_background_hud(
         self,
-        surface: pygame.Surface,
         font: pygame.font.Font,
+        sw: int,
+        sh: int,
         revealed: int,
     ) -> None:
         """No-op — never called because ``background_total`` is zero.
 
         Args:
-            surface: Pygame surface to draw onto.
             font: Pygame font for rendering text.
+            sw: Screen width in pixels.
+            sh: Screen height in pixels.
             revealed: Ignored.
         """
 

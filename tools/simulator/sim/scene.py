@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-import pygame
+import pygame.font
 from sim.tracking import VehicleConfig
 
 
@@ -76,8 +76,6 @@ class SimScene(ABC):
     @abstractmethod
     def draw_background(
         self,
-        surface: pygame.Surface,
-        transform: object,
         revealed: int,
     ) -> None:
         """Render the static scene background.
@@ -86,17 +84,15 @@ class SimScene(ABC):
         vehicle-tracking phases.
 
         Args:
-            surface: Pygame surface to draw onto.
-            transform: Callable ``(wx, wy) -> (sx, sy)`` from
-                :class:`~sim.camera.FollowTransform` or equivalent.
             revealed: Number of background items revealed so far.
         """
 
     @abstractmethod
     def draw_background_hud(
         self,
-        surface: pygame.Surface,
         font: pygame.font.Font,
+        sw: int,
+        sh: int,
         revealed: int,
     ) -> None:
         """Render the background-phase HUD overlay.
@@ -104,8 +100,9 @@ class SimScene(ABC):
         Called only during the background-reveal phase.
 
         Args:
-            surface: Pygame surface to draw onto.
             font: Monospace font for HUD text.
+            sw: Screen width in pixels.
+            sh: Screen height in pixels.
             revealed: Number of background items revealed so far.
         """
 

@@ -99,6 +99,40 @@ class VideoWriter:
         frame = np.ascontiguousarray(frame.transpose(1, 0, 2))
         self._proc.stdin.write(frame.tobytes())
 
+    def write_frame_gl(self) -> None:
+        """Capture the current OpenGL framebuffer and write to ffmpeg.
+
+        Reads raw RGB pixels via ``glReadPixels``, flips vertically
+        (OpenGL origin is bottom-left; video codecs expect top-left),
+        then writes the row-major RGB bytes to the ffmpeg stdin pipe.
+
+        Must be called **after** ``pygame.display.flip()`` and while an
+        active OpenGL context is bound to the current thread.
+
+        Raises:
+            RuntimeError: If the writer has not been opened.
+        """
+        from OpenGL.GL import (  # type: ignore[import-untyped]
+            GL_RGB,
+            GL_UNSIGNED_BYTE,
+            glFinish,
+            glReadPixels,
+        )
+
+        if self._proc is None or self._proc.stdin is None:
+            raise RuntimeError("VideoWriter is not open.")
+        glFinish()
+        data = glReadPixels(
+            0, 0, self._width, self._height, GL_RGB, GL_UNSIGNED_BYTE
+        )
+        frame = np.frombuffer(data, dtype=np.uint8).reshape(
+            self._height, self._width, 3
+        )
+        # OpenGL stores rows bottom-to-top; ffmpeg expects top-to-bottom.
+        self._proc.stdin.write(
+            np.ascontiguousarray(np.flipud(frame)).tobytes()
+        )
+
     def close(self) -> None:
         """Close the ffmpeg pipe and wait for the subprocess to finish."""
         if self._proc is None:

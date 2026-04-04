@@ -1,10 +1,15 @@
-"""Cul-de-sac dual-planner (RRT* vs SST) race scene.
+"""City-neighbourhood dual-planner (RRT* vs SST) race scene.
 
 :class:`SparseScene` builds a 2-D obstacle environment featuring a large
-concave U-shaped structure (a *cul-de-sac*) that blocks the direct horizontal
-path between start and goal.  Both RRT* and SST are run to completion on the
-same map so their paths and exploration trees can be compared in a side-by-side
-vehicle race.
+(1280 × 720 m, 16:9) grid-city with 8 columns × 7 rows of city blocks.
+The vehicles race along the bottom-left ↔ top-right diagonal: start is the
+first street intersection near the bottom-left corner, goal is the first
+street intersection near the top-right corner.  No straight diagonal path
+exists — both planners must navigate through the street grid.
+
+All layout parameters (block extents, street centrelines, start/goal, world
+bounds) are loaded from ``tools/config/obstacles.yml``; planner tuning
+parameters (step size, sample counts, …) come from ``tools/config/sparse.yml``.
 """
 
 from __future__ import annotations
@@ -13,21 +18,15 @@ import math
 from typing import Any
 
 import numpy as np
-import pygame
-from renderer import (
-    bake_sdf_surface,
-    draw_endpoints,
-    draw_exploration_tree,
-    draw_obstacles,
-    draw_planned_path,
-)
+import renderer_gl
 from sim.tracking import VehicleConfig
 
 # ---------------------------------------------------------------------------
 # Colour palette
 # ---------------------------------------------------------------------------
-_C_BG: tuple[int, int, int] = (28, 28, 35)
-_C_OBSTACLE: tuple[int, int, int] = (180, 60, 60)
+_C_BG: tuple[int, int, int] = (22, 24, 30)  # dark asphalt
+_C_BUILDING: tuple[int, int, int] = (145, 125, 100)  # concrete facade
+_C_ROAD_DOT: tuple[int, int, int] = (65, 60, 50)  # faded lane marking
 
 # RRT* — blue family
 _C_RRT_EDGE: tuple[int, int, int] = (60, 120, 200)
@@ -41,46 +40,135 @@ _C_SST_PATH: tuple[int, int, int] = (100, 240, 210)
 
 _C_START: tuple[int, int, int] = (60, 220, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
-_C_SDF_NEAR: tuple[int, int, int] = (80, 35, 35)
+_C_SDF_NEAR: tuple[int, int, int] = (62, 50, 38)  # warm shadow near buildings
+
+# World-space ring radii for start/goal markers.
+_RING_OUTER = 1.2  # metres
+_RING_INNER = 0.6  # metres
 
 # ---------------------------------------------------------------------------
-# Planning constants
+# Helpers
 # ---------------------------------------------------------------------------
-# Both planners share the same start and goal.
-_START = np.array([3.0, 25.0])
-_GOAL = np.array([47.0, 25.0])
-_BOUNDS = [(0.0, 50.0), (0.0, 50.0)]
 
-# Vehicle parameters are identical for a fair race.
-_VEHICLE_CONFIG = VehicleConfig(
-    max_speed=5.0,
-    min_speed=0.0,
-    cruise_speed=3.5,
-    lookahead_distance=4.0,
-    goal_radius=3.0,
-    max_turn_rate=math.radians(90.0),
-    max_acceleration=4.9,
-    max_turn_rate_dot=math.radians(3600.0),
-    curvature_gain=0.0,
-)
+
+def _make_road_dots(
+    obs_cfg: dict[str, Any],
+) -> list[tuple[float, float]]:
+    """Build road-marking dot positions from the obstacles config.
+
+    Places dots along every horizontal and vertical street centreline defined
+    in *obs_cfg* (``street_y`` and ``street_x``) at the spacing given by
+    ``road_dot_spacing``.
+
+    Args:
+        obs_cfg: Parsed ``obstacles.yml`` dict.
+
+    Returns:
+        List of ``(x, y)`` world positions.
+    """
+    w = float(obs_cfg["world_width"])
+    h = float(obs_cfg["world_height"])
+    step = float(obs_cfg["road_dot_spacing"])
+    dots: list[tuple[float, float]] = []
+    for cy in obs_cfg["street_y"]:
+        for x in np.arange(0.0, w, step):
+            dots.append((float(x), float(cy)))
+    for cx in obs_cfg["street_x"]:
+        for y in np.arange(0.0, h, step):
+            dots.append((float(cx), float(y)))
+    return dots
+
+
+def _make_blocks(
+    obs_cfg: dict[str, Any],
+) -> list[tuple[float, float, float, float]]:
+    """Build the full list of block rectangles from column/row extents.
+
+    Every (column, row) pair in the Cartesian product of ``block_columns``
+    and ``block_rows`` becomes one rectangular obstacle block.
+
+    Args:
+        obs_cfg: Parsed ``obstacles.yml`` dict.
+
+    Returns:
+        List of ``(x_lo, x_hi, y_lo, y_hi)`` rectangles.
+    """
+    blocks: list[tuple[float, float, float, float]] = []
+    for x_lo, x_hi in obs_cfg["block_columns"]:
+        for y_lo, y_hi in obs_cfg["block_rows"]:
+            blocks.append(
+                (
+                    float(x_lo),
+                    float(x_hi),
+                    float(y_lo),
+                    float(y_hi),
+                )
+            )
+    return blocks
+
+
+def _make_vehicle_config(obs_cfg: dict[str, Any]) -> VehicleConfig:
+    """Build a VehicleConfig scaled to the world defined in *obs_cfg*.
+
+    Parameters are chosen so the vehicle navigates the city at a realistic
+    speed relative to the ~30 m street width.
+
+    Args:
+        obs_cfg: Parsed ``obstacles.yml`` dict.
+
+    Returns:
+        :class:`~sim.tracking.VehicleConfig` ready for both racers.
+    """
+    return VehicleConfig(
+        max_speed=25.0,
+        min_speed=0.0,
+        cruise_speed=18.0,
+        lookahead_distance=35.0,
+        goal_radius=20.0,
+        max_turn_rate=math.radians(60.0),
+        max_acceleration=4.9,
+        max_turn_rate_dot=math.radians(3600.0),
+        curvature_gain=0.0,
+    )
+
+
+def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
+    return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
 class SparseScene:
-    """Dual-planner race scene on a sparse cul-de-sac environment.
+    """Dual-planner race scene on a city-neighbourhood environment.
 
-    Runs RRT* and SST on the same obstacle map.  The map features a U-shaped
-    concave wall that blocks the direct horizontal path — both planners must
-    discover a route around it (above or below) before the vehicle race
-    begins.
+    Runs RRT* and SST on the same 1280 × 720 m obstacle map.  Start and goal
+    are placed at the first street intersections on the bottom-left and
+    top-right diagonals of the city grid.  No straight diagonal path exists;
+    planners must discover a street-grid route connecting the two corners.
 
     Args:
-        cfg: Parsed sparse configuration dict (from ``sparse.yml``).
+        cfg: Parsed planner configuration dict (from ``sparse.yml``).
+        obs_cfg: Parsed obstacle-layout dict (from ``obstacles.yml``).
     """
 
-    def __init__(self, cfg: dict[str, Any]) -> None:
+    def __init__(self, cfg: dict[str, Any], obs_cfg: dict[str, Any]) -> None:
         self._cfg = cfg
+        self._obs_cfg = obs_cfg
         self._occ: Any = None
-        self._sdf_surface: pygame.Surface | None = None
+        self._sdf_tex_id: int | None = None
+
+        # Derived layout (built once from obs_cfg)
+        w = float(obs_cfg["world_width"])
+        h = float(obs_cfg["world_height"])
+        self._bounds = [(0.0, w), (0.0, h)]
+        sx, sy = obs_cfg["start"]
+        self._start = np.array([float(sx), float(sy)])
+        gx, gy = obs_cfg["goal"]
+        self._goal = np.array([float(gx), float(gy)])
+        self._blocks = _make_blocks(obs_cfg)
+        self._road_dots = _make_road_dots(obs_cfg)
+        self._vehicle_cfg = _make_vehicle_config(obs_cfg)
+        # Marker radii scale with world size
+        self._ring_outer = w * 0.014  # ≈ 18 m at 1280 m world
+        self._ring_inner = w * 0.007  # ≈  9 m
 
         # RRT* planner output
         self._rrt_nodes: list[Any] = []
@@ -97,18 +185,18 @@ class SparseScene:
     # ------------------------------------------------------------------
 
     def build(self) -> None:
-        """Build the cul-de-sac map and run both RRT* and SST planners.
+        """Build the city-neighbourhood map and run both RRT* and SST planners.
 
         Must be called **after** ``pygame.init()`` so that font calls inside
         any sub-components are safe.
         """
         from arco.planning.continuous import RRTPlanner, SSTPlanner
 
-        self._occ = _build_occupancy(self._cfg)
+        self._occ = _build_occupancy(self._obs_cfg, self._cfg)
 
         rrt = RRTPlanner(
             self._occ,
-            bounds=_BOUNDS,
+            bounds=self._bounds,
             max_sample_count=int(self._cfg["rrt_max_sample_count"]),
             step_size=float(self._cfg["step_size"]),
             goal_tolerance=float(self._cfg["goal_tolerance"]),
@@ -116,12 +204,12 @@ class SparseScene:
             goal_bias=float(self._cfg["goal_bias"]),
         )
         self._rrt_nodes, self._rrt_parent, self._rrt_path = rrt.get_tree(
-            _START.copy(), _GOAL.copy()
+            self._start.copy(), self._goal.copy()
         )
 
         sst = SSTPlanner(
             self._occ,
-            bounds=_BOUNDS,
+            bounds=self._bounds,
             max_sample_count=int(self._cfg["sst_max_sample_count"]),
             step_size=float(self._cfg["step_size"]),
             goal_tolerance=float(self._cfg["goal_tolerance"]),
@@ -130,7 +218,7 @@ class SparseScene:
             witness_radius=float(self._cfg["witness_radius"]),
         )
         self._sst_nodes, self._sst_parent, self._sst_path = sst.get_tree(
-            _START.copy(), _GOAL.copy()
+            self._start.copy(), self._goal.copy()
         )
 
     # ------------------------------------------------------------------
@@ -140,7 +228,7 @@ class SparseScene:
     @property
     def title(self) -> str:
         """Window caption."""
-        return "RRT* vs SST — cul-de-sac race"
+        return "RRT* vs SST — neighbourhood race"
 
     @property
     def bg_color(self) -> tuple[int, int, int]:
@@ -150,12 +238,14 @@ class SparseScene:
     @property
     def world_points(self) -> list[tuple[float, float]]:
         """Bounding-box corners for auto-fitting the full view."""
-        return [(0.0, 0.0), (50.0, 50.0)]
+        w = float(self._obs_cfg["world_width"])
+        h = float(self._obs_cfg["world_height"])
+        return [(0.0, 0.0), (w, h)]
 
     @property
     def vehicle_config(self) -> VehicleConfig:
         """Shared vehicle and controller parameters (identical for both racers)."""
-        return _VEHICLE_CONFIG
+        return self._vehicle_cfg
 
     @property
     def rrt_total(self) -> int:
@@ -181,14 +271,17 @@ class SparseScene:
             return []
         return [(float(p[0]), float(p[1])) for p in self._sst_path]
 
+    @property
+    def road_dots(self) -> list[tuple[float, float]]:
+        """Road-marking dot positions along street centrelines."""
+        return self._road_dots
+
     # ------------------------------------------------------------------
     # Drawing
     # ------------------------------------------------------------------
 
     def draw_background(
         self,
-        surface: pygame.Surface,
-        transform: object,
         rrt_revealed: int,
         sst_revealed: int,
         racing: bool = False,
@@ -196,77 +289,74 @@ class SparseScene:
         """Render the obstacle field, both exploration trees, and paths.
 
         Args:
-            surface: Pygame surface to draw onto.
-            transform: World-to-screen callable ``(wx, wy) -> (sx, sy)``.
             rrt_revealed: Number of RRT* tree nodes to display.
             sst_revealed: Number of SST tree nodes to display.
             racing: When ``True`` the planned paths are hidden so the vehicle
                 trajectories are the only route highlights visible.
         """
-        if self._sdf_surface is None:
-            self._sdf_surface = bake_sdf_surface(
-                self._occ,
-                transform,
-                (surface.get_width(), surface.get_height()),
-                bg_color=_C_BG,
-                near_color=_C_SDF_NEAR,
-            )
-        surface.blit(
-            pygame.transform.smoothscale(
-                self._sdf_surface,
-                (surface.get_width(), surface.get_height()),
-            ),
-            (0, 0),
-        )
-        draw_obstacles(surface, self._occ, transform, color=_C_OBSTACLE)
+        x_min, x_max = self._bounds[0]
+        y_min, y_max = self._bounds[1]
 
-        # RRT* exploration tree (blue)
-        draw_exploration_tree(
-            surface,
+        if self._sdf_tex_id is None:
+            self._sdf_tex_id = renderer_gl.bake_sdf_texture(
+                self._occ,
+                x_min,
+                x_max,
+                y_min,
+                y_max,
+                _C_BG,
+                _C_SDF_NEAR,
+            )
+        renderer_gl.draw_sdf_background(
+            self._sdf_tex_id, x_min, x_max, y_min, y_max
+        )
+
+        renderer_gl.draw_obstacle_points(
+            self._road_dots, *_c(_C_ROAD_DOT), point_size=3.0
+        )
+
+        renderer_gl.draw_obstacle_points(
+            self._occ.points, *_c(_C_BUILDING), point_size=5.0
+        )
+
+        renderer_gl.draw_tree(
             self._rrt_nodes,
             self._rrt_parent,
             rrt_revealed,
-            transform,
-            edge_color=_C_RRT_EDGE,
-            node_color=_C_RRT_NODE,
+            *_c(_C_RRT_EDGE),
+            *_c(_C_RRT_NODE),
         )
         if (
             not racing
             and rrt_revealed >= self.rrt_total
             and self._rrt_path is not None
         ):
-            draw_planned_path(
-                surface, self._rrt_path, transform, color=_C_RRT_PATH
-            )
+            renderer_gl.draw_path(self._rrt_path, *_c(_C_RRT_PATH), width=2.5)
 
-        # SST exploration tree (teal)
-        draw_exploration_tree(
-            surface,
+        renderer_gl.draw_tree(
             self._sst_nodes,
             self._sst_parent,
             sst_revealed,
-            transform,
-            edge_color=_C_SST_EDGE,
-            node_color=_C_SST_NODE,
+            *_c(_C_SST_EDGE),
+            *_c(_C_SST_NODE),
         )
         if (
             not racing
             and sst_revealed >= self.sst_total
             and self._sst_path is not None
         ):
-            draw_planned_path(
-                surface, self._sst_path, transform, color=_C_SST_PATH
-            )
+            renderer_gl.draw_path(self._sst_path, *_c(_C_SST_PATH), width=2.5)
 
-        draw_endpoints(
-            surface,
-            _START,
-            _GOAL,
-            transform,
-            start_color=_C_START,
-            goal_color=_C_GOAL,
-            bg_color=_C_BG,
+        sx, sy = float(self._start[0]), float(self._start[1])
+        renderer_gl.draw_ring(
+            sx, sy, self._ring_outer, self._ring_inner, *_c(_C_START)
         )
+        renderer_gl.draw_disc(sx, sy, self._ring_inner, *_c(_C_BG))
+        gx, gy = float(self._goal[0]), float(self._goal[1])
+        renderer_gl.draw_ring(
+            gx, gy, self._ring_outer, self._ring_inner, *_c(_C_GOAL)
+        )
+        renderer_gl.draw_disc(gx, gy, self._ring_inner, *_c(_C_BG))
 
 
 # ---------------------------------------------------------------------------
@@ -274,71 +364,40 @@ class SparseScene:
 # ---------------------------------------------------------------------------
 
 
-def _build_occupancy(cfg: dict[str, Any]) -> Any:
-    """Build the cul-de-sac obstacle environment.
+def _build_occupancy(
+    obs_cfg: dict[str, Any],
+    cfg: dict[str, Any],
+) -> Any:
+    """Build the city-neighbourhood obstacle environment.
 
-    Constructs a U-shaped concave wall (opening toward the start, closed on
-    the goal side) sitting at the horizontal mid-point of the map.  The
-    direct path at y = 25 enters the U and hits the closing wall; both
-    planners must reroute above (y > 37) or below (y < 13) the structure.
+    Samples every block rectangle defined in *obs_cfg* (``block_columns``
+    × ``block_rows``) on a regular grid to produce a dense point cloud for
+    the KDTree occupancy model.  Street corridors remain obstacle-free.
 
-    A small number of sparse random obstacles are scattered in open areas
-    for visual variety.
+    Layout (1280 × 720 m, street width ≈ 30 m)::
 
-    Layout (50 × 50 m world, clearance = 2.0 m)::
-
-        y=35 ──────── top wall (x ∈ [12, 33]) ────────┐
-                                                        │ right wall
-        y=15 ──────── bot wall (x ∈ [12, 33]) ────────┘  (x=33)
-
-        START (3, 25)  →→→ direct path hits right wall  →→→ GOAL (47, 25)
+        8 columns × 7 rows of city blocks fill the space.
+        START: first street crossing from bottom-left → (220.1,  148.5)
+        GOAL:  first street crossing from top-right   → (1047.3, 582.4)
+        No straight diagonal path exists; routes thread through the street
+        grid.
 
     Args:
-        cfg: Sparse configuration dict providing ``bounds`` and
-            ``obstacle_clearance``.
+        obs_cfg: Obstacle-layout dict (from ``obstacles.yml``).
+        cfg: Planner configuration dict providing ``obstacle_clearance``.
 
     Returns:
         A :class:`~arco.mapping.KDTreeOccupancy` ready for collision queries.
     """
     from arco.mapping import KDTreeOccupancy
 
-    x_max = float(cfg["bounds"][0][1])
-    y_max = float(cfg["bounds"][1][1])
-    mid_y = y_max / 2.0  # 25.0
-
-    spacing = 0.8
-    top_y = mid_y + 10.0  # 35.0
-    bot_y = mid_y - 10.0  # 15.0
-    wall_x_start = 12.0
-    wall_x_close = 33.0  # right closing wall
-
-    xs_h = list(np.arange(wall_x_start, wall_x_close + spacing, spacing))
-    ys_v = list(np.arange(bot_y, top_y + spacing, spacing))
-
-    top_wall = [[x, top_y] for x in xs_h]
-    bot_wall = [[x, bot_y] for x in xs_h]
-    right_wall = [[wall_x_close, y] for y in ys_v]
-
-    # Sparse random obstacles — placed well outside the cul-de-sac and the
-    # start / goal approach corridors.
-    rng = np.random.default_rng(42)
-    sparse_pts: list[list[float]] = []
-    margin = 4.0
-    while len(sparse_pts) < 5:
-        p = rng.uniform([margin, margin], [x_max - margin, y_max - margin])
-        px, py = float(p[0]), float(p[1])
-        # Avoid the cul-de-sac bounding box (+ 4 m buffer)
-        if (wall_x_start - 4.0) < px < (wall_x_close + 4.0) and (
-            bot_y - 4.0
-        ) < py < (top_y + 4.0):
-            continue
-        # Avoid start approach corridor
-        if px < 9.0 and abs(py - mid_y) < 6.0:
-            continue
-        # Avoid goal approach corridor
-        if px > x_max - 9.0 and abs(py - mid_y) < 6.0:
-            continue
-        sparse_pts.append([px, py])
-
-    all_pts = top_wall + bot_wall + right_wall + sparse_pts
+    spacing = float(obs_cfg["obstacle_sampling_spacing"])
+    blocks = _make_blocks(obs_cfg)
+    all_pts: list[list[float]] = []
+    for x_lo, x_hi, y_lo, y_hi in blocks:
+        xs = np.arange(x_lo, x_hi + spacing, spacing)
+        ys = np.arange(y_lo, y_hi + spacing, spacing)
+        for x in xs:
+            for y in ys:
+                all_pts.append([float(x), float(y)])
     return KDTreeOccupancy(all_pts, clearance=float(cfg["obstacle_clearance"]))
