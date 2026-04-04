@@ -36,10 +36,9 @@ import os
 # Make arco and tools packages importable without a full install.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
+from arco.tools.config import load_config
 from arco.tools.simulator.scenes.astar import AStarScene
 from arco.tools.simulator.sim import run_sim
-
-from arco.tools.config import load_config
 
 
 def main() -> None:

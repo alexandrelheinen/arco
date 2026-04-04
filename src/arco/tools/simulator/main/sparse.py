@@ -53,11 +53,11 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
-from arco.tools.simulator.scenes.sparse import SparseScene
 from sim.tracking import VehicleConfig, build_vehicle_sim, find_lookahead
 from sim.video import VideoWriter
 
 from arco.tools.config import load_config
+from arco.tools.simulator.scenes.sparse import SparseScene
 
 logger = logging.getLogger(__name__)
 

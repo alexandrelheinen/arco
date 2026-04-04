@@ -23,6 +23,8 @@ def _resolve_city_network_path() -> str:
         os.path.dirname(__file__),
         "..",
         "..",
+        "src",
+        "arco",
         "tools",
         "config",
     )
@@ -31,7 +33,7 @@ def _resolve_city_network_path() -> str:
         if os.path.isfile(path):
             return path
     raise FileNotFoundError(
-        "City network descriptor not found in tools/config/. "
+        "City network descriptor not found in src/arco/tools/config/. "
         "Expected city_network.json or city.json."
     )
 

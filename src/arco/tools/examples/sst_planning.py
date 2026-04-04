@@ -27,16 +27,15 @@ import argparse
 import logging
 import os
 
-
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from arco.tools.logging_config import configure_logging
-from arco.tools.viewer.occupancy import draw_occupancy
 
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import SSTPlanner
 from arco.tools.config import load_config
+from arco.tools.logging_config import configure_logging
+from arco.tools.viewer.occupancy import draw_occupancy
 
 logger = logging.getLogger(__name__)
 

@@ -15,12 +15,11 @@ import logging
 import math
 import os
 
-
 import numpy as np
-from arco.tools.logging_config import configure_logging
 
 from arco.mapping.graph import CartesianGraph
 from arco.planning.discrete import RouteRouter
+from arco.tools.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
 

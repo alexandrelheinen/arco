@@ -105,11 +105,11 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex2f,
     glVertex3f,
 )
-from arco.tools.simulator.scenes.ppp import PPPScene
-from arco.tools.simulator.scenes.ppp import is_wall as _is_wall_box
 from sim.video import VideoWriter
 
 from arco.tools.config import load_config
+from arco.tools.simulator.scenes.ppp import PPPScene
+from arco.tools.simulator.scenes.ppp import is_wall as _is_wall_box
 
 logger = logging.getLogger(__name__)
 

@@ -25,20 +25,19 @@ import argparse
 import logging
 import os
 
-
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+
+from arco.mapping import KDTreeOccupancy
+from arco.planning.continuous import RRTPlanner, SSTPlanner
+from arco.tools.config import load_config
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.ppp import BOXES as _BOXES
 from arco.tools.simulator.scenes.ppp import (
     _sample_box_surface,
 )
 from arco.tools.simulator.scenes.ppp import is_wall as _is_wall
-
-from arco.mapping import KDTreeOccupancy
-from arco.planning.continuous import RRTPlanner, SSTPlanner
-from arco.tools.config import load_config
 
 logger = logging.getLogger(__name__)
 

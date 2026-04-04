@@ -40,7 +40,9 @@ def _get_config_dir() -> str:
         # Default: assume we're in <repo_root>/src/arco/tools/config/__init__.py
         # Go up one level to reach <repo_root>/src/arco/tools (the default ARCO_ROOT_DIR)
         this_file = os.path.abspath(__file__)
-        config_dir = os.path.dirname(this_file)  # <repo_root>/src/arco/tools/config
+        config_dir = os.path.dirname(
+            this_file
+        )  # <repo_root>/src/arco/tools/config
         root_dir = os.path.dirname(config_dir)  # <repo_root>/src/arco/tools
 
     return os.path.join(root_dir, "config")

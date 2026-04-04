@@ -5,7 +5,7 @@ tracking controller converges with acceptable metrics within a finite time
 budget.  They do *not* pin absolute numeric outputs — only qualitative
 properties such as convergence, stability, and progress are checked.
 
-The road network is loaded from ``tools/config/city_network.json``, the
+The road network is loaded from ``src/arco/tools/config/city.json``, the
 hand-crafted triangular-mesh city graph that replaces the procedural generator.
 """
 
@@ -38,6 +38,8 @@ def _resolve_network_path() -> str:
     config_dir = os.path.join(
         os.path.dirname(__file__),
         "..",
+        "src",
+        "arco",
         "tools",
         "config",
     )
@@ -46,7 +48,7 @@ def _resolve_network_path() -> str:
         if os.path.isfile(path):
             return path
     raise FileNotFoundError(
-        "City network descriptor not found in tools/config/. "
+        "City network descriptor not found in src/arco/tools/config/. "
         "Expected city_network.json or city.json."
     )
 
