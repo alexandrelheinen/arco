@@ -45,6 +45,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_TEXTURE_MAG_FILTER,
     GL_TEXTURE_MIN_FILTER,
     GL_TRIANGLE_FAN,
+    GL_TRIANGLE_STRIP,
     GL_UNSIGNED_BYTE,
     glBegin,
     glBindTexture,
