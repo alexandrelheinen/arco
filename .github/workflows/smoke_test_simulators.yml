@@ -39,8 +39,8 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install ffmpeg
-        run: sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg and virtual display
+        run: sudo apt-get install -y ffmpeg xvfb libgl1
 
       - name: Install package with pygame
         run: pip install -e ".[tools,pygame]"
@@ -52,30 +52,36 @@ jobs:
 
       - name: Smoke test A* simulator
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/astar.py \
+          xvfb-run -a python tools/simulator/main/astar.py \
             --fps 30 \
             --record /tmp/smoke_astar.mp4 \
             --record-duration 5
 
       - name: Smoke test RRT* simulator
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/rrt.py \
+          xvfb-run -a python tools/simulator/main/rrt.py \
             --fps 30 \
             --record /tmp/smoke_rrt.mp4 \
             --record-duration 5
 
       - name: Smoke test SST simulator
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/sst.py \
+          xvfb-run -a python tools/simulator/main/sst.py \
             --fps 30 \
             --record /tmp/smoke_sst.mp4 \
+            --record-duration 5
+
+      - name: Smoke test PPP 3-D simulator
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          xvfb-run -a python tools/simulator/main/ppp.py \
+            --fps 30 \
+            --record /tmp/smoke_ppp.mp4 \
             --record-duration 5
