@@ -67,7 +67,7 @@ from config import load_config
 logger = logging.getLogger(__name__)
 
 _DEFAULT_SCREEN_W = 1280
-_DEFAULT_SCREEN_H = 800
+_DEFAULT_SCREEN_H = 720
 
 # Frames to hold both completed trees before starting the race.
 _HOLD_FRAMES = 60
@@ -765,7 +765,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    scene = SparseScene(load_config("sparse"))
+    scene = SparseScene(load_config("sparse"), load_config("obstacles"))
     run_race(
         scene,
         fps=args.fps,
