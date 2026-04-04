@@ -126,7 +126,8 @@ _DEFAULT_SCREEN_H = 800
 
 _HOLD_SECS: float = 2.0
 _POST_FINISH_SECS: float = 2.5
-_RACE_SPEED: float = 3.0  # m/s along arc length
+_RACE_SPEED: float = 1.5  # m/s along arc length
+_LOOKAHEAD_DIST: float = 3.0  # metres ahead for lookahead marker
 
 # Camera defaults
 _CAM_AZIM: float = math.radians(40)
@@ -143,6 +144,10 @@ _CAM_ZOOM_STEP: float = 0.03
 _EPSILON: float = 1e-9
 
 # OpenGL colours (float 0-1)
+_C_TRAIL_RRT = (0.60, 0.80, 1.00)  # brighter variant of _C_RRT
+_C_TRAIL_SST = (0.50, 1.00, 0.88)  # brighter variant of _C_SST
+_C_LA_RRT = (0.90, 0.95, 1.00)
+_C_LA_SST = (0.80, 1.00, 0.95)
 _BG = (18 / 255, 22 / 255, 32 / 255, 1.0)
 _C_WALL = (0.68, 0.31, 0.17)
 _C_WALL_EDGE = (0.38, 0.17, 0.09)
@@ -700,6 +705,76 @@ def _path_pos(
     return path[-1].copy(), True
 
 
+def _path_trail(
+    path: list[np.ndarray],
+    arcs: list[float],
+    dist: float,
+) -> list[np.ndarray]:
+    """Return the traveled portion of *path* up to arc-length *dist*.
+
+    Args:
+        path: Ordered list of 3-D waypoints.
+        arcs: Precomputed cumulative arc lengths.
+        dist: Current arc-length distance from the path start.
+
+    Returns:
+        Sub-list of waypoints from the start up to *dist*, with a linearly
+        interpolated end point appended when *dist* falls inside a segment.
+    """
+    if dist <= 0.0 or len(path) < 2:
+        return []
+    trail: list[np.ndarray] = [path[0]]
+    for i in range(1, len(path)):
+        if arcs[i] <= dist:
+            trail.append(path[i])
+        else:
+            seg = arcs[i] - arcs[i - 1]
+            t = (dist - arcs[i - 1]) / max(seg, _EPSILON)
+            trail.append(path[i - 1] + t * (path[i] - path[i - 1]))
+            break
+    return trail
+
+
+def _path_lookahead(
+    path: list[np.ndarray],
+    arcs: list[float],
+    dist: float,
+    la_dist: float,
+) -> np.ndarray:
+    """Return the lookahead point *la_dist* metres ahead of *dist*.
+
+    Args:
+        path: Ordered list of 3-D waypoints.
+        arcs: Precomputed cumulative arc lengths.
+        dist: Current arc-length distance from the path start.
+        la_dist: Look-ahead distance in metres.
+
+    Returns:
+        Interpolated 3-D position on the path at ``dist + la_dist``,
+        clamped to the path end.
+    """
+    pos, _ = _path_pos(path, arcs, min(dist + la_dist, arcs[-1]))
+    return pos
+
+
+def _draw_lookahead_3d(pos: np.ndarray, r: float, g: float, b: float) -> None:
+    """Draw a small glowing marker at a 3-D lookahead point.
+
+    Renders a tiny lit box surrounded by bright unlit edges so it is
+    clearly visible against both the path line and background geometry.
+
+    Args:
+        pos: Lookahead position (x, y, z).
+        r: Red channel in [0, 1].
+        g: Green channel in [0, 1].
+        b: Blue channel in [0, 1].
+    """
+    h = 0.18  # half-extent in metres
+    x, y, z = float(pos[0]), float(pos[1]), float(pos[2])
+    _draw_box(x - h, y - h, z - h, x + h, y + h, z + h, r, g, b)
+    _draw_box_edges(x - h, y - h, z - h, x + h, y + h, z + h, r, g, b)
+
+
 # ---------------------------------------------------------------------------
 # Race simulation
 # ---------------------------------------------------------------------------
@@ -772,6 +847,8 @@ def run_race(
     sst_dist = 0.0
     rrt_pos = scene.start.copy()
     sst_pos = scene.start.copy()
+    rrt_trail: list[np.ndarray] = []
+    sst_trail: list[np.ndarray] = []
     rrt_done = False
     sst_done = False
     winner: str = ""
@@ -803,6 +880,8 @@ def run_race(
                         hold_timer = rrt_dist = sst_dist = 0.0
                         rrt_pos = scene.start.copy()
                         sst_pos = scene.start.copy()
+                        rrt_trail = []
+                        sst_trail = []
                         rrt_done = sst_done = False
                         winner = ""
                         post_timer = 0.0
@@ -847,11 +926,13 @@ def run_race(
                         rrt_pos, rrt_done = _path_pos(
                             rrt_path, rrt_arcs, rrt_dist
                         )
+                        rrt_trail = _path_trail(rrt_path, rrt_arcs, rrt_dist)
                     if sst_path and not sst_done:
                         sst_dist += _RACE_SPEED * dt
                         sst_pos, sst_done = _path_pos(
                             sst_path, sst_arcs, sst_dist
                         )
+                        sst_trail = _path_trail(sst_path, sst_arcs, sst_dist)
                     if not winner:
                         if rrt_done and sst_done:
                             winner = "TIE!"
@@ -885,6 +966,29 @@ def run_race(
             if sst_path:
                 _draw_path(sst_path, *_C_SST)
 
+            # Trajectory tracebacks (traveled portions, drawn thicker).
+            if phase in ("race", "done"):
+                if len(rrt_trail) >= 2:
+                    glDisable(GL_LIGHTING)
+                    glLineWidth(5.0)
+                    glColor3f(*_C_TRAIL_RRT)
+                    glBegin(GL_LINE_STRIP)
+                    for _pt in rrt_trail:
+                        glVertex3f(float(_pt[0]), float(_pt[1]), float(_pt[2]))
+                    glEnd()
+                    glLineWidth(1.0)
+                    glEnable(GL_LIGHTING)
+                if len(sst_trail) >= 2:
+                    glDisable(GL_LIGHTING)
+                    glLineWidth(5.0)
+                    glColor3f(*_C_TRAIL_SST)
+                    glBegin(GL_LINE_STRIP)
+                    for _pt in sst_trail:
+                        glVertex3f(float(_pt[0]), float(_pt[1]), float(_pt[2]))
+                    glEnd()
+                    glLineWidth(1.0)
+                    glEnable(GL_LIGHTING)
+
             for pad_pos, pad_col in (
                 (scene.start, _C_START),
                 (scene.goal, _C_GOAL),
@@ -905,6 +1009,18 @@ def run_race(
                 )
 
             if phase in ("race", "done"):
+                # Lookahead markers (only while racing, not after finish).
+                if phase == "race":
+                    if rrt_path and not rrt_done:
+                        la_rrt = _path_lookahead(
+                            rrt_path, rrt_arcs, rrt_dist, _LOOKAHEAD_DIST
+                        )
+                        _draw_lookahead_3d(la_rrt, *_C_LA_RRT)
+                    if sst_path and not sst_done:
+                        la_sst = _path_lookahead(
+                            sst_path, sst_arcs, sst_dist, _LOOKAHEAD_DIST
+                        )
+                        _draw_lookahead_3d(la_sst, *_C_LA_SST)
                 _draw_effector(rrt_pos, *_C_RRT)
                 _draw_effector(sst_pos, *_C_SST)
 
