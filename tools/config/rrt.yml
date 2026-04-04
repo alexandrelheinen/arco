@@ -24,3 +24,16 @@ obstacle_clearance: 2.0 # Twice the step, like the goal tolerance to ensure safe
 # of the goal is found.  Set to false to run all iterations for a
 # lower-cost (asymptotically optimal) solution.
 early_stop: true
+
+# Trajectory optimizer parameters.  After RRT* finds a path the optimizer
+# refines it in two stages: differential evolution (global) followed by
+# L-BFGS-B (local).  Spatial discretization step and cost weights are
+# tuned for the 50 × 50 m RRT planning environment.
+traj_spatial_step: 3.0          # Δx between trajectory points (world units)
+traj_weight_time: 1.0           # weight on squared path length (time²) term
+traj_weight_deviation: 0.1      # weight on squared deviation from reference
+traj_weight_collision: 10.0     # weight on collision penalty
+traj_deviation_bound: 5.0       # max per-axis displacement from reference (world units)
+traj_stage1_population_count: 5  # DE population size multiplier
+traj_stage1_max_iter: 30        # DE maximum generations
+traj_stage2_max_iter: 50        # L-BFGS-B maximum iterations

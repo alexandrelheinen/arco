@@ -3,6 +3,11 @@
 :class:`SSTScene` is structurally identical to :class:`~scenes.rrt.RRTScene`
 but uses the :class:`~arco.planning.continuous.SSTPlanner` and a teal colour
 palette to visually distinguish the two sampling-based planners.
+
+After the exploration tree is fully revealed the scene shows the raw SST path
+for a short period, then switches to the optimized trajectory produced by
+:class:`~arco.planning.continuous.TrajectoryOptimizer`.  The vehicle
+subsequently tracks the optimized trajectory.
 """
 
 from __future__ import annotations
@@ -31,9 +36,16 @@ _C_OBSTACLE: tuple[int, int, int] = (160, 60, 60)
 _C_TREE_EDGE: tuple[int, int, int] = (60, 160, 140)
 _C_TREE_NODE: tuple[int, int, int] = (50, 140, 120)
 _C_PATH: tuple[int, int, int] = (230, 170, 30)
+_C_TRAJ: tuple[int, int, int] = (100, 230, 100)
 _C_START: tuple[int, int, int] = (60, 200, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
 _C_SDF_NEAR: tuple[int, int, int] = (80, 35, 35)
+
+# Number of extra "reveal ticks" added after the tree phase.  The first half
+# displays the raw planned path; the second half replaces it with the
+# optimized trajectory.  The loop's _HOLD_FRAMES pause then follows before
+# vehicle tracking starts.
+_TRAJ_REVEAL_FRAMES = 1500
 
 # Vehicle parameters matched to the 50 × 50 m SST planning environment.
 _VEHICLE_CONFIG = VehicleConfig(
@@ -53,7 +65,10 @@ class SSTScene(SimScene):
     """SST planning scene on a 2-D scattered-obstacle environment.
 
     The background-reveal phase incrementally grows the exploration tree from
-    root to leaf before transitioning to vehicle tracking.
+    root to leaf.  Once the tree is fully revealed the raw SST path is shown
+    for a short period, after which it is replaced by the optimized trajectory
+    produced by :class:`~arco.planning.continuous.TrajectoryOptimizer`.  The
+    vehicle then tracks the optimized trajectory.
 
     Args:
         sst_config: Parsed SST configuration dict (from ``sst.yml``).
@@ -65,6 +80,8 @@ class SSTScene(SimScene):
         self._tree_nodes: list[Any] = []
         self._tree_parent: dict[int, int | None] = {}
         self._path: list[Any] | None = None
+        self._traj: list[Any] | None = None
+        self._tree_total: int = 0
         self._start: Any = None
         self._goal: Any = None
         self._bounds: list[tuple[float, float]] = []
@@ -75,12 +92,16 @@ class SSTScene(SimScene):
     # ------------------------------------------------------------------
 
     def build(self) -> None:
-        """Build the obstacle environment and run SST.
+        """Build the obstacle environment, run SST, and optimize the path.
+
+        Runs the SST planner to obtain an initial path, then passes that
+        path through :class:`~arco.planning.continuous.TrajectoryOptimizer`
+        to produce a shorter, smoother trajectory.
 
         Raises:
             RuntimeError: If planner configuration is missing required keys.
         """
-        from arco.planning.continuous import SSTPlanner
+        from arco.planning.continuous import SSTPlanner, TrajectoryOptimizer
 
         self._occ = _build_occupancy(self._cfg)
         bounds = [tuple(b) for b in self._cfg["bounds"]]
@@ -107,6 +128,33 @@ class SSTScene(SimScene):
         self._tree_nodes, self._tree_parent, self._path = planner.get_tree(
             self._start, self._goal
         )
+        self._tree_total = len(self._tree_nodes)
+
+        # Run the trajectory optimizer on the SST solution path.
+        # No model-specific feasibility constraints apply here; the
+        # Dubins vehicle used in this scene has no joint or workspace limits.
+        if self._path is not None:
+            opt = TrajectoryOptimizer(
+                self._occ,
+                lambda state: True,  # no kinematic constraints for this scene
+                spatial_step=float(self._cfg.get("traj_spatial_step", 3.0)),
+                weight_time=float(self._cfg.get("traj_weight_time", 1.0)),
+                weight_deviation=float(
+                    self._cfg.get("traj_weight_deviation", 0.1)
+                ),
+                weight_collision=float(
+                    self._cfg.get("traj_weight_collision", 10.0)
+                ),
+                deviation_bound=float(
+                    self._cfg.get("traj_deviation_bound", 5.0)
+                ),
+                stage1_population_count=int(
+                    self._cfg.get("traj_stage1_population_count", 5)
+                ),
+                stage1_max_iter=int(self._cfg.get("traj_stage1_max_iter", 30)),
+                stage2_max_iter=int(self._cfg.get("traj_stage2_max_iter", 50)),
+            )
+            self._traj = opt.optimize(self._path)
 
     @property
     def title(self) -> str:
@@ -132,10 +180,11 @@ class SSTScene(SimScene):
 
         Falls back to the full planning bounds when no path was found.
         """
-        if self._path is None:
+        ref = self._traj if self._traj is not None else self._path
+        if ref is None:
             return self.world_points
-        path_xs = [float(p[0]) for p in self._path]
-        path_ys = [float(p[1]) for p in self._path]
+        path_xs = [float(p[0]) for p in ref]
+        path_ys = [float(p[1]) for p in ref]
         pad = max(
             (max(path_xs) - min(path_xs)) * 0.15,
             (max(path_ys) - min(path_ys)) * 0.15,
@@ -148,10 +197,11 @@ class SSTScene(SimScene):
 
     @property
     def waypoints(self) -> list[tuple[float, float]]:
-        """Planned path converted to ``(x, y)`` tuples, or empty list."""
-        if self._path is None:
+        """Optimized trajectory as ``(x, y)`` tuples, or planned path as fallback."""
+        path = self._traj if self._traj is not None else self._path
+        if path is None:
             return []
-        return [(float(p[0]), float(p[1])) for p in self._path]
+        return [(float(p[0]), float(p[1])) for p in path]
 
     @property
     def vehicle_config(self) -> VehicleConfig:
@@ -160,8 +210,8 @@ class SSTScene(SimScene):
 
     @property
     def background_total(self) -> int:
-        """Total number of exploration-tree nodes to reveal."""
-        return len(self._tree_nodes)
+        """Total background reveal ticks: tree nodes plus trajectory-reveal frames."""
+        return self._tree_total + _TRAJ_REVEAL_FRAMES
 
     def draw_background(
         self,
@@ -169,12 +219,18 @@ class SSTScene(SimScene):
         transform: object,
         revealed: int,
     ) -> None:
-        """Draw the obstacle field, exploration tree, and (if complete) path.
+        """Draw the obstacle field, exploration tree, and path overlays.
+
+        During the tree-reveal phase (*revealed* ≤ ``_tree_total``) the
+        exploration tree grows incrementally.  Once the tree is complete the
+        raw SST path is displayed for the first half of
+        ``_TRAJ_REVEAL_FRAMES``, then replaced by the optimized trajectory
+        for the second half.
 
         Args:
             surface: Pygame surface to draw onto.
             transform: World-to-screen callable.
-            revealed: Number of tree nodes to show (0 = none, total = all).
+            revealed: Number of background ticks elapsed.
         """
         if self._sdf_surface is None:
             self._sdf_surface = bake_sdf_surface(
@@ -201,8 +257,23 @@ class SSTScene(SimScene):
             edge_color=_C_TREE_EDGE,
             node_color=_C_TREE_NODE,
         )
-        if revealed >= self.background_total and self._path is not None:
-            draw_planned_path(surface, self._path, transform, color=_C_PATH)
+
+        if revealed >= self._tree_total:
+            traj_phase = revealed - self._tree_total
+            if (
+                traj_phase > _TRAJ_REVEAL_FRAMES // 2
+                and self._traj is not None
+            ):
+                # Second half of traj-reveal phase: show optimized trajectory.
+                draw_planned_path(
+                    surface, self._traj, transform, color=_C_TRAJ
+                )
+            elif self._path is not None:
+                # First half: show the raw planned path.
+                draw_planned_path(
+                    surface, self._path, transform, color=_C_PATH
+                )
+
         draw_endpoints(
             surface,
             self._start,
@@ -219,21 +290,36 @@ class SSTScene(SimScene):
         font: pygame.font.Font,
         revealed: int,
     ) -> None:
-        """Draw the planning-phase HUD showing exploration progress.
+        """Draw the planning-phase HUD showing exploration and optimizer progress.
 
         Args:
             surface: Pygame surface to draw onto.
             font: Pygame font for rendering text.
-            revealed: Number of tree nodes currently visible.
+            revealed: Number of background ticks currently visible.
         """
-        draw_planning_hud(
-            surface,
-            font,
-            self.title,
-            revealed,
-            self.background_total,
-            self._path is not None,
-        )
+        if revealed <= self._tree_total:
+            draw_planning_hud(
+                surface,
+                font,
+                self.title,
+                revealed,
+                self._tree_total,
+                self._path is not None,
+            )
+        else:
+            traj_phase = revealed - self._tree_total
+            show_traj = (
+                traj_phase > _TRAJ_REVEAL_FRAMES // 2
+                and self._traj is not None
+            )
+            draw_planning_hud(
+                surface,
+                font,
+                f"{self.title} — {'trajectory' if show_traj else 'path'}",
+                self._tree_total,
+                self._tree_total,
+                True,
+            )
 
 
 # ---------------------------------------------------------------------------
