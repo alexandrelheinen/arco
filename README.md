@@ -15,23 +15,31 @@ The project emphasizes clear architecture, testability, and documented algorithm
 - [Main docs index](docs/README.md)
 - [Coding guidelines (authoritative)](docs/guidelines.md)
 - [Contributing guide](CONTRIBUTING.md)
-- [Planning overview](docs/PLANNING.md)
-- [A* notes](docs/planning_astar.md)
-- [D* notes](docs/planning_dstar.md)
+- [Mapping layer overview](docs/MAPPING.md)
+- [Planning layer overview](docs/PLANNING.md)
+  - [A* algorithm notes](docs/planning_astar.md)
+  - [RRT* algorithm notes](docs/planning_rrt.md)
+  - [SST algorithm notes](docs/planning_sst.md)
+  - [D* Lite notes](docs/planning_dstar.md)
+- [Guidance layer overview](docs/GUIDANCE.md)
+- [Route planning benchmarks](docs/route_planning_benchmarks.md)
+- [Horse auto-follow system design](docs/horse_auto_follow.md)
+- [City network descriptor](docs/city_network.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## Architecture
 
 A planner operates on a map object:
 
-- Discrete planners (A*, D*) operate on Grid structures
-- Continuous planners (RRT, SST) operate on Occupancy structures
+- Discrete planners (A*, route planning) operate on Grid or Graph structures
+- Continuous planners (RRT*, SST) operate on Occupancy structures
 
 Core map families:
 
 - Manhattan Grid: axis-aligned neighbors with Manhattan metric ($L_1$)
 - Euclidean Grid: diagonal-capable neighbors with Euclidean metric ($L_2$)
-- Occupancy: abstract continuous-space obstacle-query interface
+- Graph hierarchy: Graph → WeightedGraph → CartesianGraph → RoadGraph
+- Occupancy: abstract continuous-space obstacle-query interface (KDTreeOccupancy)
 
 Guidance is applied after planning:
 
@@ -41,40 +49,41 @@ Guidance is applied after planning:
 
 ## Modules
 
-- Mapping: spatial data structures and obstacle-query interfaces
-- Planning: path search and sampling methods
-- Guidance: trajectory shaping and feedback control
+- **Mapping**: Spatial data structures (grids, graphs, occupancy) and obstacle-query interfaces
+- **Planning**: Path search (A*, route planning) and sampling methods (RRT*, SST)
+- **Guidance**: Trajectory shaping (interpolation, primitives) and feedback control (PID, Pure Pursuit, MPC)
 
 ## Current Algorithm Status
 
 | Algorithm | Status | Notes |
 |-----------|--------|-------|
-| A* | Done | Grid-based, configurable heuristics |
-| D* | Next | Dynamic replanning for changing environments |
-| RRT | Planned | Sampling-based for continuous state spaces |
-| RRT* | Planned | Asymptotically optimal RRT variant |
-| SST | Planned | Stable Sparse RRT for kinodynamic planning |
+| A* | ✅ Done | Grid and graph-based, configurable heuristics |
+| Route Planning | ✅ Done | A* integration for road networks with waypoint smoothing |
+| RRT* | ✅ Done | Asymptotically optimal sampling-based planner |
+| SST | ✅ Done | Stable Sparse Trees for kinodynamic planning |
+| D* Lite | ⏸️ Stub | Dynamic replanning (API exists, not implemented) |
 
 ## Repository Layout
 
 ```text
 .
-├── config
-├── docs
+├── docs                   ← algorithm notes and design docs
 ├── src/arco
 │   ├── guidance
-│   │   ├── control        ← feedback controllers and tracking loop
-│   │   ├── interpolation  ← path smoothing and trajectory generation
-│   │   ├── primitive      ← kinematic exploration primitives
-│   │   └── vehicle.py     ← unicycle kinematic model
+│   │   ├── control        ← feedback controllers (PID, Pure Pursuit, MPC)
+│   │   ├── interpolation  ← path smoothing (B-spline) and trajectory generation
+│   │   ├── primitive      ← kinematic exploration primitives (Dubins)
+│   │   └── vehicle.py     ← vehicle kinematic models
 │   ├── mapping
-│   │   ├── graph          ← graph topology hierarchy
-│   │   └── grid           ← discrete grid structures
+│   │   ├── graph          ← graph topology hierarchy (weighted, cartesian, road)
+│   │   ├── grid           ← discrete grid structures (Manhattan, Euclidean)
+│   │   ├── occupancy.py   ← continuous-space obstacle interface
+│   │   └── kdtree.py      ← KDTree-based occupancy implementation
 │   └── planning
-│       ├── discrete       ← graph-search planners (A*, D*)
-│       └── continuous     ← sampling-based planners (RRT, SST)
-├── tests
-└── tools
+│       ├── discrete       ← graph-search planners (A*, route planning)
+│       └── continuous     ← sampling-based planners (RRT*, SST)
+├── tests                  ← mirrored test layout
+└── tools                  ← examples and visualization utilities
 ```
 
 ## Installation
@@ -108,6 +117,9 @@ python -m isort --line-length 79 src/ tools/
 python tools/examples/astar_graph.py
 python tools/examples/astar_grid_obstacle.py
 python tools/examples/astar_manhattan.py
+python tools/examples/route_planning.py
+python tools/examples/rrt_planning.py
+python tools/examples/sst_planning.py
 ```
 
 ## CI and Merge Policy
