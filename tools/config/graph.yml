@@ -30,13 +30,13 @@
 seed: 42
 
 type: ring
-width: 1000  # [m]
-height: 1000  # [m]
-mean_edge_length: 100  # [m]
-hole_count: 6  # [] 1 central hole + 5 holes at equal angular offsets
-hole_radius: 90  # [m]
+width: 50  # [m]
+height: 50  # [m]
+mean_edge_length: 7  # [m]
+hole_count: 3  # [] 1 central hole + 2 holes at equal angular offsets
+hole_radius: 4  # [m]
 curvature: 0.1  # [] 10 % of edge length
 
-node_count: 30
-area: 100.0
-connect_radius: 28.0
+node_count: 20
+area: 50.0
+connect_radius: 14.0

@@ -18,8 +18,8 @@ from sim.scene import SimScene
 from sim.tracking import VehicleConfig
 
 # Small metric offset applied to start/goal to exercise the projection logic.
-_ENDPOINT_OFFSET_M = 4.0
-_ACTIVATION_RADIUS = 35.0
+_ENDPOINT_OFFSET_M = 1.0
+_ACTIVATION_RADIUS = 12.0
 
 
 class AStarScene(SimScene):
