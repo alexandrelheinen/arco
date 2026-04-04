@@ -3,7 +3,7 @@ name: Release Videos
 on:
   release:
     types:
-      - created
+      - published
 
 jobs:
   generate-videos:
@@ -22,8 +22,8 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install ffmpeg
-        run: sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg and virtual display
+        run: sudo apt-get install -y ffmpeg xvfb libgl1
 
       - name: Install package with pygame
         run: pip install -e ".[tools,pygame]"
@@ -38,10 +38,9 @@ jobs:
 
       - name: Generate A* general view (full network camera)
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/astar.py \
+          xvfb-run -a python tools/simulator/main/astar.py \
             --fps 30 \
             --camera full \
             --record /tmp/sim_videos/astar_full.mp4 \
@@ -49,10 +48,9 @@ jobs:
 
       - name: Generate A* zoomed view (follow-vehicle camera)
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/astar.py \
+          xvfb-run -a python tools/simulator/main/astar.py \
             --fps 30 \
             --camera follow \
             --record /tmp/sim_videos/astar_zoom.mp4 \
@@ -60,20 +58,18 @@ jobs:
 
       - name: Generate RRT* planning visualisation
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/rrt.py \
+          xvfb-run -a python tools/simulator/main/rrt.py \
             --fps 30 \
             --record /tmp/sim_videos/rrt_full.mp4 \
             --record-duration 60
 
       - name: Generate RRT* zoomed visualisation
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/rrt.py \
+          xvfb-run -a python tools/simulator/main/rrt.py \
             --fps 30 \
             --zoom \
             --camera follow \
@@ -82,20 +78,18 @@ jobs:
 
       - name: Generate SST planning visualisation
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/sst.py \
+          xvfb-run -a python tools/simulator/main/sst.py \
             --fps 30 \
             --record /tmp/sim_videos/sst_full.mp4 \
             --record-duration 60
 
       - name: Generate SST zoomed visualisation
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/sst.py \
+          xvfb-run -a python tools/simulator/main/sst.py \
             --fps 30 \
             --zoom \
             --camera follow \
@@ -104,10 +98,9 @@ jobs:
 
       - name: Generate RRT* vs SST cul-de-sac race
         env:
-          SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: |
-          python tools/simulator/main/sparse.py \
+          xvfb-run -a python tools/simulator/main/sparse.py \
             --fps 30 \
             --record /tmp/sim_videos/sparse.mp4 \
             --record-duration 90
