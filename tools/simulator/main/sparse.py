@@ -123,7 +123,7 @@ def _make_text_surface(
     """
     line_h = font.get_linesize() + 2
     panel_h = len(lines) * line_h + 8
-    panel_w = max([font.size(ln)[0] for ln in lines], default=10) + 20
+    panel_w = max((font.size(ln)[0] for ln in lines), default=10) + 20
     surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
     surf.fill((10, 10, 20, 180))
     y = 4
