@@ -42,7 +42,22 @@ sys.path.insert(0, os.path.join(_HERE, "..", ".."))
 sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import pygame
-from renderer import WorldTransform, draw_trajectory
+import renderer_gl
+from OpenGL.GL import (  # type: ignore[import-untyped]
+    GL_BLEND,
+    GL_COLOR_BUFFER_BIT,
+    GL_DEPTH_TEST,
+    GL_LIGHTING,
+    GL_ONE_MINUS_SRC_ALPHA,
+    GL_SMOOTH,
+    GL_SRC_ALPHA,
+    glBlendFunc,
+    glClear,
+    glClearColor,
+    glDisable,
+    glEnable,
+    glShadeModel,
+)
 from scenes.sparse import SparseScene
 from sim.tracking import VehicleConfig, build_vehicle_sim, find_lookahead
 from sim.video import VideoWriter
@@ -60,15 +75,13 @@ _HOLD_FRAMES = 60
 _POST_FINISH_SECS = 2.0
 
 # ---------------------------------------------------------------------------
-# Colour constants — vehicle body / arrow / trajectory / HUD text
+# Colour constants
 # ---------------------------------------------------------------------------
 _C_RRT_VEH: tuple[int, int, int] = (100, 160, 255)
-_C_RRT_ARROW: tuple[int, int, int] = (180, 210, 255)
 _C_RRT_TRAJ: tuple[int, int, int] = (130, 190, 255)
 _C_RRT_HUD: tuple[int, int, int] = (130, 190, 255)
 
 _C_SST_VEH: tuple[int, int, int] = (60, 235, 210)
-_C_SST_ARROW: tuple[int, int, int] = (160, 255, 235)
 _C_SST_TRAJ: tuple[int, int, int] = (100, 240, 210)
 _C_SST_HUD: tuple[int, int, int] = (100, 240, 210)
 
@@ -78,150 +91,148 @@ _C_HUD_SHADOW: tuple[int, int, int] = (40, 40, 50)
 _C_WINNER: tuple[int, int, int] = (255, 215, 50)
 _C_TIE: tuple[int, int, int] = (200, 200, 80)
 
-# Vehicle sprite dimensions (pixels)
-_VEH_L = 14
-_VEH_W = 7
+# Vehicle body world dimensions
+_VEH_HALF_L = 1.5  # metres
+_VEH_HALF_W = 0.7  # metres
+_LOOKAHEAD_DISC_R = 0.5  # metres
+
+
+def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
+    return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
 # ---------------------------------------------------------------------------
-# Rendering helpers
+# HUD helpers — build a pygame surface then blit_overlay
 # ---------------------------------------------------------------------------
 
 
-def _draw_vehicle(
-    surface: pygame.Surface,
-    x: float,
-    y: float,
-    heading: float,
-    transform: object,
-    body: tuple[int, int, int],
-    arrow: tuple[int, int, int],
-) -> None:
-    """Draw a coloured oriented vehicle rectangle at world position (x, y).
-
-    Args:
-        surface: Pygame surface to draw onto.
-        x: Vehicle x-position in world metres.
-        y: Vehicle y-position in world metres.
-        heading: Vehicle heading in radians (0 = east, π/2 = north).
-        transform: World-to-screen callable.
-        body: RGB fill colour.
-        arrow: RGB outline and arrow colour.
-    """
-    cx, cy = transform(x, y)
-    ch = math.cos(heading)
-    sh = math.sin(heading)
-    hl, hw = _VEH_L / 2, _VEH_W / 2
-    corners = []
-    for lx, ly in ((hl, hw), (hl, -hw), (-hl, -hw), (-hl, hw)):
-        rx = lx * ch - ly * sh
-        ry = -(lx * sh + ly * ch)
-        corners.append((cx + rx, cy + ry))
-    pygame.draw.polygon(surface, body, corners)
-    pygame.draw.polygon(surface, arrow, corners, 1)
-    tip = (cx + _VEH_L * 0.7 * ch, cy - _VEH_L * 0.7 * sh)
-    pygame.draw.line(surface, arrow, (cx, cy), tip, 2)
-
-
-def _blit_left(
-    surface: pygame.Surface,
+def _make_text_surface(
     font: pygame.font.Font,
     lines: list[str],
     color: tuple[int, int, int],
+) -> pygame.Surface:
+    """Build a small SRCALPHA surface with the given text lines.
+
+    Args:
+        font: Pygame monospace font.
+        lines: Lines to render top-to-bottom.
+        color: RGB text colour.
+
+    Returns:
+        Transparent SRCALPHA pygame surface.
+    """
+    line_h = font.get_linesize() + 2
+    panel_h = len(lines) * line_h + 8
+    panel_w = max([font.size(ln)[0] for ln in lines], default=10) + 20
+    surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+    surf.fill((10, 10, 20, 180))
+    y = 4
+    for line in lines:
+        shadow = font.render(line, True, _C_HUD_SHADOW)
+        surf.blit(shadow, (11, y + 1))
+        rendered = font.render(line, True, color)
+        surf.blit(rendered, (10, y))
+        y += line_h
+    return surf
+
+
+def _blit_left(
+    font: pygame.font.Font,
+    lines: list[str],
+    color: tuple[int, int, int],
+    sw: int,
+    sh: int,
     x: int = 10,
     y: int = 10,
 ) -> None:
     """Render left-aligned shadowed text lines starting at (x, y).
 
     Args:
-        surface: Pygame surface.
         font: Pygame font.
         lines: Text lines to render top-to-bottom.
         color: RGB text colour.
+        sw: Screen width in pixels.
+        sh: Screen height in pixels.
         x: Left x pixel position.
         y: Starting y pixel position.
     """
-    for line in lines:
-        shadow = font.render(line, True, _C_HUD_SHADOW)
-        surface.blit(shadow, (x + 1, y + 1))
-        rendered = font.render(line, True, color)
-        surface.blit(rendered, (x, y))
-        y += font.get_linesize() + 2
+    surf = _make_text_surface(font, lines, color)
+    renderer_gl.blit_overlay(surf, x, y, sw, sh)
 
 
 def _blit_right(
-    surface: pygame.Surface,
     font: pygame.font.Font,
     lines: list[str],
     color: tuple[int, int, int],
+    sw: int,
+    sh: int,
     x_margin: int = 10,
     y: int = 10,
 ) -> None:
     """Render right-aligned shadowed text lines.
 
     Args:
-        surface: Pygame surface.
         font: Pygame font.
         lines: Text lines to render top-to-bottom.
         color: RGB text colour.
+        sw: Screen width in pixels.
+        sh: Screen height in pixels.
         x_margin: Gap between text right edge and screen right edge.
         y: Starting y pixel position.
     """
-    for line in lines:
-        rendered = font.render(line, True, color)
-        x = surface.get_width() - x_margin - rendered.get_width()
-        shadow = font.render(line, True, _C_HUD_SHADOW)
-        surface.blit(shadow, (x + 1, y + 1))
-        surface.blit(rendered, (x, y))
-        y += font.get_linesize() + 2
+    surf = _make_text_surface(font, lines, color)
+    x = sw - x_margin - surf.get_width()
+    renderer_gl.blit_overlay(surf, x, y, sw, sh)
 
 
 def _blit_center(
-    surface: pygame.Surface,
     font: pygame.font.Font,
     line: str,
     color: tuple[int, int, int],
+    sw: int,
+    sh: int,
     y: int,
 ) -> None:
     """Render a single centred line at vertical position y.
 
     Args:
-        surface: Pygame surface.
         font: Pygame font.
         line: Text to render.
         color: RGB text colour.
+        sw: Screen width in pixels.
+        sh: Screen height in pixels.
         y: Vertical pixel position.
     """
-    rendered = font.render(line, True, color)
-    x = (surface.get_width() - rendered.get_width()) // 2
-    shadow = font.render(line, True, _C_HUD_SHADOW)
-    surface.blit(shadow, (x + 1, y + 1))
-    surface.blit(rendered, (x, y))
+    surf = _make_text_surface(font, [line], color)
+    x = (sw - surf.get_width()) // 2
+    renderer_gl.blit_overlay(surf, x, y, sw, sh)
 
 
 def _draw_winner_banner(
-    surface: pygame.Surface,
-    big_font: pygame.font.Font,
+    font: pygame.font.Font,
     text: str,
     color: tuple[int, int, int],
+    sw: int,
+    sh: int,
 ) -> None:
     """Draw a translucent centred banner with large winner text.
 
     Args:
-        surface: Pygame surface.
-        big_font: Large pygame font.
+        font: Large pygame font.
         text: Banner text (e.g. ``"RRT* WINS!"``).
         color: RGB text colour.
+        sw: Screen width in pixels.
+        sh: Screen height in pixels.
     """
-    rendered = big_font.render(text, True, color)
+    rendered = font.render(text, True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
     pad = 14
-    bx = (surface.get_width() - rw) // 2 - pad
-    by = (surface.get_height() - rh) // 2 - pad
     banner = pygame.Surface((rw + 2 * pad, rh + 2 * pad), pygame.SRCALPHA)
     banner.fill((10, 10, 20, 200))
-    surface.blit(banner, (bx, by))
-    surface.blit(rendered, (bx + pad, by + pad))
+    banner.blit(rendered, (pad, pad))
+    bx = (sw - banner.get_width()) // 2
+    by = (sh - banner.get_height()) // 2
+    renderer_gl.blit_overlay(banner, bx, by, sw, sh)
 
 
 # ---------------------------------------------------------------------------
@@ -257,8 +268,9 @@ def run_race(
     recording = bool(record)
     max_record_frames = int(fps * record_duration)
 
+    # OpenGL requires a real (or virtual) display.  For headless recording
+    # use xvfb-run.
     if recording:
-        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
     pygame.init()
@@ -275,7 +287,7 @@ def run_race(
             sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
 
     screen_size = (sw, sh)
-    screen = pygame.display.set_mode(screen_size)
+    pygame.display.set_mode(screen_size, pygame.OPENGL | pygame.DOUBLEBUF)
     clock = pygame.time.Clock()
 
     # Fonts — build scene after pygame.init so SysFont is safe.
@@ -285,8 +297,21 @@ def run_race(
     font = pygame.font.SysFont("monospace", 14)
     big_font = pygame.font.SysFont("monospace", 36, bold=True)
 
-    # World-to-screen transform (full view, no follow camera for a race).
-    transform = WorldTransform(scene.world_points, screen_size, margin=60)
+    # GL state
+    bg = scene.bg_color
+    glClearColor(bg[0] / 255.0, bg[1] / 255.0, bg[2] / 255.0, 1.0)
+    glShadeModel(GL_SMOOTH)
+    glDisable(GL_DEPTH_TEST)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    glDisable(GL_LIGHTING)
+
+    # World bounds and projection (full fixed view — no follow camera for race).
+    wpts = scene.world_points
+    _all_x = [p[0] for p in wpts]
+    _all_y = [p[1] for p in wpts]
+    x_min, x_max = min(_all_x), max(_all_x)
+    y_min, y_max = min(_all_y), max(_all_y)
 
     cfg = scene.vehicle_config
     rrt_wps = scene.rrt_waypoints
@@ -305,12 +330,10 @@ def run_race(
     # ---------------------------------------------------------------------------
     phase = "background"  # "background" | "racing" | "done"
 
-    # Background-reveal counters
     rrt_revealed = 0
     sst_revealed = 0
     hold = 0
 
-    # Vehicle state — initialised when the racing phase begins
     rrt_vehicle = None
     sst_vehicle = None
     rrt_loop = None
@@ -351,7 +374,7 @@ def run_race(
         rrt_finish_time = None
         sst_finish_time = None
         last_finish_time = None
-        scene._sdf_surface = None  # Force SDF rebake on next draw
+        scene._sdf_tex_id = None  # Force SDF rebake on next draw
         paused = False
 
     # ---------------------------------------------------------------------------
@@ -409,7 +432,6 @@ def run_race(
                 elif phase == "racing":
                     race_time += dt
 
-                    # Advance RRT* vehicle
                     if rrt_vehicle is not None and rrt_loop is not None:
                         if not rrt_finished:
                             rrt_loop.step(rrt_wps, dt=dt)
@@ -427,7 +449,6 @@ def run_race(
                                     "RRT* reached goal at t=%.2f s", race_time
                                 )
 
-                    # Advance SST vehicle
                     if sst_vehicle is not None and sst_loop is not None:
                         if not sst_finished:
                             sst_loop.step(sst_wps, dt=dt)
@@ -445,7 +466,6 @@ def run_race(
                                     "SST reached goal at t=%.2f s", race_time
                                 )
 
-                    # Update last-finish timestamp
                     if rrt_finished or sst_finished:
                         candidate = max(
                             t
@@ -454,7 +474,6 @@ def run_race(
                         )
                         last_finish_time = candidate
 
-                    # Stop 2 s after the last vehicle arrives
                     if (
                         last_finish_time is not None
                         and race_time - last_finish_time >= _POST_FINISH_SECS
@@ -468,11 +487,13 @@ def run_race(
             # ------------------------------------------------------------------
             # Render
             # ------------------------------------------------------------------
-            screen.fill(scene.bg_color)
+            bg = scene.bg_color
+            glClearColor(bg[0] / 255.0, bg[1] / 255.0, bg[2] / 255.0, 1.0)
+            glClear(GL_COLOR_BUFFER_BIT)
+
+            renderer_gl.setup_2d_projection(x_min, x_max, y_min, y_max, sw, sh)
 
             scene.draw_background(
-                screen,
-                transform,
                 rrt_revealed,
                 sst_revealed,
                 racing=(phase in ("racing", "done")),
@@ -480,7 +501,6 @@ def run_race(
 
             if phase == "background":
                 _draw_planning_hud(
-                    screen,
                     font,
                     rrt_revealed,
                     rrt_total,
@@ -489,20 +509,24 @@ def run_race(
                     sst_total,
                     scene._sst_path is not None,
                     paused,
+                    sw,
+                    sh,
                 )
 
             elif phase in ("racing", "done"):
-                # Trajectories
                 if len(rrt_traj) >= 2:
-                    _draw_colored_trajectory(
-                        screen, rrt_traj, transform, _C_RRT_TRAJ
+                    renderer_gl.draw_path(
+                        [(p[0], p[1]) for p in rrt_traj],
+                        *_c(_C_RRT_TRAJ),
+                        width=1.5,
                     )
                 if len(sst_traj) >= 2:
-                    _draw_colored_trajectory(
-                        screen, sst_traj, transform, _C_SST_TRAJ
+                    renderer_gl.draw_path(
+                        [(p[0], p[1]) for p in sst_traj],
+                        *_c(_C_SST_TRAJ),
+                        width=1.5,
                     )
 
-                # Lookahead targets
                 if rrt_vehicle is not None and not rrt_finished:
                     la = find_lookahead(
                         rrt_vehicle.x,
@@ -510,7 +534,9 @@ def run_race(
                         rrt_wps,
                         cfg.lookahead_distance,
                     )
-                    _draw_lookahead(screen, la, transform, _C_RRT_VEH)
+                    renderer_gl.draw_disc(
+                        la[0], la[1], _LOOKAHEAD_DISC_R, *_c(_C_RRT_VEH)
+                    )
                 if sst_vehicle is not None and not sst_finished:
                     la = find_lookahead(
                         sst_vehicle.x,
@@ -518,40 +544,39 @@ def run_race(
                         sst_wps,
                         cfg.lookahead_distance,
                     )
-                    _draw_lookahead(screen, la, transform, _C_SST_VEH)
+                    renderer_gl.draw_disc(
+                        la[0], la[1], _LOOKAHEAD_DISC_R, *_c(_C_SST_VEH)
+                    )
 
-                # Vehicles
                 if rrt_vehicle is not None:
-                    _draw_vehicle(
-                        screen,
+                    renderer_gl.draw_oriented_rect(
                         rrt_vehicle.x,
                         rrt_vehicle.y,
+                        _VEH_HALF_L,
+                        _VEH_HALF_W,
                         rrt_vehicle.heading,
-                        transform,
-                        _C_RRT_VEH,
-                        _C_RRT_ARROW,
+                        *_c(_C_RRT_VEH),
                     )
                 if sst_vehicle is not None:
-                    _draw_vehicle(
-                        screen,
+                    renderer_gl.draw_oriented_rect(
                         sst_vehicle.x,
                         sst_vehicle.y,
+                        _VEH_HALF_L,
+                        _VEH_HALF_W,
                         sst_vehicle.heading,
-                        transform,
-                        _C_SST_VEH,
-                        _C_SST_ARROW,
+                        *_c(_C_SST_VEH),
                     )
 
                 _draw_race_hud(
-                    screen,
                     font,
                     race_time,
                     rrt_finish_time,
                     sst_finish_time,
                     paused,
+                    sw,
+                    sh,
                 )
 
-                # Winner / tie banner (shown once first vehicle finishes)
                 if rrt_finished or sst_finished:
                     both = rrt_finished and sst_finished
                     if both:
@@ -560,32 +585,33 @@ def run_race(
                         )
                         if diff < 0.15:
                             _draw_winner_banner(
-                                screen, big_font, "IT'S A TIE!", _C_TIE
+                                big_font, "IT'S A TIE!", _C_TIE, sw, sh
                             )
                         elif (rrt_finish_time or math.inf) < (
                             sst_finish_time or math.inf
                         ):
                             _draw_winner_banner(
-                                screen, big_font, "RRT*  WINS!", _C_RRT_HUD
+                                big_font, "RRT*  WINS!", _C_RRT_HUD, sw, sh
                             )
                         else:
                             _draw_winner_banner(
-                                screen, big_font, "SST  WINS!", _C_SST_HUD
+                                big_font, "SST  WINS!", _C_SST_HUD, sw, sh
                             )
                     elif rrt_finished:
                         _draw_winner_banner(
-                            screen, big_font, "RRT*  LEADS!", _C_RRT_HUD
+                            big_font, "RRT*  LEADS!", _C_RRT_HUD, sw, sh
                         )
                     else:
                         _draw_winner_banner(
-                            screen, big_font, "SST  LEADS!", _C_SST_HUD
+                            big_font, "SST  LEADS!", _C_SST_HUD, sw, sh
                         )
 
             # ------------------------------------------------------------------
             # Output frame
             # ------------------------------------------------------------------
             if recording and writer is not None:
-                writer.write_frame(screen)
+                pygame.display.flip()
+                writer.write_frame_gl()
                 record_frames += 1
                 if record_frames >= max_record_frames:
                     running = False
@@ -602,51 +628,11 @@ def run_race(
 
 
 # ---------------------------------------------------------------------------
-# Private rendering helpers (local to this module)
+# Private rendering helpers
 # ---------------------------------------------------------------------------
 
 
-def _draw_colored_trajectory(
-    surface: pygame.Surface,
-    traj: list[tuple[float, float, float]],
-    transform: object,
-    color: tuple[int, int, int],
-) -> None:
-    """Draw a past-pose trajectory as a simple polyline in *color*.
-
-    Args:
-        surface: Pygame surface.
-        traj: Ordered list of ``(x, y, heading)`` poses.
-        transform: World-to-screen callable.
-        color: Polyline RGB colour.
-    """
-    if len(traj) < 2:
-        return
-    pts = [transform(float(p[0]), float(p[1])) for p in traj]
-    pygame.draw.lines(surface, color, False, pts, 1)
-
-
-def _draw_lookahead(
-    surface: pygame.Surface,
-    target: tuple[float, float],
-    transform: object,
-    color: tuple[int, int, int],
-) -> None:
-    """Draw the pure-pursuit lookahead target as a small circle.
-
-    Args:
-        surface: Pygame surface.
-        target: World ``(x, y)`` of the lookahead point.
-        transform: World-to-screen callable.
-        color: Circle colour.
-    """
-    sx, sy = transform(float(target[0]), float(target[1]))
-    pygame.draw.circle(surface, color, (sx, sy), 5)
-    pygame.draw.circle(surface, (28, 28, 35), (sx, sy), 2)
-
-
 def _draw_planning_hud(
-    surface: pygame.Surface,
     font: pygame.font.Font,
     rrt_revealed: int,
     rrt_total: int,
@@ -655,13 +641,14 @@ def _draw_planning_hud(
     sst_total: int,
     sst_found: bool,
     paused: bool,
+    sw: int,
+    sh: int,
 ) -> None:
     """Draw the planning-phase HUD with per-planner progress.
 
     RRT* info is shown top-left; SST info is shown top-right.
 
     Args:
-        surface: Pygame surface.
         font: Pygame font.
         rrt_revealed: Nodes revealed so far for RRT*.
         rrt_total: Total RRT* nodes.
@@ -670,6 +657,8 @@ def _draw_planning_hud(
         sst_total: Total SST nodes.
         sst_found: Whether SST found a path.
         paused: Whether simulation is paused.
+        sw: Screen width in pixels.
+        sh: Screen height in pixels.
     """
     rrt_lines = [
         "RRT*",
@@ -681,8 +670,8 @@ def _draw_planning_hud(
         f"Nodes: {sst_revealed}/{sst_total}",
         f"Path:  {'found' if sst_found else 'none'}",
     ]
-    _blit_left(surface, font, rrt_lines, _C_RRT_HUD)
-    _blit_right(surface, font, sst_lines, _C_SST_HUD)
+    _blit_left(font, rrt_lines, _C_RRT_HUD, sw, sh)
+    _blit_right(font, sst_lines, _C_SST_HUD, sw, sh)
 
     both_ready = rrt_revealed >= rrt_total and sst_revealed >= sst_total
     center_line = (
@@ -692,26 +681,28 @@ def _draw_planning_hud(
             "Both paths ready — launching race…" if both_ready else "Planning…"
         )
     )
-    _blit_center(surface, font, center_line, _C_HUD, surface.get_height() - 24)
+    _blit_center(font, center_line, _C_HUD, sw, sh, sh - 34)
 
 
 def _draw_race_hud(
-    surface: pygame.Surface,
     font: pygame.font.Font,
     race_time: float,
     rrt_finish: float | None,
     sst_finish: float | None,
     paused: bool,
+    sw: int,
+    sh: int,
 ) -> None:
     """Draw the racing-phase HUD showing per-vehicle status and race timer.
 
     Args:
-        surface: Pygame surface.
         font: Pygame font.
         race_time: Elapsed race simulation time in seconds.
         rrt_finish: Simulation time at which RRT* vehicle finished, or None.
         sst_finish: Simulation time at which SST vehicle finished, or None.
         paused: Whether the simulation is paused.
+        sw: Screen width in pixels.
+        sh: Screen height in pixels.
     """
     if rrt_finish is None:
         rrt_status = f"t = {race_time:.1f} s"
@@ -723,13 +714,13 @@ def _draw_race_hud(
     else:
         sst_status = f"GOAL  in {sst_finish:.1f} s"
 
-    _blit_left(surface, font, ["RRT*", rrt_status], _C_RRT_HUD)
-    _blit_right(surface, font, ["SST", sst_status], _C_SST_HUD)
+    _blit_left(font, ["RRT*", rrt_status], _C_RRT_HUD, sw, sh)
+    _blit_right(font, ["SST", sst_status], _C_SST_HUD, sw, sh)
 
     center = f"Race  {race_time:.1f} s"
     if paused:
         center = "[ PAUSED — press SPACE ]"
-    _blit_center(surface, font, center, _C_HUD, 10)
+    _blit_center(font, center, _C_HUD, sw, sh, 10)
 
 
 # ---------------------------------------------------------------------------

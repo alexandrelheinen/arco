@@ -12,14 +12,7 @@ from typing import Any
 
 import numpy as np
 import pygame
-from renderer import (
-    bake_sdf_surface,
-    draw_endpoints,
-    draw_exploration_tree,
-    draw_obstacles,
-    draw_planned_path,
-    draw_planning_hud,
-)
+import renderer_gl
 from sim.scene import SimScene
 from sim.tracking import VehicleConfig
 
@@ -35,6 +28,13 @@ _C_START: tuple[int, int, int] = (60, 200, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
 _C_SDF_NEAR: tuple[int, int, int] = (80, 35, 35)
 
+_C_HUD = (220, 220, 220)
+_C_HUD_SHADOW = (40, 40, 50)
+
+# World-space ring radii for start/goal markers.
+_RING_OUTER = 1.2  # metres
+_RING_INNER = 0.6  # metres
+
 # Vehicle parameters matched to the 50 × 50 m SST planning environment.
 _VEHICLE_CONFIG = VehicleConfig(
     max_speed=5.0,
@@ -47,6 +47,10 @@ _VEHICLE_CONFIG = VehicleConfig(
     max_turn_rate_dot=math.radians(3600.0),
     curvature_gain=0.0,
 )
+
+
+def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
+    return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
 class SSTScene(SimScene):
@@ -68,7 +72,7 @@ class SSTScene(SimScene):
         self._start: Any = None
         self._goal: Any = None
         self._bounds: list[tuple[float, float]] = []
-        self._sdf_surface: pygame.Surface | None = None
+        self._sdf_tex_id: int | None = None
 
     # ------------------------------------------------------------------
     # SimScene interface
@@ -163,77 +167,85 @@ class SSTScene(SimScene):
         """Total number of exploration-tree nodes to reveal."""
         return len(self._tree_nodes)
 
-    def draw_background(
-        self,
-        surface: pygame.Surface,
-        transform: object,
-        revealed: int,
-    ) -> None:
+    def draw_background(self, revealed: int) -> None:
         """Draw the obstacle field, exploration tree, and (if complete) path.
 
         Args:
-            surface: Pygame surface to draw onto.
-            transform: World-to-screen callable.
             revealed: Number of tree nodes to show (0 = none, total = all).
         """
-        if self._sdf_surface is None:
-            self._sdf_surface = bake_sdf_surface(
+        x_min = self._bounds[0][0]
+        x_max = self._bounds[0][1]
+        y_min = self._bounds[1][0]
+        y_max = self._bounds[1][1]
+
+        if self._sdf_tex_id is None:
+            self._sdf_tex_id = renderer_gl.bake_sdf_texture(
                 self._occ,
-                transform,
-                (surface.get_width(), surface.get_height()),
-                bg_color=_C_BG,
-                near_color=_C_SDF_NEAR,
+                x_min,
+                x_max,
+                y_min,
+                y_max,
+                _C_BG,
+                _C_SDF_NEAR,
             )
-        surface.blit(
-            pygame.transform.smoothscale(
-                self._sdf_surface,
-                (surface.get_width(), surface.get_height()),
-            ),
-            (0, 0),
+        renderer_gl.draw_sdf_background(
+            self._sdf_tex_id, x_min, x_max, y_min, y_max
         )
-        draw_obstacles(surface, self._occ, transform, color=_C_OBSTACLE)
-        draw_exploration_tree(
-            surface,
+
+        renderer_gl.draw_obstacle_points(
+            self._occ.points, *_c(_C_OBSTACLE), point_size=5.0
+        )
+        renderer_gl.draw_tree(
             self._tree_nodes,
             self._tree_parent,
             revealed,
-            transform,
-            edge_color=_C_TREE_EDGE,
-            node_color=_C_TREE_NODE,
+            *_c(_C_TREE_EDGE),
+            *_c(_C_TREE_NODE),
         )
         if revealed >= self.background_total and self._path is not None:
-            draw_planned_path(surface, self._path, transform, color=_C_PATH)
-        draw_endpoints(
-            surface,
-            self._start,
-            self._goal,
-            transform,
-            start_color=_C_START,
-            goal_color=_C_GOAL,
-            bg_color=_C_BG,
-        )
+            renderer_gl.draw_path(self._path, *_c(_C_PATH), width=2.5)
+
+        # Start / goal rings
+        sx, sy = float(self._start[0]), float(self._start[1])
+        renderer_gl.draw_ring(sx, sy, _RING_OUTER, _RING_INNER, *_c(_C_START))
+        renderer_gl.draw_disc(sx, sy, _RING_INNER, *_c(_C_BG))
+        gx, gy = float(self._goal[0]), float(self._goal[1])
+        renderer_gl.draw_ring(gx, gy, _RING_OUTER, _RING_INNER, *_c(_C_GOAL))
+        renderer_gl.draw_disc(gx, gy, _RING_INNER, *_c(_C_BG))
 
     def draw_background_hud(
         self,
-        surface: pygame.Surface,
         font: pygame.font.Font,
+        sw: int,
+        sh: int,
         revealed: int,
     ) -> None:
         """Draw the planning-phase HUD showing exploration progress.
 
         Args:
-            surface: Pygame surface to draw onto.
             font: Pygame font for rendering text.
+            sw: Screen width in pixels.
+            sh: Screen height in pixels.
             revealed: Number of tree nodes currently visible.
         """
-        draw_planning_hud(
-            surface,
-            font,
+        lines = [
             self.title,
-            revealed,
-            self.background_total,
-            self._path is not None,
-        )
+            f"Nodes: {revealed}/{self.background_total}",
+            f"Path: {'found' if self._path is not None else 'none'}",
+        ]
+        line_h = font.get_linesize() + 2
+        panel_h = len(lines) * line_h + 8
+        panel_w = max(font.size(ln)[0] for ln in lines) + 20
+        surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        surf.fill((10, 10, 20, 180))
+        y = 4
+        for line in lines:
+            shadow = font.render(line, True, _C_HUD_SHADOW)
+            surf.blit(shadow, (11, y + 1))
+            text = font.render(line, True, _C_HUD)
+            surf.blit(text, (10, y))
+            y += line_h
+        renderer_gl.blit_overlay(surf, 0, 0, sw, sh)
 
 
 # ---------------------------------------------------------------------------
