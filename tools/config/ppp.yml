@@ -1,0 +1,51 @@
+# PPP (triple prismatic joint) 3-D planner configuration.
+#
+# Workspace models an industrial high-bay warehouse bay used for truck
+# loading (large gantry manipulator moves pallets / crates).
+#
+#   x-axis – along aisle / truck length   [0, 20 m]
+#   y-axis – across bay width             [0, 10 m]
+#   z-axis – height (upward, z-up)        [0,  6 m]
+#
+# End-effector: 0.5 m × 0.5 m square face (parallelepiped).
+# Face diagonal  = sqrt(0.5² + 0.5²) ≈ 0.707 m.
+# Safety clearance = 2 × face_diagonal ≈ 1.41 m  →  1.5 m.
+#
+# A full-width blocking wall at x = 7–9 forces both planners to arc
+# above the wall (z > 4.5 m) rather than squeezing around it in y.
+
+bounds: [[0.0, 20.0], [0.0, 10.0], [0.0, 6.0]]
+
+step_size: 1.5
+goal_tolerance: 2.0
+collision_check_count: 2
+goal_bias: 0.07
+obstacle_clearance: 1.5
+
+# Higher sample budgets needed for 3-D search space.
+rrt_max_sample_count: 10000
+sst_max_sample_count: 8000
+witness_radius: 0.7
+
+# ---------------------------------------------------------------------------
+# Simulation / visualisation parameters
+# ---------------------------------------------------------------------------
+
+# Speed at which the carrot target advances along the planned path (m/s).
+race_speed: 2.0
+
+# Maximum speed per prismatic joint axis (m/s).
+max_joint_vel: 3.0
+
+# Maximum acceleration per prismatic joint axis (m/s^2).
+# At dt = 0.05 s this allows ramp-up in ~0.75 s, keeping the carrot
+# only ~1.5 m ahead while producing visible corner-rounding.
+max_joint_acc: 4.0
+
+# Maximum Euclidean distance the carrot may lead the robot (m).
+# The carrot pauses when the robot lags behind this threshold,
+# preventing it from running to the goal while the robot goes straight.
+max_carrot_lag: 2.0
+
+# Robot is considered to have reached the goal when within this distance (m).
+goal_reach_dist: 0.5

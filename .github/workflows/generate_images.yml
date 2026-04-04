@@ -31,7 +31,7 @@ jobs:
         run: sudo apt-get install -y graphviz
 
       - name: Install package with dev dependencies
-        run: pip install -e ".[dev,tools]"
+        run: pip install -e ".[dev,tools,pygame]"
 
       - name: Create output directory
         run: mkdir -p /tmp/generated_images
@@ -69,6 +69,12 @@ jobs:
         run: |
           MPLBACKEND=Agg python tools/examples/sst_planning.py \
             --save /tmp/generated_images/sst_planning.png
+
+      # Generate PPP 3-D example image (RRT* vs SST in 3-D warehouse)
+      - name: Generate PPP 3-D planning example
+        run: |
+          MPLBACKEND=Agg python tools/examples/ppp_planning.py \
+            --save /tmp/generated_images/ppp_planning.png
 
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
@@ -126,6 +132,7 @@ jobs:
               '|-------|-------------|',
               '| `rrt_planning.png` | RRT\\* path through a 2-D environment with a wall and scattered obstacles |',
               '| `sst_planning.png` | SST path through the same environment (sparse active tree) |',
+              '| `ppp_planning.png` | RRT\\* vs SST paths in a 3-D warehouse bay — PPP gantry robot arcing over a blocking wall |',
               '',
               '### Architecture Diagrams (Pyreverse)',
               '',
