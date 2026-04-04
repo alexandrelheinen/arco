@@ -41,6 +41,7 @@ _C_SST_PATH: tuple[int, int, int] = (100, 240, 210)
 _C_START: tuple[int, int, int] = (60, 220, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
 _C_SDF_NEAR: tuple[int, int, int] = (62, 50, 38)  # warm shadow near buildings
+_C_BARRIER: tuple[int, int, int] = (200, 120, 40)  # amber — dead-end barriers
 
 # World-space ring radii for start/goal markers.
 _RING_OUTER = 1.2  # metres
@@ -77,6 +78,30 @@ def _make_road_dots(
         for y in np.arange(0.0, h, step):
             dots.append((float(cx), float(y)))
     return dots
+
+
+def _make_dead_end_walls(
+    obs_cfg: dict[str, Any],
+) -> list[tuple[float, float, float, float]]:
+    """Parse the dead-end barrier rectangles from the obstacles config.
+
+    Each barrier is a narrow axis-aligned wall placed across a street
+    segment to create a cul-de-sac dead end.  The list is read from the
+    optional ``dead_end_walls`` key in *obs_cfg*; an absent key returns an
+    empty list so that scenes without barriers still work.
+
+    Args:
+        obs_cfg: Parsed ``obstacles.yml`` dict.  May contain an optional
+            ``dead_end_walls`` key whose value is a list of four-element
+            sequences ``[x_lo, x_hi, y_lo, y_hi]`` in world metres.
+
+    Returns:
+        List of ``(x_lo, x_hi, y_lo, y_hi)`` barrier rectangles.
+    """
+    walls: list[tuple[float, float, float, float]] = []
+    for x_lo, x_hi, y_lo, y_hi in obs_cfg.get("dead_end_walls", []):
+        walls.append((float(x_lo), float(x_hi), float(y_lo), float(y_hi)))
+    return walls
 
 
 def _make_blocks(
@@ -164,6 +189,7 @@ class SparseScene:
         gx, gy = obs_cfg["goal"]
         self._goal = np.array([float(gx), float(gy)])
         self._blocks = _make_blocks(obs_cfg)
+        self._dead_end_walls = _make_dead_end_walls(obs_cfg)
         self._road_dots = _make_road_dots(obs_cfg)
         self._vehicle_cfg = _make_vehicle_config(obs_cfg)
         # Marker radii scale with world size
@@ -319,6 +345,17 @@ class SparseScene:
             self._occ.points, *_c(_C_BUILDING), point_size=5.0
         )
 
+        # Draw dead-end barriers as filled amber rectangles on top of buildings.
+        for x_lo, x_hi, y_lo, y_hi in self._dead_end_walls:
+            renderer_gl.draw_oriented_rect(
+                (x_lo + x_hi) / 2.0,
+                (y_lo + y_hi) / 2.0,
+                (x_hi - x_lo) / 2.0,
+                (y_hi - y_lo) / 2.0,
+                0.0,
+                *_c(_C_BARRIER),
+            )
+
         renderer_gl.draw_tree(
             self._rrt_nodes,
             self._rrt_parent,
@@ -393,8 +430,9 @@ def _build_occupancy(
 
     spacing = float(obs_cfg["obstacle_sampling_spacing"])
     blocks = _make_blocks(obs_cfg)
+    dead_ends = _make_dead_end_walls(obs_cfg)
     all_pts: list[list[float]] = []
-    for x_lo, x_hi, y_lo, y_hi in blocks:
+    for x_lo, x_hi, y_lo, y_hi in blocks + dead_ends:
         xs = np.arange(x_lo, x_hi + spacing, spacing)
         ys = np.arange(y_lo, y_hi + spacing, spacing)
         for x in xs:

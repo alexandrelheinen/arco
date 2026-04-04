@@ -16,6 +16,16 @@ constraint of the PPP mounting geometry.
     Scatter C   x=[13,15]  y=[7, 10]  z=[0, 2.5]
     Scatter D   x=[17,18.5] y=[4, 7]  z=[0, 1]
 
+Concave U-obstacle (opening faces west, toward the main wall)
+-------------------------------------------------------------
+Three boxes form a U-shaped pocket between the main wall and the goal.
+Planners that sample inside the pocket discover a dead-end and must
+backtrack, exercising the algorithms' concave-obstacle avoidance:
+
+    U south leg  x=[10.0,12.5] y=[2.0, 2.5]  z=[0, 2.5]
+    U north leg  x=[10.0,12.5] y=[5.5, 6.0]  z=[0, 2.5]
+    U back wall  x=[12.0,12.5] y=[2.5, 5.5]  z=[0, 2.5]
+
 Start: (1, 1, 0) — near the (0, 0, 0) corner.
 Goal : (19, 9, 0) — near the (20, 10, 0) corner.
 """
@@ -37,6 +47,11 @@ BOXES: list[tuple[float, float, float, float, float, float]] = [
     (14.0, 0.0, 0.0, 16.0, 3.0, 2.0),
     (13.0, 7.0, 0.0, 15.0, 10.0, 2.5),
     (17.0, 4.0, 0.0, 18.5, 7.0, 1.0),
+    # Concave U-obstacle (opening faces west, toward the main wall).
+    # Three boxes form a pocket that traps naive path samples.
+    (10.0, 2.0, 0.0, 12.5, 2.5, 2.5),  # south leg
+    (10.0, 5.5, 0.0, 12.5, 6.0, 2.5),  # north leg
+    (12.0, 2.5, 0.0, 12.5, 5.5, 2.5),  # back wall
 ]
 
 #: Maximum x-depth (metres) that classifies a box as the main blocking wall.
