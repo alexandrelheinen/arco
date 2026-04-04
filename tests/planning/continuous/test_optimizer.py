@@ -20,7 +20,11 @@ def _free_occupancy(clearance=0.3):
 
 def _obstacle_at_center():
     """KDTreeOccupancy with a cluster of obstacles near (5, 5)."""
-    pts = [[5.0 + dx, 5.0 + dy] for dx in [-0.2, 0.0, 0.2] for dy in [-0.2, 0.0, 0.2]]
+    pts = [
+        [5.0 + dx, 5.0 + dy]
+        for dx in [-0.2, 0.0, 0.2]
+        for dy in [-0.2, 0.0, 0.2]
+    ]
     return KDTreeOccupancy(pts, clearance=0.5)
 
 
@@ -156,7 +160,9 @@ def test_cost_increases_near_obstacle():
     x_through = np.tile([5.0, 5.0], n_intermediate)
     x_clear = np.tile([0.5, 9.0], n_intermediate)
 
-    cost_through = opt._cost(x_through, resampled, ref_tree, dim, n_intermediate)
+    cost_through = opt._cost(
+        x_through, resampled, ref_tree, dim, n_intermediate
+    )
     cost_clear = opt._cost(x_clear, resampled, ref_tree, dim, n_intermediate)
     assert cost_through > cost_clear
 
@@ -268,8 +274,8 @@ def test_stage1_initializes_stage2():
     occ = _free_occupancy()
     ref = np.array([[0.0, 0.0], [5.0, 5.0], [10.0, 10.0]])
 
-    from scipy.spatial import KDTree
     from scipy.optimize import differential_evolution, minimize
+    from scipy.spatial import KDTree
 
     opt = TrajectoryOptimizer(
         occ,
@@ -381,9 +387,7 @@ def test_optimize_output_shorter_than_naive_interpolation():
 
     def path_length(pts):
         pts_arr = np.array(pts)
-        return float(
-            np.sum(np.linalg.norm(np.diff(pts_arr, axis=0), axis=1))
-        )
+        return float(np.sum(np.linalg.norm(np.diff(pts_arr, axis=0), axis=1)))
 
     ref_length = path_length(ref)
     result_length = path_length(result)

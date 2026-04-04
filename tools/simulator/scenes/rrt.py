@@ -19,6 +19,9 @@ import numpy as np
 import pygame
 import renderer_gl
 from renderer_gl import check_trajectory_clearance
+from sim.scene import SimScene
+from sim.tracking import VehicleConfig
+
 # ---------------------------------------------------------------------------
 _C_BG: tuple[int, int, int] = (28, 28, 35)
 _C_OBSTACLE: tuple[int, int, int] = (160, 60, 60)
@@ -320,9 +323,7 @@ class RRTScene(SimScene):
                 and self._traj is not None
             )
             node_count = self._tree_total
-            label = (
-                f"{self.title} — {'trajectory' if show_traj else 'path'}"
-            )
+            label = f"{self.title} — {'trajectory' if show_traj else 'path'}"
         lines = [
             label,
             f"Nodes: {node_count}/{self._tree_total}",
