@@ -191,6 +191,7 @@ class SparseScene:
         transform: object,
         rrt_revealed: int,
         sst_revealed: int,
+        racing: bool = False,
     ) -> None:
         """Render the obstacle field, both exploration trees, and paths.
 
@@ -199,6 +200,8 @@ class SparseScene:
             transform: World-to-screen callable ``(wx, wy) -> (sx, sy)``.
             rrt_revealed: Number of RRT* tree nodes to display.
             sst_revealed: Number of SST tree nodes to display.
+            racing: When ``True`` the planned paths are hidden so the vehicle
+                trajectories are the only route highlights visible.
         """
         if self._sdf_surface is None:
             self._sdf_surface = bake_sdf_surface(
@@ -227,7 +230,11 @@ class SparseScene:
             edge_color=_C_RRT_EDGE,
             node_color=_C_RRT_NODE,
         )
-        if rrt_revealed >= self.rrt_total and self._rrt_path is not None:
+        if (
+            not racing
+            and rrt_revealed >= self.rrt_total
+            and self._rrt_path is not None
+        ):
             draw_planned_path(
                 surface, self._rrt_path, transform, color=_C_RRT_PATH
             )
@@ -242,7 +249,11 @@ class SparseScene:
             edge_color=_C_SST_EDGE,
             node_color=_C_SST_NODE,
         )
-        if sst_revealed >= self.sst_total and self._sst_path is not None:
+        if (
+            not racing
+            and sst_revealed >= self.sst_total
+            and self._sst_path is not None
+        ):
             draw_planned_path(
                 surface, self._sst_path, transform, color=_C_SST_PATH
             )
