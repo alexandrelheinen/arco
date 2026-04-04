@@ -536,7 +536,8 @@ def draw_tracking_hud(
 
 def bake_sdf_surface(
     occ: Any,
-    bounds: list[tuple[float, float]],
+    transform: WorldTransform,
+    screen_size: tuple[int, int],
     *,
     bg_color: tuple[int, int, int],
     near_color: tuple[int, int, int],
@@ -544,13 +545,14 @@ def bake_sdf_surface(
 ) -> pygame.Surface:
     """Bake the signed-distance field of *occ* into a small pygame.Surface.
 
-    Builds a *resolution* × *resolution* grid over *bounds*, queries obstacle
-    distances in one batch, normalises to ``[0, 1]`` (vmax = 80th percentile),
-    linearly interpolates between *near_color* (distance = 0) and *bg_color*
-    (distance ≥ vmax), and returns a ``(resolution, resolution)`` surface.
+    Samples a *resolution* × *resolution* grid in **screen space**, converts
+    each sample back to world coordinates via the inverse of *transform*, and
+    queries obstacle distances in one batch.  Sampling in screen space
+    guarantees pixel-accurate alignment with drawn obstacles regardless of
+    the transform's margin, aspect-ratio correction, or centring offset.
 
-    Callers should smooth-scale the returned surface to the actual display
-    dimensions at draw time::
+    The returned surface should be smooth-scaled to the actual display size
+    at draw time::
 
         scaled = pygame.transform.smoothscale(sdf_surface, screen_size)
         display_surface.blit(scaled, (0, 0))
@@ -559,7 +561,9 @@ def bake_sdf_surface(
         occ: Occupancy object exposing ``query_distances(points)`` where
             ``points`` has shape ``(N, 2)`` and the return value has shape
             ``(N,)``.
-        bounds: ``[(x_min, x_max), (y_min, y_max)]`` world-space extents.
+        transform: ``WorldTransform`` used to draw the scene, providing the
+            scale and offsets needed for the inverse mapping.
+        screen_size: ``(width, height)`` of the pygame display in pixels.
         bg_color: RGB colour for far-from-obstacle regions.
         near_color: RGB colour for obstacle-adjacent regions.
         resolution: Grid side length in pixels before upscaling.
@@ -569,16 +573,16 @@ def bake_sdf_surface(
     """
     import numpy as np
 
-    x_min, x_max = float(bounds[0][0]), float(bounds[0][1])
-    y_min, y_max = float(bounds[1][0]), float(bounds[1][1])
+    sw, sh = screen_size
+    col_samples = np.linspace(0.0, float(sw - 1), resolution)
+    row_samples = np.linspace(0.0, float(sh - 1), resolution)
+    cols, rows = np.meshgrid(col_samples, row_samples)
 
-    xs = np.linspace(x_min, x_max, resolution)
-    # Y decreases as row index increases so row 0 maps to the top of the
-    # screen (world y_max), matching pygame's top-left origin convention.
-    ys = np.linspace(y_max, y_min, resolution)
+    # Inverse of WorldTransform: sx = ox + wx*scale, sy = oy - wy*scale
+    wx = (cols - transform._ox) / transform._scale
+    wy = (transform._oy - rows) / transform._scale
 
-    xx, yy = np.meshgrid(xs, ys)
-    grid_pts = np.stack([xx.ravel(), yy.ravel()], axis=1)
+    grid_pts = np.stack([wx.ravel(), wy.ravel()], axis=1)
     distances = occ.query_distances(grid_pts)
 
     vmax = float(np.percentile(distances, 80))
