@@ -28,11 +28,17 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "simulator"))
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from logging_config import configure_logging
+from scenes.ppp import BOXES as _BOXES
+from scenes.ppp import (
+    _sample_box_surface,
+)
+from scenes.ppp import is_wall as _is_wall
 
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import RRTPlanner, SSTPlanner
@@ -42,73 +48,21 @@ logger = logging.getLogger(__name__)
 
 _cfg = load_config("ppp")
 
-# ---------------------------------------------------------------------------
-# Box obstacles — (x_min, y_min, z_min, x_max, y_max, z_max)
-# Dimensions in metres; all boxes rest on the ground plane (z_min = 0).
-# ---------------------------------------------------------------------------
-_BOXES: list[tuple[float, float, float, float, float, float]] = [
-    # Full-width blocking wall — forces the planner to arc over (z > 4.5 m)
-    (7.0, 0.0, 0.0, 9.0, 10.0, 3.0),
-    # Scatter boxes for realistic clutter
-    (2.0, 6.5, 0.0, 3.5, 9.5, 1.5),
-    (14.0, 0.0, 0.0, 16.0, 3.0, 2.0),
-    (13.0, 7.0, 0.0, 15.0, 10.0, 2.5),
-    (17.0, 4.0, 0.0, 18.5, 7.0, 1.0),
-]
-
 _START = np.array([1.0, 1.0, 0.0])
 _GOAL = np.array([19.0, 9.0, 0.0])
 
 
 # ---------------------------------------------------------------------------
-# Obstacle sampling
+# Occupancy map
 # ---------------------------------------------------------------------------
-
-
-def _sample_box_surface(
-    x1: float,
-    y1: float,
-    z1: float,
-    x2: float,
-    y2: float,
-    z2: float,
-    spacing: float = 0.4,
-) -> list[list[float]]:
-    """Sample points on all six faces of an axis-aligned box.
-
-    Args:
-        x1: Minimum x coordinate.
-        y1: Minimum y coordinate.
-        z1: Minimum z coordinate.
-        x2: Maximum x coordinate.
-        y2: Maximum y coordinate.
-        z2: Maximum z coordinate.
-        spacing: Approximate distance between adjacent sample points (metres).
-
-    Returns:
-        List of ``[x, y, z]`` surface sample points.
-    """
-    pts: list[list[float]] = []
-    xs = np.arange(x1, x2 + spacing, spacing)
-    ys = np.arange(y1, y2 + spacing, spacing)
-    zs = np.arange(z1, z2 + spacing, spacing)
-    for y in ys:
-        for z in zs:
-            pts += [[x1, float(y), float(z)], [x2, float(y), float(z)]]
-    for x in xs:
-        for z in zs:
-            pts += [[float(x), y1, float(z)], [float(x), y2, float(z)]]
-    for x in xs:
-        for y in ys:
-            pts += [[float(x), float(y), z1], [float(x), float(y), z2]]
-    return pts
 
 
 def build_occupancy() -> KDTreeOccupancy:
     """Build the 3-D warehouse obstacle map.
 
-    Samples the surface of every box and wraps the combined point cloud
-    in a :class:`~arco.mapping.KDTreeOccupancy`.
+    Samples the surface of every box (using the shared
+    :func:`~scenes.ppp._sample_box_surface` helper) and wraps the combined
+    point cloud in a :class:`~arco.mapping.KDTreeOccupancy`.
 
     Returns:
         A collision-query-ready 3-D occupancy map.
@@ -228,9 +182,7 @@ def main(save_path: str | None = None) -> None:
             float(np.linalg.norm(sst_path[i + 1] - sst_path[i]))
             for i in range(len(sst_path) - 1)
         )
-        logger.info(
-            "SST: %d waypoints, length=%.1f m", len(sst_path), sst_len
-        )
+        logger.info("SST: %d waypoints, length=%.1f m", len(sst_path), sst_len)
     else:
         logger.warning("SST: no path found.")
 
@@ -254,16 +206,12 @@ def main(save_path: str | None = None) -> None:
     for col, (title, path, length, color) in enumerate(specs):
         ax = fig.add_subplot(1, 2, col + 1, projection="3d")
 
-        # Obstacle boxes
-        is_wall = [
-            (b[3] - b[0]) <= 2.5 and (b[4] - b[1]) >= 8.0
-            for b in _BOXES
-        ]
-        for box, wall in zip(_BOXES, is_wall):
+        # Obstacle boxes — wall is coloured distinctly from scatter boxes.
+        for box in _BOXES:
             _draw_box(
                 ax,
                 *box,
-                color="sienna" if wall else "peru",
+                color="sienna" if _is_wall(box) else "peru",
                 alpha=0.45,
             )
 
@@ -322,9 +270,7 @@ def main(save_path: str | None = None) -> None:
     plt.tight_layout()
 
     if save_path is not None:
-        os.makedirs(
-            os.path.dirname(os.path.abspath(save_path)), exist_ok=True
-        )
+        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
         fig.savefig(save_path, dpi=150)
         logger.info("Saved PPP planning example to %s", save_path)
     else:

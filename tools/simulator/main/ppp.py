@@ -1,18 +1,20 @@
 #!/usr/bin/env python
 """RRT* vs SST race in a 3-D warehouse PPP robot environment.
 
-Both planners compete on the same 3-D obstacle map.  A full-width blocking
-wall forces both planners to arc over the top (z > 4.5 m clearance) rather
-than squeezing around the sides.  Once both paths are found the end-effectors
-race from start to goal — the first to arrive wins.
+Uses **PyOpenGL** (``pygame.OPENGL | pygame.DOUBLEBUF``) for hardware-
+accelerated 3-D rendering — the first step toward a Gazebo-style frontend.
+OpenGL provides depth testing, Phong lighting, and proper 3-D geometry
+without any software painter's-algorithm hacks.
 
-The exploration tree is **not** rendered; only the chosen paths are shown,
-keeping the 3-D view uncluttered.
+Both planners race from a start corner to the opposite goal corner of a
+20 m x 10 m x 6 m warehouse bay.  A full-width blocking wall forces both
+paths to arc above z = 4.5 m.  Exploration trees are *not* shown — only
+the final paths are rendered.
 
 Camera controls
 ---------------
-LEFT / RIGHT   Rotate camera azimuth
-UP / DOWN      Change camera elevation
+LEFT / RIGHT   Rotate azimuth
+UP / DOWN      Change elevation
 +  /  -        Zoom in / out
 
 General controls
@@ -28,10 +30,9 @@ Usage
     cd tools/simulator
     python main/ppp.py
 
-Optional flags::
+Record a video (requires a real or virtual display with OpenGL support)::
 
-    python main/ppp.py --fps 30
-    python main/ppp.py --record /tmp/ppp.mp4 --record-duration 90
+    xvfb-run -a python main/ppp.py --record /tmp/ppp.mp4 --record-duration 90
 """
 
 from __future__ import annotations
@@ -49,63 +50,122 @@ sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import numpy as np
 import pygame
+from OpenGL.GL import (  # type: ignore[import-untyped]
+    GL_AMBIENT,
+    GL_AMBIENT_AND_DIFFUSE,
+    GL_BLEND,
+    GL_COLOR_BUFFER_BIT,
+    GL_COLOR_MATERIAL,
+    GL_DEPTH_BUFFER_BIT,
+    GL_DEPTH_TEST,
+    GL_DIFFUSE,
+    GL_FRONT_AND_BACK,
+    GL_LESS,
+    GL_LIGHT0,
+    GL_LIGHTING,
+    GL_LINE_STRIP,
+    GL_LINES,
+    GL_MODELVIEW,
+    GL_NEAREST,
+    GL_ONE_MINUS_SRC_ALPHA,
+    GL_POLYGON_OFFSET_FILL,
+    GL_POSITION,
+    GL_PROJECTION,
+    GL_QUADS,
+    GL_RGBA,
+    GL_SMOOTH,
+    GL_SRC_ALPHA,
+    GL_TEXTURE_2D,
+    GL_TEXTURE_MAG_FILTER,
+    GL_TEXTURE_MIN_FILTER,
+    GL_UNSIGNED_BYTE,
+    glBegin,
+    glBindTexture,
+    glBlendFunc,
+    glClear,
+    glClearColor,
+    glColor3f,
+    glColor4f,
+    glColorMaterial,
+    glDeleteTextures,
+    glDepthFunc,
+    glDisable,
+    glEnable,
+    glEnd,
+    glGenTextures,
+    glLightfv,
+    glLineWidth,
+    glLoadIdentity,
+    glMatrixMode,
+    glNormal3f,
+    glOrtho,
+    glPolygonOffset,
+    glPopMatrix,
+    glPushMatrix,
+    glShadeModel,
+    glTexCoord2f,
+    glTexImage2D,
+    glTexParameteri,
+    glVertex2f,
+    glVertex3f,
+)
+from OpenGL.GLU import (  # type: ignore[import-untyped]
+    gluLookAt,
+    gluPerspective,
+)
+from scenes.ppp import PPPScene
+from scenes.ppp import is_wall as _is_wall_box
+from sim.video import VideoWriter
 
 from config import load_config
-from scenes.ppp import PPPScene
-from sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_SCREEN_W = 1280
 _DEFAULT_SCREEN_H = 800
 
-# Simulation parameters
-_HOLD_SECS: float = 2.0  # show paths before race starts
-_POST_FINISH_SECS: float = 2.5  # linger after last effector reaches goal
-_RACE_SPEED: float = 3.0  # m/s along path
+_HOLD_SECS: float = 2.0
+_POST_FINISH_SECS: float = 2.5
+_RACE_SPEED: float = 3.0  # m/s along arc length
 
-# Camera orbit speeds (radians per second)
-_CAM_ROT_SPEED: float = math.radians(40)
-_CAM_AUTO_ROT: float = math.radians(6)  # slow orbit during recording
-_CAM_ZOOM_SPEED: float = 0.05  # fraction of dist per second
-
-# Default camera parameters
-_CAM_AZIM: float = math.radians(38)
+# Camera defaults
+_CAM_AZIM: float = math.radians(40)
 _CAM_ELEV: float = math.radians(28)
 _CAM_DIST: float = 36.0
-_CAM_FOV: float = 580.0
+_WS_CENTER: tuple[float, float, float] = (10.0, 5.0, 1.5)
+_CAM_ROT_SPEED: float = math.radians(50)
+_CAM_AUTO_ROT: float = math.radians(7)  # slow orbit for recording
+_CAM_ZOOM_STEP: float = 0.03
 
-# World centre of the workspace (10 m × 5 m × 1.5 m for a 20×10×6 box)
-_WS_CENTER: np.ndarray = np.array([10.0, 5.0, 1.5])
+# Small positive epsilon used to guard against division by zero in
+# arc-length interpolation (any segment shorter than this is treated
+# as zero-length).
+_EPSILON: float = 1e-9
 
-# ---------------------------------------------------------------------------
-# Colour palette
-# ---------------------------------------------------------------------------
-_C_BG: tuple[int, int, int] = (18, 22, 32)
-_C_GRID: tuple[int, int, int] = (38, 44, 56)
-_C_WALL: tuple[int, int, int] = (170, 80, 45)
-_C_BOX: tuple[int, int, int] = (145, 105, 60)
-_C_WALL_EDGE: tuple[int, int, int] = (90, 42, 22)
-_C_BOX_EDGE: tuple[int, int, int] = (80, 58, 32)
-_C_RRT_PATH: tuple[int, int, int] = (100, 165, 255)
-_C_SST_PATH: tuple[int, int, int] = (60, 230, 190)
-_C_RRT_EFF: tuple[int, int, int] = (80, 145, 255)
-_C_SST_EFF: tuple[int, int, int] = (40, 210, 170)
-_C_START: tuple[int, int, int] = (55, 220, 85)
-_C_GOAL: tuple[int, int, int] = (220, 75, 220)
-_C_HUD: tuple[int, int, int] = (220, 220, 220)
-_C_HUD_DIM: tuple[int, int, int] = (130, 130, 130)
-_C_HUD_SHADOW: tuple[int, int, int] = (30, 35, 45)
-_C_WINNER: tuple[int, int, int] = (255, 215, 50)
-_C_TIE: tuple[int, int, int] = (200, 200, 80)
+# OpenGL colours (float 0-1)
+_BG = (18 / 255, 22 / 255, 32 / 255, 1.0)
+_C_WALL = (0.68, 0.31, 0.17)
+_C_WALL_EDGE = (0.38, 0.17, 0.09)
+_C_BOX = (0.56, 0.41, 0.23)
+_C_BOX_EDGE = (0.31, 0.23, 0.13)
+_C_GRID = (0.15, 0.17, 0.22)
+_C_RRT = (0.40, 0.64, 1.00)
+_C_SST = (0.23, 0.90, 0.75)
+_C_START = (0.22, 0.86, 0.33)
+_C_GOAL = (0.86, 0.30, 0.86)
+
+# HUD colours (pygame RGB int 0-255)
+_HC_RRT = (102, 163, 255)
+_HC_SST = (60, 229, 191)
+_HC_HUD = (220, 220, 220)
+_HC_DIM = (120, 120, 130)
+_HC_SHADOW = (25, 30, 42)
+_HC_WINNER = (255, 215, 50)
+_HC_TIE = (200, 200, 80)
 
 # End-effector half-dimensions (metres)
-_EFF_HXY: float = 0.25  # half width / depth (square face)
-_EFF_HZ: float = 0.40  # half height
-
-# Box face brightness factors (index matches _BOX_FACES order)
-# Order: bottom, top, front(-y), back(+y), left(-x), right(+x)
-_FACE_BRIGHT: list[float] = [0.45, 1.0, 0.70, 0.60, 0.80, 0.75]
+_EFF_HXY: float = 0.25
+_EFF_HZ: float = 0.40
 
 
 # ---------------------------------------------------------------------------
@@ -114,17 +174,17 @@ _FACE_BRIGHT: list[float] = [0.45, 1.0, 0.70, 0.60, 0.80, 0.75]
 
 
 class Camera3D:
-    """Perspective orbit camera for 3-D pygame rendering.
+    """Orbit camera parameterised by azimuth, elevation, and distance.
 
-    The camera orbits around a fixed world centre point.  Azimuth rotates
-    around the world Z-axis (up); elevation tilts the view up or down.
+    The camera orbits around :attr:`center` on a sphere of radius
+    :attr:`dist`.  Azimuth rotates around the world Z-axis (z-up
+    convention); elevation tilts the view above the horizontal plane.
 
     Args:
-        azim: Initial azimuth angle in radians.
-        elev: Initial elevation angle in radians (0 = horizontal).
-        dist: Initial distance from :attr:`center` in metres.
-        fov: Focal length in pixels.
-        center: World point the camera orbits around.
+        azim: Initial azimuth in radians.
+        elev: Initial elevation in radians.
+        dist: Distance from :attr:`center` in metres.
+        center: World-space point the camera looks at.
     """
 
     def __init__(
@@ -132,378 +192,510 @@ class Camera3D:
         azim: float = _CAM_AZIM,
         elev: float = _CAM_ELEV,
         dist: float = _CAM_DIST,
-        fov: float = _CAM_FOV,
-        center: np.ndarray | None = None,
+        center: tuple[float, float, float] = _WS_CENTER,
     ) -> None:
         self.azim = azim
         self.elev = min(math.radians(80), max(math.radians(5), elev))
-        self.dist = dist
-        self.fov = fov
-        self.center = (
-            center.copy() if center is not None else _WS_CENTER.copy()
-        )
+        self.dist = max(2.0, dist)
+        self.center = center
 
-    def project(
-        self,
-        pts: np.ndarray,
-        screen_w: int,
-        screen_h: int,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Project world points to screen pixels using perspective division.
-
-        The camera sits on a sphere of radius :attr:`dist` centred on
-        :attr:`center`.  Azimuth rotates around the world Z-axis and
-        elevation tilts up from the horizontal plane.
-
-        Args:
-            pts: World positions of shape ``(N, 3)`` or ``(3,)``.
-            screen_w: Screen width in pixels.
-            screen_h: Screen height in pixels.
-
-        Returns:
-            Tuple ``(screen_xy, cam_z)`` where *screen_xy* is ``(N, 2)``
-            integer-like pixel coordinates and *cam_z* is the signed depth
-            in camera space (larger = further from camera).
-        """
-        pts = np.atleast_2d(np.asarray(pts, dtype=float))
-        rel = pts - self.center
-
-        ca = math.cos(self.azim)
-        sa = math.sin(self.azim)
-        ce = math.cos(self.elev)
-        se = math.sin(self.elev)
-
-        # Rotate around world Z (azimuth)
-        x1 = rel[:, 0] * ca - rel[:, 1] * sa
-        y1 = rel[:, 0] * sa + rel[:, 1] * ca
-        z1 = rel[:, 2]
-
-        # Rotate around camera X (elevation — brings Z into view)
-        # After azimuth, camera looks along +y1; elevation tilts up.
-        x2 = x1
-        y2 = y1 * ce - z1 * se
-        z2 = y1 * se + z1 * ce
-
-        # Camera is behind the scene along the +y2 axis.
-        depth = np.where(self.dist - y2 < 0.1, 0.1, self.dist - y2)
-
-        sx = screen_w / 2.0 + self.fov * x2 / depth
-        sy = screen_h / 2.0 - self.fov * z2 / depth
-
-        return np.column_stack([sx, sy]), y2
+    @property
+    def eye(self) -> tuple[float, float, float]:
+        """Camera eye position in world coordinates."""
+        cx, cy, cz = self.center
+        ex = cx + self.dist * math.cos(self.elev) * math.sin(self.azim)
+        ey = cy - self.dist * math.cos(self.elev) * math.cos(self.azim)
+        ez = cz + self.dist * math.sin(self.elev)
+        return ex, ey, ez
 
 
 # ---------------------------------------------------------------------------
-# Box face geometry
+# OpenGL initialisation
 # ---------------------------------------------------------------------------
 
-# Eight corners of a canonical unit cube (indices 0-7).
-# Ordering: 0-3 = bottom face (z=z1), 4-7 = top face (z=z2).
-_BOX_FACES: list[list[int]] = [
-    [0, 1, 2, 3],  # bottom  (−z)
-    [4, 5, 6, 7],  # top     (+z)
-    [0, 1, 5, 4],  # front   (−y)
-    [2, 3, 7, 6],  # back    (+y)
-    [0, 3, 7, 4],  # left    (−x)
-    [1, 2, 6, 5],  # right   (+x)
-]
 
+def _gl_init(sw: int, sh: int) -> None:
+    """Initialise the OpenGL state machine for the warehouse scene.
 
-def _box_corners(box: tuple[float, ...]) -> np.ndarray:
-    """Return the 8 corners of a box as shape ``(8, 3)``.
+    Sets up depth testing, Phong lighting with a single overhead
+    directional light, colour-material tracking, and the perspective
+    projection matrix.
 
     Args:
-        box: ``(x1, y1, z1, x2, y2, z2)`` extents.
-
-    Returns:
-        Array of 8 corner positions, shape ``(8, 3)``.
+        sw: Viewport width in pixels.
+        sh: Viewport height in pixels.
     """
-    x1, y1, z1, x2, y2, z2 = box
-    return np.array(
-        [
-            [x1, y1, z1],
-            [x2, y1, z1],
-            [x2, y2, z1],
-            [x1, y2, z1],
-            [x1, y1, z2],
-            [x2, y1, z2],
-            [x2, y2, z2],
-            [x1, y2, z2],
-        ],
-        dtype=float,
-    )
+    glClearColor(*_BG)
+    glEnable(GL_DEPTH_TEST)
+    glDepthFunc(GL_LESS)
+    glShadeModel(GL_SMOOTH)
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    glEnable(GL_COLOR_MATERIAL)
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+
+    # Directional light from upper-right-front (w=0 = directional).
+    glLightfv(GL_LIGHT0, GL_POSITION, [0.6, -0.4, 1.0, 0.0])
+    glLightfv(GL_LIGHT0, GL_AMBIENT, [0.32, 0.32, 0.32, 1.0])
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.78, 0.78, 0.78, 1.0])
+
+    # Polygon offset so wireframe edges sit cleanly on top of filled faces.
+    glPolygonOffset(1.0, 1.0)
+
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    gluPerspective(45.0, sw / max(sh, 1), 0.1, 1000.0)
+    glMatrixMode(GL_MODELVIEW)
 
 
-def _tint(
-    color: tuple[int, int, int], factor: float
-) -> tuple[int, int, int]:
-    """Scale a colour by *factor*, clamping to [0, 255].
+def _set_camera(camera: Camera3D) -> None:
+    """Apply the camera look-at to the current modelview matrix.
 
     Args:
-        color: Source RGB colour.
-        factor: Brightness multiplier.
-
-    Returns:
-        Adjusted RGB colour.
+        camera: The orbit camera to apply.
     """
-    return (
-        max(0, min(255, int(color[0] * factor))),
-        max(0, min(255, int(color[1] * factor))),
-        max(0, min(255, int(color[2] * factor))),
-    )
+    glLoadIdentity()
+    ex, ey, ez = camera.eye
+    cx, cy, cz = camera.center
+    gluLookAt(ex, ey, ez, cx, cy, cz, 0.0, 0.0, 1.0)
 
 
 # ---------------------------------------------------------------------------
-# Drawing helpers
+# 3-D drawing primitives
 # ---------------------------------------------------------------------------
 
 
-def draw_box(
-    surface: pygame.Surface,
-    box: tuple[float, ...],
-    camera: Camera3D,
-    color: tuple[int, int, int],
-    edge_color: tuple[int, int, int] | None = None,
+def _draw_box(
+    x1: float,
+    y1: float,
+    z1: float,
+    x2: float,
+    y2: float,
+    z2: float,
+    r: float,
+    g: float,
+    b: float,
 ) -> None:
-    """Draw a filled, depth-sorted box (painter's algorithm).
+    """Draw a solid lit box using GL_QUADS with per-face normals.
 
     Args:
-        surface: Pygame surface to draw onto.
-        box: ``(x1, y1, z1, x2, y2, z2)`` extents.
-        camera: Active 3-D camera.
-        color: Base fill colour; each face is tinted by
-            :data:`_FACE_BRIGHT`.
-        edge_color: Outline colour.  ``None`` skips edge drawing.
+        x1: Minimum x.
+        y1: Minimum y.
+        z1: Minimum z.
+        x2: Maximum x.
+        y2: Maximum y.
+        z2: Maximum z.
+        r: Red channel in [0, 1].
+        g: Green channel in [0, 1].
+        b: Blue channel in [0, 1].
     """
-    sw, sh = surface.get_size()
-    corners = _box_corners(box)
-    screen_xy, _ = camera.project(corners, sw, sh)
-    screen_pts = screen_xy.astype(int)
+    glColor3f(r, g, b)
+    glEnable(GL_POLYGON_OFFSET_FILL)
+    glBegin(GL_QUADS)
+    # Top (+z)
+    glNormal3f(0.0, 0.0, 1.0)
+    glVertex3f(x1, y1, z2)
+    glVertex3f(x2, y1, z2)
+    glVertex3f(x2, y2, z2)
+    glVertex3f(x1, y2, z2)
+    # Bottom (-z)
+    glNormal3f(0.0, 0.0, -1.0)
+    glVertex3f(x1, y2, z1)
+    glVertex3f(x2, y2, z1)
+    glVertex3f(x2, y1, z1)
+    glVertex3f(x1, y1, z1)
+    # Front (-y)
+    glNormal3f(0.0, -1.0, 0.0)
+    glVertex3f(x1, y1, z1)
+    glVertex3f(x2, y1, z1)
+    glVertex3f(x2, y1, z2)
+    glVertex3f(x1, y1, z2)
+    # Back (+y)
+    glNormal3f(0.0, 1.0, 0.0)
+    glVertex3f(x2, y2, z1)
+    glVertex3f(x1, y2, z1)
+    glVertex3f(x1, y2, z2)
+    glVertex3f(x2, y2, z2)
+    # Right (+x)
+    glNormal3f(1.0, 0.0, 0.0)
+    glVertex3f(x2, y1, z1)
+    glVertex3f(x2, y2, z1)
+    glVertex3f(x2, y2, z2)
+    glVertex3f(x2, y1, z2)
+    # Left (-x)
+    glNormal3f(-1.0, 0.0, 0.0)
+    glVertex3f(x1, y2, z1)
+    glVertex3f(x1, y1, z1)
+    glVertex3f(x1, y1, z2)
+    glVertex3f(x1, y2, z2)
+    glEnd()
+    glDisable(GL_POLYGON_OFFSET_FILL)
 
-    # Sort faces back-to-front using the depth of each face centroid.
-    centroids = np.array([corners[f].mean(axis=0) for f in _BOX_FACES])
-    _, depths = camera.project(centroids, sw, sh)
-    order = np.argsort(depths)[::-1]
 
-    for fi in order:
-        face = _BOX_FACES[fi]
-        poly = [screen_pts[j].tolist() for j in face]
-        face_color = _tint(color, _FACE_BRIGHT[fi])
-        pygame.draw.polygon(surface, face_color, poly)
-        if edge_color is not None:
-            pygame.draw.polygon(surface, edge_color, poly, 1)
-
-
-def draw_path_3d(
-    surface: pygame.Surface,
-    path: list[np.ndarray],
-    camera: Camera3D,
-    color: tuple[int, int, int],
-    line_width: int = 2,
+def _draw_box_edges(
+    x1: float,
+    y1: float,
+    z1: float,
+    x2: float,
+    y2: float,
+    z2: float,
+    r: float,
+    g: float,
+    b: float,
 ) -> None:
-    """Draw a 3-D path as connected line segments.
+    """Draw the 12 wireframe edges of a box using GL_LINES.
+
+    Lighting is disabled while drawing so edge colour is exact.
 
     Args:
-        surface: Pygame surface.
+        x1: Minimum x.
+        y1: Minimum y.
+        z1: Minimum z.
+        x2: Maximum x.
+        y2: Maximum y.
+        z2: Maximum z.
+        r: Red channel in [0, 1].
+        g: Green channel in [0, 1].
+        b: Blue channel in [0, 1].
+    """
+    glDisable(GL_LIGHTING)
+    glColor3f(r, g, b)
+    glBegin(GL_LINES)
+    # Bottom ring
+    glVertex3f(x1, y1, z1)
+    glVertex3f(x2, y1, z1)
+    glVertex3f(x2, y1, z1)
+    glVertex3f(x2, y2, z1)
+    glVertex3f(x2, y2, z1)
+    glVertex3f(x1, y2, z1)
+    glVertex3f(x1, y2, z1)
+    glVertex3f(x1, y1, z1)
+    # Top ring
+    glVertex3f(x1, y1, z2)
+    glVertex3f(x2, y1, z2)
+    glVertex3f(x2, y1, z2)
+    glVertex3f(x2, y2, z2)
+    glVertex3f(x2, y2, z2)
+    glVertex3f(x1, y2, z2)
+    glVertex3f(x1, y2, z2)
+    glVertex3f(x1, y1, z2)
+    # Verticals
+    glVertex3f(x1, y1, z1)
+    glVertex3f(x1, y1, z2)
+    glVertex3f(x2, y1, z1)
+    glVertex3f(x2, y1, z2)
+    glVertex3f(x2, y2, z1)
+    glVertex3f(x2, y2, z2)
+    glVertex3f(x1, y2, z1)
+    glVertex3f(x1, y2, z2)
+    glEnd()
+    glEnable(GL_LIGHTING)
+
+
+def _draw_path(path: list[np.ndarray], r: float, g: float, b: float) -> None:
+    """Draw a 3-D path as a coloured GL_LINE_STRIP.
+
+    Args:
         path: Ordered list of 3-D waypoints.
-        camera: Active 3-D camera.
-        color: Line colour.
-        line_width: Line width in pixels.
+        r: Red channel in [0, 1].
+        g: Green channel in [0, 1].
+        b: Blue channel in [0, 1].
     """
     if len(path) < 2:
         return
-    sw, sh = surface.get_size()
-    screen_xy, _ = camera.project(np.array(path), sw, sh)
-    pts = screen_xy.astype(int)
-    for i in range(len(pts) - 1):
-        pygame.draw.line(surface, color, pts[i], pts[i + 1], line_width)
+    glDisable(GL_LIGHTING)
+    glLineWidth(3.0)
+    glColor3f(r, g, b)
+    glBegin(GL_LINE_STRIP)
+    for pt in path:
+        glVertex3f(float(pt[0]), float(pt[1]), float(pt[2]))
+    glEnd()
+    glLineWidth(1.0)
+    glEnable(GL_LIGHTING)
 
 
-def draw_effector(
-    surface: pygame.Surface,
-    pos: np.ndarray,
-    camera: Camera3D,
-    color: tuple[int, int, int],
-) -> None:
-    """Draw the PPP end-effector as a small coloured parallelepiped.
+def _draw_floor_grid(x_max: float, y_max: float, spacing: float = 2.0) -> None:
+    """Draw a ground-plane reference grid for depth perception.
 
     Args:
-        surface: Pygame surface.
-        pos: End-effector centre (x, y, z).
-        camera: Active 3-D camera.
-        color: Fill colour.
+        x_max: Grid x extent in metres.
+        y_max: Grid y extent in metres.
+        spacing: Cell size in metres.
+    """
+    glDisable(GL_LIGHTING)
+    glColor3f(*_C_GRID)
+    glBegin(GL_LINES)
+    x = 0.0
+    while x <= x_max + 1e-6:
+        glVertex3f(x, 0.0, 0.0)
+        glVertex3f(x, y_max, 0.0)
+        x += spacing
+    y = 0.0
+    while y <= y_max + 1e-6:
+        glVertex3f(0.0, y, 0.0)
+        glVertex3f(x_max, y, 0.0)
+        y += spacing
+    glEnd()
+    glEnable(GL_LIGHTING)
+
+
+def _draw_effector(pos: np.ndarray, r: float, g: float, b: float) -> None:
+    """Draw the PPP end-effector as a small lit parallelepiped with edges.
+
+    Args:
+        pos: End-effector base centre (x, y, z).
+        r: Red channel in [0, 1].
+        g: Green channel in [0, 1].
+        b: Blue channel in [0, 1].
     """
     x, y, z = float(pos[0]), float(pos[1]), float(pos[2])
-    box = (
+    _draw_box(
         x - _EFF_HXY,
         y - _EFF_HXY,
         z,
         x + _EFF_HXY,
         y + _EFF_HXY,
         z + 2.0 * _EFF_HZ,
+        r,
+        g,
+        b,
     )
-    draw_box(surface, box, camera, color, edge_color=(230, 230, 230))
-
-
-def draw_floor_grid(
-    surface: pygame.Surface,
-    camera: Camera3D,
-    x_max: float,
-    y_max: float,
-    spacing: float = 2.0,
-) -> None:
-    """Draw a ground-plane reference grid for depth cues.
-
-    Args:
-        surface: Pygame surface.
-        camera: Active 3-D camera.
-        x_max: Grid extent along x (metres).
-        y_max: Grid extent along y (metres).
-        spacing: Distance between grid lines (metres).
-    """
-    sw, sh = surface.get_size()
-    xs = np.arange(0.0, x_max + spacing, spacing)
-    ys = np.arange(0.0, y_max + spacing, spacing)
-
-    for x in xs:
-        sc, _ = camera.project(
-            np.array([[x, 0.0, 0.0], [x, y_max, 0.0]]), sw, sh
-        )
-        pygame.draw.line(
-            surface, _C_GRID, sc[0].astype(int), sc[1].astype(int), 1
-        )
-    for y in ys:
-        sc, _ = camera.project(
-            np.array([[0.0, y, 0.0], [x_max, y, 0.0]]), sw, sh
-        )
-        pygame.draw.line(
-            surface, _C_GRID, sc[0].astype(int), sc[1].astype(int), 1
-        )
-
-
-def _blit_text(
-    surface: pygame.Surface,
-    font: pygame.font.Font,
-    text: str,
-    color: tuple[int, int, int],
-    x: int,
-    y: int,
-) -> int:
-    """Render a shadowed text line and return the next y position.
-
-    Args:
-        surface: Pygame surface.
-        font: Pygame font.
-        text: Text to render.
-        color: Text colour.
-        x: Left x pixel position.
-        y: Top y pixel position.
-
-    Returns:
-        Y position of the line below the rendered text.
-    """
-    shadow = font.render(text, True, _C_HUD_SHADOW)
-    surface.blit(shadow, (x + 1, y + 1))
-    rendered = font.render(text, True, color)
-    surface.blit(rendered, (x, y))
-    return y + font.get_linesize() + 2
-
-
-def _blit_center(
-    surface: pygame.Surface,
-    font: pygame.font.Font,
-    text: str,
-    color: tuple[int, int, int],
-    y: int,
-) -> None:
-    """Render a centred shadowed line at vertical position *y*.
-
-    Args:
-        surface: Pygame surface.
-        font: Pygame font.
-        text: Text to render.
-        color: Text colour.
-        y: Vertical pixel position.
-    """
-    rendered = font.render(text, True, color)
-    x = (surface.get_width() - rendered.get_width()) // 2
-    shadow = font.render(text, True, _C_HUD_SHADOW)
-    surface.blit(shadow, (x + 1, y + 1))
-    surface.blit(rendered, (x, y))
-
-
-def _draw_winner_banner(
-    surface: pygame.Surface,
-    big_font: pygame.font.Font,
-    text: str,
-    color: tuple[int, int, int],
-) -> None:
-    """Draw a translucent centred banner with large winner text.
-
-    Args:
-        surface: Pygame surface.
-        big_font: Large pygame font.
-        text: Banner text (e.g. ``"RRT* WINS!"``).
-        color: Text colour.
-    """
-    rendered = big_font.render(text, True, color)
-    rw, rh = rendered.get_width(), rendered.get_height()
-    pad = 16
-    bx = (surface.get_width() - rw) // 2 - pad
-    by = (surface.get_height() - rh) // 2 - pad
-    banner = pygame.Surface((rw + 2 * pad, rh + 2 * pad), pygame.SRCALPHA)
-    banner.fill((10, 12, 22, 210))
-    surface.blit(banner, (bx, by))
-    surface.blit(rendered, (bx + pad, by + pad))
+    _draw_box_edges(
+        x - _EFF_HXY,
+        y - _EFF_HXY,
+        z,
+        x + _EFF_HXY,
+        y + _EFF_HXY,
+        z + 2.0 * _EFF_HZ,
+        0.9,
+        0.9,
+        0.9,
+    )
 
 
 # ---------------------------------------------------------------------------
-# Path interpolation
+# 2-D HUD overlay  (pygame surface -> OpenGL texture)
+# ---------------------------------------------------------------------------
+
+
+def _blit_overlay(
+    src: pygame.Surface,
+    px: int,
+    py: int,
+    sw: int,
+    sh: int,
+) -> None:
+    """Upload *src* as an RGBA texture and draw it as a screen-aligned quad.
+
+    ``pygame.image.tostring(..., flip=True)`` flips the rows so that byte
+    row 0 in the texture corresponds to the bottom of the pygame surface,
+    matching OpenGL's bottom-left framebuffer origin.  The 2-D ortho
+    projection remaps (px, py) from pygame top-left to OpenGL bottom-left.
+
+    Args:
+        src: Source pygame surface (must support RGBA export).
+        px: Left edge in screen pixels (pygame convention, y from top).
+        py: Top edge in screen pixels.
+        sw: Total screen width in pixels.
+        sh: Total screen height in pixels.
+    """
+    w, h = src.get_size()
+    data = pygame.image.tostring(src, "RGBA", True)
+
+    tex_id = int(glGenTextures(1))
+    glBindTexture(GL_TEXTURE_2D, tex_id)
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,
+        w,
+        h,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        data,
+    )
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    glOrtho(0.0, float(sw), 0.0, float(sh), -1.0, 1.0)
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+
+    glEnable(GL_TEXTURE_2D)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    glDisable(GL_LIGHTING)
+    glDisable(GL_DEPTH_TEST)
+    glColor4f(1.0, 1.0, 1.0, 1.0)
+
+    # Convert pygame top-left py to OpenGL bottom-left gl_y.
+    gl_y = float(sh - py - h)
+    glBegin(GL_QUADS)
+    glTexCoord2f(0.0, 0.0)
+    glVertex2f(float(px), gl_y)
+    glTexCoord2f(1.0, 0.0)
+    glVertex2f(float(px + w), gl_y)
+    glTexCoord2f(1.0, 1.0)
+    glVertex2f(float(px + w), gl_y + float(h))
+    glTexCoord2f(0.0, 1.0)
+    glVertex2f(float(px), gl_y + float(h))
+    glEnd()
+
+    glDisable(GL_TEXTURE_2D)
+    glDisable(GL_BLEND)
+    glEnable(GL_DEPTH_TEST)
+    glEnable(GL_LIGHTING)
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
+    glPopMatrix()
+
+    glDeleteTextures(1, [tex_id])
+
+
+def _status_surface(
+    font: pygame.font.Font,
+    rrt_pct: int,
+    sst_pct: int,
+    rrt_found: bool,
+    sst_found: bool,
+    phase: str,
+    hold_remaining: float,
+) -> pygame.Surface:
+    """Build a small semi-transparent status panel surface.
+
+    Args:
+        font: Monospace font.
+        rrt_pct: RRT* completion percentage (0-100).
+        sst_pct: SST completion percentage (0-100).
+        rrt_found: Whether RRT* found a path.
+        sst_found: Whether SST found a path.
+        phase: Current phase string (``"show"``, ``"race"``, ``"done"``).
+        hold_remaining: Seconds until race start (only shown in ``"show"``).
+
+    Returns:
+        Transparent RGBA pygame surface.
+    """
+    rrt_tag = "path found" if rrt_found else "no path"
+    sst_tag = "path found" if sst_found else "no path"
+    lines: list[tuple[str, tuple[int, int, int]]] = [
+        ("RRT*", _HC_RRT),
+        (f"  {rrt_tag:>12}  {rrt_pct:3d}%", _HC_RRT),
+        ("", _HC_HUD),
+        ("SST", _HC_SST),
+        (f"  {sst_tag:>12}  {sst_pct:3d}%", _HC_SST),
+    ]
+    if phase == "show":
+        lines.append((f"  race in {hold_remaining:.1f} s", _HC_DIM))
+
+    lh = font.get_linesize() + 2
+    surf_w = 268
+    surf_h = len(lines) * lh + 10
+    surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+    surf.fill((10, 14, 24, 185))
+    y = 5
+    for text, color in lines:
+        if not text:
+            y += lh
+            continue
+        shadow = font.render(text, True, _HC_SHADOW)
+        surf.blit(shadow, (9, y + 1))
+        surf.blit(font.render(text, True, color), (8, y))
+        y += lh
+    return surf
+
+
+def _hint_surface(font: pygame.font.Font) -> pygame.Surface:
+    """Build a one-line keyboard hint surface.
+
+    Args:
+        font: Monospace font.
+
+    Returns:
+        Transparent RGBA pygame surface.
+    """
+    text = "← → ↑ ↓  rotate   +/-  zoom   SPACE  pause   R  restart"
+    rendered = font.render(text, True, _HC_DIM)
+    w, h = rendered.get_size()
+    surf = pygame.Surface((w + 4, h + 4), pygame.SRCALPHA)
+    surf.fill((0, 0, 0, 0))
+    surf.blit(font.render(text, True, _HC_SHADOW), (3, 3))
+    surf.blit(rendered, (2, 2))
+    return surf
+
+
+def _banner_surface(
+    big_font: pygame.font.Font,
+    text: str,
+    color: tuple[int, int, int],
+) -> pygame.Surface:
+    """Build a translucent centred winner-banner surface.
+
+    Args:
+        big_font: Large bold font.
+        text: Banner text (e.g. ``"RRT* WINS!"``).
+        color: Text colour.
+
+    Returns:
+        RGBA banner surface.
+    """
+    rendered = big_font.render(text, True, color)
+    rw, rh = rendered.get_width(), rendered.get_height()
+    pad = 20
+    surf = pygame.Surface((rw + 2 * pad, rh + 2 * pad), pygame.SRCALPHA)
+    surf.fill((8, 10, 22, 215))
+    surf.blit(big_font.render(text, True, _HC_SHADOW), (pad + 1, pad + 1))
+    surf.blit(rendered, (pad, pad))
+    return surf
+
+
+# ---------------------------------------------------------------------------
+# Arc-length helpers
 # ---------------------------------------------------------------------------
 
 
 def _arc_lengths(path: list[np.ndarray]) -> list[float]:
-    """Compute cumulative arc lengths along a path.
+    """Return cumulative arc lengths along *path* starting at 0.0.
 
     Args:
         path: Ordered list of 3-D waypoints.
 
     Returns:
-        List of cumulative distances: ``[0, d01, d01+d12, …, total]``.
+        List of cumulative distances, same length as *path*.
     """
-    lengths = [0.0]
+    arcs = [0.0]
     for i in range(len(path) - 1):
-        lengths.append(
-            lengths[-1]
-            + float(np.linalg.norm(path[i + 1] - path[i]))
-        )
-    return lengths
+        arcs.append(arcs[-1] + float(np.linalg.norm(path[i + 1] - path[i])))
+    return arcs
 
 
-def _path_position(
+def _path_pos(
     path: list[np.ndarray],
-    arc_lengths: list[float],
-    distance: float,
+    arcs: list[float],
+    dist: float,
 ) -> tuple[np.ndarray, bool]:
-    """Interpolate a position along a path at arc-length *distance*.
+    """Interpolate the position at arc-length *dist* along *path*.
 
     Args:
         path: Ordered list of waypoints.
-        arc_lengths: Precomputed cumulative arc lengths (see
-            :func:`_arc_lengths`).
-        distance: Distance from the start of the path.
+        arcs: Precomputed cumulative arc lengths (from :func:`_arc_lengths`).
+        dist: Arc-length distance from path start.
 
     Returns:
         ``(position, at_goal)`` — interpolated 3-D position and a flag
-        set to ``True`` once the end of the path is reached.
+        that is ``True`` once the path end is reached.
     """
-    total = arc_lengths[-1]
-    if distance >= total:
+    if dist >= arcs[-1]:
         return path[-1].copy(), True
-    for i in range(len(arc_lengths) - 1):
-        if arc_lengths[i + 1] >= distance:
-            seg = arc_lengths[i + 1] - arc_lengths[i]
-            t = (distance - arc_lengths[i]) / max(seg, 1e-9)
+    for i in range(len(arcs) - 1):
+        if arcs[i + 1] >= dist:
+            seg = arcs[i + 1] - arcs[i]
+            t = (dist - arcs[i]) / max(seg, _EPSILON)
             return path[i] + t * (path[i + 1] - path[i]), False
     return path[-1].copy(), True
 
@@ -521,67 +713,58 @@ def run_race(
     record: str = "",
     record_duration: float = 90.0,
 ) -> None:
-    """Run the 3-D PPP warehouse race between RRT* and SST.
+    """Run the 3-D PPP warehouse race with OpenGL rendering.
 
-    Phase 1 — **path reveal**: both planned paths are displayed for
-    :data:`_HOLD_SECS` seconds before the race begins.
+    Phase 1 — **path reveal**: both planned paths are shown for
+    :data:`_HOLD_SECS` seconds.
 
-    Phase 2 — **race**: both end-effectors advance along their paths
-    at :data:`_RACE_SPEED` m/s simultaneously.  The simulation
-    continues for :data:`_POST_FINISH_SECS` after the last effector
-    reaches the goal, then exits.
+    Phase 2 — **race**: both end-effectors advance simultaneously at
+    :data:`_RACE_SPEED` m/s; the first to reach the goal wins.
+
+    Phase 3 — **winner**: a banner is shown for :data:`_POST_FINISH_SECS`
+    seconds before the simulation exits.
+
+    Recording requires a real or virtual OpenGL-capable display (use
+    ``xvfb-run -a`` on headless Linux systems).
 
     Args:
         scene: Fully built :class:`~scenes.ppp.PPPScene`.
-        fps: Target frame rate (frames per second).
+        fps: Target frame rate in frames per second.
         dt: Simulation timestep in seconds.
-        record: Output MP4 file path.  Empty string = interactive mode.
-        record_duration: Maximum headless recording length (seconds).
+        record: Output MP4 path.  Empty string = interactive mode.
+        record_duration: Maximum recording duration in seconds.
     """
     recording = bool(record)
-    max_record_frames = int(fps * record_duration)
-
-    if recording:
-        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-        os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+    max_frames = int(fps * record_duration)
 
     pygame.init()
-
-    if recording:
-        sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
-    else:
+    sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
+    if not recording:
         info = pygame.display.Info()
         w = int(getattr(info, "current_w", 0) or 0)
         h = int(getattr(info, "current_h", 0) or 0)
         if w > 0 and h > 0:
-            sw, sh = max(640, int(w * 0.9)), max(480, int(h * 0.9))
-        else:
-            sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
+            sw = max(640, int(w * 0.9))
+            sh = max(480, int(h * 0.9))
 
-    screen = pygame.display.set_mode((sw, sh))
-    clock = pygame.time.Clock()
+    pygame.display.set_mode((sw, sh), pygame.OPENGL | pygame.DOUBLEBUF)
+    _gl_init(sw, sh)
 
-    # Build the scene (runs planners) — may take several seconds.
+    # Build the scene (runs planners — may take several seconds).
     scene.build()
     pygame.display.set_caption(scene.title)
 
     font = pygame.font.SysFont("monospace", 14)
     big_font = pygame.font.SysFont("monospace", 40, bold=True)
+    hint_surf = _hint_surface(font)
 
     camera = Camera3D()
-
     rrt_path = scene.rrt_path
     sst_path = scene.sst_path
     boxes = scene.boxes
 
     rrt_arcs = _arc_lengths(rrt_path) if rrt_path else [0.0]
     sst_arcs = _arc_lengths(sst_path) if sst_path else [0.0]
-    rrt_total = rrt_arcs[-1]
-    sst_total = sst_arcs[-1]
-
-    # Detect which box is the "main wall" for different colouring.
-    def _is_wall(box: tuple[float, ...]) -> bool:
-        return (box[3] - box[0]) <= 2.5 and (box[4] - box[1]) >= 8.0
 
     # Race state
     hold_timer = 0.0
@@ -593,9 +776,10 @@ def run_race(
     sst_done = False
     winner: str = ""
     post_timer = 0.0
-    phase: str = "show"  # "show" → "race" → "done"
+    phase: str = "show"
     paused = False
     frame_count = 0
+    clock = pygame.time.Clock()
 
     video_writer: VideoWriter | None = None
     if recording and record:
@@ -615,20 +799,17 @@ def run_race(
                     elif event.key == pygame.K_SPACE:
                         paused = not paused
                     elif event.key == pygame.K_r:
-                        hold_timer = 0.0
-                        rrt_dist = 0.0
-                        sst_dist = 0.0
+                        camera = Camera3D()
+                        hold_timer = rrt_dist = sst_dist = 0.0
                         rrt_pos = scene.start.copy()
                         sst_pos = scene.start.copy()
-                        rrt_done = False
-                        sst_done = False
+                        rrt_done = sst_done = False
                         winner = ""
                         post_timer = 0.0
                         phase = "show"
                         paused = False
-                        camera = Camera3D()
 
-            # --- Camera rotation (keys held) ----------------------------
+            # --- Camera controls ----------------------------------------
             if not paused:
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_LEFT]:
@@ -646,11 +827,11 @@ def run_race(
                         camera.elev - _CAM_ROT_SPEED * dt,
                     )
                 if keys[pygame.K_PLUS] or keys[pygame.K_EQUALS]:
-                    camera.dist *= 1.0 - _CAM_ZOOM_SPEED
+                    camera.dist = max(
+                        3.0, camera.dist * (1.0 - _CAM_ZOOM_STEP)
+                    )
                 if keys[pygame.K_MINUS]:
-                    camera.dist *= 1.0 + _CAM_ZOOM_SPEED
-
-                # Slow auto-orbit during recording.
+                    camera.dist *= 1.0 + _CAM_ZOOM_STEP
                 if recording:
                     camera.azim += _CAM_AUTO_ROT * dt
 
@@ -660,19 +841,17 @@ def run_race(
                     hold_timer += dt
                     if hold_timer >= _HOLD_SECS:
                         phase = "race"
-
                 elif phase == "race":
-                    if rrt_path is not None and not rrt_done:
+                    if rrt_path and not rrt_done:
                         rrt_dist += _RACE_SPEED * dt
-                        rrt_pos, rrt_done = _path_position(
+                        rrt_pos, rrt_done = _path_pos(
                             rrt_path, rrt_arcs, rrt_dist
                         )
-                    if sst_path is not None and not sst_done:
+                    if sst_path and not sst_done:
                         sst_dist += _RACE_SPEED * dt
-                        sst_pos, sst_done = _path_position(
+                        sst_pos, sst_done = _path_pos(
                             sst_path, sst_arcs, sst_dist
                         )
-
                     if not winner:
                         if rrt_done and sst_done:
                             winner = "TIE!"
@@ -680,131 +859,105 @@ def run_race(
                             winner = "RRT* WINS!"
                         elif sst_done:
                             winner = "SST WINS!"
-
                     if winner:
                         phase = "done"
-
                 elif phase == "done":
                     post_timer += dt
                     if post_timer >= _POST_FINISH_SECS:
                         running = False
 
-            # --- Draw ---------------------------------------------------
-            screen.fill(_C_BG)
+            # --- 3-D render (OpenGL) ------------------------------------
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            _set_camera(camera)
 
-            # Ground grid
-            draw_floor_grid(screen, camera, x_max=20.0, y_max=10.0)
+            _draw_floor_grid(20.0, 10.0)
 
-            # Obstacle boxes — depth-sorted (furthest first).
-            box_centers = np.array(
-                [
-                    [
-                        (b[0] + b[3]) / 2,
-                        (b[1] + b[4]) / 2,
-                        (b[2] + b[5]) / 2,
-                    ]
-                    for b in boxes
-                ]
-            )
-            _, box_depths = camera.project(box_centers, sw, sh)
-            for bi in np.argsort(box_depths)[::-1]:
-                box = boxes[bi]
-                if _is_wall(box):
-                    draw_box(
-                        screen, box, camera, _C_WALL, edge_color=_C_WALL_EDGE
-                    )
+            for box in boxes:
+                if _is_wall_box(box):
+                    fc, ec = _C_WALL, _C_WALL_EDGE
                 else:
-                    draw_box(
-                        screen, box, camera, _C_BOX, edge_color=_C_BOX_EDGE
-                    )
+                    fc, ec = _C_BOX, _C_BOX_EDGE
+                _draw_box(*box, *fc)
+                _draw_box_edges(*box, *ec)
 
-            # Planned paths
             if rrt_path:
-                draw_path_3d(screen, rrt_path, camera, _C_RRT_PATH, 2)
+                _draw_path(rrt_path, *_C_RRT)
             if sst_path:
-                draw_path_3d(screen, sst_path, camera, _C_SST_PATH, 2)
+                _draw_path(sst_path, *_C_SST)
 
-            # Start / goal pads
-            start_pad = (
-                scene.start[0] - 0.35,
-                scene.start[1] - 0.35,
-                0.0,
-                scene.start[0] + 0.35,
-                scene.start[1] + 0.35,
-                0.08,
-            )
-            goal_pad = (
-                scene.goal[0] - 0.35,
-                scene.goal[1] - 0.35,
-                0.0,
-                scene.goal[0] + 0.35,
-                scene.goal[1] + 0.35,
-                0.08,
-            )
-            draw_box(screen, start_pad, camera, _C_START)
-            draw_box(screen, goal_pad, camera, _C_GOAL)
+            for pad_pos, pad_col in (
+                (scene.start, _C_START),
+                (scene.goal, _C_GOAL),
+            ):
+                px, py, pz = (
+                    float(pad_pos[0]),
+                    float(pad_pos[1]),
+                    float(pad_pos[2]),
+                )
+                _draw_box(
+                    px - 0.4,
+                    py - 0.4,
+                    pz,
+                    px + 0.4,
+                    py + 0.4,
+                    pz + 0.07,
+                    *pad_col,
+                )
 
-            # End-effectors (shown during race and after)
             if phase in ("race", "done"):
-                draw_effector(screen, rrt_pos, camera, _C_RRT_EFF)
-                draw_effector(screen, sst_pos, camera, _C_SST_EFF)
+                _draw_effector(rrt_pos, *_C_RRT)
+                _draw_effector(sst_pos, *_C_SST)
 
-            # --- HUD ----------------------------------------------------
-            y = 10
-            y = _blit_text(
-                screen, font, "RRT*", _C_RRT_PATH, 10, y
-            )
+            # --- 2-D HUD overlay ----------------------------------------
             rrt_pct = (
-                min(100, int(100 * rrt_dist / max(rrt_total, 1e-6)))
+                min(100, int(100 * rrt_dist / max(rrt_arcs[-1], 1e-6)))
                 if rrt_path
                 else 0
             )
-            y = _blit_text(
-                screen, font, f"  {rrt_pct:3d}% complete", _C_RRT_PATH, 10, y
-            )
-            y += 4
-            y = _blit_text(
-                screen, font, "SST", _C_SST_PATH, 10, y
-            )
             sst_pct = (
-                min(100, int(100 * sst_dist / max(sst_total, 1e-6)))
+                min(100, int(100 * sst_dist / max(sst_arcs[-1], 1e-6)))
                 if sst_path
                 else 0
             )
-            _blit_text(
-                screen, font, f"  {sst_pct:3d}% complete", _C_SST_PATH, 10, y
+            _blit_overlay(
+                _status_surface(
+                    font,
+                    rrt_pct,
+                    sst_pct,
+                    rrt_path is not None,
+                    sst_path is not None,
+                    phase,
+                    max(0.0, _HOLD_SECS - hold_timer),
+                ),
+                8,
+                8,
+                sw,
+                sh,
             )
-
-            # Controls hint
-            hint = "← → ↑ ↓  rotate  |  +/-  zoom  |  SPACE  pause  |  R  restart"
-            _blit_text(
-                screen,
-                font,
-                hint,
-                _C_HUD_DIM,
-                sw // 2 - font.size(hint)[0] // 2,
-                sh - font.get_linesize() - 6,
+            _blit_overlay(
+                hint_surf,
+                (sw - hint_surf.get_width()) // 2,
+                sh - hint_surf.get_height() - 6,
+                sw,
+                sh,
             )
-
-            # Phase message
-            if phase == "show":
-                msg = (
-                    f"Paths revealed — race starts in "
-                    f"{max(0.0, _HOLD_SECS - hold_timer):.1f} s"
-                )
-                _blit_center(screen, font, msg, _C_HUD, sh - 30)
-
-            # Winner banner
             if winner:
-                w_color = _C_TIE if winner == "TIE!" else _C_WINNER
-                _draw_winner_banner(screen, big_font, winner, w_color)
+                w_color = _HC_TIE if winner == "TIE!" else _HC_WINNER
+                ban = _banner_surface(big_font, winner, w_color)
+                _blit_overlay(
+                    ban,
+                    (sw - ban.get_width()) // 2,
+                    (sh - ban.get_height()) // 2,
+                    sw,
+                    sh,
+                )
 
             pygame.display.flip()
 
             if video_writer is not None:
-                video_writer.write_frame(screen)
+                video_writer.write_frame_gl()
                 frame_count += 1
-                if frame_count >= max_record_frames:
+                if frame_count >= max_frames:
                     running = False
             else:
                 clock.tick(fps)
@@ -821,12 +974,11 @@ def run_race(
 
 
 def main() -> None:
-    """Parse arguments and start the PPP warehouse race simulation."""
+    """Parse CLI arguments and launch the PPP 3-D OpenGL race simulation."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
     )
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--fps",
@@ -839,14 +991,17 @@ def main() -> None:
         "--record",
         metavar="PATH",
         default="",
-        help="Record to this MP4 file instead of displaying interactively.",
+        help=(
+            "Record to this MP4 file.  Requires a real or virtual "
+            "OpenGL display (use xvfb-run -a on headless Linux)."
+        ),
     )
     parser.add_argument(
         "--record-duration",
         type=float,
         default=90.0,
         metavar="SECS",
-        help="Maximum recording duration in seconds (default: 90).",
+        help="Maximum recording length in seconds (default: 90).",
     )
     args = parser.parse_args()
 

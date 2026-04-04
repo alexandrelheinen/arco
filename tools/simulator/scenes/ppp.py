@@ -39,6 +39,33 @@ BOXES: list[tuple[float, float, float, float, float, float]] = [
     (17.0, 4.0, 0.0, 18.5, 7.0, 1.0),
 ]
 
+#: Maximum x-depth (metres) that classifies a box as the main blocking wall.
+#: The wall spans dx = 2 m (x=7 to x=9); scatter boxes are wider.
+WALL_MAX_DEPTH: float = 2.5
+
+#: Minimum y-width (metres) that classifies a box as the main blocking wall.
+#: The wall spans dy = 10 m; scatter boxes are narrower.
+WALL_MIN_WIDTH: float = 8.0
+
+
+def is_wall(box: tuple[float, float, float, float, float, float]) -> bool:
+    """Return ``True`` if *box* is the full-width blocking wall.
+
+    The main wall has a narrow x-depth (≤ :data:`WALL_MAX_DEPTH` m) and a
+    wide y-span (≥ :data:`WALL_MIN_WIDTH` m).  All scatter boxes fail at
+    least one of these criteria.
+
+    Args:
+        box: Box extents ``(x1, y1, z1, x2, y2, z2)``.
+
+    Returns:
+        ``True`` for the blocking wall, ``False`` for scatter boxes.
+    """
+    return (box[3] - box[0]) <= WALL_MAX_DEPTH and (
+        box[4] - box[1]
+    ) >= WALL_MIN_WIDTH
+
+
 #: Planning bounds: [(x_min, x_max), (y_min, y_max), (z_min, z_max)].
 BOUNDS: list[tuple[float, float]] = [
     (0.0, 20.0),
@@ -77,6 +104,9 @@ def _sample_box_surface(
         y2: Maximum y coordinate.
         z2: Maximum z coordinate.
         spacing: Approximate distance between adjacent sample points (metres).
+            The default 0.4 m gives roughly 3–4 samples per metre, which is
+            well below the 1.5 m obstacle clearance radius and ensures the
+            KDTree can detect any intrusion into the box volume.
 
     Returns:
         List of ``[x, y, z]`` surface sample points.
