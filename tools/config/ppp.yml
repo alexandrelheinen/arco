@@ -26,3 +26,26 @@ obstacle_clearance: 1.5
 rrt_max_sample_count: 10000
 sst_max_sample_count: 8000
 witness_radius: 0.7
+
+# ---------------------------------------------------------------------------
+# Simulation / visualisation parameters
+# ---------------------------------------------------------------------------
+
+# Speed at which the carrot target advances along the planned path (m/s).
+race_speed: 2.0
+
+# Maximum speed per prismatic joint axis (m/s).
+max_joint_vel: 3.0
+
+# Maximum acceleration per prismatic joint axis (m/s^2).
+# At dt = 0.05 s this allows ramp-up in ~0.75 s, keeping the carrot
+# only ~1.5 m ahead while producing visible corner-rounding.
+max_joint_acc: 4.0
+
+# Maximum Euclidean distance the carrot may lead the robot (m).
+# The carrot pauses when the robot lags behind this threshold,
+# preventing it from running to the goal while the robot goes straight.
+max_carrot_lag: 2.0
+
+# Robot is considered to have reached the goal when within this distance (m).
+goal_reach_dist: 0.5

@@ -5,5 +5,5 @@ dubins:
   max_turn_rate: 90.0  # deg/s
   max_accel: 1.5  # m/s² (safe indoor acceleration)
   max_turn_rate_dot: 3600.0  # deg/s² (very high to avoid limiting turn rate changes)
-  goal_radius: 3.0  # m (> 10 timesteps at cruise speed; robust pure-pursuit stopping)
+  goal_radius: 1.0  # m (> 10 timesteps at cruise speed; robust pure-pursuit stopping)
   curvature_gain: 3.0  # m  (v = cruise speed / (1 + gain * |κ|); 0 = constant speed)

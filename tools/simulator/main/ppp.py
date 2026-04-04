@@ -126,8 +126,6 @@ _DEFAULT_SCREEN_H = 800
 
 _HOLD_SECS: float = 2.0
 _POST_FINISH_SECS: float = 2.5
-_RACE_SPEED: float = 1.5  # m/s along arc length
-_LOOKAHEAD_DIST: float = 3.0  # metres ahead for lookahead marker
 
 # Camera defaults
 _CAM_AZIM: float = math.radians(40)
@@ -141,7 +139,7 @@ _CAM_ZOOM_STEP: float = 0.03
 # Small positive epsilon used to guard against division by zero in
 # arc-length interpolation (any segment shorter than this is treated
 # as zero-length).
-_EPSILON: float = 1e-9
+_EPSILON: float = 1e-3
 
 # OpenGL colours (float 0-1)
 _C_TRAIL_RRT = (0.60, 0.80, 1.00)  # brighter variant of _C_RRT
@@ -705,56 +703,58 @@ def _path_pos(
     return path[-1].copy(), True
 
 
-def _path_trail(
-    path: list[np.ndarray],
-    arcs: list[float],
-    dist: float,
-) -> list[np.ndarray]:
-    """Return the traveled portion of *path* up to arc-length *dist*.
+class PPPRobot:
+    """PPP gantry robot with independent per-axis velocity/acceleration limits.
+
+    Each prismatic joint (x, y, z) is driven independently toward a moving
+    carrot target on the planned path.  Acceleration limits prevent
+    instantaneous velocity changes, so the end-effector lags and rounds
+    corners — producing a visible trail that diverges from the geometric plan.
 
     Args:
-        path: Ordered list of 3-D waypoints.
-        arcs: Precomputed cumulative arc lengths.
-        dist: Current arc-length distance from the path start.
-
-    Returns:
-        Sub-list of waypoints from the start up to *dist*, with a linearly
-        interpolated end point appended when *dist* falls inside a segment.
+        start: Initial 3-D end-effector position.
+        max_vel: Maximum speed per axis in m/s.
+        max_acc: Maximum acceleration per axis in m/s².
     """
-    if dist <= 0.0 or len(path) < 2:
-        return []
-    trail: list[np.ndarray] = [path[0]]
-    for i in range(1, len(path)):
-        if arcs[i] <= dist:
-            trail.append(path[i])
+
+    def __init__(
+        self,
+        start: np.ndarray,
+        max_vel: float,
+        max_acc: float,
+    ) -> None:
+        self.pos: np.ndarray = start.astype(float).copy()
+        self.vel: np.ndarray = np.zeros(3)
+        self._max_vel = max_vel
+        self._max_acc = max_acc
+
+    def step(self, target: np.ndarray, dt: float) -> None:
+        """Advance one timestep toward *target* with per-axis limits.
+
+        Computes the desired velocity directed at *target* at full
+        :attr:`_max_vel`, then applies a per-axis acceleration clamp so
+        velocity changes are limited to :attr:`_max_acc` * *dt* per step.
+        This causes the carrot-chasing behaviour to round path corners and
+        show visible acceleration and deceleration phases.
+
+        Args:
+            target: 3-D carrot position on the planned path.
+            dt: Integration timestep in seconds.
+        """
+        err = target - self.pos
+        dist = float(np.linalg.norm(err))
+        if dist < 1e-6:
+            desired_vel = np.zeros(3)
         else:
-            seg = arcs[i] - arcs[i - 1]
-            t = (dist - arcs[i - 1]) / max(seg, _EPSILON)
-            trail.append(path[i - 1] + t * (path[i] - path[i - 1]))
-            break
-    return trail
-
-
-def _path_lookahead(
-    path: list[np.ndarray],
-    arcs: list[float],
-    dist: float,
-    la_dist: float,
-) -> np.ndarray:
-    """Return the lookahead point *la_dist* metres ahead of *dist*.
-
-    Args:
-        path: Ordered list of 3-D waypoints.
-        arcs: Precomputed cumulative arc lengths.
-        dist: Current arc-length distance from the path start.
-        la_dist: Look-ahead distance in metres.
-
-    Returns:
-        Interpolated 3-D position on the path at ``dist + la_dist``,
-        clamped to the path end.
-    """
-    pos, _ = _path_pos(path, arcs, min(dist + la_dist, arcs[-1]))
-    return pos
+            desired_vel = (err / dist) * self._max_vel
+        # Apply a magnitude-based acceleration limit.
+        dv = desired_vel - self.vel
+        dv_norm = float(np.linalg.norm(dv))
+        max_dv = self._max_acc * dt
+        if dv_norm > max_dv:
+            dv = dv * (max_dv / dv_norm)
+        self.vel = np.clip(self.vel + dv, -self._max_vel, self._max_vel)
+        self.pos = self.pos + self.vel * dt
 
 
 def _draw_lookahead_3d(pos: np.ndarray, r: float, g: float, b: float) -> None:
@@ -782,6 +782,7 @@ def _draw_lookahead_3d(pos: np.ndarray, r: float, g: float, b: float) -> None:
 
 def run_race(
     scene: PPPScene,
+    cfg: dict,
     *,
     fps: int = 30,
     dt: float = 0.05,
@@ -794,7 +795,8 @@ def run_race(
     :data:`_HOLD_SECS` seconds.
 
     Phase 2 — **race**: both end-effectors advance simultaneously at
-    :data:`_RACE_SPEED` m/s; the first to reach the goal wins.
+    the ``race_speed`` configured in ``ppp.yml``; the first to reach
+    the goal wins.
 
     Phase 3 — **winner**: a banner is shown for :data:`_POST_FINISH_SECS`
     seconds before the simulation exits.
@@ -804,13 +806,20 @@ def run_race(
 
     Args:
         scene: Fully built :class:`~scenes.ppp.PPPScene`.
+        cfg: Configuration dict loaded from ``tools/config/ppp.yml``.
         fps: Target frame rate in frames per second.
         dt: Simulation timestep in seconds.
         record: Output MP4 path.  Empty string = interactive mode.
-        record_duration: Maximum recording duration in seconds.
+        record_duration: Maximum recording length in seconds.
     """
     recording = bool(record)
     max_frames = int(fps * record_duration)
+
+    race_speed = float(cfg["race_speed"])
+    max_joint_vel = float(cfg["max_joint_vel"])
+    max_joint_acc = float(cfg["max_joint_acc"])
+    max_carrot_lag = float(cfg["max_carrot_lag"])
+    goal_reach_dist = float(cfg["goal_reach_dist"])
 
     pygame.init()
     sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
@@ -843,12 +852,15 @@ def run_race(
 
     # Race state
     hold_timer = 0.0
-    rrt_dist = 0.0
-    sst_dist = 0.0
-    rrt_pos = scene.start.copy()
-    sst_pos = scene.start.copy()
-    rrt_trail: list[np.ndarray] = []
-    sst_trail: list[np.ndarray] = []
+    rrt_robot = PPPRobot(scene.start, max_joint_vel, max_joint_acc)
+    sst_robot = PPPRobot(scene.start, max_joint_vel, max_joint_acc)
+    rrt_carrot_dist = 0.0
+    sst_carrot_dist = 0.0
+    rrt_carrot = scene.start.copy()
+    sst_carrot = scene.start.copy()
+    # Actual end-effector position histories (not the planned path).
+    rrt_trail: list[np.ndarray] = [scene.start.copy()]
+    sst_trail: list[np.ndarray] = [scene.start.copy()]
     rrt_done = False
     sst_done = False
     winner: str = ""
@@ -877,11 +889,15 @@ def run_race(
                         paused = not paused
                     elif event.key == pygame.K_r:
                         camera = Camera3D()
-                        hold_timer = rrt_dist = sst_dist = 0.0
-                        rrt_pos = scene.start.copy()
-                        sst_pos = scene.start.copy()
-                        rrt_trail = []
-                        sst_trail = []
+                        hold_timer = 0.0
+                        rrt_robot = PPPRobot(scene.start)
+                        sst_robot = PPPRobot(scene.start)
+                        rrt_carrot_dist = 0.0
+                        sst_carrot_dist = 0.0
+                        rrt_carrot = scene.start.copy()
+                        sst_carrot = scene.start.copy()
+                        rrt_trail = [scene.start.copy()]
+                        sst_trail = [scene.start.copy()]
                         rrt_done = sst_done = False
                         winner = ""
                         post_timer = 0.0
@@ -922,17 +938,41 @@ def run_race(
                         phase = "race"
                 elif phase == "race":
                     if rrt_path and not rrt_done:
-                        rrt_dist += _RACE_SPEED * dt
-                        rrt_pos, rrt_done = _path_pos(
-                            rrt_path, rrt_arcs, rrt_dist
+                        rrt_lag = float(
+                            np.linalg.norm(rrt_robot.pos - rrt_carrot)
                         )
-                        rrt_trail = _path_trail(rrt_path, rrt_arcs, rrt_dist)
+                        if rrt_lag < max_carrot_lag:
+                            rrt_carrot_dist = min(
+                                rrt_carrot_dist + race_speed * dt,
+                                rrt_arcs[-1],
+                            )
+                        rrt_carrot, _ = _path_pos(
+                            rrt_path, rrt_arcs, rrt_carrot_dist
+                        )
+                        rrt_robot.step(rrt_carrot, dt)
+                        rrt_trail.append(rrt_robot.pos.copy())
+                        rrt_done = (
+                            float(np.linalg.norm(rrt_robot.pos - scene.goal))
+                            < goal_reach_dist
+                        )
                     if sst_path and not sst_done:
-                        sst_dist += _RACE_SPEED * dt
-                        sst_pos, sst_done = _path_pos(
-                            sst_path, sst_arcs, sst_dist
+                        sst_lag = float(
+                            np.linalg.norm(sst_robot.pos - sst_carrot)
                         )
-                        sst_trail = _path_trail(sst_path, sst_arcs, sst_dist)
+                        if sst_lag < max_carrot_lag:
+                            sst_carrot_dist = min(
+                                sst_carrot_dist + race_speed * dt,
+                                sst_arcs[-1],
+                            )
+                        sst_carrot, _ = _path_pos(
+                            sst_path, sst_arcs, sst_carrot_dist
+                        )
+                        sst_robot.step(sst_carrot, dt)
+                        sst_trail.append(sst_robot.pos.copy())
+                        sst_done = (
+                            float(np.linalg.norm(sst_robot.pos - scene.goal))
+                            < goal_reach_dist
+                        )
                     if not winner:
                         if rrt_done and sst_done:
                             winner = "TIE!"
@@ -1009,29 +1049,23 @@ def run_race(
                 )
 
             if phase in ("race", "done"):
-                # Lookahead markers (only while racing, not after finish).
+                # Carrot markers — the target the robot is chasing.
                 if phase == "race":
                     if rrt_path and not rrt_done:
-                        la_rrt = _path_lookahead(
-                            rrt_path, rrt_arcs, rrt_dist, _LOOKAHEAD_DIST
-                        )
-                        _draw_lookahead_3d(la_rrt, *_C_LA_RRT)
+                        _draw_lookahead_3d(rrt_carrot, *_C_LA_RRT)
                     if sst_path and not sst_done:
-                        la_sst = _path_lookahead(
-                            sst_path, sst_arcs, sst_dist, _LOOKAHEAD_DIST
-                        )
-                        _draw_lookahead_3d(la_sst, *_C_LA_SST)
-                _draw_effector(rrt_pos, *_C_RRT)
-                _draw_effector(sst_pos, *_C_SST)
+                        _draw_lookahead_3d(sst_carrot, *_C_LA_SST)
+                _draw_effector(rrt_robot.pos, *_C_RRT)
+                _draw_effector(sst_robot.pos, *_C_SST)
 
             # --- 2-D HUD overlay ----------------------------------------
             rrt_pct = (
-                min(100, int(100 * rrt_dist / max(rrt_arcs[-1], 1e-6)))
+                min(100, int(100 * rrt_carrot_dist / max(rrt_arcs[-1], 1e-6)))
                 if rrt_path
                 else 0
             )
             sst_pct = (
-                min(100, int(100 * sst_dist / max(sst_arcs[-1], 1e-6)))
+                min(100, int(100 * sst_carrot_dist / max(sst_arcs[-1], 1e-6)))
                 if sst_path
                 else 0
             )
@@ -1125,6 +1159,7 @@ def main() -> None:
     scene = PPPScene(cfg)
     run_race(
         scene,
+        cfg,
         fps=args.fps,
         record=args.record,
         record_duration=args.record_duration,
