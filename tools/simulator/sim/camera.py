@@ -49,6 +49,24 @@ class FollowTransform:
         """Pixels per metre."""
         return self._scale
 
+    @property
+    def _ox(self) -> float:
+        """Equivalent x-axis screen offset (pixels).
+
+        Satisfies ``sx = _ox + wx * _scale``, matching the :class:`WorldTransform`
+        interface expected by :func:`~renderer.bake_sdf_surface`.
+        """
+        return self._screen_w / 2.0 - self._center_x * self._scale
+
+    @property
+    def _oy(self) -> float:
+        """Equivalent y-axis screen offset (pixels).
+
+        Satisfies ``sy = _oy - wy * _scale``, matching the :class:`WorldTransform`
+        interface expected by :func:`~renderer.bake_sdf_surface`.
+        """
+        return self._screen_h / 2.0 + self._center_y * self._scale
+
 
 class CameraFilter:
     """Second-order linear filter that smoothly chases a moving target.
