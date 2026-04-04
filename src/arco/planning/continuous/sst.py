@@ -44,6 +44,9 @@ class SSTPlanner(ContinuousPlanner):
             Must be less than *step_size* to allow tree growth.
         collision_check_count: Segment resolution for collision checks.
         goal_bias: Probability of sampling the goal state directly.
+        early_stop: If ``True``, terminate as soon as the first node within
+            *goal_tolerance* is found.  Set to ``False`` to keep iterating
+            for a lower-cost solution (asymptotic optimality mode).
     """
 
     def __init__(
@@ -56,6 +59,7 @@ class SSTPlanner(ContinuousPlanner):
         witness_radius: float = 0.5,
         collision_check_count: int = 10,
         goal_bias: float = 0.05,
+        early_stop: bool = True,
     ) -> None:
         """Initialize SSTPlanner.
 
@@ -69,6 +73,8 @@ class SSTPlanner(ContinuousPlanner):
                 less than *step_size* to allow tree growth.
             collision_check_count: Segment resolution for collision checks.
             goal_bias: Probability of sampling the goal directly.
+            early_stop: If ``True``, stop at the first node that reaches the
+                goal.  If ``False``, run all iterations to optimise cost.
 
         Raises:
             ValueError: If *bounds* is empty or *step_size* is not positive.
@@ -85,6 +91,7 @@ class SSTPlanner(ContinuousPlanner):
         self.witness_radius = witness_radius
         self.collision_check_count = collision_check_count
         self.goal_bias = goal_bias
+        self.early_stop = early_stop
 
     # ------------------------------------------------------------------
     # Public API
@@ -247,6 +254,8 @@ class SSTPlanner(ContinuousPlanner):
                     iteration,
                     new_cost,
                 )
+                if self.early_stop:
+                    break
 
         if best_goal_node is None:
             logger.debug("SST: no path found.")

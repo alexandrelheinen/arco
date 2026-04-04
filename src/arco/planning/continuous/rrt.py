@@ -47,6 +47,9 @@ class RRTPlanner(ContinuousPlanner):
         goal_bias: Probability of sampling the goal state directly instead
             of a uniform random state.  Small values (0.05–0.1) speed up
             convergence without sacrificing coverage.
+        early_stop: If ``True``, terminate as soon as the first node within
+            *goal_tolerance* is found.  Set to ``False`` to keep iterating
+            for a lower-cost solution (asymptotic optimality mode).
     """
 
     def __init__(
@@ -59,6 +62,7 @@ class RRTPlanner(ContinuousPlanner):
         rewire_radius: Optional[float] = None,
         collision_check_count: int = 10,
         goal_bias: float = 0.05,
+        early_stop: bool = True,
     ) -> None:
         """Initialize RRTPlanner.
 
@@ -71,6 +75,8 @@ class RRTPlanner(ContinuousPlanner):
             rewire_radius: Fixed rewire radius.  Adaptive when ``None``.
             collision_check_count: Segment resolution for collision checks.
             goal_bias: Probability of sampling the goal directly.
+            early_stop: If ``True``, stop at the first node that reaches the
+                goal.  If ``False``, run all iterations to optimise cost.
 
         Raises:
             ValueError: If *bounds* is empty or *step_size* is not positive.
@@ -87,6 +93,7 @@ class RRTPlanner(ContinuousPlanner):
         self._fixed_rewire_radius = rewire_radius
         self.collision_check_count = collision_check_count
         self.goal_bias = goal_bias
+        self.early_stop = early_stop
         self._dim = len(bounds)
 
     # ------------------------------------------------------------------
@@ -196,6 +203,8 @@ class RRTPlanner(ContinuousPlanner):
                     iteration,
                     best_cost,
                 )
+                if self.early_stop:
+                    break
 
         if best_goal_node is None:
             logger.debug("RRT*: no path found.")
@@ -307,6 +316,8 @@ class RRTPlanner(ContinuousPlanner):
             ):
                 best_goal_cost = best_cost
                 best_goal_node = new_idx
+                if self.early_stop:
+                    break
 
         if best_goal_node is None:
             return nodes, parent, None

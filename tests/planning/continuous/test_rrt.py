@@ -201,3 +201,46 @@ def test_cost_decreases_with_more_samples():
     # Both should find a path; the longer run should be at least as good
     if path_few is not None and path_many is not None:
         assert path_length(path_many) <= path_length(path_few) * 1.5
+
+
+# ---------------------------------------------------------------------------
+# early_stop behaviour
+# ---------------------------------------------------------------------------
+
+
+def test_early_stop_true_finds_path():
+    """early_stop=True must still return a valid path."""
+    occ = _empty_occupancy()
+    planner = RRTPlanner(
+        occ,
+        bounds=BOUNDS_2D,
+        max_sample_count=5000,
+        step_size=1.0,
+        goal_tolerance=1.0,
+        goal_bias=0.1,
+        early_stop=True,
+    )
+    path = planner.plan(np.array([0.5, 0.5]), np.array([9.5, 9.5]))
+    assert path is not None
+    assert len(path) >= 2
+
+
+def test_early_stop_terminates_before_full_iterations():
+    """early_stop=True should visit fewer nodes than early_stop=False."""
+    occ = _empty_occupancy()
+    common = dict(
+        bounds=BOUNDS_2D,
+        max_sample_count=5000,
+        step_size=1.0,
+        goal_tolerance=1.0,
+        goal_bias=0.1,
+    )
+    start, goal = np.array([0.5, 0.5]), np.array([9.5, 9.5])
+
+    nodes_early, _, _ = RRTPlanner(occ, **common, early_stop=True).get_tree(
+        start, goal
+    )
+    nodes_full, _, _ = RRTPlanner(occ, **common, early_stop=False).get_tree(
+        start, goal
+    )
+    assert len(nodes_early) <= len(nodes_full)

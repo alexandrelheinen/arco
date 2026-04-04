@@ -107,6 +107,7 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
         goal_tolerance=float(_cfg["goal_tolerance"]),
         collision_check_count=int(_cfg["collision_check_count"]),
         goal_bias=float(_cfg["goal_bias"]),
+        early_stop=bool(_cfg.get("early_stop", True)),
     )
 
     logger.info("Running RRT* …")
