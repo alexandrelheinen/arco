@@ -42,8 +42,8 @@ jobs:
       - name: Install ffmpeg and virtual display
         run: sudo apt-get install -y ffmpeg xvfb libgl1
 
-      - name: Install package with pygame
-        run: pip install -e ".[tools,pygame]"
+      - name: Install package with simulator dependencies
+        run: pip install -e ".[tools,simulator]"
 
       - name: Smoke test chiptune generator
         run: |
