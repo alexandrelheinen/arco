@@ -68,3 +68,21 @@ street_x: [220.1, 382.7, 537.5, 656.9, 781.0, 942.0, 1047.3]
 
 # Spacing between road-marking dots along each street centreline (m).
 road_dot_spacing: 15.0
+
+# Dead-end barriers — narrow walls placed across individual street segments
+# to block through-traffic and create cul-de-sacs.  Each entry is
+# [x_lo, x_hi, y_lo, y_hi] in world metres.
+#
+# The three barriers below are each 30 m wide (matching the street width) and
+# 10 m thick, centred between two adjacent intersections:
+#
+#   1.  Vertical street x≈382.7, between horizontal streets y=324.7 and y=408.9
+#       → barrier at y ≈ 357–367 (mid-block)
+#   2.  Horizontal street y≈492.1, between vertical streets x=656.9 and x=781.0
+#       → barrier at x ≈ 703–733 (mid-block)
+#   3.  Vertical street x≈942.0, between horizontal streets y=492.1 and y=582.4
+#       → barrier at y ≈ 527–537 (mid-block)
+dead_end_walls:
+  - [367.7, 397.7, 357.0, 367.0]
+  - [703.0, 733.0, 477.1, 507.1]
+  - [927.0, 957.0, 527.0, 537.0]
