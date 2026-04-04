@@ -1,0 +1,70 @@
+# City-neighbourhood obstacle layout for the sparse dual-planner race.
+#
+# The world is 1280 × 720 m (16 : 9 ratio).  A grid of 8 columns × 7 rows
+# of rectangular city blocks fills the space.  The vehicles race along the
+# bottom-left ↔ top-right diagonal: start is placed at the first street
+# intersection inside the city near the bottom-left corner, goal at the
+# first street intersection near the top-right corner.  No straight diagonal
+# path exists — both planners must discover a route through the street grid.
+#
+# Block sizes were drawn from Uniform[70, 130] m with a fixed seed (7) and
+# then scaled to fill the available space.  Streets are 30 m wide.
+#
+# Layout summary
+# --------------
+# Columns (x-axis, 1280 m):  left-open 0..90  |  8 block columns  |  right-open 1190..1280
+# Rows    (y-axis,  720 m):  bot-open  0..60   |  7 block rows     |  top-open   660..720
+#
+# Horizontal street centrelines (y ≈): 148, 240, 325, 409, 492, 582
+# Vertical   street centrelines (x ≈): 220, 383, 538, 657, 781, 942, 1047
+#
+# start – 1st street crossing from bottom-left: x[0]=220.1, y[0]=148.5
+# goal  – 1st street crossing from top-right:   x[6]=1047.3, y[5]=582.4
+
+world_width: 1280.0
+world_height: 720.0
+
+# First street crossing from the bottom-left corner of the city grid.
+start: [220.1, 148.5]
+# First street crossing from the top-right corner of the city grid.
+goal:  [1047.3, 582.4]
+
+# obstacle_sampling_spacing – grid step (m) used to fill every block rectangle
+# with KDTree obstacle points.  Smaller → denser cloud, higher build cost.
+obstacle_sampling_spacing: 8.0
+
+# Column x-extents: [[x_lo, x_hi], ...] — 8 columns from west to east.
+# Indices 0–1: west border columns
+# Indices 2–5: main 4-column grid (blocks the x = start..goal corridor)
+# Indices 6–7: east border columns
+block_columns:
+  - [90.0,    205.1]
+  - [235.1,   367.7]
+  - [397.7,   522.5]
+  - [552.5,   641.9]
+  - [671.9,   766.0]
+  - [796.0,   927.0]
+  - [957.0,  1032.3]
+  - [1062.3, 1190.0]
+
+# Row y-extents: [[y_lo, y_hi], ...] — 7 rows from south to north.
+# Indices 0–1: south border rows
+# Indices 2–4: main 3-row grid containing the central row that blocks y = 360
+# Indices 5–6: north border rows
+block_rows:
+  - [60.0,   133.5]
+  - [163.5,  224.7]
+  - [254.7,  309.7]
+  - [339.7,  393.9]   # ← central row; intercepts the direct y = 360 path
+  - [423.9,  477.1]
+  - [507.1,  567.4]
+  - [597.4,  660.0]
+
+# Horizontal street centrelines (y values) used for road-marking dots.
+street_y: [148.5, 239.7, 324.7, 408.9, 492.1, 582.4]
+
+# Vertical street centrelines (x values) used for road-marking dots.
+street_x: [220.1, 382.7, 537.5, 656.9, 781.0, 942.0, 1047.3]
+
+# Spacing between road-marking dots along each street centreline (m).
+road_dot_spacing: 15.0

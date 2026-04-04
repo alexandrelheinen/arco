@@ -77,6 +77,15 @@ jobs:
             --record /tmp/smoke_sst.mp4 \
             --record-duration 5
 
+      - name: Smoke test sparse neighbourhood simulator
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          xvfb-run -a python tools/simulator/main/sparse.py \
+            --fps 30 \
+            --record /tmp/smoke_sparse.mp4 \
+            --record-duration 5
+
       - name: Smoke test PPP 3-D simulator
         env:
           SDL_AUDIODRIVER: dummy
