@@ -133,6 +133,7 @@ def _draw_tracking_hud(
     cte: float,
     finished: bool,
     paused: bool,
+    close: bool = False,
 ) -> None:
     """Render the vehicle-tracking HUD as a texture overlay.
 
@@ -146,6 +147,8 @@ def _draw_tracking_hud(
         cte: Cross-track error in metres.
         finished: Whether the vehicle has reached the goal.
         paused: Whether the simulation is paused.
+        close: If ``True`` the window will close automatically after the goal
+            is reached; ``False`` shows a "Press Q or ESC to close" prompt.
     """
     lines = [
         f"{label} — tracking",
@@ -157,6 +160,8 @@ def _draw_tracking_hud(
         lines.append("[ PAUSED — press SPACE ]")
     if finished:
         lines.append("[ GOAL REACHED ]")
+        if not close:
+            lines.append("[ Press Q or ESC to close ]")
 
     line_h = font.get_linesize() + 2
     panel_h = len(lines) * line_h + 8
@@ -182,6 +187,7 @@ def run_sim(
     zoom: bool = False,
     record: str = "",
     record_duration: float = 60.0,
+    close: bool = False,
 ) -> None:
     """Run the unified two-phase simulator loop for *scene*.
 
@@ -207,6 +213,9 @@ def run_sim(
         record: Output MP4 file path for a headless recording.  Empty string
             means interactive mode (opens a window).
         record_duration: Maximum recording length in seconds.
+        close: If ``True`` the window closes automatically once the vehicle
+            reaches the goal (interactive mode only).  Default is ``False``
+            which keeps the window open until the user presses Q or Escape.
     """
     recording = bool(record)
     max_record_frames = int(fps * record_duration)
@@ -417,6 +426,8 @@ def run_sim(
                         ):
                             veh_finished = True
                             logger.info("Goal reached in %d steps.", veh_step)
+                            if not recording and close:
+                                running = False
 
             # Camera filter update.
             if camera_follow and vehicle is not None:
@@ -475,6 +486,7 @@ def run_sim(
                     float(metrics.get("cross_track_error", 0.0)),
                     veh_finished,
                     paused,
+                    close=close,
                 )
 
             # ------------------------------------------------------------------

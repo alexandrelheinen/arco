@@ -113,6 +113,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 from scenes.ppp import PPPScene
 from scenes.ppp import is_wall as _is_wall_box
 from sim.video import VideoWriter
+import marmot as _marmot
 
 from config import load_config
 
@@ -717,17 +718,42 @@ def _hint_surface(font: pygame.font.Font) -> pygame.Surface:
     return surf
 
 
+def _make_close_hint(font: pygame.font.Font) -> pygame.Surface:
+    """Build a one-line 'press Q to close' hint surface.
+
+    Args:
+        font: Monospace font.
+
+    Returns:
+        Transparent RGBA pygame surface.
+    """
+    text = "Press Q or ESC to close"
+    rendered = font.render(text, True, _HC_HUD)
+    w, h = rendered.get_size()
+    surf = pygame.Surface((w + 4, h + 4), pygame.SRCALPHA)
+    surf.fill((0, 0, 0, 0))
+    surf.blit(font.render(text, True, _HC_SHADOW), (3, 3))
+    surf.blit(rendered, (2, 2))
+    return surf
+
+
 def _banner_surface(
     big_font: pygame.font.Font,
     text: str,
     color: tuple[int, int, int],
+    marmot_color: tuple[int, int, int] | None = None,
 ) -> pygame.Surface:
-    """Build a translucent centred winner-banner surface.
+    """Build a translucent centred winner-banner surface with marmot mascot.
+
+    When *marmot_color* is provided the marmot is drawn to the left of the
+    text, filled in the winner's agent colour.
 
     Args:
         big_font: Large bold font.
         text: Banner text (e.g. ``"RRT* WINS!"``).
         color: Text colour.
+        marmot_color: Marmot fill colour (winner's agent colour).  Pass
+            ``None`` to omit the marmot (e.g. for a tie banner).
 
     Returns:
         RGBA banner surface.
@@ -735,10 +761,23 @@ def _banner_surface(
     rendered = big_font.render(text, True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
     pad = 20
-    surf = pygame.Surface((rw + 2 * pad, rh + 2 * pad), pygame.SRCALPHA)
+    if marmot_color is not None:
+        marmot_size = rh + pad
+        marmot_surf = _marmot.draw_marmot_surface(marmot_size, marmot_color)
+        surf_w = marmot_size + pad + rw + 2 * pad
+    else:
+        marmot_size = 0
+        marmot_surf = None
+        surf_w = rw + 2 * pad
+    surf_h = rh + 2 * pad
+    surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
     surf.fill((8, 10, 22, 215))
-    surf.blit(big_font.render(text, True, _HC_SHADOW), (pad + 1, pad + 1))
-    surf.blit(rendered, (pad, pad))
+    if marmot_surf is not None:
+        marmot_y = (surf_h - marmot_size) // 2
+        surf.blit(marmot_surf, (pad, marmot_y))
+    text_x = pad + marmot_size + (pad if marmot_surf is not None else 0)
+    surf.blit(big_font.render(text, True, _HC_SHADOW), (text_x + 1, pad + 1))
+    surf.blit(rendered, (text_x, pad))
     return surf
 
 
@@ -873,6 +912,7 @@ def run_race(
     dt: float = 0.05,
     record: str = "",
     record_duration: float = 90.0,
+    close: bool = False,
 ) -> None:
     """Run the 3-D PPP warehouse race with OpenGL rendering.
 
@@ -883,8 +923,9 @@ def run_race(
     the ``race_speed`` configured in ``ppp.yml``; the first to reach
     the goal wins.
 
-    Phase 3 — **winner**: a banner is shown for :data:`_POST_FINISH_SECS`
-    seconds before the simulation exits.
+    Phase 3 — **winner**: a banner is shown.  In interactive mode the
+    window stays open until the user presses **Q** or **Escape**, unless
+    *close* is ``True``.
 
     Recording requires a real or virtual OpenGL-capable display (use
     ``xvfb-run -a`` on headless Linux systems).
@@ -896,6 +937,8 @@ def run_race(
         dt: Simulation timestep in seconds.
         record: Output MP4 path.  Empty string = interactive mode.
         record_duration: Maximum recording length in seconds.
+        close: If ``True`` the window closes automatically once the race is
+            done.  Default is ``False`` (wait for Q or Escape).
     """
     recording = bool(record)
     max_frames = int(fps * record_duration)
@@ -1070,7 +1113,8 @@ def run_race(
                 elif phase == "done":
                     post_timer += dt
                     if post_timer >= _POST_FINISH_SECS:
-                        running = False
+                        if recording or close:
+                            running = False
 
             # --- 3-D render (OpenGL) ------------------------------------
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -1177,8 +1221,16 @@ def run_race(
                 sh,
             )
             if winner:
-                w_color = _HC_TIE if winner == "TIE!" else _HC_WINNER
-                ban = _banner_surface(big_font, winner, w_color)
+                if winner == "TIE!":
+                    w_color = _HC_TIE
+                    marmot_col: tuple[int, int, int] | None = None
+                elif "RRT*" in winner:
+                    w_color = _HC_WINNER
+                    marmot_col = _HC_RRT
+                else:
+                    w_color = _HC_WINNER
+                    marmot_col = _HC_SST
+                ban = _banner_surface(big_font, winner, w_color, marmot_col)
                 _blit_overlay(
                     ban,
                     (sw - ban.get_width()) // 2,
@@ -1186,6 +1238,15 @@ def run_race(
                     sw,
                     sh,
                 )
+                if phase == "done" and not recording and not close:
+                    close_surf = _make_close_hint(font)
+                    _blit_overlay(
+                        close_surf,
+                        (sw - close_surf.get_width()) // 2,
+                        sh - close_surf.get_height() - 6,
+                        sw,
+                        sh,
+                    )
 
             pygame.display.flip()
 
@@ -1238,6 +1299,15 @@ def main() -> None:
         metavar="SECS",
         help="Maximum recording length in seconds (default: 90).",
     )
+    parser.add_argument(
+        "--close",
+        action="store_true",
+        default=False,
+        help=(
+            "Close the window automatically when the race finishes. "
+            "By default the window stays open until Q or Escape is pressed."
+        ),
+    )
     args = parser.parse_args()
 
     cfg = load_config("ppp")
@@ -1248,6 +1318,7 @@ def main() -> None:
         fps=args.fps,
         record=args.record,
         record_duration=args.record_duration,
+        close=args.close,
     )
 
 

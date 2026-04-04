@@ -93,6 +93,15 @@ def main() -> None:
         dest="record_duration",
         help="Maximum recording duration in seconds (default: 60).",
     )
+    parser.add_argument(
+        "--close",
+        action="store_true",
+        default=False,
+        help=(
+            "Close the window automatically once the vehicle reaches the goal. "
+            "By default the window stays open until Q or Escape is pressed."
+        ),
+    )
     args = parser.parse_args()
 
     scene = SSTScene(load_config("sst"))
@@ -104,6 +113,7 @@ def main() -> None:
         zoom=args.zoom,
         record=args.record,
         record_duration=args.record_duration,
+        close=args.close,
     )
 
 

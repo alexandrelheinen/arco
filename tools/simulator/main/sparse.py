@@ -58,6 +58,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
+import marmot as _marmot
 from scenes.sparse import SparseScene
 from sim.tracking import VehicleConfig, build_vehicle_sim, find_lookahead
 from sim.video import VideoWriter
@@ -215,21 +216,31 @@ def _draw_winner_banner(
     sw: int,
     sh: int,
 ) -> None:
-    """Draw a translucent centred banner with large winner text.
+    """Draw a translucent centred banner with large winner text and marmot.
+
+    The marmot mascot is rendered in *color* (the winner's agent colour) and
+    placed to the left of the text inside the banner.
 
     Args:
         font: Large pygame font.
         text: Banner text (e.g. ``"RRT* WINS!"``).
-        color: RGB text colour.
+        color: RGB text colour and marmot fill colour.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
     """
     rendered = font.render(text, True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
     pad = 14
-    banner = pygame.Surface((rw + 2 * pad, rh + 2 * pad), pygame.SRCALPHA)
+    marmot_size = rh + pad  # marmot height matches text height
+    marmot_surf = _marmot.draw_marmot_surface(marmot_size, color)
+    banner_w = marmot_size + pad + rw + 2 * pad
+    banner_h = rh + 2 * pad
+    banner = pygame.Surface((banner_w, banner_h), pygame.SRCALPHA)
     banner.fill((10, 10, 20, 200))
-    banner.blit(rendered, (pad, pad))
+    # Centre marmot vertically in the banner
+    marmot_y = (banner_h - marmot_size) // 2
+    banner.blit(marmot_surf, (pad, marmot_y))
+    banner.blit(rendered, (pad + marmot_size + pad, pad))
     bx = (sw - banner.get_width()) // 2
     by = (sh - banner.get_height()) // 2
     renderer_gl.blit_overlay(banner, bx, by, sw, sh)
@@ -247,6 +258,7 @@ def run_race(
     dt: float = 0.1,
     record: str = "",
     record_duration: float = 90.0,
+    close: bool = False,
 ) -> None:
     """Run the dual-vehicle cul-de-sac race.
 
@@ -256,7 +268,10 @@ def run_race(
     Phase 2 — **racing**: both vehicles follow their respective planned paths
     from a shared start.  The first to arrive is declared the winner.  The
     simulation continues for :data:`_POST_FINISH_SECS` after the last vehicle
-    reaches the goal, then exits.
+    reaches the goal.
+
+    In interactive mode the window stays open after the race finishes until
+    the user presses **Q** or **Escape**, unless *close* is ``True``.
 
     Args:
         scene: Fully built :class:`~scenes.sparse.SparseScene`.
@@ -264,6 +279,8 @@ def run_race(
         dt: Simulation timestep in seconds.
         record: Output MP4 file path.  Empty string means interactive mode.
         record_duration: Maximum headless recording length in seconds.
+        close: If ``True`` the window closes automatically once the race is
+            done.  Default is ``False`` (wait for user to press Q or Escape).
     """
     recording = bool(record)
     max_record_frames = int(fps * record_duration)
@@ -479,10 +496,11 @@ def run_race(
                         and race_time - last_finish_time >= _POST_FINISH_SECS
                     ):
                         phase = "done"
-                        logger.info("Race finished.  Exiting.")
+                        logger.info("Race finished.")
 
                 elif phase == "done":
-                    running = False
+                    if recording or close:
+                        running = False
 
             # ------------------------------------------------------------------
             # Render
@@ -605,6 +623,16 @@ def run_race(
                         _draw_winner_banner(
                             big_font, "SST  LEADS!", _C_SST_HUD, sw, sh
                         )
+
+                if phase == "done" and not recording and not close:
+                    _blit_center(
+                        font,
+                        "Press Q or ESC to close",
+                        _C_HUD,
+                        sw,
+                        sh,
+                        sh - 34,
+                    )
 
             # ------------------------------------------------------------------
             # Output frame
@@ -763,6 +791,15 @@ def main() -> None:
         dest="record_duration",
         help="Maximum recording duration in seconds (default: 90).",
     )
+    parser.add_argument(
+        "--close",
+        action="store_true",
+        default=False,
+        help=(
+            "Close the window automatically when the race finishes. "
+            "By default the window stays open until Q or Escape is pressed."
+        ),
+    )
     args = parser.parse_args()
 
     scene = SparseScene(load_config("sparse"), load_config("obstacles"))
@@ -772,6 +809,7 @@ def main() -> None:
         dt=args.dt,
         record=args.record,
         record_duration=args.record_duration,
+        close=args.close,
     )
 
 
