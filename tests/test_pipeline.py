@@ -28,6 +28,7 @@ from arco.planning.discrete import RouteRouter
 # Shared test fixtures
 # ---------------------------------------------------------------------------
 
+
 def _resolve_network_path() -> str:
     """Return the existing city-network descriptor path.
 

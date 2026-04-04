@@ -5,7 +5,6 @@ import pytest
 
 from arco.mapping import KDTreeOccupancy
 
-
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
@@ -58,7 +57,9 @@ def test_nearest_obstacle_distance():
 
 
 def test_nearest_obstacle_multiple_points():
-    occ = KDTreeOccupancy([[0.0, 10.0], [1.0, 1.0], [10.0, 0.0]], clearance=0.5)
+    occ = KDTreeOccupancy(
+        [[0.0, 10.0], [1.0, 1.0], [10.0, 0.0]], clearance=0.5
+    )
     dist, pt = occ.nearest_obstacle(np.array([1.1, 1.1]))
     assert dist < 0.2
     assert np.allclose(pt, [1.0, 1.0])

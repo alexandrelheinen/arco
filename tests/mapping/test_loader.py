@@ -12,6 +12,7 @@ import pytest
 from arco.mapping.graph.loader import load_road_graph
 from arco.mapping.graph.road import RoadGraph
 
+
 def _resolve_city_network_path() -> str:
     """Return the existing city-network descriptor path.
 

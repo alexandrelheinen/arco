@@ -1,0 +1,30 @@
+# Sparse cul-de-sac race: RRT* vs SST on the same obstacle environment.
+#
+# Both planners share the same occupancy map and most parameters.  The
+# direct path from start to goal is blocked by a concave U-shaped structure
+# (cul-de-sac); both planners must route above or below the obstacle.
+#
+# bounds             – sampling region [[x_min, x_max], [y_min, y_max]].
+# step_size          – maximum extension per iteration (world units).
+# goal_tolerance     – distance that counts as "at goal".
+# collision_check_count – intermediate collision-check points per segment.
+# goal_bias          – probability of sampling the goal directly.
+# obstacle_clearance – KDTree clearance radius (metres).
+# rrt_max_sample_count – RRT* iteration budget.
+# sst_max_sample_count – SST iteration budget.
+# witness_radius       – SST witness cell half-width (δ_s).
+
+bounds: [[0.0, 50.0], [0.0, 50.0]]
+
+step_size: 1.0
+goal_tolerance: 2.1
+collision_check_count: 1
+goal_bias: 0.05
+obstacle_clearance: 2.0
+
+# RRT* tends to build larger trees; give it a higher budget.
+rrt_max_sample_count: 6000
+
+# SST is more selective; a smaller budget usually suffices.
+sst_max_sample_count: 4000
+witness_radius: 0.4
