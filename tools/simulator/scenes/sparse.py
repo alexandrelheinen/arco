@@ -13,14 +13,7 @@ import math
 from typing import Any
 
 import numpy as np
-import pygame
-from renderer import (
-    bake_sdf_surface,
-    draw_endpoints,
-    draw_exploration_tree,
-    draw_obstacles,
-    draw_planned_path,
-)
+import renderer_gl
 from sim.tracking import VehicleConfig
 
 # ---------------------------------------------------------------------------
@@ -43,10 +36,14 @@ _C_START: tuple[int, int, int] = (60, 220, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
 _C_SDF_NEAR: tuple[int, int, int] = (80, 35, 35)
 
+# World-space ring radii for start/goal markers.
+_RING_OUTER = 1.2  # metres
+_RING_INNER = 0.6  # metres
+
 # ---------------------------------------------------------------------------
 # Planning constants
 # ---------------------------------------------------------------------------
-# Both planners share the same start and goal.
+# Both planners share the same start and goal for a fair race.
 _START = np.array([3.0, 25.0])
 _GOAL = np.array([47.0, 25.0])
 _BOUNDS = [(0.0, 50.0), (0.0, 50.0)]
@@ -65,6 +62,10 @@ _VEHICLE_CONFIG = VehicleConfig(
 )
 
 
+def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
+    return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
+
+
 class SparseScene:
     """Dual-planner race scene on a sparse cul-de-sac environment.
 
@@ -80,7 +81,7 @@ class SparseScene:
     def __init__(self, cfg: dict[str, Any]) -> None:
         self._cfg = cfg
         self._occ: Any = None
-        self._sdf_surface: pygame.Surface | None = None
+        self._sdf_tex_id: int | None = None
 
         # RRT* planner output
         self._rrt_nodes: list[Any] = []
@@ -187,8 +188,6 @@ class SparseScene:
 
     def draw_background(
         self,
-        surface: pygame.Surface,
-        transform: object,
         rrt_revealed: int,
         sst_revealed: int,
         racing: bool = False,
@@ -196,77 +195,66 @@ class SparseScene:
         """Render the obstacle field, both exploration trees, and paths.
 
         Args:
-            surface: Pygame surface to draw onto.
-            transform: World-to-screen callable ``(wx, wy) -> (sx, sy)``.
             rrt_revealed: Number of RRT* tree nodes to display.
             sst_revealed: Number of SST tree nodes to display.
             racing: When ``True`` the planned paths are hidden so the vehicle
                 trajectories are the only route highlights visible.
         """
-        if self._sdf_surface is None:
-            self._sdf_surface = bake_sdf_surface(
-                self._occ,
-                transform,
-                (surface.get_width(), surface.get_height()),
-                bg_color=_C_BG,
-                near_color=_C_SDF_NEAR,
-            )
-        surface.blit(
-            pygame.transform.smoothscale(
-                self._sdf_surface,
-                (surface.get_width(), surface.get_height()),
-            ),
-            (0, 0),
-        )
-        draw_obstacles(surface, self._occ, transform, color=_C_OBSTACLE)
+        x_min, x_max = _BOUNDS[0]
+        y_min, y_max = _BOUNDS[1]
 
-        # RRT* exploration tree (blue)
-        draw_exploration_tree(
-            surface,
+        if self._sdf_tex_id is None:
+            self._sdf_tex_id = renderer_gl.bake_sdf_texture(
+                self._occ,
+                x_min,
+                x_max,
+                y_min,
+                y_max,
+                _C_BG,
+                _C_SDF_NEAR,
+            )
+        renderer_gl.draw_sdf_background(
+            self._sdf_tex_id, x_min, x_max, y_min, y_max
+        )
+
+        renderer_gl.draw_obstacle_points(
+            self._occ.points, *_c(_C_OBSTACLE), point_size=5.0
+        )
+
+        renderer_gl.draw_tree(
             self._rrt_nodes,
             self._rrt_parent,
             rrt_revealed,
-            transform,
-            edge_color=_C_RRT_EDGE,
-            node_color=_C_RRT_NODE,
+            *_c(_C_RRT_EDGE),
+            *_c(_C_RRT_NODE),
         )
         if (
             not racing
             and rrt_revealed >= self.rrt_total
             and self._rrt_path is not None
         ):
-            draw_planned_path(
-                surface, self._rrt_path, transform, color=_C_RRT_PATH
-            )
+            renderer_gl.draw_path(self._rrt_path, *_c(_C_RRT_PATH), width=2.5)
 
-        # SST exploration tree (teal)
-        draw_exploration_tree(
-            surface,
+        renderer_gl.draw_tree(
             self._sst_nodes,
             self._sst_parent,
             sst_revealed,
-            transform,
-            edge_color=_C_SST_EDGE,
-            node_color=_C_SST_NODE,
+            *_c(_C_SST_EDGE),
+            *_c(_C_SST_NODE),
         )
         if (
             not racing
             and sst_revealed >= self.sst_total
             and self._sst_path is not None
         ):
-            draw_planned_path(
-                surface, self._sst_path, transform, color=_C_SST_PATH
-            )
+            renderer_gl.draw_path(self._sst_path, *_c(_C_SST_PATH), width=2.5)
 
-        draw_endpoints(
-            surface,
-            _START,
-            _GOAL,
-            transform,
-            start_color=_C_START,
-            goal_color=_C_GOAL,
-            bg_color=_C_BG,
-        )
+        sx, sy = float(_START[0]), float(_START[1])
+        renderer_gl.draw_ring(sx, sy, _RING_OUTER, _RING_INNER, *_c(_C_START))
+        renderer_gl.draw_disc(sx, sy, _RING_INNER, *_c(_C_BG))
+        gx, gy = float(_GOAL[0]), float(_GOAL[1])
+        renderer_gl.draw_ring(gx, gy, _RING_OUTER, _RING_INNER, *_c(_C_GOAL))
+        renderer_gl.draw_disc(gx, gy, _RING_INNER, *_c(_C_BG))
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +298,7 @@ def _build_occupancy(cfg: dict[str, Any]) -> Any:
     top_y = mid_y + 10.0  # 35.0
     bot_y = mid_y - 10.0  # 15.0
     wall_x_start = 12.0
-    wall_x_close = 33.0  # right closing wall
+    wall_x_close = 33.0
 
     xs_h = list(np.arange(wall_x_start, wall_x_close + spacing, spacing))
     ys_v = list(np.arange(bot_y, top_y + spacing, spacing))
@@ -319,8 +307,6 @@ def _build_occupancy(cfg: dict[str, Any]) -> Any:
     bot_wall = [[x, bot_y] for x in xs_h]
     right_wall = [[wall_x_close, y] for y in ys_v]
 
-    # Sparse random obstacles — placed well outside the cul-de-sac and the
-    # start / goal approach corridors.
     rng = np.random.default_rng(42)
     sparse_pts: list[list[float]] = []
     margin = 4.0
