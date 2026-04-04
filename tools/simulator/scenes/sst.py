@@ -107,12 +107,6 @@ class SSTScene(SimScene):
         self._tree_nodes, self._tree_parent, self._path = planner.get_tree(
             self._start, self._goal
         )
-        self._sdf_surface = bake_sdf_surface(
-            self._occ,
-            self._bounds,
-            bg_color=_C_BG,
-            near_color=_C_SDF_NEAR,
-        )
 
     @property
     def title(self) -> str:
@@ -182,14 +176,21 @@ class SSTScene(SimScene):
             transform: World-to-screen callable.
             revealed: Number of tree nodes to show (0 = none, total = all).
         """
-        if self._sdf_surface is not None:
-            surface.blit(
-                pygame.transform.smoothscale(
-                    self._sdf_surface,
-                    (surface.get_width(), surface.get_height()),
-                ),
-                (0, 0),
+        if self._sdf_surface is None:
+            self._sdf_surface = bake_sdf_surface(
+                self._occ,
+                transform,
+                (surface.get_width(), surface.get_height()),
+                bg_color=_C_BG,
+                near_color=_C_SDF_NEAR,
             )
+        surface.blit(
+            pygame.transform.smoothscale(
+                self._sdf_surface,
+                (surface.get_width(), surface.get_height()),
+            ),
+            (0, 0),
+        )
         draw_obstacles(surface, self._occ, transform, color=_C_OBSTACLE)
         draw_exploration_tree(
             surface,
