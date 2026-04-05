@@ -382,6 +382,7 @@ def draw_path(
     g: float,
     b: float,
     width: float = 2.5,
+    alpha: float = 1.0,
 ) -> None:
     """Draw a planned path as a ``GL_LINE_STRIP``.
 
@@ -391,12 +392,14 @@ def draw_path(
         g: Green component ``[0, 1]``.
         b: Blue component ``[0, 1]``.
         width: Line width in pixels.
+        alpha: Opacity in ``[0, 1]``.  Values below 1.0 render a
+            semi-transparent path; requires GL blending to be enabled.
     """
     if len(path) < 2:
         return
     glDisable(GL_LIGHTING)
     glLineWidth(width)
-    glColor3f(r, g, b)
+    glColor4f(r, g, b, alpha)
     glBegin(GL_LINE_STRIP)
     for pt in path:
         glVertex2f(float(pt[0]), float(pt[1]))
