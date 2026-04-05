@@ -753,9 +753,14 @@ def blit_overlay(
     glEnd()
 
     glDisable(GL_TEXTURE_2D)
-    glDisable(GL_BLEND)
-    glEnable(GL_DEPTH_TEST)
-    glEnable(GL_LIGHTING)
+    # Restore 2-D scene defaults that _gl_init_2d established.  The original
+    # code unconditionally enabled GL_DEPTH_TEST and GL_LIGHTING, which broke
+    # any subsequent frame that did not re-disable them (e.g. the sparse racing
+    # phase that skips draw_sdf_background).
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    glDisable(GL_DEPTH_TEST)
+    glDisable(GL_LIGHTING)
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
