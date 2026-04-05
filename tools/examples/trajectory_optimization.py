@@ -145,6 +145,8 @@ def main(save_path: str | None = None) -> None:
         time_relaxation=float(_opt_cfg["time_relaxation"]),
         method=str(_opt_cfg["method"]),
         sample_count=int(_opt_cfg["sample_count"]),
+        max_iter=int(_opt_cfg.get("max_iter", 500)),
+        ftol=float(_opt_cfg.get("ftol", 1e-9)),
     )
 
     logger.info("Running TrajectoryOptimizer …")

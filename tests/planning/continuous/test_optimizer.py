@@ -348,7 +348,7 @@ def test_feasibility_overspeed_rejected():
     assert vehicle.is_feasible(state_fast) is False
 
 
-def test_feasibility_undertspeed_rejected():
+def test_feasibility_underspeed_rejected():
     """is_feasible must return False when speed is below min_speed."""
     vehicle = DubinsVehicle(max_speed=5.0, min_speed=1.0, max_turn_rate=1.0)
     state_slow = np.array([0.0, 0.0, 0.0, 0.5, 0.0])
