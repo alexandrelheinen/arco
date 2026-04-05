@@ -59,6 +59,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glShadeModel,
 )
 from scenes.sparse import SparseScene
+from sim.loading import run_with_loading_screen
 from sim.tracking import VehicleConfig, build_vehicle_sim, find_lookahead
 from sim.video import VideoWriter
 
@@ -291,7 +292,7 @@ def run_race(
     clock = pygame.time.Clock()
 
     # Fonts — build scene after pygame.init so SysFont is safe.
-    scene.build()
+    run_with_loading_screen(scene, sw, sh, bg_color=scene.bg_color)
     pygame.display.set_caption(scene.title)
 
     font = pygame.font.SysFont("monospace", 14)
@@ -328,6 +329,11 @@ def run_race(
     # ---------------------------------------------------------------------------
     # Mutable simulation state
     # ---------------------------------------------------------------------------
+    # Discrete background stages for LEFT/RIGHT navigation:
+    # 0 = empty init, 1 = RRT* tree complete, 2 = both trees complete.
+    _bg_stages = [(0, 0), (rrt_total, 0), (rrt_total, sst_total)]
+    _bg_stage_idx = 0
+
     phase = "background"  # "background" | "racing" | "done"
 
     rrt_revealed = 0
@@ -367,10 +373,12 @@ def run_race(
     def _restart() -> None:
         nonlocal phase, rrt_revealed, sst_revealed, hold
         nonlocal rrt_finish_time, sst_finish_time, last_finish_time, paused
+        nonlocal _bg_stage_idx
         phase = "background"
         rrt_revealed = 0
         sst_revealed = 0
         hold = 0
+        _bg_stage_idx = 0
         rrt_finish_time = None
         sst_finish_time = None
         last_finish_time = None
@@ -405,6 +413,15 @@ def run_race(
                             paused = not paused
                         elif event.key == pygame.K_r:
                             _restart()
+                        elif event.key == pygame.K_RIGHT and phase == "background":
+                            _bg_stage_idx = min(len(_bg_stages) - 1, _bg_stage_idx + 1)
+                            rrt_revealed, sst_revealed = _bg_stages[_bg_stage_idx]
+                            if rrt_revealed < rrt_total or sst_revealed < sst_total:
+                                hold = 0
+                        elif event.key == pygame.K_LEFT and phase == "background":
+                            _bg_stage_idx = max(0, _bg_stage_idx - 1)
+                            rrt_revealed, sst_revealed = _bg_stages[_bg_stage_idx]
+                            hold = 0
 
             # ------------------------------------------------------------------
             # Phase logic
@@ -479,10 +496,10 @@ def run_race(
                         and race_time - last_finish_time >= _POST_FINISH_SECS
                     ):
                         phase = "done"
-                        logger.info("Race finished.  Exiting.")
+                        logger.info("Race finished.")
 
                 elif phase == "done":
-                    running = False
+                    pass  # Keep alive; press R to restart or Q to quit.
 
             # ------------------------------------------------------------------
             # Render
@@ -605,6 +622,12 @@ def run_race(
                         _draw_winner_banner(
                             big_font, "SST  LEADS!", _C_SST_HUD, sw, sh
                         )
+
+            if phase == "done" and not recording:
+                _blit_center(
+                    font, "Press  R  to restart   |   Q  to quit",
+                    _C_HUD_DIM, sw, sh, sh - 34,
+                )
 
             # ------------------------------------------------------------------
             # Output frame

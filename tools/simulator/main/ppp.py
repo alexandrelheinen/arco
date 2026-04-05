@@ -112,6 +112,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 )
 from scenes.ppp import PPPScene
 from scenes.ppp import is_wall as _is_wall_box
+from sim.loading import run_with_loading_screen
 from sim.video import VideoWriter
 
 from config import load_config
@@ -237,16 +238,16 @@ _C_WALL_EDGE = (0.38, 0.17, 0.09)
 _C_BOX = (0.56, 0.41, 0.23)
 _C_BOX_EDGE = (0.31, 0.23, 0.13)
 _C_GRID = (0.15, 0.17, 0.22)
-_C_RRT = (0.40, 0.64, 1.00)  # raw RRT* path (kept dimmer in show)
-_C_SST = (0.23, 0.90, 0.75)  # raw SST path (kept dimmer in show)
-_C_TRAJ_RRT = (1.00, 0.50, 0.20)  # optimised RRT* trajectory — highlight
-_C_TRAJ_SST = (1.00, 0.86, 0.25)  # optimised SST trajectory — highlight
+_C_RRT = (0.05, 0.05, 0.25)  # raw RRT* path (kept dimmer in show)
+_C_SST = (0.25, 0.05, 0.05)  # raw SST path (kept dimmer in show)
+_C_TRAJ_RRT = (0.70, 0.70, 1.00)  # optimised RRT* trajectory — highlight
+_C_TRAJ_SST = (1.00, 0.70, 0.70)  # optimised SST trajectory — highlight
 _C_START = (0.22, 0.86, 0.33)
 _C_GOAL = (0.86, 0.30, 0.86)
 
 # HUD colours (pygame RGB int 0-255)
-_HC_RRT = (102, 163, 255)
-_HC_SST = (60, 229, 191)
+_HC_RRT = (51, 51, 102)
+_HC_SST = (102, 51, 51)
 _HC_HUD = (220, 220, 220)
 _HC_DIM = (120, 120, 130)
 _HC_SHADOW = (25, 30, 42)
@@ -794,14 +795,18 @@ class PPPRobot:
     """PPP gantry robot with independent per-axis velocity/acceleration limits.
 
     Each prismatic joint (x, y, z) is driven independently toward a moving
-    carrot target on the planned path.  Acceleration limits prevent
-    instantaneous velocity changes, so the end-effector lags and rounds
-    corners — producing a visible trail that diverges from the geometric plan.
+    carrot target on the planned path using a proportional position-to-velocity
+    controller.  Desired velocity is proportional to the distance to the
+    carrot, so the end-effector decelerates naturally as it approaches each
+    carrot position and never overshoots.  An acceleration clamp limits how
+    fast the velocity command can change, producing smooth transitions.
 
     Args:
         start: Initial 3-D end-effector position.
         max_vel: Maximum speed per axis in m/s.
         max_acc: Maximum acceleration per axis in m/s².
+        proportional_gain: P-gain mapping distance error to velocity (s⁻¹).
+            ``desired_vel = proportional_gain * err`` clipped to *max_vel*.
     """
 
     def __init__(
@@ -809,32 +814,34 @@ class PPPRobot:
         start: np.ndarray,
         max_vel: float,
         max_acc: float,
+        proportional_gain: float = 2.0,
     ) -> None:
         self.pos: np.ndarray = start.astype(float).copy()
         self.vel: np.ndarray = np.zeros(3)
         self._max_vel = max_vel
         self._max_acc = max_acc
+        self._k_p = proportional_gain
 
     def step(self, target: np.ndarray, dt: float) -> None:
         """Advance one timestep toward *target* with per-axis limits.
 
-        Computes the desired velocity directed at *target* at full
-        :attr:`_max_vel`, then applies a per-axis acceleration clamp so
-        velocity changes are limited to :attr:`_max_acc` * *dt* per step.
-        This causes the carrot-chasing behaviour to round path corners and
-        show visible acceleration and deceleration phases.
+        Computes a proportional velocity command directed at *target*
+        (``v = k_p * err``, clipped to ``max_vel``) and applies a
+        magnitude-based acceleration clamp so velocity changes are limited
+        to :attr:`_max_acc` * *dt* per step.  Because the commanded velocity
+        scales down as the robot nears the carrot, there is no overshoot.
 
         Args:
             target: 3-D carrot position on the planned path.
             dt: Integration timestep in seconds.
         """
         err = target - self.pos
-        dist = float(np.linalg.norm(err))
-        if dist < 1e-6:
-            desired_vel = np.zeros(3)
-        else:
-            desired_vel = (err / dist) * self._max_vel
-        # Apply a magnitude-based acceleration limit.
+        # Proportional control: v_desired ∝ error → natural deceleration near
+        # carrot, zero overshoot.  Clip each axis independently at max_vel.
+        desired_vel = np.clip(
+            self._k_p * err, -self._max_vel, self._max_vel
+        )
+        # Magnitude-based acceleration limit: rate-limit the velocity change.
         dv = desired_vel - self.vel
         dv_norm = float(np.linalg.norm(dv))
         max_dv = self._max_acc * dt
@@ -907,6 +914,7 @@ def run_race(
     max_joint_acc = float(cfg["max_joint_acc"])
     max_carrot_lag = float(cfg["max_carrot_lag"])
     goal_reach_dist = float(cfg["goal_reach_dist"])
+    proportional_gain = float(cfg.get("proportional_gain", 2.0))
 
     pygame.init()
     sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
@@ -922,7 +930,7 @@ def run_race(
     _gl_init(sw, sh)
 
     # Build the scene (runs planners — may take several seconds).
-    scene.build()
+    run_with_loading_screen(scene, sw, sh, bg_color=(18, 22, 32))
     pygame.display.set_caption(scene.title)
 
     font = pygame.font.SysFont("monospace", 14)
@@ -943,8 +951,12 @@ def run_race(
 
     # Race state
     hold_timer = 0.0
-    rrt_robot = PPPRobot(scene.start, max_joint_vel, max_joint_acc)
-    sst_robot = PPPRobot(scene.start, max_joint_vel, max_joint_acc)
+    rrt_robot = PPPRobot(
+        scene.start, max_joint_vel, max_joint_acc, proportional_gain
+    )
+    sst_robot = PPPRobot(
+        scene.start, max_joint_vel, max_joint_acc, proportional_gain
+    )
     rrt_carrot_dist = 0.0
     sst_carrot_dist = 0.0
     rrt_carrot = scene.start.copy()
@@ -982,10 +994,12 @@ def run_race(
                         camera = Camera3D()
                         hold_timer = 0.0
                         rrt_robot = PPPRobot(
-                            scene.start, max_joint_vel, max_joint_acc
+                            scene.start, max_joint_vel,
+                            max_joint_acc, proportional_gain,
                         )
                         sst_robot = PPPRobot(
-                            scene.start, max_joint_vel, max_joint_acc
+                            scene.start, max_joint_vel,
+                            max_joint_acc, proportional_gain,
                         )
                         rrt_carrot_dist = 0.0
                         sst_carrot_dist = 0.0
@@ -1079,7 +1093,7 @@ def run_race(
                         phase = "done"
                 elif phase == "done":
                     post_timer += dt
-                    if post_timer >= _POST_FINISH_SECS:
+                    if recording and post_timer >= _POST_FINISH_SECS:
                         running = False
 
             # --- 3-D render (OpenGL) ------------------------------------

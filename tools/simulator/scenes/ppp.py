@@ -169,8 +169,12 @@ class PPPScene:
     # Build
     # ------------------------------------------------------------------
 
-    def build(self) -> None:
+    def build(self, *, progress=None) -> None:
         """Build the occupancy map, run both planners, and optimise paths.
+
+        Args:
+            progress: Optional callable ``(step_name, step_index, total_steps)``
+                invoked at each build milestone for loading-screen feedback.
 
         Imports are deferred so that ``pygame.init()`` can be called
         before this method if needed.
@@ -185,15 +189,22 @@ class PPPScene:
         )
 
         _log = logging.getLogger(__name__)
+        _total = 5
 
+        if progress is not None:
+            progress("Sampling obstacle surfaces", 1, _total)
         all_pts: list[list[float]] = []
         for box in BOXES:
             all_pts.extend(_sample_box_surface(*box))
 
+        if progress is not None:
+            progress("Building occupancy map", 2, _total)
         occ = KDTreeOccupancy(
             all_pts, clearance=float(self._cfg["obstacle_clearance"])
         )
 
+        if progress is not None:
+            progress("Running RRT*", 3, _total)
         rrt = RRTPlanner(
             occ,
             bounds=BOUNDS,
@@ -205,6 +216,8 @@ class PPPScene:
         )
         _, _, self._rrt_path = rrt.get_tree(START.copy(), GOAL.copy())
 
+        if progress is not None:
+            progress("Running SST", 4, _total)
         sst = SSTPlanner(
             occ,
             bounds=BOUNDS,
@@ -218,6 +231,8 @@ class PPPScene:
         _, _, self._sst_path = sst.get_tree(START.copy(), GOAL.copy())
 
         # --- Trajectory optimisation (3-D) --------------------------------
+        if progress is not None:
+            progress("Optimising trajectories", 5, _total)
         opt = TrajectoryOptimizer(
             occ,
             cruise_speed=float(self._cfg.get("race_speed", 2.0)),
@@ -226,7 +241,7 @@ class PPPScene:
             weight_velocity=1.0,
             weight_collision=5.0,
             sample_count=1,
-            max_iter=200,
+            max_iter=50,
         )
         if self._rrt_path is not None:
             try:

@@ -1,9 +1,9 @@
 dubins:
   cruise_speed: 1.0  # m/s
-  lookahead: 0.5  # m slow down
+  lookahead: 2.0  # m — 2 s preview at 1 m/s; stable tracking on 7 m-edge ring graph
   max_speed: 5.0  # m/s (short-burst sprint)
   max_turn_rate: 180.0  # deg/s
   max_accel: 5.0  # m/s² (safe indoor acceleration)
   max_turn_rate_dot: 3600.0  # deg/s² (very high to avoid limiting turn rate changes)
   goal_radius: 1.0  # m (> 10 timesteps at cruise speed; robust pure-pursuit stopping)
-  curvature_gain: 0.0  # m  (v = cruise speed / (1 + gain * |κ|); 0 = constant speed)
+  curvature_gain: 1.0  # m  (v = cruise speed / (1 + gain * |κ|); slows on S-curves)

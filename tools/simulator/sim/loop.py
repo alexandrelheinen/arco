@@ -32,6 +32,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glShadeModel,
 )
 from sim.camera import CameraFilter, FollowTransform
+from sim.loading import run_with_loading_screen
 from sim.scene import SimScene
 from sim.tracking import build_vehicle_sim, find_lookahead
 from sim.video import VideoWriter
@@ -230,7 +231,7 @@ def run_sim(
     font = pygame.font.SysFont("monospace", 14)
 
     # Build scene AFTER pygame.init() so SysFont is safe to call.
-    scene.build()
+    run_with_loading_screen(scene, screen_w, screen_h, bg_color=scene.bg_color)
     pygame.display.set_caption(scene.title)
 
     # Initialise GL state using scene background colour.
@@ -385,6 +386,13 @@ def run_sim(
                                 _FOLLOW_ZOOM_MIN,
                                 follow_zoom - _FOLLOW_ZOOM_STEP,
                             )
+                        elif event.key == pygame.K_RIGHT and phase == "background":
+                            # Jump to the fully-revealed stage in one press.
+                            revealed = background_total
+                        elif event.key == pygame.K_LEFT and phase == "background":
+                            # Jump back to the empty/init stage.
+                            revealed = 0
+                            hold = 0
 
             # ------------------------------------------------------------------
             # Phase logic
