@@ -413,14 +413,29 @@ def run_race(
                             paused = not paused
                         elif event.key == pygame.K_r:
                             _restart()
-                        elif event.key == pygame.K_RIGHT and phase == "background":
-                            _bg_stage_idx = min(len(_bg_stages) - 1, _bg_stage_idx + 1)
-                            rrt_revealed, sst_revealed = _bg_stages[_bg_stage_idx]
-                            if rrt_revealed < rrt_total or sst_revealed < sst_total:
+                        elif (
+                            event.key == pygame.K_RIGHT
+                            and phase == "background"
+                        ):
+                            _bg_stage_idx = min(
+                                len(_bg_stages) - 1, _bg_stage_idx + 1
+                            )
+                            rrt_revealed, sst_revealed = _bg_stages[
+                                _bg_stage_idx
+                            ]
+                            if (
+                                rrt_revealed < rrt_total
+                                or sst_revealed < sst_total
+                            ):
                                 hold = 0
-                        elif event.key == pygame.K_LEFT and phase == "background":
+                        elif (
+                            event.key == pygame.K_LEFT
+                            and phase == "background"
+                        ):
                             _bg_stage_idx = max(0, _bg_stage_idx - 1)
-                            rrt_revealed, sst_revealed = _bg_stages[_bg_stage_idx]
+                            rrt_revealed, sst_revealed = _bg_stages[
+                                _bg_stage_idx
+                            ]
                             hold = 0
 
             # ------------------------------------------------------------------
@@ -625,8 +640,12 @@ def run_race(
 
             if phase == "done" and not recording:
                 _blit_center(
-                    font, "Press  R  to restart   |   Q  to quit",
-                    _C_HUD_DIM, sw, sh, sh - 34,
+                    font,
+                    "Press  R  to restart   |   Q  to quit",
+                    _C_HUD_DIM,
+                    sw,
+                    sh,
+                    sh - 34,
                 )
 
             # ------------------------------------------------------------------

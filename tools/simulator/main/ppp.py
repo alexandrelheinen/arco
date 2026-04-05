@@ -838,9 +838,7 @@ class PPPRobot:
         err = target - self.pos
         # Proportional control: v_desired ∝ error → natural deceleration near
         # carrot, zero overshoot.  Clip each axis independently at max_vel.
-        desired_vel = np.clip(
-            self._k_p * err, -self._max_vel, self._max_vel
-        )
+        desired_vel = np.clip(self._k_p * err, -self._max_vel, self._max_vel)
         # Magnitude-based acceleration limit: rate-limit the velocity change.
         dv = desired_vel - self.vel
         dv_norm = float(np.linalg.norm(dv))
@@ -994,12 +992,16 @@ def run_race(
                         camera = Camera3D()
                         hold_timer = 0.0
                         rrt_robot = PPPRobot(
-                            scene.start, max_joint_vel,
-                            max_joint_acc, proportional_gain,
+                            scene.start,
+                            max_joint_vel,
+                            max_joint_acc,
+                            proportional_gain,
                         )
                         sst_robot = PPPRobot(
-                            scene.start, max_joint_vel,
-                            max_joint_acc, proportional_gain,
+                            scene.start,
+                            max_joint_vel,
+                            max_joint_acc,
+                            proportional_gain,
                         )
                         rrt_carrot_dist = 0.0
                         sst_carrot_dist = 0.0

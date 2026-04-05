@@ -386,10 +386,16 @@ def run_sim(
                                 _FOLLOW_ZOOM_MIN,
                                 follow_zoom - _FOLLOW_ZOOM_STEP,
                             )
-                        elif event.key == pygame.K_RIGHT and phase == "background":
+                        elif (
+                            event.key == pygame.K_RIGHT
+                            and phase == "background"
+                        ):
                             # Jump to the fully-revealed stage in one press.
                             revealed = background_total
-                        elif event.key == pygame.K_LEFT and phase == "background":
+                        elif (
+                            event.key == pygame.K_LEFT
+                            and phase == "background"
+                        ):
                             # Jump back to the empty/init stage.
                             revealed = 0
                             hold = 0
