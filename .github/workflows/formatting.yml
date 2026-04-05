@@ -41,14 +41,14 @@ jobs:
         id: black
         run: |
           echo "Checking black formatting (line-length: 79)..."
-          python -m black --check --target-version py312 --line-length 79 src/ tools/
+          python -m black --check --target-version py312 --line-length 79 src/
         continue-on-error: true
 
       - name: Check isort formatting
         id: isort
         run: |
           echo "Checking isort formatting..."
-          python -m isort --check-only --line-length 79 src/ tools/
+          python -m isort --check-only --line-length 79 src/
         continue-on-error: true
 
       - name: Check Google-style docstrings
@@ -131,8 +131,8 @@ jobs:
                 '',
                 'To fix formatting issues, run:',
                 '```bash',
-                'python -m black --target-version py312 --line-length 79 src/ tools/',
-                'python -m isort --line-length 79 src/ tools/',
+                'python -m black --target-version py312 --line-length 79 src/',
+                'python -m isort --line-length 79 src/',
                 '```',
               ].join('\n'),
               labels: ['bug', 'ci'],

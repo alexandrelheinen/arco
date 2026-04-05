@@ -99,20 +99,20 @@ References: [Google Python Style Guide](https://google.github.io/styleguide/pygu
 
 ## 4. Code Formatting
 
-Formatting is enforced on **production code only** (`src/` and `tools/`).
+Formatting is enforced on **production code only** (`src/`).
 Test files (`tests/`) are excluded — they are not production code and do not
 need to be perfectly formatted or documented.
 
 Run **both** formatters before every commit:
 
 ```bash
-python -m black --target-version py312 --line-length 79 src/ tools/
-python -m isort --line-length 79 src/ tools/
+python -m black --target-version py312 --line-length 79 src/
+python -m isort --line-length 79 src/
 ```
 
 - `black` target version: `py312`, line length: `79`.
 - `isort` default profile (no extra configuration needed).
-- CI enforces these rules on `src/` and `tools/` only.
+- CI enforces these rules on `src/` only.
 
 
 
@@ -142,7 +142,7 @@ As indicated above, all work of an AI must include all the descending and ascend
 2. Implement the architecture of the code (classes, public interface, file organization, dependencies) and the (functional) unit tests at the same time. The testing must come first then coding: the performance of the algorithm is independent of its implementation. By reading the acceptance criteria above, you must already know which values to expect.
 3. Do the coding. This is the 3-rd step: Fill the stubs lefted by the architecture definition. Implement algorithms, data structure and private/local utilities. Add unit testing for private functions as well (fine testing/non-functional tests).
 4. Then, run the tests. Ideally proving 100% coverage (at least 90% would be great!). If this step fails, go back to step 2: Review your architecture, your functional tests, and go back to the cycle.
-5. Implement high level simulations if all the testing are passing. Add visual inspection (either images or videos) in the `tools` folder. Add material for the presentation and documentation of the tool. Add the appropriate documentation of the newly implemented feature, of fix the lines affected by the changes. All github workflows must pass: both at push and release! If some is wrong in this step, go back to step number 1.
+5. Implement high level simulations if all the testing are passing. Add visual inspection (either images or videos) in the `src/arco/tools` folder. Add material for the presentation and documentation of the tool. Add the appropriate documentation of the newly implemented feature, of fix the lines affected by the changes. All github workflows must pass: both at push and release! If some is wrong in this step, go back to step number 1.
 
 This complete the V-cycle. Once the acceptance criteria are met and all the Github workflows (autotests) are passing (both at push and release, test them all locally or add the tooling to test it), you can push your branch and trigger the review.
 
@@ -150,7 +150,15 @@ This complete the V-cycle. Once the acceptance criteria are met and all the Gith
 
 ## 7. Configuration Parameters
 
-Tunable algorithm parameters belong in `.yml` files under `config/`. The YAML structure should be human-readable and does not have to mirror the class hierarchy.
+Tunable algorithm parameters belong in `.yml` files under `src/arco/tools/config/`.
+The YAML structure should be human-readable and does not have to mirror the
+class hierarchy.
+
+Config files are loaded by `arco.tools.config.load_config(name)`. The loader
+checks the `ARCO_ROOT_DIR` environment variable first; if set, it reads from
+`${ARCO_ROOT_DIR}/config/`. Otherwise it falls back to the package-bundled
+config directory. This allows any deployment to override configuration without
+modifying source files.
 
 
 
@@ -243,30 +251,30 @@ locally. This applies to both human contributors and AI agents.
 python -m pytest tests/
 
 # 2. Code formatting — zero issues
-python -m black --check src/ tools/
+python -m black --check src/
 
 # 3. Import ordering — zero issues
-python -m isort --check-only src/ tools/
+python -m isort --check-only src/
 
 # 4. Examples — each script must complete without error
-MPLBACKEND=Agg python tools/examples/astar_grid_obstacle.py --save /tmp/astar_grid.png
-MPLBACKEND=Agg python tools/examples/astar_manhattan.py     --save /tmp/astar_manh.png
-MPLBACKEND=Agg python tools/examples/astar_graph.py         --save /tmp/astar_graph.png
-MPLBACKEND=Agg python tools/examples/astar_pipeline.py      --save /tmp/astar_pipeline.png
-MPLBACKEND=Agg python tools/examples/rrt_planning.py        --save /tmp/rrt.png
-MPLBACKEND=Agg python tools/examples/sst_planning.py        --save /tmp/sst.png
-MPLBACKEND=Agg python tools/examples/ppp_planning.py        --save /tmp/ppp.png
-MPLBACKEND=Agg python tools/examples/trajectory_optimization.py --save /tmp/traj.png
-MPLBACKEND=Agg python tools/examples/route_planning.py      --save /tmp/route.png
+MPLBACKEND=Agg python -m arco.tools.examples.astar_grid_obstacle --save /tmp/astar_grid.png
+MPLBACKEND=Agg python -m arco.tools.examples.astar_manhattan     --save /tmp/astar_manh.png
+MPLBACKEND=Agg python -m arco.tools.examples.astar_graph         --save /tmp/astar_graph.png
+MPLBACKEND=Agg python -m arco.tools.examples.astar_pipeline      --save /tmp/astar_pipeline.png
+MPLBACKEND=Agg python -m arco.tools.examples.rrt_planning        --save /tmp/rrt.png
+MPLBACKEND=Agg python -m arco.tools.examples.sst_planning        --save /tmp/sst.png
+MPLBACKEND=Agg python -m arco.tools.examples.ppp_planning        --save /tmp/ppp.png
+MPLBACKEND=Agg python -m arco.tools.examples.trajectory_optimization --save /tmp/traj.png
+MPLBACKEND=Agg python -m arco.tools.examples.route_planning      --save /tmp/route.png
 
 # 5. Simulator smoke tests — each must record 5 s without error
 #    (requires a real or virtual X display; use DISPLAY=:0 locally or
 #     xvfb-run -a in CI)
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/astar.py  --fps 30 --record /tmp/smoke_astar.mp4  --record-duration 5
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/rrt.py    --fps 30 --record /tmp/smoke_rrt.mp4    --record-duration 5
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/sst.py    --fps 30 --record /tmp/smoke_sst.mp4    --record-duration 5
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/sparse.py --fps 30 --record /tmp/smoke_sparse.mp4 --record-duration 5
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/ppp.py    --fps 30 --record /tmp/smoke_ppp.mp4    --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python -m arco.tools.simulator.main.astar  --fps 30 --record /tmp/smoke_astar.mp4  --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python -m arco.tools.simulator.main.rrt    --fps 30 --record /tmp/smoke_rrt.mp4    --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python -m arco.tools.simulator.main.sst    --fps 30 --record /tmp/smoke_sst.mp4    --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python -m arco.tools.simulator.main.sparse --fps 30 --record /tmp/smoke_sparse.mp4 --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python -m arco.tools.simulator.main.ppp    --fps 30 --record /tmp/smoke_ppp.mp4    --record-duration 5
 ```
 
 All GitHub workflow checks (push **and** release) must also pass before
