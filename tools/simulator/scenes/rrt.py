@@ -55,12 +55,12 @@ _VEHICLE_CONFIG = VehicleConfig(
     max_speed=5.0,
     min_speed=0.0,
     cruise_speed=3.0,
-    lookahead_distance=4.0,
+    lookahead_distance=4.0,  # 1.33 s preview at 3 m/s — stable tracking
     goal_radius=3.0,
     max_turn_rate=math.radians(90.0),
     max_acceleration=4.9,
     max_turn_rate_dot=math.radians(3600.0),
-    curvature_gain=0.0,
+    curvature_gain=0.5,  # gentle speed reduction on residual path curvature
 )
 
 
@@ -97,14 +97,21 @@ class RRTScene(SimScene):
     # SimScene interface
     # ------------------------------------------------------------------
 
-    def build(self) -> None:
+    def build(self, *, progress=None) -> None:  # type: ignore[override]
         """Build the obstacle environment, run RRT*, and optimise the path.
+
+        Args:
+            progress: Optional callable ``(step_name, step_index, total_steps)``
+                invoked at each build milestone for loading-screen feedback.
 
         Raises:
             RuntimeError: If planner configuration is missing required keys.
         """
+        _total = 3
         from arco.planning.continuous import RRTPlanner, TrajectoryOptimizer
 
+        if progress is not None:
+            progress("Building occupancy map", 1, _total)
         self._occ = _build_occupancy(self._cfg)
         bounds = [tuple(b) for b in self._cfg["bounds"]]
         self._bounds = [(float(b[0]), float(b[1])) for b in bounds]
@@ -117,6 +124,8 @@ class RRTScene(SimScene):
             ]
         )
 
+        if progress is not None:
+            progress("Running RRT*", 2, _total)
         planner = RRTPlanner(
             self._occ,
             bounds=bounds,
@@ -132,6 +141,8 @@ class RRTScene(SimScene):
 
         # --- Trajectory optimisation -----------------------------------
         if self._path is not None:
+            if progress is not None:
+                progress("Optimising trajectory", 3, _total)
             try:
                 opt = TrajectoryOptimizer(
                     self._occ,
@@ -141,7 +152,7 @@ class RRTScene(SimScene):
                     weight_velocity=1.0,
                     weight_collision=5.0,
                     sample_count=2,
-                    max_iter=200,
+                    max_iter=50,
                 )
                 result = opt.optimize(self._path)
                 self._traj_states = result.states

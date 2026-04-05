@@ -67,17 +67,24 @@ class AStarScene(SimScene):
     # SimScene interface
     # ------------------------------------------------------------------
 
-    def build(self) -> None:
+    def build(self, *, progress=None) -> None:  # type: ignore[override]
         """Build the road network and plan the A* route.
+
+        Args:
+            progress: Optional callable ``(step_name, step_index, total_steps)``
+                invoked at each build milestone for loading-screen feedback.
 
         Raises:
             RuntimeError: If the route planner cannot connect start to goal.
         """
+        _total = 2
         # Import here to avoid top-level side-effects.
         from graph.generator import generate_graph
 
         from arco.planning.discrete import RouteRouter
 
+        if progress is not None:
+            progress("Generating road network", 1, _total)
         self._graph = generate_graph(self._graph_cfg)
         node_ids = list(self._graph.nodes)
         start_pos, goal_pos = _find_farthest_pair(self._graph, node_ids)
@@ -95,6 +102,8 @@ class AStarScene(SimScene):
             ]
         )
 
+        if progress is not None:
+            progress("Planning A* route", 2, _total)
         router = RouteRouter(self._graph, activation_radius=_ACTIVATION_RADIUS)
         result = router.plan(start_xy, goal_xy)
         if result is None:

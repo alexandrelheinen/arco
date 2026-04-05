@@ -1,19 +1,22 @@
 """City-neighbourhood dual-planner (RRT* vs SST) race scene.
 
-:class:`SparseScene` builds a 2-D obstacle environment featuring a large
-(1280 × 720 m, 16:9) grid-city with 8 columns × 7 rows of city blocks.
-The vehicles race along the bottom-left ↔ top-right diagonal: start is the
-first street intersection near the bottom-left corner, goal is the first
-street intersection near the top-right corner.  No straight diagonal path
-exists — both planners must navigate through the street grid.
+:class:`SparseScene` builds a 2-D obstacle environment on a 1280 × 720 m
+procedural triangular road network.  A jittered hexagonal lattice is
+triangulated with scipy Delaunay; every surviving edge (≤ 1.7 × mean-edge-
+length) becomes a 30 m wide road corridor.  The interior of each triangular
+city block is derived as the set of points more than 15 m from every road
+centreline, and is filled with a dense KDTree obstacle point cloud.
+
+Start and goal are auto-placed at the two mesh nodes with the largest
+separation, guaranteeing a non-trivial path problem.
 
 After the exploration trees are fully revealed, the raw planned paths are
 shown dimmed and the optimised trajectories (produced by
 :class:`~arco.planning.continuous.TrajectoryOptimizer`) are overlaid as
 bright highlights.  The vehicles track the optimised trajectories.
 
-All layout parameters (block extents, street centrelines, start/goal, world
-bounds) are loaded from ``tools/config/obstacles.yml``; planner tuning
+All layout parameters (world size, mesh geometry, road width, obstacle
+sampling) are loaded from ``tools/config/obstacles.yml``; planner tuning
 parameters (step size, sample counts, …) come from ``tools/config/sparse.yml``.
 """
 
@@ -24,6 +27,8 @@ import math
 from typing import Any
 
 import numpy as np
+from scipy.spatial import Delaunay as _Delaunay
+
 import renderer_gl
 from sim.tracking import VehicleConfig
 
@@ -73,91 +78,142 @@ _RING_INNER = 0.6  # metres
 # ---------------------------------------------------------------------------
 
 
-def _make_road_dots(
+def _generate_neighbourhood_mesh(
     obs_cfg: dict[str, Any],
-) -> list[tuple[float, float]]:
-    """Build road-marking dot positions from the obstacles config.
+) -> tuple[
+    list[tuple[float, float]],
+    list[tuple[int, int]],
+]:
+    """Generate a jittered hex-lattice Delaunay mesh for the neighbourhood.
 
-    Places dots along every horizontal and vertical street centreline defined
-    in *obs_cfg* (``street_y`` and ``street_x``) at the spacing given by
-    ``road_dot_spacing``.
+    Replicates the algorithm from ``tools/graph/generator.py`` (ring
+    generator) but without holes and without S-curve waypoints — here we
+    only need the road-network skeleton (nodes + edges).
 
     Args:
+        obs_cfg: Parsed ``obstacles.yml`` dict.  Must contain
+            ``world_width``, ``world_height``, ``mean_edge_length``,
+            ``jitter_sigma``, ``max_edge_factor``, and ``seed``.
+
+    Returns:
+        A ``(positions, edges)`` pair where *positions* is a list of
+        ``(x, y)`` node coordinates and *edges* is a list of
+        ``(u, v)`` index pairs (u < v, both pruned to at most
+        ``max_edge_factor × mean_edge_length``).
+    """
+    width = float(obs_cfg["world_width"])
+    height = float(obs_cfg["world_height"])
+    mean_edge = float(obs_cfg["mean_edge_length"])
+    sigma = float(obs_cfg.get("jitter_sigma", 0.15))
+    max_factor = float(obs_cfg.get("max_edge_factor", 1.7))
+    seed = obs_cfg.get("seed", None)
+
+    rng = np.random.default_rng(seed)
+
+    # ── Jittered hexagonal lattice ─────────────────────────────────────────
+    row_spacing = mean_edge * math.sqrt(3.0) / 2.0
+    col_spacing = mean_edge
+    positions: list[tuple[float, float]] = []
+    row = 0
+    y = 0.0
+    while y <= height:
+        col_offset = col_spacing / 2.0 if (row % 2 == 1) else 0.0
+        x = col_offset
+        while x <= width:
+            jx = float(rng.normal(0.0, sigma * mean_edge))
+            jy = float(rng.normal(0.0, sigma * mean_edge))
+            px = float(np.clip(x + jx, 0.0, width))
+            py = float(np.clip(y + jy, 0.0, height))
+            positions.append((px, py))
+            x += col_spacing
+        y += row_spacing
+        row += 1
+
+    # ── Delaunay triangulation ─────────────────────────────────────────────
+    pts = np.array(positions)
+    tri = _Delaunay(pts)
+
+    edge_set: set[tuple[int, int]] = set()
+    for simplex in tri.simplices:
+        a, b, c = int(simplex[0]), int(simplex[1]), int(simplex[2])
+        for u, v in ((a, b), (b, c), (a, c)):
+            edge_set.add((min(u, v), max(u, v)))
+
+    # ── Prune long edges ───────────────────────────────────────────────────
+    max_edge_len = max_factor * mean_edge
+    edges: list[tuple[int, int]] = [
+        (u, v)
+        for u, v in edge_set
+        if math.hypot(
+            positions[u][0] - positions[v][0],
+            positions[u][1] - positions[v][1],
+        )
+        <= max_edge_len
+    ]
+
+    return positions, edges
+
+
+def _find_farthest_pair(
+    positions: list[tuple[float, float]],
+) -> tuple[int, int]:
+    """Return indices of the two nodes with the greatest Euclidean distance.
+
+    Args:
+        positions: List of ``(x, y)`` node coordinates.
+
+    Returns:
+        ``(i, j)`` index pair (i < j) of the farthest nodes.
+    """
+    best_dist = -1.0
+    best_i, best_j = 0, 1
+    n = len(positions)
+    for i in range(n):
+        xi, yi = positions[i]
+        for j in range(i + 1, n):
+            d = math.hypot(xi - positions[j][0], yi - positions[j][1])
+            if d > best_dist:
+                best_dist = d
+                best_i, best_j = i, j
+    return best_i, best_j
+
+
+def _make_road_dots(
+    positions: list[tuple[float, float]],
+    edges: list[tuple[int, int]],
+    obs_cfg: dict[str, Any],
+) -> list[tuple[float, float]]:
+    """Build road-marking dot positions along every mesh road edge.
+
+    Samples equally spaced dots along each surviving Delaunay edge at the
+    spacing given by ``road_dot_spacing``.
+
+    Args:
+        positions: Node coordinates from :func:`_generate_neighbourhood_mesh`.
+        edges: Edge index pairs from :func:`_generate_neighbourhood_mesh`.
         obs_cfg: Parsed ``obstacles.yml`` dict.
 
     Returns:
         List of ``(x, y)`` world positions.
     """
-    w = float(obs_cfg["world_width"])
-    h = float(obs_cfg["world_height"])
-    step = float(obs_cfg["road_dot_spacing"])
+    step = float(obs_cfg.get("road_dot_spacing", 5.0))
     dots: list[tuple[float, float]] = []
-    for cy in obs_cfg["street_y"]:
-        for x in np.arange(0.0, w, step):
-            dots.append((float(x), float(cy)))
-    for cx in obs_cfg["street_x"]:
-        for y in np.arange(0.0, h, step):
-            dots.append((float(cx), float(y)))
+    for u, v in edges:
+        ax, ay = positions[u]
+        bx, by = positions[v]
+        length = math.hypot(bx - ax, by - ay)
+        n_steps = max(1, int(length / step))
+        for k in range(1, n_steps):
+            t = k / n_steps
+            dots.append((ax + t * (bx - ax), ay + t * (by - ay)))
     return dots
-
-
-def _make_dead_end_walls(
-    obs_cfg: dict[str, Any],
-) -> list[tuple[float, float, float, float]]:
-    """Parse the dead-end barrier rectangles from the obstacles config.
-
-    Each barrier is a narrow axis-aligned wall placed across a street
-    segment to create a cul-de-sac dead end.  The list is read from the
-    optional ``dead_end_walls`` key in *obs_cfg*; an absent key returns an
-    empty list so that scenes without barriers still work.
-
-    Args:
-        obs_cfg: Parsed ``obstacles.yml`` dict.  May contain an optional
-            ``dead_end_walls`` key whose value is a list of four-element
-            sequences ``[x_lo, x_hi, y_lo, y_hi]`` in world metres.
-
-    Returns:
-        List of ``(x_lo, x_hi, y_lo, y_hi)`` barrier rectangles.
-    """
-    walls: list[tuple[float, float, float, float]] = []
-    for x_lo, x_hi, y_lo, y_hi in obs_cfg.get("dead_end_walls", []):
-        walls.append((float(x_lo), float(x_hi), float(y_lo), float(y_hi)))
-    return walls
-
-
-def _make_blocks(
-    obs_cfg: dict[str, Any],
-) -> list[tuple[float, float, float, float]]:
-    """Build the full list of block rectangles from column/row extents.
-
-    Every (column, row) pair in the Cartesian product of ``block_columns``
-    and ``block_rows`` becomes one rectangular obstacle block.
-
-    Args:
-        obs_cfg: Parsed ``obstacles.yml`` dict.
-
-    Returns:
-        List of ``(x_lo, x_hi, y_lo, y_hi)`` rectangles.
-    """
-    blocks: list[tuple[float, float, float, float]] = []
-    for x_lo, x_hi in obs_cfg["block_columns"]:
-        for y_lo, y_hi in obs_cfg["block_rows"]:
-            blocks.append(
-                (
-                    float(x_lo),
-                    float(x_hi),
-                    float(y_lo),
-                    float(y_hi),
-                )
-            )
-    return blocks
 
 
 def _make_vehicle_config(obs_cfg: dict[str, Any]) -> VehicleConfig:
     """Build a VehicleConfig scaled to the world defined in *obs_cfg*.
 
-    Parameters are chosen so the vehicle navigates the city at a realistic
-    speed relative to the ~30 m street width.
+    Parameters are chosen so a small 50 cm robotic car navigates 10 m-wide
+    neighbourhood roads at a realistic pace.
 
     Args:
         obs_cfg: Parsed ``obstacles.yml`` dict.
@@ -183,12 +239,13 @@ def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
 
 
 class SparseScene:
-    """Dual-planner race scene on a city-neighbourhood environment.
+    """Dual-planner race scene on a procedural triangular neighbourhood.
 
-    Runs RRT* and SST on the same 1280 × 720 m obstacle map.  Start and goal
-    are placed at the first street intersections on the bottom-left and
-    top-right diagonals of the city grid.  No straight diagonal path exists;
-    planners must discover a street-grid route connecting the two corners.
+    Runs RRT* and SST on the same 1280 × 720 m obstacle map generated from a
+    jittered hexagonal lattice triangulated with scipy Delaunay.  Every
+    surviving edge becomes a 30 m wide road; the interior of each triangular
+    city block is filled with KDTree obstacle points.  Start and goal are
+    placed at the two mesh nodes with the greatest separation.
 
     Args:
         cfg: Parsed planner configuration dict (from ``sparse.yml``).
@@ -201,21 +258,28 @@ class SparseScene:
         self._occ: Any = None
         self._sdf_tex_id: int | None = None
 
-        # Derived layout (built once from obs_cfg)
+        # Generate the triangular road-network mesh.
+        self._mesh_positions, self._mesh_edges = _generate_neighbourhood_mesh(
+            obs_cfg
+        )
+
+        # Derived layout from mesh
         w = float(obs_cfg["world_width"])
         h = float(obs_cfg["world_height"])
         self._bounds = [(0.0, w), (0.0, h)]
-        sx, sy = obs_cfg["start"]
-        self._start = np.array([float(sx), float(sy)])
-        gx, gy = obs_cfg["goal"]
-        self._goal = np.array([float(gx), float(gy)])
-        self._blocks = _make_blocks(obs_cfg)
-        self._dead_end_walls = _make_dead_end_walls(obs_cfg)
-        self._road_dots = _make_road_dots(obs_cfg)
+
+        # Start and goal: farthest pair of mesh nodes.
+        si, gi = _find_farthest_pair(self._mesh_positions)
+        self._start = np.array(self._mesh_positions[si], dtype=float)
+        self._goal = np.array(self._mesh_positions[gi], dtype=float)
+
+        self._road_dots = _make_road_dots(
+            self._mesh_positions, self._mesh_edges, obs_cfg
+        )
         self._vehicle_cfg = _make_vehicle_config(obs_cfg)
-        # Marker radii scale with world size
-        self._ring_outer = w * 0.014  # ≈ 18 m at 1280 m world
-        self._ring_inner = w * 0.007  # ≈  9 m
+        # Marker radii: fixed at ~14 m outer / 7 m inner (visible at 1280 m world).
+        self._ring_outer = 14.0
+        self._ring_inner = 7.0
 
         # RRT* planner output
         self._rrt_nodes: list[Any] = []
@@ -233,20 +297,32 @@ class SparseScene:
     # Build
     # ------------------------------------------------------------------
 
-    def build(self) -> None:
-        """Build the city-neighbourhood map, run both planners, and optimise.
+    def build(self, *, progress=None) -> None:
+        """Build the neighbourhood map, run both planners, and optimise.
 
-        Must be called **after** ``pygame.init()`` so that font calls inside
-        any sub-components are safe.
+        Args:
+            progress: Optional callable ``(step_name, step_index, total_steps)``
+                invoked at each build milestone for loading-screen feedback.
         """
+        _total = 5
         from arco.planning.continuous import (
             RRTPlanner,
             SSTPlanner,
             TrajectoryOptimizer,
         )
 
-        self._occ = _build_occupancy(self._obs_cfg, self._cfg)
+        if progress is not None:
+            progress("Generating triangular mesh", 1, _total)
+        # Mesh was already generated in __init__; the expensive step here is
+        # building the KDTree occupancy map from it.
+        if progress is not None:
+            progress("Building occupancy map", 2, _total)
+        self._occ = _build_occupancy(
+            self._mesh_positions, self._mesh_edges, self._obs_cfg, self._cfg
+        )
 
+        if progress is not None:
+            progress("Running RRT*", 3, _total)
         rrt = RRTPlanner(
             self._occ,
             bounds=self._bounds,
@@ -260,6 +336,8 @@ class SparseScene:
             self._start.copy(), self._goal.copy()
         )
 
+        if progress is not None:
+            progress("Running SST", 4, _total)
         sst = SSTPlanner(
             self._occ,
             bounds=self._bounds,
@@ -275,6 +353,8 @@ class SparseScene:
         )
 
         # --- Trajectory optimisation (scaled for the large world) --------
+        if progress is not None:
+            progress("Optimising trajectories", 5, _total)
         cruise = self._vehicle_cfg.cruise_speed
         opt = TrajectoryOptimizer(
             self._occ,
@@ -284,7 +364,7 @@ class SparseScene:
             weight_velocity=1.0,
             weight_collision=5.0,
             sample_count=0,
-            max_iter=100,
+            max_iter=30,
         )
         if self._rrt_path is not None:
             try:
@@ -378,102 +458,117 @@ class SparseScene:
     ) -> None:
         """Render the obstacle field, both exploration trees, and paths.
 
+        When *racing* is ``False`` the full world is drawn: SDF clearance
+        heatmap, road markings, buildings, barriers, exploration trees, raw
+        planned paths, and optimised trajectories.
+
+        When *racing* is ``True`` only the adjusted (optimised) trajectories
+        and the start/goal markers are rendered, giving a clean view of the
+        routes the vehicles are tracking.
+
         Args:
-            rrt_revealed: Number of RRT* tree nodes to display.
-            sst_revealed: Number of SST tree nodes to display.
-            racing: When ``True`` the planned paths are hidden so the vehicle
-                trajectories are the only route highlights visible.
+            rrt_revealed: Number of RRT* tree nodes to display (ignored when
+                *racing* is ``True``).
+            sst_revealed: Number of SST tree nodes to display (ignored when
+                *racing* is ``True``).
+            racing: When ``True``, collapse the view to only the adjusted
+                trajectories and start/goal markers.
         """
         x_min, x_max = self._bounds[0]
         y_min, y_max = self._bounds[1]
 
-        if self._sdf_tex_id is None:
-            self._sdf_tex_id = renderer_gl.bake_sdf_texture(
-                self._occ,
-                x_min,
-                x_max,
-                y_min,
-                y_max,
-                _C_BG,
-                _C_SDF_NEAR,
-            )
-        renderer_gl.draw_sdf_background(
-            self._sdf_tex_id, x_min, x_max, y_min, y_max
-        )
-
-        renderer_gl.draw_obstacle_points(
-            self._road_dots, *_c(_C_ROAD_DOT), point_size=3.0
-        )
-
-        renderer_gl.draw_obstacle_points(
-            self._occ.points, *_c(_C_BUILDING), point_size=5.0
-        )
-
-        # Draw dead-end barriers as filled amber rectangles on top of buildings.
-        for x_lo, x_hi, y_lo, y_hi in self._dead_end_walls:
-            renderer_gl.draw_oriented_rect(
-                (x_lo + x_hi) / 2.0,
-                (y_lo + y_hi) / 2.0,
-                (x_hi - x_lo) / 2.0,
-                (y_hi - y_lo) / 2.0,
-                0.0,
-                *_c(_C_BARRIER),
+        if not racing:
+            # Full world: SDF heatmap, obstacles, barriers, exploration trees,
+            # raw planned paths, and optimised trajectories.
+            if self._sdf_tex_id is None:
+                self._sdf_tex_id = renderer_gl.bake_sdf_texture(
+                    self._occ,
+                    x_min,
+                    x_max,
+                    y_min,
+                    y_max,
+                    _C_BG,
+                    _C_SDF_NEAR,
+                )
+            renderer_gl.draw_sdf_background(
+                self._sdf_tex_id, x_min, x_max, y_min, y_max
             )
 
-        renderer_gl.draw_tree(
-            self._rrt_nodes,
-            self._rrt_parent,
-            rrt_revealed,
-            *_c(_C_RRT_EDGE),
-            *_c(_C_RRT_NODE),
-        )
-        if (
-            not racing
-            and rrt_revealed >= self.rrt_total
-            and self._rrt_path is not None
-        ):
-            # Raw path — dimmed so the trajectory stands out (or at full
-            # opacity when no trajectory was generated).
-            rrt_path_alpha = _PATH_ALPHA if self._rrt_traj_states else 1.0
-            renderer_gl.draw_path(
-                self._rrt_path,
-                *_c(_C_RRT_PATH),
-                width=1.5 if self._rrt_traj_states else 2.5,
-                alpha=rrt_path_alpha,
+            renderer_gl.draw_obstacle_points(
+                self._road_dots, *_c(_C_ROAD_DOT), point_size=3.0
             )
-            # Optimised trajectory — highlighted
+
+            renderer_gl.draw_obstacle_points(
+                self._occ.points, *_c(_C_BUILDING), point_size=5.0
+            )
+
+            renderer_gl.draw_tree(
+                self._rrt_nodes,
+                self._rrt_parent,
+                rrt_revealed,
+                *_c(_C_RRT_EDGE),
+                *_c(_C_RRT_NODE),
+            )
+            if rrt_revealed >= self.rrt_total and self._rrt_path is not None:
+                rrt_path_alpha = (
+                    _PATH_ALPHA if self._rrt_traj_states else 1.0
+                )
+                renderer_gl.draw_path(
+                    self._rrt_path,
+                    *_c(_C_RRT_PATH),
+                    width=1.5 if self._rrt_traj_states else 2.5,
+                    alpha=rrt_path_alpha,
+                )
+                if self._rrt_traj_states:
+                    renderer_gl.draw_path(
+                        self._rrt_traj_states, *_c(_C_RRT_TRAJ), width=3.0
+                    )
+
+            renderer_gl.draw_tree(
+                self._sst_nodes,
+                self._sst_parent,
+                sst_revealed,
+                *_c(_C_SST_EDGE),
+                *_c(_C_SST_NODE),
+            )
+            if sst_revealed >= self.sst_total and self._sst_path is not None:
+                sst_path_alpha = (
+                    _PATH_ALPHA if self._sst_traj_states else 1.0
+                )
+                renderer_gl.draw_path(
+                    self._sst_path,
+                    *_c(_C_SST_PATH),
+                    width=1.5 if self._sst_traj_states else 2.5,
+                    alpha=sst_path_alpha,
+                )
+                if self._sst_traj_states:
+                    renderer_gl.draw_path(
+                        self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
+                    )
+        else:
+            # Racing: road-dot backdrop so the screen is never empty, then
+            # the adjusted trajectories so live vehicle trails stand out.
+            renderer_gl.draw_obstacle_points(
+                self._road_dots, *_c(_C_ROAD_DOT), point_size=3.0
+            )
             if self._rrt_traj_states:
                 renderer_gl.draw_path(
                     self._rrt_traj_states, *_c(_C_RRT_TRAJ), width=3.0
                 )
-
-        renderer_gl.draw_tree(
-            self._sst_nodes,
-            self._sst_parent,
-            sst_revealed,
-            *_c(_C_SST_EDGE),
-            *_c(_C_SST_NODE),
-        )
-        if (
-            not racing
-            and sst_revealed >= self.sst_total
-            and self._sst_path is not None
-        ):
-            # Raw path — dimmed so the trajectory stands out (or at full
-            # opacity when no trajectory was generated).
-            sst_path_alpha = _PATH_ALPHA if self._sst_traj_states else 1.0
-            renderer_gl.draw_path(
-                self._sst_path,
-                *_c(_C_SST_PATH),
-                width=1.5 if self._sst_traj_states else 2.5,
-                alpha=sst_path_alpha,
-            )
-            # Optimised trajectory — highlighted
+            elif self._rrt_path is not None:
+                renderer_gl.draw_path(
+                    self._rrt_path, *_c(_C_RRT_PATH), width=2.5
+                )
             if self._sst_traj_states:
                 renderer_gl.draw_path(
                     self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
                 )
+            elif self._sst_path is not None:
+                renderer_gl.draw_path(
+                    self._sst_path, *_c(_C_SST_PATH), width=2.5
+                )
 
+        # Start/goal markers — always visible.
         sx, sy = float(self._start[0]), float(self._start[1])
         renderer_gl.draw_ring(
             sx, sy, self._ring_outer, self._ring_inner, *_c(_C_START)
@@ -492,25 +587,28 @@ class SparseScene:
 
 
 def _build_occupancy(
+    mesh_positions: list[tuple[float, float]],
+    mesh_edges: list[tuple[int, int]],
     obs_cfg: dict[str, Any],
     cfg: dict[str, Any],
 ) -> Any:
-    """Build the city-neighbourhood obstacle environment.
+    """Build obstacle occupancy from the triangular neighbourhood mesh.
 
-    Samples every block rectangle defined in *obs_cfg* (``block_columns``
-    × ``block_rows``) on a regular grid to produce a dense point cloud for
-    the KDTree occupancy model.  Street corridors remain obstacle-free.
-
-    Layout (1280 × 720 m, street width ≈ 30 m)::
-
-        8 columns × 7 rows of city blocks fill the space.
-        START: first street crossing from bottom-left → (220.1,  148.5)
-        GOAL:  first street crossing from top-right   → (1047.3, 582.4)
-        No straight diagonal path exists; routes thread through the street
-        grid.
+    Samples a regular grid over the world, retains only points that are
+    (a) inside the Delaunay convex hull of the mesh nodes and
+    (b) further than ``road_half_width`` from every road-edge centreline.
+    The retained points form the KDTree obstacle cloud representing city
+    blocks.  Road corridors (within ``road_half_width`` of any edge) remain
+    obstacle-free.
 
     Args:
-        obs_cfg: Obstacle-layout dict (from ``obstacles.yml``).
+        mesh_positions: Node coordinates from
+            :func:`_generate_neighbourhood_mesh`.
+        mesh_edges: Edge index pairs from
+            :func:`_generate_neighbourhood_mesh`.
+        obs_cfg: Obstacle-layout dict providing ``world_width``,
+            ``world_height``, ``road_half_width``, and
+            ``obstacle_sampling_spacing``.
         cfg: Planner configuration dict providing ``obstacle_clearance``.
 
     Returns:
@@ -518,14 +616,49 @@ def _build_occupancy(
     """
     from arco.mapping import KDTreeOccupancy
 
+    road_hw = float(obs_cfg["road_half_width"])
     spacing = float(obs_cfg["obstacle_sampling_spacing"])
-    blocks = _make_blocks(obs_cfg)
-    dead_ends = _make_dead_end_walls(obs_cfg)
-    all_pts: list[list[float]] = []
-    for x_lo, x_hi, y_lo, y_hi in blocks + dead_ends:
-        xs = np.arange(x_lo, x_hi + spacing, spacing)
-        ys = np.arange(y_lo, y_hi + spacing, spacing)
-        for x in xs:
-            for y in ys:
-                all_pts.append([float(x), float(y)])
+    w = float(obs_cfg["world_width"])
+    h = float(obs_cfg["world_height"])
+
+    # Reconstruct Delaunay tessellation for inside-mesh test.
+    pts_arr = np.array(mesh_positions)
+    tri = _Delaunay(pts_arr)
+
+    # Precompute road-edge segment data as arrays for vectorised distance.
+    # seg_data[k] = (x1, y1, dx, dy, L2) for edge k.
+    seg_data: list[tuple[float, float, float, float, float]] = []
+    for u, v in mesh_edges:
+        x1, y1 = mesh_positions[u]
+        x2, y2 = mesh_positions[v]
+        dx, dy = x2 - x1, y2 - y1
+        seg_data.append((x1, y1, dx, dy, dx * dx + dy * dy))
+
+    # Candidate sample grid.
+    xs = np.arange(spacing / 2.0, w, spacing)
+    ys = np.arange(spacing / 2.0, h, spacing)
+    xx, yy = np.meshgrid(xs, ys)
+    candidates = np.column_stack([xx.ravel(), yy.ravel()])
+
+    # Discard samples outside the mesh convex hull.
+    inside = tri.find_simplex(candidates) >= 0
+    candidates = candidates[inside]
+
+    # Discard samples within road_half_width of any road edge.
+    mask = np.ones(len(candidates), dtype=bool)
+    cx = candidates[:, 0]
+    cy_arr = candidates[:, 1]
+    for x1, y1, dx, dy, L2 in seg_data:
+        if L2 < 1e-10:
+            dist = np.sqrt((cx - x1) ** 2 + (cy_arr - y1) ** 2)
+        else:
+            vx = cx - x1
+            vy = cy_arr - y1
+            t = np.clip((vx * dx + vy * dy) / L2, 0.0, 1.0)
+            proj_x = x1 + t * dx
+            proj_y = y1 + t * dy
+            dist = np.sqrt((cx - proj_x) ** 2 + (cy_arr - proj_y) ** 2)
+        mask &= dist > road_hw
+
+    all_pts = candidates[mask].tolist()
     return KDTreeOccupancy(all_pts, clearance=float(cfg["obstacle_clearance"]))

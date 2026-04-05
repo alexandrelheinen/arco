@@ -1,12 +1,7 @@
-# Sparse neighbourhood race: RRT* vs SST on the same city-block environment.
+# Sparse neighbourhood race: RRT* vs SST on the same triangular-mesh environment.
 #
-# Both planners share the same occupancy map and most parameters.  The
-# direct path from start (30, 360) to goal (1250, 360) is blocked by the
-# central row of city blocks; both planners must discover a horizontal
-# street corridor above or below the central row.
-#
-# World size: 1280 × 720 m (16:9).  Block extents, street centrelines,
-# start/goal, and obstacle-sampling spacing are defined in obstacles.yml.
+# The world is 1280 × 720 m with 30 m wide roads (road_half_width = 15 m).
+# Robot footprint: ~0.35 m radius; obstacle_clearance = 8.0 m.
 #
 # step_size          – maximum extension per iteration (world units).
 # goal_tolerance     – distance that counts as "at goal".
