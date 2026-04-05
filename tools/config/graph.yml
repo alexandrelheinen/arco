@@ -7,15 +7,15 @@
 #                              and symmetric holes.
 #
 # Ring parameters:
-#   width             – bounding box width in metres.
-#   height            – bounding box height in metres.
-#   mean_edge_length  – target average edge length in metres.
+#   width             – bounding box width in meters.
+#   height            – bounding box height in meters.
+#   mean_edge_length  – target average edge length in meters.
 #   hole_count        – number of holes to punch in the mesh.
-#                       The first hole is always centred in the bounding box;
+#                       The first hole is always centered in the bounding box;
 #                       the remaining holes are placed at equal angular offsets
 #                       around a shared radius (random initial angle, seed-
 #                       controlled), giving a rotationally symmetric pattern.
-#   hole_radius       – radius of each hole in metres.
+#   hole_radius       – radius of each hole in meters.
 #   curvature         – S-curve aggressiveness as a fraction of edge length.
 #                       0.09 produces a gentle curve (9 % of edge length).
 #   seed              – integer seed for reproducible output.
@@ -24,7 +24,7 @@
 # ── Random graph (used by astar_graph.py) ─────────────────────────────────────
 #
 #   node_count        – number of nodes to place in the square area.
-#   area              – side length of the square placement area in metres.
+#   area              – side length of the square placement area in meters.
 #   connect_radius    – maximum Euclidean distance used to connect two nodes.
 
 seed: 42

@@ -28,9 +28,9 @@ class ManhattanGrid(Grid):
         Args:
             shape: Grid dimensions in cells.  Mutually exclusive with
                 *physical_size*.
-            physical_size: Physical size of the grid in metres for each axis.
+            physical_size: Physical size of the grid in meters for each axis.
                 Mutually exclusive with *shape*.  Requires *cell_size*.
-            cell_size: Physical size of one cell in metres (default 1.0).
+            cell_size: Physical size of one cell in meters (default 1.0).
         """
         super().__init__(
             shape, physical_size=physical_size, cell_size=cell_size

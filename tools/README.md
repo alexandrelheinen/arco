@@ -25,7 +25,7 @@ python tools/astar_graph_example.py --save docs/examples/astar_graph.png
 ### `astar_grid_obstacle_example.py`
 
 Runs A\* on a **51 × 51 Manhattan grid** with a large square obstacle placed
-at the centre (~40 % of the grid size).  The planner finds a path from the
+at the center (~40 % of the grid size).  The planner finds a path from the
 top-left corner to the bottom-right corner around the obstacle.
 
 ```bash
@@ -45,8 +45,8 @@ python tools/astar_grid_obstacle_example.py --save docs/examples/astar_grid_obst
 | `visualization/graph_viewer.py` | `draw_graph()` – renders a `WeightedGraph` with optional path highlighting |
 | `visualization/grid_viewer.py` | `draw_grid()` – renders a 2-D `Grid` with optional path highlighting |
 
-Both viewers accept per-node / per-cell colour overrides so that a planner can
-colour explored nodes, frontier cells, etc. in any colour it chooses.
+Both viewers accept per-node / per-cell color overrides so that a planner can
+color explored nodes, frontier cells, etc. in any color it chooses.
 
 ---
 

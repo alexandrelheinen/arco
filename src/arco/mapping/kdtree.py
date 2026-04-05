@@ -14,7 +14,7 @@ class KDTreeOccupancy(Occupancy):
     """Continuous, sparse occupancy map backed by a KD-tree.
 
     Stores only the obstacle points (no empty-space cells) and uses a
-    :class:`scipy.spatial.KDTree` for efficient nearest-neighbour lookup.
+    :class:`scipy.spatial.KDTree` for efficient nearest-neighbor lookup.
     Collision checking is done by comparing the distance to the nearest
     obstacle against a configurable clearance radius.
 

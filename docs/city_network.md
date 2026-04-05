@@ -28,8 +28,8 @@ topology and edge geometry are included.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `id` | integer | **yes** | Unique node identifier |
-| `x` | number | **yes** | X-coordinate in metres |
-| `y` | number | **yes** | Y-coordinate in metres |
+| `x` | number | **yes** | X-coordinate in meters |
+| `y` | number | **yes** | Y-coordinate in meters |
 
 ### Edge object
 
@@ -93,7 +93,7 @@ The network has **61 nodes** and **110 edges** arranged as a triangular
 
 | IDs | Description |
 |---|---|
-| 0–56 | **Mesh nodes** — hexagonal triangular lattice, radius ~415 m from centre |
+| 0–56 | **Mesh nodes** — hexagonal triangular lattice, radius ~415 m from center |
 | 57 | **Terminal N** — (365, 1070) |
 | 58 | **Terminal E** — (1085, 422) |
 | 59 | **Terminal S** — (365, -70) |

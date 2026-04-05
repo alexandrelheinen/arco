@@ -63,7 +63,7 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Colour palette (matches the dark-asphalt theme used across scenes)
+# Color palette (matches the dark-asphalt theme used across scenes)
 # ---------------------------------------------------------------------------
 _C_BG_DEFAULT: tuple[int, int, int] = (22, 24, 30)
 _C_PANEL_BG: tuple[int, int, int, int] = (12, 14, 22, 220)
@@ -163,7 +163,7 @@ class ProgressReporter:
         self._bar.refresh()
 
     def close(self) -> None:
-        """Finalise the tqdm bar (call from the build thread when done)."""
+        """Finalize the tqdm bar (call from the build thread when done)."""
         if self._bar is not None:
             self._bar.n = self._bar.total
             self._bar.set_description(f"{'Done':<35}")
@@ -291,7 +291,7 @@ def _render_loading(
         sw: Screen width in pixels.
         sh: Screen height in pixels.
         tick: Frame counter for spinner animation.
-        bg_color: Background FILL colour (RGB 0-255).
+        bg_color: Background FILL color (RGB 0-255).
         title_font: Large bold font.
         body_font: Normal body font.
     """
@@ -337,7 +337,7 @@ def run_with_loading_screen(
         sw: Screen width in pixels (for overlay sizing).
         sh: Screen height in pixels (for overlay sizing).
         fps: Target overlay refresh rate in frames per second.
-        bg_color: Background RGB fill colour (should match the scene's
+        bg_color: Background RGB fill color (should match the scene's
             ``bg_color`` property).
 
     Raises:

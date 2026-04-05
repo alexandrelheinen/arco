@@ -19,9 +19,9 @@ class DubinsVehicle:
     integration via forward-Euler.
 
     Attributes:
-        x: Current x position (metres).
-        y: Current y position (metres).
-        heading: Current heading angle (radians), normalised to ``(−π, π]``.
+        x: Current x position (meters).
+        y: Current y position (meters).
+        heading: Current heading angle (radians), normalized to ``(−π, π]``.
         max_speed: Maximum forward speed (m/s).
         min_speed: Minimum forward speed; 0.0 prevents reversing (m/s).
         max_turn_rate: Maximum absolute turn rate (rad/s).
@@ -43,8 +43,8 @@ class DubinsVehicle:
         """Initialize DubinsVehicle.
 
         Args:
-            x: Initial x position in world frame (metres).
-            y: Initial y position in world frame (metres).
+            x: Initial x position in world frame (meters).
+            y: Initial y position in world frame (meters).
             heading: Initial heading angle (radians).
             max_speed: Maximum forward speed (m/s).
             min_speed: Minimum forward speed; set to 0.0 to prevent reversing,
@@ -94,8 +94,8 @@ class DubinsVehicle:
         """Reset vehicle state to a new pose with zero speed and turn rate.
 
         Args:
-            x: New x position (metres).
-            y: New y position (metres).
+            x: New x position (meters).
+            y: New y position (meters).
             heading: New heading angle (radians).
         """
         self.x = x
@@ -156,7 +156,7 @@ class DubinsVehicle:
         self.y += self._speed * math.sin(self.heading) * dt
         self.heading += self._turn_rate * dt
 
-        # Normalise heading to (−π, π]
+        # Normalize heading to (−π, π]
         self.heading = math.atan2(
             math.sin(self.heading), math.cos(self.heading)
         )
@@ -164,7 +164,7 @@ class DubinsVehicle:
         return self.pose
 
     # ------------------------------------------------------------------
-    # Trajectory optimiser interface
+    # Trajectory optimizer interface
     # ------------------------------------------------------------------
 
     def inverse_kinematics(

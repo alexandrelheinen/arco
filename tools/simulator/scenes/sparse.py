@@ -1,19 +1,19 @@
-"""City-neighbourhood dual-planner (RRT* vs SST) race scene.
+"""City-neighborhood dual-planner (RRT* vs SST) race scene.
 
 :class:`SparseScene` builds a 2-D obstacle environment on a 1280 × 720 m
 procedural triangular road network.  A jittered hexagonal lattice is
 triangulated with scipy Delaunay; every surviving edge (≤ 1.7 × mean-edge-
 length) becomes a 30 m wide road corridor.  The interior of each triangular
 city block is derived as the set of points more than 15 m from every road
-centreline, and is filled with a dense KDTree obstacle point cloud.
+centerline, and is filled with a dense KDTree obstacle point cloud.
 
 Start and goal are auto-placed at the two mesh nodes with the largest
 separation, guaranteeing a non-trivial path problem.
 
 After the exploration trees are fully revealed, the raw planned paths are
-shown dimmed and the optimised trajectories (produced by
+shown dimmed and the optimized trajectories (produced by
 :class:`~arco.planning.continuous.TrajectoryOptimizer`) are overlaid as
-bright highlights.  The vehicles track the optimised trajectories.
+bright highlights.  The vehicles track the optimized trajectories.
 
 All layout parameters (world size, mesh geometry, road width, obstacle
 sampling) are loaded from ``tools/config/obstacles.yml``; planner tuning
@@ -35,7 +35,7 @@ from sim.tracking import VehicleConfig
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Colour palette
+# Color palette
 # ---------------------------------------------------------------------------
 _C_BG: tuple[int, int, int] = (22, 24, 30)  # dark asphalt
 _C_BUILDING: tuple[int, int, int] = (145, 125, 100)  # concrete facade
@@ -49,7 +49,7 @@ _C_RRT_TRAJ: tuple[int, int, int] = (
     255,
     130,
     60,
-)  # optimised trajectory — highlight
+)  # optimized trajectory — highlight
 
 # SST — teal family
 _C_SST_EDGE: tuple[int, int, int] = (40, 180, 155)
@@ -59,7 +59,7 @@ _C_SST_TRAJ: tuple[int, int, int] = (
     255,
     220,
     80,
-)  # optimised trajectory — highlight
+)  # optimized trajectory — highlight
 
 _C_START: tuple[int, int, int] = (60, 220, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
@@ -70,21 +70,21 @@ _C_BARRIER: tuple[int, int, int] = (200, 120, 40)  # amber — dead-end barriers
 _PATH_ALPHA = 0.3
 
 # World-space ring radii for start/goal markers.
-_RING_OUTER = 1.2  # metres
-_RING_INNER = 0.6  # metres
+_RING_OUTER = 1.2  # meters
+_RING_INNER = 0.6  # meters
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _generate_neighbourhood_mesh(
+def _generate_neighborhood_mesh(
     obs_cfg: dict[str, Any],
 ) -> tuple[
     list[tuple[float, float]],
     list[tuple[int, int]],
 ]:
-    """Generate a jittered hex-lattice Delaunay mesh for the neighbourhood.
+    """Generate a jittered hex-lattice Delaunay mesh for the neighborhood.
 
     Replicates the algorithm from ``tools/graph/generator.py`` (ring
     generator) but without holes and without S-curve waypoints — here we
@@ -189,8 +189,8 @@ def _make_road_dots(
     spacing given by ``road_dot_spacing``.
 
     Args:
-        positions: Node coordinates from :func:`_generate_neighbourhood_mesh`.
-        edges: Edge index pairs from :func:`_generate_neighbourhood_mesh`.
+        positions: Node coordinates from :func:`_generate_neighborhood_mesh`.
+        edges: Edge index pairs from :func:`_generate_neighborhood_mesh`.
         obs_cfg: Parsed ``obstacles.yml`` dict.
 
     Returns:
@@ -213,7 +213,7 @@ def _make_vehicle_config(obs_cfg: dict[str, Any]) -> VehicleConfig:
     """Build a VehicleConfig scaled to the world defined in *obs_cfg*.
 
     Parameters are chosen so a small 50 cm robotic car navigates 10 m-wide
-    neighbourhood roads at a realistic pace.
+    neighborhood roads at a realistic pace.
 
     Args:
         obs_cfg: Parsed ``obstacles.yml`` dict.
@@ -239,7 +239,7 @@ def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
 
 
 class SparseScene:
-    """Dual-planner race scene on a procedural triangular neighbourhood.
+    """Dual-planner race scene on a procedural triangular neighborhood.
 
     Runs RRT* and SST on the same 1280 × 720 m obstacle map generated from a
     jittered hexagonal lattice triangulated with scipy Delaunay.  Every
@@ -259,7 +259,7 @@ class SparseScene:
         self._sdf_tex_id: int | None = None
 
         # Generate the triangular road-network mesh.
-        self._mesh_positions, self._mesh_edges = _generate_neighbourhood_mesh(
+        self._mesh_positions, self._mesh_edges = _generate_neighborhood_mesh(
             obs_cfg
         )
 
@@ -298,7 +298,7 @@ class SparseScene:
     # ------------------------------------------------------------------
 
     def build(self, *, progress=None) -> None:
-        """Build the neighbourhood map, run both planners, and optimise.
+        """Build the neighborhood map, run both planners, and optimize.
 
         Args:
             progress: Optional callable ``(step_name, step_index, total_steps)``
@@ -352,7 +352,7 @@ class SparseScene:
             self._start.copy(), self._goal.copy()
         )
 
-        # --- Trajectory optimisation (scaled for the large world) --------
+        # --- Trajectory optimization (scaled for the large world) --------
         if progress is not None:
             progress("Optimising trajectories", 5, _total)
         cruise = self._vehicle_cfg.cruise_speed
@@ -392,11 +392,11 @@ class SparseScene:
     @property
     def title(self) -> str:
         """Window caption."""
-        return "RRT* vs SST — neighbourhood race"
+        return "RRT* vs SST — neighborhood race"
 
     @property
     def bg_color(self) -> tuple[int, int, int]:
-        """Background fill colour."""
+        """Background fill color."""
         return _C_BG
 
     @property
@@ -423,7 +423,7 @@ class SparseScene:
 
     @property
     def rrt_waypoints(self) -> list[tuple[float, float]]:
-        """Optimised RRT* trajectory as ``(x, y)`` tuples, or empty list."""
+        """Optimized RRT* trajectory as ``(x, y)`` tuples, or empty list."""
         pts = (
             self._rrt_traj_states if self._rrt_traj_states else self._rrt_path
         )
@@ -433,7 +433,7 @@ class SparseScene:
 
     @property
     def sst_waypoints(self) -> list[tuple[float, float]]:
-        """Optimised SST trajectory as ``(x, y)`` tuples, or empty list."""
+        """Optimized SST trajectory as ``(x, y)`` tuples, or empty list."""
         pts = (
             self._sst_traj_states if self._sst_traj_states else self._sst_path
         )
@@ -443,7 +443,7 @@ class SparseScene:
 
     @property
     def road_dots(self) -> list[tuple[float, float]]:
-        """Road-marking dot positions along street centrelines."""
+        """Road-marking dot positions along street centerlines."""
         return self._road_dots
 
     # ------------------------------------------------------------------
@@ -460,9 +460,9 @@ class SparseScene:
 
         When *racing* is ``False`` the full world is drawn: SDF clearance
         heatmap, road markings, buildings, barriers, exploration trees, raw
-        planned paths, and optimised trajectories.
+        planned paths, and optimized trajectories.
 
-        When *racing* is ``True`` only the adjusted (optimised) trajectories
+        When *racing* is ``True`` only the adjusted (optimized) trajectories
         and the start/goal markers are rendered, giving a clean view of the
         routes the vehicles are tracking.
 
@@ -479,7 +479,7 @@ class SparseScene:
 
         if not racing:
             # Full world: SDF heatmap, obstacles, barriers, exploration trees,
-            # raw planned paths, and optimised trajectories.
+            # raw planned paths, and optimized trajectories.
             if self._sdf_tex_id is None:
                 self._sdf_tex_id = renderer_gl.bake_sdf_texture(
                     self._occ,
@@ -592,20 +592,20 @@ def _build_occupancy(
     obs_cfg: dict[str, Any],
     cfg: dict[str, Any],
 ) -> Any:
-    """Build obstacle occupancy from the triangular neighbourhood mesh.
+    """Build obstacle occupancy from the triangular neighborhood mesh.
 
     Samples a regular grid over the world, retains only points that are
     (a) inside the Delaunay convex hull of the mesh nodes and
-    (b) further than ``road_half_width`` from every road-edge centreline.
+    (b) further than ``road_half_width`` from every road-edge centerline.
     The retained points form the KDTree obstacle cloud representing city
     blocks.  Road corridors (within ``road_half_width`` of any edge) remain
     obstacle-free.
 
     Args:
         mesh_positions: Node coordinates from
-            :func:`_generate_neighbourhood_mesh`.
+            :func:`_generate_neighborhood_mesh`.
         mesh_edges: Edge index pairs from
-            :func:`_generate_neighbourhood_mesh`.
+            :func:`_generate_neighborhood_mesh`.
         obs_cfg: Obstacle-layout dict providing ``world_width``,
             ``world_height``, ``road_half_width``, and
             ``obstacle_sampling_spacing``.

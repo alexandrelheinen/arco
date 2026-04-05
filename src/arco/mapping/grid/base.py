@@ -28,8 +28,8 @@ class Grid(Graph):
 
     1. **Cell-based** (legacy): pass *shape* as a sequence of integers.
        ``cell_size`` defaults to 1.0 m.
-    2. **Metric**: pass *physical_size* (physical dimensions in metres) and
-       *cell_size* (metres per cell).  The number of cells along each
+    2. **Metric**: pass *physical_size* (physical dimensions in meters) and
+       *cell_size* (meters per cell).  The number of cells along each
        axis is ``ceil(physical_size[i] / cell_size)``, which is then rounded
        up to the nearest integer satisfying any subclass constraints.
        If the requested *physical_size* is not an exact multiple of
@@ -39,8 +39,8 @@ class Grid(Graph):
     Attributes:
         shape: Grid dimensions in cells (rows, cols, …).
         data: Occupancy array (0 = free, 1 = occupied).
-        cell_size: Physical size of one cell (metres).
-        physical_size: Actual physical extent of the grid in metres per axis.
+        cell_size: Physical size of one cell (meters).
+        physical_size: Actual physical extent of the grid in meters per axis.
     """
 
     shape: Tuple[int, ...]
@@ -62,9 +62,9 @@ class Grid(Graph):
         Args:
             shape: Grid dimensions in cells.  Mutually exclusive with
                 *physical_size*.
-            physical_size: Physical size of the grid in metres for each axis.
+            physical_size: Physical size of the grid in meters for each axis.
                 Mutually exclusive with *shape*.  Requires *cell_size*.
-            cell_size: Physical size of one cell in metres (default 1.0).
+            cell_size: Physical size of one cell in meters (default 1.0).
                 Used only when *physical_size* is given; ignored otherwise.
 
         Raises:
@@ -75,7 +75,7 @@ class Grid(Graph):
 
         if shape is None and physical_size is None:
             raise ValueError(
-                "Provide either 'shape' (cells) or 'physical_size' (metres)."
+                "Provide either 'shape' (cells) or 'physical_size' (meters)."
             )
         if shape is not None and physical_size is not None:
             raise ValueError(
@@ -173,7 +173,7 @@ class Grid(Graph):
         """Admissible A* heuristic: Euclidean distance between two cells.
 
         Uses the physical position of each cell (index multiplied by
-        :attr:`cell_size`) so the heuristic is expressed in metres and
+        :attr:`cell_size`) so the heuristic is expressed in meters and
         correctly accounts for non-unit cell sizes.
 
         Euclidean distance is always <= the true path cost for standard

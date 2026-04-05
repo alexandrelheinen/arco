@@ -105,7 +105,7 @@ def _draw_box(
         x2: Maximum x.
         y2: Maximum y.
         z2: Maximum z.
-        color: Face colour string.
+        color: Face color string.
         alpha: Face transparency in [0, 1].
     """
     ax.bar3d(  # type: ignore[attr-defined]
@@ -190,7 +190,7 @@ def main(save_path: str | None = None) -> None:
     else:
         logger.warning("SST: no path found.")
 
-    # --- Trajectory optimisation (3-D) -------------------------------------
+    # --- Trajectory optimization (3-D) -------------------------------------
     opt = TrajectoryOptimizer(
         occ,
         cruise_speed=float(_cfg.get("race_speed", 2.0)),
@@ -207,7 +207,7 @@ def main(save_path: str | None = None) -> None:
         try:
             res = opt.optimize(rrt_path)
             rrt_traj = res.states
-            logger.info("RRT* trajectory optimised: cost=%.3f", res.cost)
+            logger.info("RRT* trajectory optimized: cost=%.3f", res.cost)
         except Exception:
             logger.exception(
                 "RRT* TrajectoryOptimizer failed; skipping overlay."
@@ -216,7 +216,7 @@ def main(save_path: str | None = None) -> None:
         try:
             res = opt.optimize(sst_path)
             sst_traj = res.states
-            logger.info("SST trajectory optimised: cost=%.3f", res.cost)
+            logger.info("SST trajectory optimized: cost=%.3f", res.cost)
         except Exception:
             logger.exception(
                 "SST TrajectoryOptimizer failed; skipping overlay."
@@ -254,7 +254,7 @@ def main(save_path: str | None = None) -> None:
     for col, (title, path, length, color, traj) in enumerate(specs):
         ax = fig.add_subplot(1, 2, col + 1, projection="3d")
 
-        # Obstacle boxes — wall is coloured distinctly from scatter boxes.
+        # Obstacle boxes — wall is colored distinctly from scatter boxes.
         for box in _BOXES:
             _draw_box(
                 ax,
@@ -279,7 +279,7 @@ def main(save_path: str | None = None) -> None:
                 label=label,
             )
 
-        # Optimised trajectory — bright highlight on top of path
+        # Optimized trajectory — bright highlight on top of path
         if traj is not None and len(traj) >= 2:
             tarr = np.array([[p[0], p[1], p[2]] for p in traj])
             ax.plot(  # type: ignore[attr-defined]
@@ -291,7 +291,7 @@ def main(save_path: str | None = None) -> None:
                 linewidth=2.5,
                 markersize=3,
                 zorder=7,
-                label="Optimised trajectory",
+                label="Optimized trajectory",
             )
 
         # Start and goal markers

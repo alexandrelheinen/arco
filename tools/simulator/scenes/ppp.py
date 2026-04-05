@@ -54,11 +54,11 @@ BOXES: list[tuple[float, float, float, float, float, float]] = [
     (12.0, 2.5, 0.0, 12.5, 5.5, 2.5),  # back wall
 ]
 
-#: Maximum x-depth (metres) that classifies a box as the main blocking wall.
+#: Maximum x-depth (meters) that classifies a box as the main blocking wall.
 #: The wall spans dx = 2 m (x=7 to x=9); scatter boxes are wider.
 WALL_MAX_DEPTH: float = 2.5
 
-#: Minimum y-width (metres) that classifies a box as the main blocking wall.
+#: Minimum y-width (meters) that classifies a box as the main blocking wall.
 #: The wall spans dy = 10 m; scatter boxes are narrower.
 WALL_MIN_WIDTH: float = 8.0
 
@@ -118,7 +118,7 @@ def _sample_box_surface(
         x2: Maximum x coordinate.
         y2: Maximum y coordinate.
         z2: Maximum z coordinate.
-        spacing: Approximate distance between adjacent sample points (metres).
+        spacing: Approximate distance between adjacent sample points (meters).
             The default 0.4 m gives roughly 3–4 samples per metre, which is
             well below the 1.5 m obstacle clearance radius and ensures the
             KDTree can detect any intrusion into the box volume.
@@ -170,7 +170,7 @@ class PPPScene:
     # ------------------------------------------------------------------
 
     def build(self, *, progress=None) -> None:
-        """Build the occupancy map, run both planners, and optimise paths.
+        """Build the occupancy map, run both planners, and optimize paths.
 
         Args:
             progress: Optional callable ``(step_name, step_index, total_steps)``
@@ -230,7 +230,7 @@ class PPPScene:
         )
         _, _, self._sst_path = sst.get_tree(START.copy(), GOAL.copy())
 
-        # --- Trajectory optimisation (3-D) --------------------------------
+        # --- Trajectory optimization (3-D) --------------------------------
         if progress is not None:
             progress("Optimising trajectories", 5, _total)
         opt = TrajectoryOptimizer(
@@ -305,10 +305,10 @@ class PPPScene:
 
     @property
     def rrt_traj(self) -> list[np.ndarray]:
-        """Optimised RRT* trajectory states, or empty list."""
+        """Optimized RRT* trajectory states, or empty list."""
         return self._rrt_traj
 
     @property
     def sst_traj(self) -> list[np.ndarray]:
-        """Optimised SST trajectory states, or empty list."""
+        """Optimized SST trajectory states, or empty list."""
         return self._sst_traj

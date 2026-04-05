@@ -41,7 +41,7 @@ def draw_occupancy(
     exploration tree and solution path.
 
     Args:
-        occupancy: The KDTree occupancy map to visualise.
+        occupancy: The KDTree occupancy map to visualize.
         bounds: Sampling bounds as ``[(x_min, x_max), (y_min, y_max)]``.
             Only 2-D bounds are supported.
         path: Optional ordered sequence of 2-D waypoints for the solution
@@ -56,15 +56,15 @@ def draw_occupancy(
             heatmap background.
         draw_tree: When ``True``, render tree edges between *tree_nodes*
             and their parents.  Off by default.
-        obstacle_color: Colour used for obstacle points.
-        free_color: Background colour for free (far) regions.
-        path_color: Colour for the solution path.
-        path_alpha: Opacity of the solution path line (``0.0``–``1.0``).
-            Values below ``1.0`` are useful when an optimised trajectory
+        obstacle_color: Color used for obstacle points.
+        free_color: Background color for free (far) regions.
+        path_color: Color for the solution path.
+        path_alpha: Opacity of the solution path line (``0.0``–1.0``).
+            Values below ``1.0`` are useful when an optimized trajectory
             is drawn on top of the raw reference path.
-        tree_color: Colour for tree edges.
-        start_color: Colour for the start marker.
-        goal_color: Colour for the goal marker.
+        tree_color: Color for tree edges.
+        start_color: Color for the start marker.
+        goal_color: Color for the goal marker.
         ax: Existing axes to draw on.
         title: Optional figure title.
         figsize: Figure size when creating a new figure.

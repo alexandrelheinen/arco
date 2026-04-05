@@ -16,7 +16,7 @@ structure: reveal the planning result, then run the Dubins vehicle.
 
 ### Phase 2 — Vehicle tracking (all planners)
 
-| Layer | Colour |
+| Layer | Color |
 |---|---|
 | Planned path | Orange (A\*) / Yellow (RRT\*/SST) |
 | Past vehicle trajectory | Blue |

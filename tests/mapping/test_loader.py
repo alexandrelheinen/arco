@@ -165,7 +165,7 @@ class TestLoadRoadGraphErrors:
         finally:
             os.unlink(path)
 
-    def test_reverse_edge_waypoints_are_normalised(self):
+    def test_reverse_edge_waypoints_are_normalized(self):
         """Loader must reverse waypoints when from > to (canonical direction)."""
         data = {
             "nodes": [

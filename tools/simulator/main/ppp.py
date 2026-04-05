@@ -227,7 +227,7 @@ _CAM_ZOOM_STEP: float = 0.03
 # as zero-length).
 _EPSILON: float = 1e-3
 
-# OpenGL colours (float 0-1)
+# OpenGL colors (float 0-1)
 _C_TRAIL_RRT = (0.60, 0.80, 1.00)  # brighter variant of _C_RRT
 _C_TRAIL_SST = (0.50, 1.00, 0.88)  # brighter variant of _C_SST
 _C_LA_RRT = (0.90, 0.95, 1.00)
@@ -240,12 +240,12 @@ _C_BOX_EDGE = (0.31, 0.23, 0.13)
 _C_GRID = (0.15, 0.17, 0.22)
 _C_RRT = (0.05, 0.05, 0.25)  # raw RRT* path (kept dimmer in show)
 _C_SST = (0.25, 0.05, 0.05)  # raw SST path (kept dimmer in show)
-_C_TRAJ_RRT = (0.70, 0.70, 1.00)  # optimised RRT* trajectory — highlight
-_C_TRAJ_SST = (1.00, 0.70, 0.70)  # optimised SST trajectory — highlight
+_C_TRAJ_RRT = (0.70, 0.70, 1.00)  # optimized RRT* trajectory — highlight
+_C_TRAJ_SST = (1.00, 0.70, 0.70)  # optimized SST trajectory — highlight
 _C_START = (0.22, 0.86, 0.33)
 _C_GOAL = (0.86, 0.30, 0.86)
 
-# HUD colours (pygame RGB int 0-255)
+# HUD colors (pygame RGB int 0-255)
 _HC_RRT = (51, 51, 102)
 _HC_SST = (102, 51, 51)
 _HC_HUD = (220, 220, 220)
@@ -254,7 +254,7 @@ _HC_SHADOW = (25, 30, 42)
 _HC_WINNER = (255, 215, 50)
 _HC_TIE = (200, 200, 80)
 
-# End-effector half-dimensions (metres)
+# End-effector half-dimensions (meters)
 _EFF_HXY: float = 0.25
 _EFF_HZ: float = 0.40
 
@@ -274,7 +274,7 @@ class Camera3D:
     Args:
         azim: Initial azimuth in radians.
         elev: Initial elevation in radians.
-        dist: Distance from :attr:`center` in metres.
+        dist: Distance from :attr:`center` in meters.
         center: World-space point the camera looks at.
     """
 
@@ -306,10 +306,10 @@ class Camera3D:
 
 
 def _gl_init(sw: int, sh: int) -> None:
-    """Initialise the OpenGL state machine for the warehouse scene.
+    """Initialize the OpenGL state machine for the warehouse scene.
 
     Sets up depth testing, Phong lighting with a single overhead
-    directional light, colour-material tracking, and the perspective
+    directional light, color-material tracking, and the perspective
     projection matrix.
 
     Args:
@@ -436,7 +436,7 @@ def _draw_box_edges(
 ) -> None:
     """Draw the 12 wireframe edges of a box using GL_LINES.
 
-    Lighting is disabled while drawing so edge colour is exact.
+    Lighting is disabled while drawing so edge color is exact.
 
     Args:
         x1: Minimum x.
@@ -484,7 +484,7 @@ def _draw_box_edges(
 
 
 def _draw_path(path: list[np.ndarray], r: float, g: float, b: float) -> None:
-    """Draw a 3-D path as a coloured GL_LINE_STRIP.
+    """Draw a 3-D path as a colored GL_LINE_STRIP.
 
     Args:
         path: Ordered list of 3-D waypoints.
@@ -509,9 +509,9 @@ def _draw_floor_grid(x_max: float, y_max: float, spacing: float = 2.0) -> None:
     """Draw a ground-plane reference grid for depth perception.
 
     Args:
-        x_max: Grid x extent in metres.
-        y_max: Grid y extent in metres.
-        spacing: Cell size in metres.
+        x_max: Grid x extent in meters.
+        y_max: Grid y extent in meters.
+        spacing: Cell size in meters.
     """
     glDisable(GL_LIGHTING)
     glColor3f(*_C_GRID)
@@ -534,7 +534,7 @@ def _draw_effector(pos: np.ndarray, r: float, g: float, b: float) -> None:
     """Draw the PPP end-effector as a small lit parallelepiped with edges.
 
     Args:
-        pos: End-effector base centre (x, y, z).
+        pos: End-effector base center (x, y, z).
         r: Red channel in [0, 1].
         g: Green channel in [0, 1].
         b: Blue channel in [0, 1].
@@ -725,12 +725,12 @@ def _banner_surface(
     text: str,
     color: tuple[int, int, int],
 ) -> pygame.Surface:
-    """Build a translucent centred winner-banner surface.
+    """Build a translucent centered winner-banner surface.
 
     Args:
         big_font: Large bold font.
         text: Banner text (e.g. ``"RRT* WINS!"``).
-        color: Text colour.
+        color: Text color.
 
     Returns:
         RGBA banner surface.
@@ -863,7 +863,7 @@ def _draw_lookahead_3d(pos: np.ndarray, r: float, g: float, b: float) -> None:
         g: Green channel in [0, 1].
         b: Blue channel in [0, 1].
     """
-    h = 0.18  # half-extent in metres
+    h = 0.18  # half-extent in meters
     x, y, z = float(pos[0]), float(pos[1]), float(pos[2])
     _draw_box(x - h, y - h, z - h, x + h, y + h, z + h, r, g, b)
     _draw_box_edges(x - h, y - h, z - h, x + h, y + h, z + h, r, g, b)
@@ -940,7 +940,7 @@ def run_race(
     camera = Camera3D()
     rrt_path = scene.rrt_path
     sst_path = scene.sst_path
-    # Use optimised trajectory (if available) as the carrot path so the
+    # Use optimized trajectory (if available) as the carrot path so the
     # robot follows the time-optimal route; fall back to raw plan.
     rrt_nav = scene.rrt_traj if scene.rrt_traj else rrt_path
     sst_nav = scene.sst_traj if scene.sst_traj else sst_path
@@ -1111,7 +1111,7 @@ def run_race(
                 _draw_box_edges(*box, *ec)
 
             if rrt_path:
-                # Raw plan — dimmed so the optimised trajectory stands out.
+                # Raw plan — dimmed so the optimized trajectory stands out.
                 _draw_path(rrt_path, *_C_RRT)
             if scene.rrt_traj:
                 _draw_path(scene.rrt_traj, *_C_TRAJ_RRT)

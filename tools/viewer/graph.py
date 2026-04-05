@@ -30,27 +30,27 @@ def draw_graph(
 ) -> Tuple[Figure, Axes]:
     """Draw a :class:`~arco.mapping.graph.CartesianGraph` with an optional A* path.
 
-    The planner can supply per-node and per-edge colour overrides through the
+    The planner can supply per-node and per-edge color overrides through the
     *node_colors* and *edge_colors* mappings so that it can highlight explored
-    nodes, frontier nodes, etc. in any colour it chooses.
+    nodes, frontier nodes, etc. in any color it chooses.
 
     Args:
-        graph: The graph to visualise.
+        graph: The graph to visualize.
         path: Optional sequence of node IDs representing the planned path.
-            Path nodes and edges are coloured with *path_node_color* and
+            Path nodes and edges are colored with *path_node_color* and
             *path_edge_color* unless overridden by *node_colors* /
             *edge_colors*.
-        node_colors: Optional per-node colour override mapping
-            ``{node_id: colour}``.  Colours use any format accepted by
+        node_colors: Optional per-node color override mapping
+            ``{node_id: color}``.  Colors use any format accepted by
             matplotlib.
-        edge_colors: Optional per-edge colour override mapping
-            ``{(node_a, node_b): colour}``.  Keys are order-independent.
-        default_node_color: Colour for nodes not in the path or *node_colors*.
-        default_edge_color: Colour for edges not in the path or *edge_colors*.
-        path_node_color: Colour applied to intermediate path nodes.
-        path_edge_color: Colour applied to path edges.
-        start_color: Colour for the first node in *path* (start).
-        goal_color: Colour for the last node in *path* (goal).
+        edge_colors: Optional per-edge color override mapping
+            ``{(node_a, node_b): color}``.  Keys are order-independent.
+        default_node_color: Color for nodes not in the path or *node_colors*.
+        default_edge_color: Color for edges not in the path or *edge_colors*.
+        path_node_color: Color applied to intermediate path nodes.
+        path_edge_color: Color applied to path edges.
+        start_color: Color for the first node in *path* (start).
+        goal_color: Color for the last node in *path* (goal).
         node_size: Scatter point size used for nodes.
         ax: Existing :class:`matplotlib.axes.Axes` to draw on.  A new figure
             is created when *None*.

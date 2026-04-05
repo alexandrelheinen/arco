@@ -21,7 +21,7 @@ from sim.tracking import VehicleConfig
 _ENDPOINT_OFFSET_M = 1.0
 _ACTIVATION_RADIUS = 12.0
 
-# Colour palette (int tuples → _c() converts to float)
+# Color palette (int tuples → _c() converts to float)
 _C_BG = (28, 28, 35)
 _C_ROAD = (90, 90, 100)
 _C_ROAD_ROUTE = (220, 80, 60)
@@ -136,7 +136,7 @@ class AStarScene(SimScene):
 
     @property
     def bg_color(self) -> tuple[int, int, int]:
-        """Background fill colour."""
+        """Background fill color."""
         return _C_BG
 
     @property
@@ -199,7 +199,7 @@ class AStarScene(SimScene):
                 renderer_gl.draw_road_edge(pts, *_c(_C_ROAD), width=1.0)
 
         route_set = set(self._route) if self._route else set()
-        node_r = 0.3  # world metres
+        node_r = 0.3  # world meters
         for nid in self._graph.nodes:
             x, y = self._graph.position(nid)
             if self._route and nid == self._route[0]:

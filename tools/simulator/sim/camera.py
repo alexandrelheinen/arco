@@ -1,6 +1,6 @@
 """Camera helpers for the ARCO simulator.
 
-Provides :class:`FollowTransform` (a world-to-screen transform centred on an
+Provides :class:`FollowTransform` (a world-to-screen transform centered on an
 arbitrary position) and :class:`CameraFilter` (a critically-damped second-order
 spring that smoothly chases a moving vehicle).
 """
@@ -9,11 +9,11 @@ from __future__ import annotations
 
 
 class FollowTransform:
-    """World-to-screen transform centred on a filtered camera position.
+    """World-to-screen transform centered on a filtered camera position.
 
     Args:
-        center_x: Camera centre x in world metres.
-        center_y: Camera centre y in world metres.
+        center_x: Camera center x in world meters.
+        center_y: Camera center y in world meters.
         screen_size: ``(width, height)`` of the display in pixels.
         scale: Pixels per metre.
     """
@@ -34,8 +34,8 @@ class FollowTransform:
         """Convert world coordinates to screen pixels.
 
         Args:
-            wx: World x in metres.
-            wy: World y in metres.
+            wx: World x in meters.
+            wy: World y in meters.
 
         Returns:
             Integer ``(screen_x, screen_y)``.
@@ -46,7 +46,7 @@ class FollowTransform:
 
     @property
     def scale(self) -> float:
-        """Pixels per metre."""
+        """Pixels per meter."""
         return self._scale
 
     @property
@@ -74,8 +74,8 @@ class CameraFilter:
     Implements a critically-damped spring with configurable natural frequency.
 
     Args:
-        x: Initial camera x position in world metres.
-        y: Initial camera y position in world metres.
+        x: Initial camera x position in world meters.
+        y: Initial camera y position in world meters.
         natural_frequency: Natural frequency ω₀ in rad/s (default 3.0).
         damping_ratio: Damping ratio ζ (default 1.0 = critically damped).
     """
@@ -98,8 +98,8 @@ class CameraFilter:
         """Snap the camera to ``(x, y)`` and clear velocity.
 
         Args:
-            x: New camera x position in world metres.
-            y: New camera y position in world metres.
+            x: New camera x position in world meters.
+            y: New camera y position in world meters.
         """
         self.x = x
         self.y = y
@@ -110,8 +110,8 @@ class CameraFilter:
         """Advance the camera one timestep toward the target position.
 
         Args:
-            target_x: Target x position in world metres.
-            target_y: Target y position in world metres.
+            target_x: Target x position in world meters.
+            target_y: Target y position in world meters.
             dt: Timestep in seconds.
         """
         wn, zeta = self._wn, self._zeta

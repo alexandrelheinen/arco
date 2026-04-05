@@ -1,7 +1,7 @@
 # Grid configuration for A* obstacle examples.
 #
-# physical_size – physical size of the grid in metres [rows, cols].
-# cell_size     – physical size of one cell in metres.
+# physical_size – physical size of the grid in meters [rows, cols].
+# cell_size     – physical size of one cell in meters.
 #                 The number of cells per axis is ceil(physical_size / cell_size).
 #                 If physical_size is not a multiple of cell_size the grid is
 #                 extended upward to the nearest multiple (logged as a warning).

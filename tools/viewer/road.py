@@ -31,9 +31,9 @@ def draw_road_network(
     and the recorded vehicle trajectory from a tracking-loop simulation.
 
     Args:
-        graph: Road graph to visualise.
+        graph: Road graph to visualize.
         route: Optional sequence of node IDs representing the planned discrete
-            route.  Route edges are highlighted in a distinct colour.
+            route.  Route edges are highlighted in a distinct color.
         smooth_path: Optional sequence of ``(x, y)`` points for the
             interpolated smooth path extracted from edge geometry.
         trajectory: Optional sequence of ``(x, y, heading)`` poses recording

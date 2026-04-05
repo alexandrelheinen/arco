@@ -39,7 +39,7 @@ class PurePursuitController(Controller):
 
         Args:
             lookahead_distance: Arc length ahead on the path used to compute
-                the lookahead point (metres).
+                the lookahead point (meters).
         """
         self.lookahead_distance = lookahead_distance
         self.cross_track_error: float = 0.0
@@ -55,7 +55,7 @@ class PurePursuitController(Controller):
         """Compute pure pursuit speed and turn-rate commands.
 
         Finds the lookahead point on *path* that is approximately
-        ``lookahead_distance`` metres ahead of the vehicle and computes the
+        ``lookahead_distance`` meters ahead of the vehicle and computes the
         instantaneous turn rate that steers the vehicle toward it.  Also
         updates :attr:`cross_track_error` and :attr:`heading_error`.
 
@@ -180,7 +180,7 @@ def _find_lookahead(
         y: Vehicle y position.
         path: Ordered sequence of ``(x, y)`` waypoints.
         start_idx: Index of the closest waypoint on the path.
-        lookahead: Desired lookahead distance (metres).
+        lookahead: Desired lookahead distance (meters).
 
     Returns:
         ``(x, y)`` coordinates of the lookahead point.
@@ -220,8 +220,8 @@ def _circle_segment_intersection(
     to the segment end (i.e. the intersection farthest along the path).
 
     Args:
-        cx: Circle centre x.
-        cy: Circle centre y.
+        cx: Circle center x.
+        cy: Circle center y.
         r: Circle radius.
         p0x: Segment start x.
         p0y: Segment start y.

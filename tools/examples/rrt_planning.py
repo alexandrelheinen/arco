@@ -2,7 +2,7 @@
 RRT* planner on a 2-D continuous environment with scattered obstacles.
 
 Demonstrates asymptotically optimal RRT* on a planar environment.  The
-planner grows a tree from a start position and rewires edges to minimise
+planner grows a tree from a start position and rewires edges to minimize
 path cost.  An optional ``--tree`` flag renders the full exploration tree
 for visual inspection.
 
@@ -78,7 +78,7 @@ def build_occupancy() -> KDTreeOccupancy:
 
 
 def main(save_path: str | None = None, draw_tree: bool = False) -> None:
-    """Run RRT* and visualise the result.
+    """Run RRT* and visualize the result.
 
     Args:
         save_path: If provided, save the figure to this path instead of
@@ -127,7 +127,7 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
         logger.warning("No path found.")
         subtitle = "No path found"
 
-    # --- Trajectory optimisation ----------------------------------------
+    # --- Trajectory optimization ----------------------------------------
     traj_states = None
     if path is not None:
         try:
@@ -144,7 +144,7 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
             traj_result = opt.optimize(path)
             traj_states = traj_result.states
             logger.info(
-                "Trajectory optimised: cost=%.3f, T=%.2fs",
+                "Trajectory optimized: cost=%.3f, T=%.2fs",
                 traj_result.cost,
                 sum(traj_result.durations),
             )
@@ -167,7 +167,7 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
         title=f"RRT* — {int(_cfg['max_sample_count'])} samples\n{subtitle}",
     )
 
-    # Overlay the optimised trajectory in a highlighted colour.
+    # Overlay the optimized trajectory in a highlighted color.
     if traj_states is not None and len(traj_states) >= 2:
         traj_arr = np.array([[p[0], p[1]] for p in traj_states])
         ax.plot(
@@ -178,7 +178,7 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
             linewidth=2.5,
             markersize=3,
             zorder=6,
-            label="Optimised trajectory",
+            label="Optimized trajectory",
         )
         ax.legend(loc="upper left", fontsize=8)
 
