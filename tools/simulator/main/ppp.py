@@ -228,26 +228,26 @@ _CAM_ZOOM_STEP: float = 0.03
 _EPSILON: float = 1e-3
 
 # OpenGL colors (float 0-1)
-_C_TRAIL_RRT = (0.60, 0.80, 1.00)  # brighter variant of _C_RRT
-_C_TRAIL_SST = (0.50, 1.00, 0.88)  # brighter variant of _C_SST
+_C_TRAIL_RRT = (0.60, 0.80, 1.00)  # brighter variant of _C_RRT — blue
+_C_TRAIL_SST = (0.35, 0.85, 0.45)  # brighter variant of _C_SST — green
 _C_LA_RRT = (0.90, 0.95, 1.00)
-_C_LA_SST = (0.80, 1.00, 0.95)
+_C_LA_SST = (0.70, 1.00, 0.75)
 _BG = (18 / 255, 22 / 255, 32 / 255, 1.0)
 _C_WALL = (0.68, 0.31, 0.17)
 _C_WALL_EDGE = (0.38, 0.17, 0.09)
 _C_BOX = (0.56, 0.41, 0.23)
 _C_BOX_EDGE = (0.31, 0.23, 0.13)
 _C_GRID = (0.15, 0.17, 0.22)
-_C_RRT = (0.05, 0.05, 0.25)  # raw RRT* path (kept dimmer in show)
-_C_SST = (0.25, 0.05, 0.05)  # raw SST path (kept dimmer in show)
-_C_TRAJ_RRT = (0.70, 0.70, 1.00)  # optimized RRT* trajectory — highlight
-_C_TRAJ_SST = (1.00, 0.70, 0.70)  # optimized SST trajectory — highlight
+_C_RRT = (0.05, 0.05, 0.25)  # raw RRT* path — dark blue
+_C_SST = (0.05, 0.22, 0.08)  # raw SST path — dark green
+_C_TRAJ_RRT = (0.70, 0.70, 1.00)  # optimized RRT* trajectory — bright blue
+_C_TRAJ_SST = (0.40, 0.88, 0.50)  # optimized SST trajectory — bright green
 _C_START = (0.22, 0.86, 0.33)
 _C_GOAL = (0.86, 0.30, 0.86)
 
 # HUD colors (pygame RGB int 0-255)
-_HC_RRT = (51, 51, 102)
-_HC_SST = (102, 51, 51)
+_HC_RRT = (51, 51, 102)  # dark blue
+_HC_SST = (30, 100, 50)  # dark green
 _HC_HUD = (220, 220, 220)
 _HC_DIM = (120, 120, 130)
 _HC_SHADOW = (25, 30, 42)
