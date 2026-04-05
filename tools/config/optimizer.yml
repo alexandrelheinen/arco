@@ -1,0 +1,25 @@
+# Configuration for the TrajectoryOptimizer.
+#
+# cruise_speed     – target traversal speed (world units / s).
+# weight_time      – cost weight for the total-time-squared term.
+#                    Should dominate to drive the optimizer toward shorter
+#                    trajectories.
+# weight_deviation – cost weight for squared deviation from the reference
+#                    path at each interior waypoint.
+# weight_velocity  – cost weight for speed deviation from cruise_speed.
+#                    Prevents the degenerate T → 0 solution.
+# weight_collision – cost weight for obstacle-penetration penalty.
+# time_relaxation  – relaxation factor α for the initial duration estimate:
+#                    t_i⁰ = α · L_i / cruise_speed.  Values > 1.0 give the
+#                    optimizer room to tighten the time allocation.
+# method           – scipy.optimize.minimize algorithm (L-BFGS-B or SLSQP).
+# sample_count     – intermediate collision samples per segment.
+
+cruise_speed: 2.0
+weight_time: 10.0
+weight_deviation: 1.0
+weight_velocity: 1.0
+weight_collision: 5.0
+time_relaxation: 1.5
+method: L-BFGS-B
+sample_count: 3

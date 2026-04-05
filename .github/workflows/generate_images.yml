@@ -76,6 +76,12 @@ jobs:
           MPLBACKEND=Agg python tools/examples/ppp_planning.py \
             --save /tmp/generated_images/ppp_planning.png
 
+      # Generate trajectory optimisation example image
+      - name: Generate trajectory optimisation example
+        run: |
+          MPLBACKEND=Agg python tools/examples/trajectory_optimization.py \
+            --save /tmp/generated_images/trajectory_optimization.png
+
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
         run: |
@@ -133,6 +139,7 @@ jobs:
               '| `rrt_planning.png` | RRT\\* path through a 2-D environment with a wall and scattered obstacles |',
               '| `sst_planning.png` | SST path through the same environment (sparse active tree) |',
               '| `ppp_planning.png` | RRT\\* vs SST paths in a 3-D warehouse bay — PPP gantry robot arcing over a blocking wall |',
+              '| `trajectory_optimization.png` | RRT\\* reference path refined by two-stage TrajectoryOptimizer |',
               '',
               '### Architecture Diagrams (Pyreverse)',
               '',

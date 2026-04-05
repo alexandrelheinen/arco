@@ -11,6 +11,7 @@ The planning layer in ARCO provides algorithms for finding feasible paths throug
 ### Continuous Planning
 - **RRT\***: Asymptotically optimal sampling-based planner (see [planning_rrt.md](planning_rrt.md))
 - **SST**: Stable Sparse Trees for kinodynamic planning (see [planning_sst.md](planning_sst.md))
+- **TrajectoryOptimizer**: Two-stage trajectory refinement for time-optimal execution (see [planning_optimizer.md](planning_optimizer.md))
 
 ## Stub Implementations (Won't Do)
 - **D\* Lite**: Dynamic replanning stub exists but full implementation is not planned (see [planning_dstar.md](planning_dstar.md))
@@ -30,7 +31,8 @@ src/arco/planning/
     ├── __init__.py
     ├── base.py          ← ContinuousPlanner abstract base
     ├── rrt.py           ← RRT* planner implementation
-    └── sst.py           ← SST planner implementation
+    ├── sst.py           ← SST planner implementation
+    └── optimizer.py     ← TrajectoryOptimizer (two-stage refinement)
 ```
 
 ## References
