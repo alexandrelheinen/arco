@@ -76,8 +76,8 @@ jobs:
           MPLBACKEND=Agg python tools/examples/ppp_planning.py \
             --save /tmp/generated_images/ppp_planning.png
 
-      # Generate trajectory optimisation example image
-      - name: Generate trajectory optimisation example
+      # Generate trajectory optimization example image
+      - name: Generate trajectory optimization example
         run: |
           MPLBACKEND=Agg python tools/examples/trajectory_optimization.py \
             --save /tmp/generated_images/trajectory_optimization.png

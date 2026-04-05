@@ -1,7 +1,7 @@
 """
-Trajectory Optimisation example using RRT* + TrajectoryOptimizer.
+Trajectory Optimization example using RRT* + TrajectoryOptimizer.
 
-Demonstrates the two-stage trajectory optimisation pipeline:
+Demonstrates the two-stage trajectory optimization pipeline:
 
 1. RRT* finds a collision-free reference path.
 2. :class:`~arco.planning.continuous.TrajectoryOptimizer` refines the
@@ -83,7 +83,7 @@ def build_occupancy() -> KDTreeOccupancy:
 
 
 def main(save_path: str | None = None) -> None:
-    """Run RRT* followed by trajectory optimisation and visualise.
+    """Run RRT* followed by trajectory optimization and visualize.
 
     Args:
         save_path: If provided, save the figure to this path instead of
@@ -158,13 +158,13 @@ def main(save_path: str | None = None) -> None:
 
     total_time = sum(result.durations)
     logger.info(
-        "Optimised trajectory: cost=%.3f, total_time=%.2fs",
+        "Optimized trajectory: cost=%.3f, total_time=%.2fs",
         result.cost,
         total_time,
     )
 
     # ------------------------------------------------------------------ #
-    # Visualisation                                                        #
+    # Visualization                                                        #
     # ------------------------------------------------------------------ #
     fig, ax = draw_occupancy(
         occ,
@@ -174,13 +174,13 @@ def main(save_path: str | None = None) -> None:
         goal=goal,
         path_color="steelblue",
         title=(
-            "Trajectory Optimisation\n"
-            f"RRT* reference (blue)  ·  Optimised trajectory (orange)"
+            "Trajectory Optimization\n"
+            f"RRT* reference (blue)  ·  Optimized trajectory (orange)"
             f"  ·  T = {total_time:.1f} s"
         ),
     )
 
-    # Overlay optimised trajectory
+    # Overlay optimized trajectory
     opt_pts = np.array(result.states)
     ax.plot(
         opt_pts[:, 0],
@@ -190,7 +190,7 @@ def main(save_path: str | None = None) -> None:
         linewidth=2.5,
         markersize=5,
         zorder=5,
-        label="Optimised",
+        label="Optimized",
     )
 
     # Annotate segment durations
@@ -211,7 +211,7 @@ def main(save_path: str | None = None) -> None:
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
         fig.savefig(save_path, dpi=150)
-        logger.info("Saved trajectory optimisation example to %s", save_path)
+        logger.info("Saved trajectory optimization example to %s", save_path)
     else:
         plt.show()
 

@@ -5,7 +5,7 @@ Demonstrates the complete A* horse auto-follow pipeline on the city road
 network (``tools/config/city_network.json``):
 
 1. **Road loading** — :func:`~arco.mapping.graph.loader.load_road_graph`
-   deserialises the hand-crafted city network descriptor into a
+   deserializes the hand-crafted city network descriptor into a
    :class:`~arco.mapping.graph.road.RoadGraph` with 61 nodes and
    110 road segments forming a triangular mesh, each carrying S-curve geometry
    waypoints computed in the canonical direction (no back-and-forth loops).
@@ -133,17 +133,17 @@ def find_lookahead(
     path: list[tuple[float, float]],
     lookahead: float,
 ) -> tuple[float, float]:
-    """Return the lookahead point on *path* at approximately *lookahead* metres ahead.
+    """Return the lookahead point on *path* at approximately *lookahead* meters ahead.
 
     Searches forward along the path from the closest waypoint and returns the
-    first point that lies at least *lookahead* metres from ``(x, y)``.
+    first point that lies at least *lookahead* meters from ``(x, y)``.
     Falls back to the final path point when no such point is found.
 
     Args:
         x: Vehicle x position.
         y: Vehicle y position.
         path: Ordered list of ``(x, y)`` waypoints.
-        lookahead: Desired lookahead distance (metres).
+        lookahead: Desired lookahead distance (meters).
 
     Returns:
         ``(x, y)`` coordinates of the lookahead point.

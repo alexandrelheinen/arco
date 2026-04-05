@@ -29,22 +29,22 @@ def draw_grid(
 ) -> Tuple[Figure, Axes]:
     """Draw a 2-D :class:`~arco.mapping.grid.base.Grid` with an optional A* path.
 
-    The planner can supply per-cell colour overrides through *cell_colors* to
-    highlight explored or frontier cells in any colour it chooses.
+    The planner can supply per-cell color overrides through *cell_colors* to
+    highlight explored or frontier cells in any color it chooses.
 
     Only 2-D grids are supported; an error is raised for other dimensionalities.
 
     Args:
-        grid: The 2-D grid to visualise.
+        grid: The 2-D grid to visualize.
         path: Optional sequence of ``(row, col)`` tuples representing the
             planned path.
-        cell_colors: Optional per-cell colour override mapping
-            ``{(row, col): colour}``.
-        free_color: Colour for free (unoccupied) cells.
-        obstacle_color: Colour for occupied cells.
-        path_color: Colour applied to intermediate path cells.
-        start_color: Colour for the first cell in *path* (start).
-        goal_color: Colour for the last cell in *path* (goal).
+        cell_colors: Optional per-cell color override mapping
+            ``{(row, col): color}``.
+        free_color: Color for free (unoccupied) cells.
+        obstacle_color: Color for occupied cells.
+        path_color: Color applied to intermediate path cells.
+        start_color: Color for the first cell in *path* (start).
+        goal_color: Color for the last cell in *path* (goal).
         ax: Existing :class:`matplotlib.axes.Axes` to draw on.  A new figure
             is created when *None*.
         title: Optional plot title.

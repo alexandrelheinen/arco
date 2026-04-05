@@ -52,7 +52,7 @@ def generate_graph(cfg: dict[str, Any]) -> RoadGraph:
         A populated :class:`~arco.mapping.graph.RoadGraph`.
 
     Raises:
-        ValueError: When ``type`` is not a recognised generator name.
+        ValueError: When ``type`` is not a recognized generator name.
         KeyError: When a required parameter is absent from *cfg*.
     """
     graph_type = cfg.get("type", "ring")

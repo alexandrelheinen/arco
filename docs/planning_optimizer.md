@@ -13,14 +13,14 @@ Global sampling-based planners (RRT\*, SST) produce collision-free paths
 but do not reason about time, speed profiles, or kinematic feasibility.
 The `TrajectoryOptimizer` post-processes these paths to:
 
-- Minimise total traversal time.
+- Minimize total traversal time.
 - Keep the trajectory close to the reference path.
 - Penalise speeds that deviate significantly from the cruise speed.
 - Penalise obstacle proximity using the KD-tree occupancy structure.
 
 ---
 
-## Discretisation
+## Discretization
 
 The trajectory is divided into **N segments**, where *N = len(reference_path) − 1*.
 The independent variable is a dimensionless **progress** *s* that advances
@@ -53,7 +53,7 @@ J = w_time · T²
 | Term | Symbol | Description |
 |------|--------|-------------|
 | Total time squared | `w_time · T²` | Drives the optimizer toward shorter trajectories. Dominant term by default. |
-| Reference deviation | `w_deviation · Σ d²` | Keeps the optimised path close to the global planner output. |
+| Reference deviation | `w_deviation · Σ d²` | Keeps the optimized path close to the global planner output. |
 | Velocity penalty | `w_velocity · Σ (v − v_cruise)²` | Prevents degenerate *T → 0* solutions; keeps speed near cruise. |
 | Collision penalty | `w_collision · Σ c(p, obs)` | Penalises obstacle penetration using the KD-tree nearest-obstacle query. |
 
@@ -106,7 +106,7 @@ For `DubinsVehicle`, `state` can be:
 - 5 elements `(x, y, θ, speed, turn_rate)` — checked against
   `max_speed`, `min_speed`, and `max_turn_rate`.
 
-The optimizer calls `feasibility(state)` for each optimised waypoint and
+The optimizer calls `feasibility(state)` for each optimized waypoint and
 issues a `RuntimeWarning` for any infeasible state.  The result is still
 returned; feasibility is a diagnostic, not a hard constraint at this stage.
 
@@ -119,8 +119,8 @@ through two optional callables:
 
 | Callable | Signature | Purpose |
 |----------|-----------|---------|
-| `inverse_kinematics` | `(start, goal, speed, duration) → np.ndarray` | Returns control commands for Stage-1 initialisation. |
-| `feasibility` | `(state) → bool` | Post-optimisation feasibility check. |
+| `inverse_kinematics` | `(start, goal, speed, duration) → np.ndarray` | Returns control commands for Stage-1 initialization. |
+| `feasibility` | `(state) → bool` | Post-optimization feasibility check. |
 
 `DubinsVehicle` already implements both:
 
@@ -179,7 +179,7 @@ occ = KDTreeOccupancy(obstacle_points, clearance=0.5)
 rrt = RRTPlanner(occ, bounds=[(0, 50), (0, 50)])
 reference_path = rrt.plan(start, goal)
 
-# Optimise the trajectory
+# Optimize the trajectory
 vehicle = DubinsVehicle(max_speed=5.0)
 optimizer = TrajectoryOptimizer(occ, cruise_speed=2.0)
 result = optimizer.optimize(
@@ -192,7 +192,7 @@ print(f"Total time: {sum(result.durations):.2f} s")
 print(f"Final cost: {result.cost:.4f}")
 ```
 
-A fully worked visualisation example is in
+A fully worked visualization example is in
 `tools/examples/trajectory_optimization.py`.
 
 ---

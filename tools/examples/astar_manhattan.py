@@ -56,11 +56,11 @@ def build_grid_with_obstacle(
     cell_size: float = float(_cfg["cell_size"]),
     obstacle_fraction: float = float(_cfg["obstacle_fraction"]),
 ) -> ManhattanGrid:
-    """Build a square Manhattan grid with a centred square obstacle.
+    """Build a square Manhattan grid with a centered square obstacle.
 
     Args:
-        physical_size: Physical dimensions of the grid in metres ``[rows, cols]``.
-        cell_size: Physical size of one cell in metres.  The grid is
+        physical_size: Physical dimensions of the grid in meters ``[rows, cols]``.
+        cell_size: Physical size of one cell in meters.  The grid is
             extended to the nearest multiple of *cell_size* when needed.
         obstacle_fraction: Obstacle side length as a fraction of the grid
             size (in cells).

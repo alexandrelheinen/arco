@@ -74,7 +74,7 @@ class SSTPlanner(ContinuousPlanner):
             collision_check_count: Segment resolution for collision checks.
             goal_bias: Probability of sampling the goal directly.
             early_stop: If ``True``, stop at the first node that reaches the
-                goal.  If ``False``, run all iterations to optimise cost.
+                goal.  If ``False``, run all iterations to optimize cost.
 
         Raises:
             ValueError: If *bounds* is empty or *step_size* is not positive.
@@ -196,7 +196,7 @@ class SSTPlanner(ContinuousPlanner):
                 x_rand = self._sample(rng)
 
             # --- Select nearest active node to sample --------------------
-            # Geometric SST uses nearest-neighbour selection, which allows
+            # Geometric SST uses nearest-neighbor selection, which allows
             # the tree to explore in the direction of the sample.
             x_selected_idx = self._select_active(nodes, active, x_rand)
             if x_selected_idx is None:
@@ -330,7 +330,7 @@ class SSTPlanner(ContinuousPlanner):
     ) -> Optional[int]:
         """Select the nearest active node to the sample.
 
-        For geometric (no-dynamics) planning, nearest-neighbour selection
+        For geometric (no-dynamics) planning, nearest-neighbor selection
         steers the tree toward the random sample most effectively.
 
         Args:

@@ -139,7 +139,7 @@ def test_find_lookahead_does_not_return_goal_when_vehicle_is_far_off_track() -> 
     Scenario: straight path along y=0 from x=0 to x=100 (11 waypoints).
     Vehicle is 100 m above the path at (50, 100), lookahead radius = 5 m.
     The circle cannot intersect the path (which is 100 m below), so the
-    fallback is triggered.  The correct behaviour is to return the next
+    fallback is triggered.  The correct behavior is to return the next
     forward waypoint (60, 0), not the goal (100, 0).
     """
     path: list[tuple[float, float]] = [

@@ -51,11 +51,11 @@ _FOLLOW_ZOOM_MAX = 8.0
 _FOLLOW_ZOOM_STEP = 0.2
 
 # World-space vehicle dimensions for GL rendering.
-_VEH_HALF_L = 1.5  # metres
-_VEH_HALF_W = 0.7  # metres
-_LOOKAHEAD_DISC_R = 0.5  # metres
+_VEH_HALF_L = 1.5  # meters
+_VEH_HALF_W = 0.7  # meters
+_LOOKAHEAD_DISC_R = 0.5  # meters
 
-# Colour constants (float RGB for GL)
+# Color constants (float RGB for GL)
 _C_TRAJECTORY = (60 / 255, 140 / 255, 220 / 255)
 _C_LOOKAHEAD = (240 / 255, 200 / 255, 0 / 255)
 _C_VEHICLE = (80 / 255, 220 / 255, 100 / 255)
@@ -83,10 +83,10 @@ def _resolve_screen_size() -> tuple[int, int]:
 
 
 def _gl_init_2d(bg_color: tuple[int, int, int]) -> None:
-    """Initialise basic OpenGL state for 2-D rendering.
+    """Initialize basic OpenGL state for 2-D rendering.
 
     Args:
-        bg_color: Background RGB colour used for ``glClearColor``.
+        bg_color: Background RGB color used for ``glClearColor``.
     """
     r, g, b = bg_color[0] / 255.0, bg_color[1] / 255.0, bg_color[2] / 255.0
     glClearColor(r, g, b, 1.0)
@@ -117,7 +117,7 @@ def _world_bounds(
             once at startup.
 
     Returns:
-        ``(x_min, x_max, y_min, y_max)`` in world metres.
+        ``(x_min, x_max, y_min, y_max)`` in world meters.
     """
     if not camera_follow:
         return full_bounds
@@ -144,7 +144,7 @@ def _draw_tracking_hud(
         label: Scene label shown at the top.
         step: Current simulation step.
         speed: Current speed in m/s.
-        cte: Cross-track error in metres.
+        cte: Cross-track error in meters.
         finished: Whether the vehicle has reached the goal.
         paused: Whether the simulation is paused.
     """
@@ -234,7 +234,7 @@ def run_sim(
     run_with_loading_screen(scene, screen_w, screen_h, bg_color=scene.bg_color)
     pygame.display.set_caption(scene.title)
 
-    # Initialise GL state using scene background colour.
+    # Initialize GL state using scene background color.
     _gl_init_2d(scene.bg_color)
 
     # Compute full-scene world bounds from scene world points.
@@ -330,7 +330,7 @@ def run_sim(
             _start_tracking()
         paused = False
 
-    # Initialise immediately if no background phase.
+    # Initialize immediately if no background phase.
     if phase == "tracking":
         _start_tracking()
 

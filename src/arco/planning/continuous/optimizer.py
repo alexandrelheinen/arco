@@ -37,7 +37,7 @@ class TrajectoryOptimizer:
     """Model-agnostic two-stage trajectory optimizer.
 
     Refines a reference path from a global planner (RRT*, SST, …) into a
-    time-optimal trajectory that minimises a four-term composite cost while
+    time-optimal trajectory that minimizes a four-term composite cost while
     staying close to the reference path and avoiding obstacles.
 
     **Stage 1 — Initialisation (inverse kinematics).**
@@ -65,7 +65,7 @@ class TrajectoryOptimizer:
     where *T = Σ tᵢ* is the total traversal time and ``clearance`` is taken
     from the occupancy map.
 
-    The trajectory is discretised by a progress variable *s* that advances
+    The trajectory is discretized by a progress variable *s* that advances
     linearly from 0 to *N* (one unit per segment).  The bijection between
     progress and time is ``t(s) = Σ_{j<⌊s⌋} tⱼ + frac(s) · t_{⌊s⌋}``.
 
@@ -114,7 +114,7 @@ class TrajectoryOptimizer:
         max_iter: int = 500,
         ftol: float = 1e-9,
     ) -> None:
-        """Initialise the TrajectoryOptimizer.
+        """Initialize the TrajectoryOptimizer.
 
         Args:
             occupancy: Occupancy map for collision queries.
@@ -162,9 +162,9 @@ class TrajectoryOptimizer:
         ] = None,
         feasibility: Optional[Callable[[np.ndarray], bool]] = None,
     ) -> TrajectoryResult:
-        """Optimise a trajectory from a reference path.
+        """Optimize a trajectory from a reference path.
 
-        Runs the two-stage optimisation:
+        Runs the two-stage optimization:
 
         1. **Stage 1** builds an initial guess via inverse kinematics (or
            straight-line approximation) and sets segment durations from the
@@ -181,12 +181,12 @@ class TrajectoryOptimizer:
                 returns control commands for a segment.  When ``None``,
                 commands are estimated from the segment geometry.
             feasibility: Optional callable ``(state) -> bool`` used to
-                check physical realisability of the optimised waypoints.
+                check physical realizability of the optimized waypoints.
                 A warning is logged for each infeasible state but the
                 result is still returned.
 
         Returns:
-            A :class:`TrajectoryResult` containing the optimised states,
+            A :class:`TrajectoryResult` containing the optimized states,
             commands, segment durations, and final cost.
 
         Raises:
@@ -232,7 +232,7 @@ class TrajectoryOptimizer:
                     import warnings
 
                     warnings.warn(
-                        f"Optimised waypoint {i} failed feasibility "
+                        f"Optimized waypoint {i} failed feasibility "
                         f"check: {state}.",
                         RuntimeWarning,
                         stacklevel=2,
@@ -450,7 +450,7 @@ class TrajectoryOptimizer:
         segment average, and zero turn rate.
 
         Args:
-            waypoints: List of *N+1* optimised waypoints.
+            waypoints: List of *N+1* optimized waypoints.
             durations: Length-*N* array of segment durations.
             inverse_kinematics: Optional IK callable.
 

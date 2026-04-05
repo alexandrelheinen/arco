@@ -73,7 +73,7 @@ def test_straight_line_motion() -> None:
     assert vehicle.x > 0.0
 
 
-def test_heading_normalised() -> None:
+def test_heading_normalized() -> None:
     """Heading must remain within [−π, π] after many turns."""
     vehicle = DubinsVehicle(
         heading=3.0, max_turn_rate=1000.0, max_turn_rate_dot=1000.0

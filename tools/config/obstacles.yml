@@ -1,4 +1,4 @@
-# Triangular neighbourhood obstacle layout for the sparse dual-planner race.
+# Triangular neighborhood obstacle layout for the sparse dual-planner race.
 #
 # The world is 1280 × 720 m — the same footprint as the previous rectangular
 # city layout, now replaced by a procedural triangular road network generated
@@ -34,7 +34,7 @@ road_half_width: 15.0
 obstacle_sampling_spacing: 8.0
 
 # road_dot_spacing  - spacing (m) between decorative road-marking dots drawn
-#                     along every road edge centreline.
+#                     along every road edge centerline.
 road_dot_spacing: 15.0
 
 # ── Reproducibility ─────────────────────────────────────────────────────────

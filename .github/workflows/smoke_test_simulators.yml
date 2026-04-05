@@ -77,7 +77,7 @@ jobs:
             --record /tmp/smoke_sst.mp4 \
             --record-duration 5
 
-      - name: Smoke test sparse neighbourhood simulator
+      - name: Smoke test sparse neighborhood simulator
         env:
           SDL_AUDIODRIVER: dummy
         run: |

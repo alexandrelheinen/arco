@@ -196,3 +196,39 @@ Graph                  — pure topology (nodes + edges, no weights)
 - `RouteResult.start_projection` and `goal_projection` are `numpy.ndarray`.
 - Planners or methods that only support a specific dimension should raise
   `ValueError` if given a graph or position of the wrong dimension.
+
+---
+
+## 10. Language — US English Only
+
+All source code identifiers, comments, docstrings, documentation (Markdown),
+configuration files (YAML/JSON), and commit messages **must use American
+English** spelling. This rule applies to all human contributors and AI agents
+without exception.
+
+Common corrections:
+
+| Use | Not |
+|-----|-----|
+| color | colour |
+| behavior | behaviour |
+| initialize / initialized | initialise / initialised |
+| optimize / optimized / optimizer | optimise / optimised / optimiser |
+| center / centered / centerline | centre / centred / centreline |
+| neighborhood | neighbourhood |
+| meters | metres |
+| normalize / normalized | normalise / normalised |
+| recognize / recognized | recognise / recognised |
+| analyze | analyse |
+| finalize | finalise |
+| discretize / discretized | discretise / discretised |
+| visualize | visualise |
+| utilize | utilise |
+| minimize | minimise |
+| maximize | maximise |
+| realize / realizability | realise / realisability |
+| nearest-neighbor | nearest-neighbour |
+| deserializes | deserialises |
+
+**Exception:** External library API parameters that use UK spelling (e.g.
+`tqdm(colour=...)`) must be left unchanged to avoid breaking calls.

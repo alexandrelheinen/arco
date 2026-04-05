@@ -77,7 +77,7 @@ _DISC_SEGS = 24
 
 
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
-    """Convert an integer RGB tuple to normalised GL floats.
+    """Convert an integer RGB tuple to normalized GL floats.
 
     Args:
         t: RGB tuple with values in ``[0, 255]``.
@@ -109,10 +109,10 @@ def setup_2d_projection(
     Sets ``GL_PROJECTION`` then restores ``GL_MODELVIEW`` as the active matrix.
 
     Args:
-        x_min: World left edge in metres.
-        x_max: World right edge in metres.
-        y_min: World bottom edge in metres.
-        y_max: World top edge in metres.
+        x_min: World left edge in meters.
+        x_max: World right edge in meters.
+        y_min: World bottom edge in meters.
+        y_max: World top edge in meters.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
         margin_frac: Fraction of the world extent to add as uniform margin.
@@ -155,7 +155,7 @@ def world_bounds_from_transform(
         sh: Screen height in pixels.
 
     Returns:
-        ``(x_min, x_max, y_min, y_max)`` in world metres.
+        ``(x_min, x_max, y_min, y_max)`` in world meters.
     """
     scale = tx._scale
     ox = tx._ox
@@ -187,18 +187,18 @@ def bake_sdf_texture(
     """Bake the signed-distance field of *occ* into a GL texture.
 
     Samples a *resolution* × *resolution* grid in **world space**, queries
-    obstacle distances in one batch, colour-maps the result, and uploads it
+    obstacle distances in one batch, color-maps the result, and uploads it
     as an RGB ``GL_TEXTURE_2D``.
 
     Args:
         occ: Occupancy object exposing ``query_distances(points)`` where
             ``points`` has shape ``(N, 2)`` and returns shape ``(N,)``.
-        x_min: World left edge in metres.
-        x_max: World right edge in metres.
-        y_min: World bottom edge in metres.
-        y_max: World top edge in metres.
-        bg_color: RGB colour for far-from-obstacle regions.
-        near_color: RGB colour for obstacle-adjacent regions.
+        x_min: World left edge in meters.
+        x_max: World right edge in meters.
+        y_min: World bottom edge in meters.
+        y_max: World top edge in meters.
+        bg_color: RGB color for far-from-obstacle regions.
+        near_color: RGB color for obstacle-adjacent regions.
         resolution: Grid side length.
 
     Returns:
@@ -261,10 +261,10 @@ def draw_sdf_background(
 
     Args:
         tex_id: GL texture ID returned by :func:`bake_sdf_texture`.
-        x_min: World left edge in metres.
-        x_max: World right edge in metres.
-        y_min: World bottom edge in metres.
-        y_max: World top edge in metres.
+        x_min: World left edge in meters.
+        x_max: World right edge in meters.
+        y_min: World bottom edge in meters.
+        y_max: World top edge in meters.
     """
     glDisable(GL_LIGHTING)
     glDisable(GL_DEPTH_TEST)
@@ -417,15 +417,15 @@ def draw_dashed_path(
     """Draw a dashed polyline by drawing only alternating world-space segments.
 
     Accumulates arc-length along the path and toggles between drawing and
-    skipping every ``dash_len`` / ``gap_len`` metres.
+    skipping every ``dash_len`` / ``gap_len`` meters.
 
     Args:
         path: Ordered sequence of waypoints; each supports ``[0]`` (x) and ``[1]`` (y).
         r: Red component ``[0, 1]``.
         g: Green component ``[0, 1]``.
         b: Blue component ``[0, 1]``.
-        dash_len: Length of each drawn dash in world metres.
-        gap_len: Length of each gap in world metres.
+        dash_len: Length of each drawn dash in world meters.
+        gap_len: Length of each gap in world meters.
     """
     if len(path) < 2:
         return
@@ -514,9 +514,9 @@ def draw_disc(
     """Draw a filled circle approximated as a 24-gon using ``GL_TRIANGLE_FAN``.
 
     Args:
-        cx: Centre x in world metres.
-        cy: Centre y in world metres.
-        radius: Radius in world metres.
+        cx: Center x in world meters.
+        cy: Center y in world meters.
+        radius: Radius in world meters.
         r: Red component ``[0, 1]``.
         g: Green component ``[0, 1]``.
         b: Blue component ``[0, 1]``.
@@ -546,10 +546,10 @@ def draw_ring(
     """Draw a filled annular ring using ``GL_TRIANGLE_STRIP``.
 
     Args:
-        cx: Centre x in world metres.
-        cy: Centre y in world metres.
-        r_outer: Outer radius in world metres.
-        r_inner: Inner radius in world metres.
+        cx: Center x in world meters.
+        cy: Center y in world meters.
+        r_outer: Outer radius in world meters.
+        r_inner: Inner radius in world meters.
         r: Red component ``[0, 1]``.
         g: Green component ``[0, 1]``.
         b: Blue component ``[0, 1]``.
@@ -585,10 +585,10 @@ def draw_oriented_rect(
     """Draw a filled oriented rectangle in world coordinates.
 
     Args:
-        cx: Centre x in world metres.
-        cy: Centre y in world metres.
-        half_l: Half-length (forward) in world metres.
-        half_w: Half-width (lateral) in world metres.
+        cx: Center x in world meters.
+        cy: Center y in world meters.
+        half_l: Half-length (forward) in world meters.
+        half_w: Half-width (lateral) in world meters.
         heading: Heading in radians (0 = east, π/2 = north).
         r: Red component ``[0, 1]``.
         g: Green component ``[0, 1]``.
@@ -627,10 +627,10 @@ def draw_world_line(
     """Draw a single line segment in world coordinates.
 
     Args:
-        x1: Start x in world metres.
-        y1: Start y in world metres.
-        x2: End x in world metres.
-        y2: End y in world metres.
+        x1: Start x in world meters.
+        y1: Start y in world meters.
+        x2: End x in world meters.
+        y2: End y in world meters.
         r: Red component ``[0, 1]``.
         g: Green component ``[0, 1]``.
         b: Blue component ``[0, 1]``.
@@ -765,7 +765,7 @@ def blit_overlay(
 
 
 # ---------------------------------------------------------------------------
-# Legend colour square
+# Legend color square
 # ---------------------------------------------------------------------------
 
 

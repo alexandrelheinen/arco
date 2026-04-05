@@ -24,7 +24,7 @@ class VehicleConfig:
         max_speed: Maximum vehicle speed in m/s.
         min_speed: Minimum vehicle speed in m/s.
         cruise_speed: Nominal tracking speed in m/s.
-        lookahead_distance: Pure-pursuit lookahead distance in metres.
+        lookahead_distance: Pure-pursuit lookahead distance in meters.
         goal_radius: Distance at which the goal is considered reached (m).
         max_turn_rate: Maximum turn rate in radians/s.
         max_acceleration: Maximum linear acceleration in m/s².
@@ -65,13 +65,13 @@ def find_lookahead(
     path: list[tuple[float, float]],
     distance: float,
 ) -> tuple[float, float]:
-    """Return the lookahead point on *path* at least *distance* metres away.
+    """Return the lookahead point on *path* at least *distance* meters away.
 
     Args:
-        x: Current x-position in world metres.
-        y: Current y-position in world metres.
+        x: Current x-position in world meters.
+        y: Current y-position in world meters.
         path: Ordered list of ``(x, y)`` waypoints.
-        distance: Minimum lookahead distance in metres.
+        distance: Minimum lookahead distance in meters.
 
     Returns:
         ``(x, y)`` of the lookahead target.
@@ -92,7 +92,7 @@ def build_vehicle_sim(
     waypoints: list[tuple[float, float]],
     cfg: VehicleConfig,
 ) -> tuple[DubinsVehicle, TrackingLoop]:
-    """Create a Dubins vehicle and tracking loop initialised at waypoints[0].
+    """Create a Dubins vehicle and tracking loop initialized at waypoints[0].
 
     Args:
         waypoints: Ordered list of ``(x, y)`` path waypoints.

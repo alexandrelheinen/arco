@@ -76,7 +76,7 @@ _HOLD_FRAMES = 60
 _POST_FINISH_SECS = 2.0
 
 # ---------------------------------------------------------------------------
-# Colour constants
+# Color constants
 # ---------------------------------------------------------------------------
 _C_RRT_VEH: tuple[int, int, int] = (100, 160, 255)
 _C_RRT_TRAJ: tuple[int, int, int] = (130, 190, 255)
@@ -93,9 +93,9 @@ _C_WINNER: tuple[int, int, int] = (255, 215, 50)
 _C_TIE: tuple[int, int, int] = (200, 200, 80)
 
 # Vehicle body world dimensions
-_VEH_HALF_L = 1.5  # metres
-_VEH_HALF_W = 0.7  # metres
-_LOOKAHEAD_DISC_R = 0.5  # metres
+_VEH_HALF_L = 1.5  # meters
+_VEH_HALF_W = 0.7  # meters
+_LOOKAHEAD_DISC_R = 0.5  # meters
 
 
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
@@ -117,7 +117,7 @@ def _make_text_surface(
     Args:
         font: Pygame monospace font.
         lines: Lines to render top-to-bottom.
-        color: RGB text colour.
+        color: RGB text color.
 
     Returns:
         Transparent SRCALPHA pygame surface.
@@ -151,7 +151,7 @@ def _blit_left(
     Args:
         font: Pygame font.
         lines: Text lines to render top-to-bottom.
-        color: RGB text colour.
+        color: RGB text color.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
         x: Left x pixel position.
@@ -175,7 +175,7 @@ def _blit_right(
     Args:
         font: Pygame font.
         lines: Text lines to render top-to-bottom.
-        color: RGB text colour.
+        color: RGB text color.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
         x_margin: Gap between text right edge and screen right edge.
@@ -194,12 +194,12 @@ def _blit_center(
     sh: int,
     y: int,
 ) -> None:
-    """Render a single centred line at vertical position y.
+    """Render a single centered line at vertical position y.
 
     Args:
         font: Pygame font.
         line: Text to render.
-        color: RGB text colour.
+        color: RGB text color.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
         y: Vertical pixel position.
@@ -216,12 +216,12 @@ def _draw_winner_banner(
     sw: int,
     sh: int,
 ) -> None:
-    """Draw a translucent centred banner with large winner text.
+    """Draw a translucent centered banner with large winner text.
 
     Args:
         font: Large pygame font.
         text: Banner text (e.g. ``"RRT* WINS!"``).
-        color: RGB text colour.
+        color: RGB text color.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
     """

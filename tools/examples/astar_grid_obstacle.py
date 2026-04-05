@@ -1,8 +1,8 @@
 """
-A* on a 2D grid with a large square obstacle in the centre.
+A* on a 2D grid with a large square obstacle in the center.
 
 The grid uses diagonal (Euclidean) connectivity so that A* can cut diagonally
-around the obstacle.  A large square obstacle is placed at the centre of the
+around the obstacle.  A large square obstacle is placed at the center of the
 grid and A* finds the shortest diagonal path from the top-left corner to the
 bottom-right corner.
 
@@ -52,14 +52,14 @@ def build_grid_with_obstacle(
     cell_size: float = float(_cfg["cell_size"]),
     obstacle_fraction: float = float(_cfg["obstacle_fraction"]),
 ) -> EuclideanGrid:
-    """Build a square Euclidean grid with a centred square obstacle.
+    """Build a square Euclidean grid with a centered square obstacle.
 
     Uses :class:`~arco.mapping.grid.euclidean.EuclideanGrid` (diagonal moves
     allowed) so that A* can navigate diagonally around the obstacle.
 
     Args:
-        physical_size: Physical dimensions of the grid in metres ``[rows, cols]``.
-        cell_size: Physical size of one cell in metres.  The grid is
+        physical_size: Physical dimensions of the grid in meters ``[rows, cols]``.
+        cell_size: Physical size of one cell in meters.  The grid is
             extended to the nearest multiple of *cell_size* when needed.
         obstacle_fraction: Side length of the obstacle expressed as a
             fraction of the grid size (in cells).

@@ -19,13 +19,13 @@ class RRTPlanner(ContinuousPlanner):
     """Asymptotically-optimal RRT* planner for continuous geometric spaces.
 
     Grows a randomised tree from *start*, rewiring existing edges to
-    minimise path cost whenever a newly sampled node can improve the
+    minimize path cost whenever a newly sampled node can improve the
     cost-to-come of nearby nodes.  As the sample count grows, the
     solution cost converges to the global optimum (Karaman & Frazzoli,
     2011).
 
     Collision checking is delegated to the :class:`~arco.mapping.Occupancy`
-    interface: a straight-line segment is discretised into
+    interface: a straight-line segment is discretized into
     *collision_check_count* intermediate points and each is tested with
     :meth:`~arco.mapping.Occupancy.is_occupied`.
 
@@ -76,7 +76,7 @@ class RRTPlanner(ContinuousPlanner):
             collision_check_count: Segment resolution for collision checks.
             goal_bias: Probability of sampling the goal directly.
             early_stop: If ``True``, stop at the first node that reaches the
-                goal.  If ``False``, run all iterations to optimise cost.
+                goal.  If ``False``, run all iterations to optimize cost.
 
         Raises:
             ValueError: If *bounds* is empty or *step_size* is not positive.
@@ -423,7 +423,7 @@ class RRTPlanner(ContinuousPlanner):
     def _segment_free(self, a: np.ndarray, b: np.ndarray) -> bool:
         """Check whether the straight-line segment from *a* to *b* is free.
 
-        Discretises the segment into :attr:`collision_check_count`
+        Discretizes the segment into :attr:`collision_check_count`
         intermediate points and tests each with
         :meth:`~arco.mapping.Occupancy.is_occupied`.
 

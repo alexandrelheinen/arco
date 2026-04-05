@@ -84,7 +84,7 @@ class TrackingLoop:
             Dictionary with keys:
 
             - ``cross_track_error``: signed perpendicular distance from
-              vehicle to nearest path segment (metres).
+              vehicle to nearest path segment (meters).
             - ``heading_error``: vehicle heading minus path tangent, wrapped
               to ``(−π, π]`` (radians).
             - ``pose``: current vehicle pose ``(x, y, heading)``.

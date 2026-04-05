@@ -290,12 +290,12 @@ def test_vehicle_returns_to_path_when_far_off_track() -> None:
         - Lookahead radius = 5 m.  The circle cannot intersect x=0 (50 m
           away), so the fallback is triggered on the first step.
 
-    Expected (correct) behaviour:
+    Expected (correct) behavior:
         The fallback steers toward the next forward waypoint on x=0.  The
         vehicle turns left (west) and its x-coordinate decreases back toward
         0 before it continues to the goal.
 
-    Buggy behaviour:
+    Buggy behavior:
         The fallback returns path[-1] = (100, 200).  The vehicle turns right
         (east) and its x-coordinate increases — it never returns to the path.
     """

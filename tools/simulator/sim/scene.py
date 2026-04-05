@@ -43,7 +43,7 @@ class SimScene(ABC):
     @property
     @abstractmethod
     def bg_color(self) -> tuple[int, int, int]:
-        """Background fill colour as an RGB tuple."""
+        """Background fill color as an RGB tuple."""
 
     @property
     @abstractmethod
