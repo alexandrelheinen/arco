@@ -86,12 +86,15 @@ class TrajectoryOptimizer:
             duration estimate: ``t_i⁰ = α · L_i / cruise_speed``.  Values
             above 1.0 give the optimizer room to tighten time. Defaults to
             1.5 (50 % slack).
-        method: Optimisation algorithm forwarded to
+        method: Optimization algorithm forwarded to
             ``scipy.optimize.minimize``.  ``"L-BFGS-B"`` (default) works
             well for smooth cost landscapes; ``"SLSQP"`` is an alternative.
         sample_count: Number of intermediate points sampled *within each
             segment* for the collision term.  Higher values catch narrow
             corridors at the cost of slower evaluation.
+        max_iter: Maximum number of iterations for the Stage-2 solver.
+        ftol: Convergence tolerance for the Stage-2 solver (function
+            value change threshold).
 
     Raises:
         ValueError: If *cruise_speed* is not positive.
@@ -108,6 +111,8 @@ class TrajectoryOptimizer:
         time_relaxation: float = 1.5,
         method: str = "L-BFGS-B",
         sample_count: int = 3,
+        max_iter: int = 500,
+        ftol: float = 1e-9,
     ) -> None:
         """Initialise the TrajectoryOptimizer.
 
@@ -123,6 +128,8 @@ class TrajectoryOptimizer:
             method: ``scipy.optimize.minimize`` method.
             sample_count: Intermediate sample count per segment for the
                 collision term.
+            max_iter: Maximum number of Stage-2 solver iterations.
+            ftol: Stage-2 solver convergence tolerance (function value).
 
         Raises:
             ValueError: If *cruise_speed* is not positive.
@@ -140,6 +147,8 @@ class TrajectoryOptimizer:
         self.time_relaxation = time_relaxation
         self.method = method
         self.sample_count = sample_count
+        self.max_iter = max_iter
+        self.ftol = ftol
 
     # ------------------------------------------------------------------
     # Public API
@@ -204,7 +213,7 @@ class TrajectoryOptimizer:
             args=(ref, segment_count, dim),
             method=self.method,
             bounds=bounds,
-            options={"maxiter": 500, "ftol": 1e-9},
+            options={"maxiter": self.max_iter, "ftol": self.ftol},
         )
         x_opt = result.x
 

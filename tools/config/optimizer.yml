@@ -14,6 +14,8 @@
 #                    optimizer room to tighten the time allocation.
 # method           – scipy.optimize.minimize algorithm (L-BFGS-B or SLSQP).
 # sample_count     – intermediate collision samples per segment.
+# max_iter         – maximum number of Stage-2 solver iterations.
+# ftol             – Stage-2 convergence tolerance (function value change).
 
 cruise_speed: 2.0
 weight_time: 10.0
@@ -23,3 +25,5 @@ weight_collision: 5.0
 time_relaxation: 1.5
 method: L-BFGS-B
 sample_count: 3
+max_iter: 500
+ftol: 1.0e-9
