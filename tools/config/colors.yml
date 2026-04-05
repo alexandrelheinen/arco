@@ -1,0 +1,58 @@
+# Color palette for the sparse neighborhood race simulator (RRT* vs SST).
+#
+# All values are [R, G, B] with each component in [0, 255].
+#
+# Structure
+# ---------
+# rrt / sst       – per-planner colors: edge, node, path, trajectory,
+#                   vehicle, trail (live vehicle path), hud
+# obstacle        – building obstacles
+# road            – road-dot markings, sdf_near shadow
+# barrier         – dead-end corner barriers
+# map             – background fill
+# start / goal    – start and goal markers
+# hud             – shared HUD chrome (text, dim text, shadow, winner, tie)
+
+rrt:
+  edge:        [60, 120, 200]   # tree edges during planning phase
+  node:        [45,  95, 170]   # tree nodes during planning phase
+  path:        [90, 140, 230]   # raw planned path (shown dimmed under trajectory)
+  trajectory:  [28,  52, 110]   # optimized trajectory backdrop (racing phase)
+  vehicle:     [100, 160, 255]  # vehicle body and lookahead disc
+  trail:       [80, 125, 215]   # live vehicle trail drawn during race
+  hud:         [130, 190, 255]  # HUD text: planner label, time, status
+
+sst:
+  edge:        [40, 170,  85]   # tree edges during planning phase
+  node:        [35, 145,  65]   # tree nodes during planning phase
+  path:        [70, 195, 115]   # raw planned path (shown dimmed under trajectory)
+  trajectory:  [18,  80,  38]   # optimized trajectory backdrop (racing phase)
+  vehicle:     [60, 215, 110]   # vehicle body and lookahead disc
+  trail:       [50, 170,  90]   # live vehicle trail drawn during race
+  hud:         [80, 205, 120]   # HUD text: planner label, time, status
+
+obstacle:
+  building:    [145, 125, 100]  # city-block obstacle points (concrete facade)
+
+road:
+  dot:         [65,  60,  50]   # faded lane-marking dots
+  sdf_near:    [62,  50,  38]   # warm shadow near buildings in SDF heatmap
+
+barrier:
+  color:       [200, 120,  40]  # amber dead-end corner barriers
+
+map:
+  background:  [22,  24,  30]   # dark asphalt background fill
+
+start:
+  color:       [60, 220,  90]   # start marker ring
+
+goal:
+  color:       [220,  80, 220]  # goal marker ring
+
+hud:
+  text:        [220, 220, 220]  # primary HUD text
+  dim:         [130, 130, 130]  # secondary / dimmed HUD text
+  shadow:      [40,  40,  50]   # text drop shadow
+  winner:      [255, 215,  50]  # winner banner
+  tie:         [200, 200,  80]  # tie banner

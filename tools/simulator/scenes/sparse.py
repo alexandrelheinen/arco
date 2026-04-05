@@ -31,39 +31,50 @@ import renderer_gl
 from scipy.spatial import Delaunay as _Delaunay
 from sim.tracking import VehicleConfig
 
+from config import load_config
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Color palette
+# Color palette — loaded from tools/config/colors.yml
 # ---------------------------------------------------------------------------
-_C_BG: tuple[int, int, int] = (22, 24, 30)  # dark asphalt
-_C_BUILDING: tuple[int, int, int] = (145, 125, 100)  # concrete facade
-_C_ROAD_DOT: tuple[int, int, int] = (65, 60, 50)  # faded lane marking
+_COLORS = load_config("colors")
+
+
+def _rgb(section: str, key: str) -> tuple[int, int, int]:
+    """Return an RGB tuple from the colors config.
+
+    Args:
+        section: Top-level key (e.g. ``"rrt"``).
+        key: Sub-key within that section (e.g. ``"edge"``).
+
+    Returns:
+        ``(R, G, B)`` tuple with values in ``[0, 255]``.
+    """
+    v = _COLORS[section][key]
+    return (int(v[0]), int(v[1]), int(v[2]))
+
+
+_C_BG: tuple[int, int, int] = _rgb("map", "background")
+_C_BUILDING: tuple[int, int, int] = _rgb("obstacle", "building")
+_C_ROAD_DOT: tuple[int, int, int] = _rgb("road", "dot")
 
 # RRT* — blue family
-_C_RRT_EDGE: tuple[int, int, int] = (60, 120, 200)
-_C_RRT_NODE: tuple[int, int, int] = (45, 95, 170)
-_C_RRT_PATH: tuple[int, int, int] = (130, 190, 255)  # raw path — dimmer
-_C_RRT_TRAJ: tuple[int, int, int] = (
-    255,
-    130,
-    60,
-)  # optimized trajectory — highlight
+_C_RRT_EDGE: tuple[int, int, int] = _rgb("rrt", "edge")
+_C_RRT_NODE: tuple[int, int, int] = _rgb("rrt", "node")
+_C_RRT_PATH: tuple[int, int, int] = _rgb("rrt", "path")
+_C_RRT_TRAJ: tuple[int, int, int] = _rgb("rrt", "trajectory")
 
-# SST — teal family
-_C_SST_EDGE: tuple[int, int, int] = (40, 180, 155)
-_C_SST_NODE: tuple[int, int, int] = (35, 155, 130)
-_C_SST_PATH: tuple[int, int, int] = (100, 240, 210)  # raw path — dimmer
-_C_SST_TRAJ: tuple[int, int, int] = (
-    255,
-    220,
-    80,
-)  # optimized trajectory — highlight
+# SST — green family
+_C_SST_EDGE: tuple[int, int, int] = _rgb("sst", "edge")
+_C_SST_NODE: tuple[int, int, int] = _rgb("sst", "node")
+_C_SST_PATH: tuple[int, int, int] = _rgb("sst", "path")
+_C_SST_TRAJ: tuple[int, int, int] = _rgb("sst", "trajectory")
 
-_C_START: tuple[int, int, int] = (60, 220, 90)
-_C_GOAL: tuple[int, int, int] = (220, 80, 220)
-_C_SDF_NEAR: tuple[int, int, int] = (62, 50, 38)  # warm shadow near buildings
-_C_BARRIER: tuple[int, int, int] = (200, 120, 40)  # amber — dead-end barriers
+_C_START: tuple[int, int, int] = _rgb("start", "color")
+_C_GOAL: tuple[int, int, int] = _rgb("goal", "color")
+_C_SDF_NEAR: tuple[int, int, int] = _rgb("road", "sdf_near")
+_C_BARRIER: tuple[int, int, int] = _rgb("barrier", "color")
 
 # Alpha for the raw reference paths when trajectories are drawn on top.
 _PATH_ALPHA = 0.3

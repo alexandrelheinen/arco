@@ -76,21 +76,29 @@ _HOLD_FRAMES = 60
 _POST_FINISH_SECS = 2.0
 
 # ---------------------------------------------------------------------------
-# Color constants
+# Color constants — loaded from tools/config/colors.yml
 # ---------------------------------------------------------------------------
-_C_RRT_VEH: tuple[int, int, int] = (100, 160, 255)
-_C_RRT_TRAJ: tuple[int, int, int] = (130, 190, 255)
-_C_RRT_HUD: tuple[int, int, int] = (130, 190, 255)
+_COLORS = load_config("colors")
 
-_C_SST_VEH: tuple[int, int, int] = (60, 235, 210)
-_C_SST_TRAJ: tuple[int, int, int] = (100, 240, 210)
-_C_SST_HUD: tuple[int, int, int] = (100, 240, 210)
 
-_C_HUD: tuple[int, int, int] = (220, 220, 220)
-_C_HUD_DIM: tuple[int, int, int] = (130, 130, 130)
-_C_HUD_SHADOW: tuple[int, int, int] = (40, 40, 50)
-_C_WINNER: tuple[int, int, int] = (255, 215, 50)
-_C_TIE: tuple[int, int, int] = (200, 200, 80)
+def _rgb(section: str, key: str) -> tuple[int, int, int]:
+    v = _COLORS[section][key]
+    return (int(v[0]), int(v[1]), int(v[2]))
+
+
+_C_RRT_VEH: tuple[int, int, int] = _rgb("rrt", "vehicle")
+_C_RRT_TRAJ: tuple[int, int, int] = _rgb("rrt", "trail")
+_C_RRT_HUD: tuple[int, int, int] = _rgb("rrt", "hud")
+
+_C_SST_VEH: tuple[int, int, int] = _rgb("sst", "vehicle")
+_C_SST_TRAJ: tuple[int, int, int] = _rgb("sst", "trail")
+_C_SST_HUD: tuple[int, int, int] = _rgb("sst", "hud")
+
+_C_HUD: tuple[int, int, int] = _rgb("hud", "text")
+_C_HUD_DIM: tuple[int, int, int] = _rgb("hud", "dim")
+_C_HUD_SHADOW: tuple[int, int, int] = _rgb("hud", "shadow")
+_C_WINNER: tuple[int, int, int] = _rgb("hud", "winner")
+_C_TIE: tuple[int, int, int] = _rgb("hud", "tie")
 
 # Vehicle body world dimensions
 _VEH_HALF_L = 1.5  # meters
