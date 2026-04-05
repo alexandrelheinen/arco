@@ -162,3 +162,94 @@ class DubinsVehicle:
         )
 
         return self.pose
+
+    # ------------------------------------------------------------------
+    # Trajectory optimiser interface
+    # ------------------------------------------------------------------
+
+    def inverse_kinematics(
+        self,
+        start: np.ndarray,
+        goal: np.ndarray,
+        speed: float,
+        duration: float,
+    ) -> np.ndarray:
+        """Compute control commands to steer from *start* toward *goal*.
+
+        This naive unicycle inverse-kinematics sets the speed to *speed*
+        and derives the required turn rate from the heading difference
+        between the current heading (inferred from *start*) and the
+        direction toward *goal*.  When *start* has three or more elements
+        the third component is taken as the current heading; otherwise a
+        zero heading is assumed.
+
+        The result is an admissible initial guess for the
+        :class:`~arco.planning.continuous.optimizer.TrajectoryOptimizer`
+        Stage-1 initialisation.  Saturates turn rate to
+        :attr:`max_turn_rate`.
+
+        Args:
+            start: Starting position ``(x, y)`` or state ``(x, y, θ, …)``.
+            goal: Target position ``(x, y)`` or state ``(x, y, θ, …)``.
+            speed: Desired traversal speed (m/s).
+            duration: Time budget for the segment (s).  Must be positive.
+
+        Returns:
+            Command vector ``(speed_cmd, turn_rate_cmd)`` as a numpy
+            array of shape ``(2,)``.
+        """
+        start = np.asarray(start, dtype=float)
+        goal = np.asarray(goal, dtype=float)
+
+        dx = goal[0] - start[0]
+        dy = goal[1] - start[1]
+        target_heading = math.atan2(dy, dx)
+
+        current_heading = float(start[2]) if start.shape[0] >= 3 else 0.0
+
+        # Shortest-path heading difference in (−π, π]
+        heading_diff = math.atan2(
+            math.sin(target_heading - current_heading),
+            math.cos(target_heading - current_heading),
+        )
+
+        safe_dur = max(duration, 1e-9)
+        turn_rate = float(
+            np.clip(
+                heading_diff / safe_dur,
+                -self.max_turn_rate,
+                self.max_turn_rate,
+            )
+        )
+        speed_cmd = float(np.clip(speed, self.min_speed, self.max_speed))
+        return np.array([speed_cmd, turn_rate], dtype=float)
+
+    def is_feasible(self, state: np.ndarray) -> bool:
+        """Check whether a state is within the vehicle's dynamic limits.
+
+        Accepts a 3-element kinematic state ``(x, y, θ)`` — always
+        feasible — or a 5-element extended state
+        ``(x, y, θ, speed, turn_rate)`` which is checked against
+        :attr:`max_speed`, :attr:`min_speed`, and :attr:`max_turn_rate`.
+
+        Args:
+            state: Kinematic state ``(x, y, θ)`` or extended state
+                ``(x, y, θ, speed, turn_rate)``.
+
+        Returns:
+            ``True`` if the state satisfies all dynamic constraints,
+            ``False`` otherwise.
+        """
+        state = np.asarray(state, dtype=float)
+        if state.shape[0] >= 5:
+            speed = float(state[3])
+            turn_rate = float(state[4])
+            if speed < self.min_speed or speed > self.max_speed:
+                return False
+            if abs(turn_rate) > self.max_turn_rate:
+                return False
+        elif state.shape[0] >= 4:
+            speed = float(state[3])
+            if speed < self.min_speed or speed > self.max_speed:
+                return False
+        return True
