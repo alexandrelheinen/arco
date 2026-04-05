@@ -232,3 +232,42 @@ Common corrections:
 
 **Exception:** External library API parameters that use UK spelling (e.g.
 `tqdm(colour=...)`) must be left unchanged to avoid breaking calls.
+
+## 11. Pre-flight Checklist
+
+Before finishing **any** implementation task, all of the following must pass
+locally. This applies to both human contributors and AI agents.
+
+```bash
+# 1. Unit tests — all green
+python -m pytest tests/
+
+# 2. Code formatting — zero issues
+python -m black --check src/ tools/
+
+# 3. Import ordering — zero issues
+python -m isort --check-only src/ tools/
+
+# 4. Examples — each script must complete without error
+MPLBACKEND=Agg python tools/examples/astar_grid_obstacle.py --save /tmp/astar_grid.png
+MPLBACKEND=Agg python tools/examples/astar_manhattan.py     --save /tmp/astar_manh.png
+MPLBACKEND=Agg python tools/examples/astar_graph.py         --save /tmp/astar_graph.png
+MPLBACKEND=Agg python tools/examples/astar_pipeline.py      --save /tmp/astar_pipeline.png
+MPLBACKEND=Agg python tools/examples/rrt_planning.py        --save /tmp/rrt.png
+MPLBACKEND=Agg python tools/examples/sst_planning.py        --save /tmp/sst.png
+MPLBACKEND=Agg python tools/examples/ppp_planning.py        --save /tmp/ppp.png
+MPLBACKEND=Agg python tools/examples/trajectory_optimization.py --save /tmp/traj.png
+MPLBACKEND=Agg python tools/examples/route_planning.py      --save /tmp/route.png
+
+# 5. Simulator smoke tests — each must record 5 s without error
+#    (requires a real or virtual X display; use DISPLAY=:0 locally or
+#     xvfb-run -a in CI)
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/astar.py  --fps 30 --record /tmp/smoke_astar.mp4  --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/rrt.py    --fps 30 --record /tmp/smoke_rrt.mp4    --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/sst.py    --fps 30 --record /tmp/smoke_sst.mp4    --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/sparse.py --fps 30 --record /tmp/smoke_sparse.mp4 --record-duration 5
+SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/ppp.py    --fps 30 --record /tmp/smoke_ppp.mp4    --record-duration 5
+```
+
+All GitHub workflow checks (push **and** release) must also pass before
+opening or merging a pull request.

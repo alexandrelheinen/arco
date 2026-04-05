@@ -140,7 +140,9 @@ class ProgressReporter:
         total_steps: int,
     ) -> None:
         if not _HAS_TQDM:
-            logger.info("Loading  [%d/%d]  %s", step_index, total_steps, step_name)
+            logger.info(
+                "Loading  [%d/%d]  %s", step_index, total_steps, step_name
+            )
             return
 
         if self._bar is None:
@@ -247,7 +249,9 @@ def _make_loading_surface(
     bar_y = 88
     bar_w = panel_w - 2 * bar_margin
     bar_h = 12
-    pygame.draw.rect(panel, _C_BAR_EMPTY, (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+    pygame.draw.rect(
+        panel, _C_BAR_EMPTY, (bar_x, bar_y, bar_w, bar_h), border_radius=4
+    )
     filled = max(0, int(bar_w * reporter.fraction))
     if filled > 0:
         pygame.draw.rect(
@@ -256,7 +260,9 @@ def _make_loading_surface(
             (bar_x, bar_y, filled, bar_h),
             border_radius=4,
         )
-    pygame.draw.rect(panel, (60, 70, 90), (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
+    pygame.draw.rect(
+        panel, (60, 70, 90), (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4
+    )
 
     # ── Percentage / step counter ─────────────────────────────────────────
     pct_str = (
@@ -304,7 +310,9 @@ def _render_loading(
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-    overlay = _make_loading_surface(reporter, sw, sh, tick, title_font, body_font)
+    overlay = _make_loading_surface(
+        reporter, sw, sh, tick, title_font, body_font
+    )
     renderer_gl.blit_overlay(overlay, 0, 0, sw, sh)
 
 
@@ -378,7 +386,9 @@ def run_with_loading_screen(
             if event.type == pygame.QUIT:
                 sys.exit(0)
 
-        _render_loading(reporter, sw, sh, tick, bg_color, title_font, body_font)
+        _render_loading(
+            reporter, sw, sh, tick, bg_color, title_font, body_font
+        )
         pygame.display.flip()
         clock.tick(fps)
         tick += 1

@@ -27,9 +27,8 @@ import math
 from typing import Any
 
 import numpy as np
-from scipy.spatial import Delaunay as _Delaunay
-
 import renderer_gl
+from scipy.spatial import Delaunay as _Delaunay
 from sim.tracking import VehicleConfig
 
 logger = logging.getLogger(__name__)
@@ -354,7 +353,7 @@ class SparseScene:
 
         # --- Trajectory optimization (scaled for the large world) --------
         if progress is not None:
-            progress("Optimising trajectories", 5, _total)
+            progress("Optimizing trajectories", 5, _total)
         cruise = self._vehicle_cfg.cruise_speed
         opt = TrajectoryOptimizer(
             self._occ,
@@ -510,9 +509,7 @@ class SparseScene:
                 *_c(_C_RRT_NODE),
             )
             if rrt_revealed >= self.rrt_total and self._rrt_path is not None:
-                rrt_path_alpha = (
-                    _PATH_ALPHA if self._rrt_traj_states else 1.0
-                )
+                rrt_path_alpha = _PATH_ALPHA if self._rrt_traj_states else 1.0
                 renderer_gl.draw_path(
                     self._rrt_path,
                     *_c(_C_RRT_PATH),
@@ -532,9 +529,7 @@ class SparseScene:
                 *_c(_C_SST_NODE),
             )
             if sst_revealed >= self.sst_total and self._sst_path is not None:
-                sst_path_alpha = (
-                    _PATH_ALPHA if self._sst_traj_states else 1.0
-                )
+                sst_path_alpha = _PATH_ALPHA if self._sst_traj_states else 1.0
                 renderer_gl.draw_path(
                     self._sst_path,
                     *_c(_C_SST_PATH),

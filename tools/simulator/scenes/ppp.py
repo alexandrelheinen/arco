@@ -232,7 +232,7 @@ class PPPScene:
 
         # --- Trajectory optimization (3-D) --------------------------------
         if progress is not None:
-            progress("Optimising trajectories", 5, _total)
+            progress("Optimizing trajectories", 5, _total)
         opt = TrajectoryOptimizer(
             occ,
             cruise_speed=float(self._cfg.get("race_speed", 2.0)),

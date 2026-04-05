@@ -334,9 +334,7 @@ def test_optimize_single_segment():
 
 def test_feasibility_feasible_state():
     """is_feasible must return True for a valid 5-element state."""
-    vehicle = DubinsVehicle(
-        max_speed=5.0, min_speed=0.0, max_turn_rate=1.0
-    )
+    vehicle = DubinsVehicle(max_speed=5.0, min_speed=0.0, max_turn_rate=1.0)
     state_ok = np.array([1.0, 2.0, 0.5, 3.0, 0.5])
     assert vehicle.is_feasible(state_ok) is True
 

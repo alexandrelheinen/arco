@@ -142,7 +142,7 @@ class SSTScene(SimScene):
         # --- Trajectory optimization -----------------------------------
         if self._path is not None:
             if progress is not None:
-                progress("Optimising trajectory", 3, _total)
+                progress("Optimizing trajectory", 3, _total)
             try:
                 opt = TrajectoryOptimizer(
                     self._occ,

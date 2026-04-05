@@ -9,7 +9,7 @@ Keyboard controls
 SPACE         Pause / resume simulation
 R             Restart from the beginning
 C             Toggle camera mode (full view / follow vehicle)
-\+ / -        Zoom in / out in follow-vehicle camera mode
+\\+ / -        Zoom in / out in follow-vehicle camera mode
 Q / Escape    Quit
 
 Usage
