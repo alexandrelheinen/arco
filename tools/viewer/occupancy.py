@@ -26,6 +26,7 @@ def draw_occupancy(
     obstacle_color: str = "dimgray",
     free_color: str = "white",
     path_color: str = "tomato",
+    path_alpha: float = 1.0,
     tree_color: str = "lightblue",
     start_color: str = "limegreen",
     goal_color: str = "royalblue",
@@ -58,6 +59,9 @@ def draw_occupancy(
         obstacle_color: Colour used for obstacle points.
         free_color: Background colour for free (far) regions.
         path_color: Colour for the solution path.
+        path_alpha: Opacity of the solution path line (``0.0``–``1.0``).
+            Values below ``1.0`` are useful when an optimised trajectory
+            is drawn on top of the raw reference path.
         tree_color: Colour for tree edges.
         start_color: Colour for the start marker.
         goal_color: Colour for the goal marker.
@@ -137,6 +141,7 @@ def draw_occupancy(
             path_arr[:, 1],
             color=path_color,
             linewidth=2.0,
+            alpha=path_alpha,
             zorder=4,
             label="Path",
         )

@@ -41,7 +41,11 @@ from scenes.ppp import (
 from scenes.ppp import is_wall as _is_wall
 
 from arco.mapping import KDTreeOccupancy
-from arco.planning.continuous import RRTPlanner, SSTPlanner
+from arco.planning.continuous import (
+    RRTPlanner,
+    SSTPlanner,
+    TrajectoryOptimizer,
+)
 from config import load_config
 
 logger = logging.getLogger(__name__)
@@ -186,12 +190,56 @@ def main(save_path: str | None = None) -> None:
     else:
         logger.warning("SST: no path found.")
 
+    # --- Trajectory optimisation (3-D) -------------------------------------
+    opt = TrajectoryOptimizer(
+        occ,
+        cruise_speed=float(_cfg.get("race_speed", 2.0)),
+        weight_time=10.0,
+        weight_deviation=1.0,
+        weight_velocity=1.0,
+        weight_collision=5.0,
+        sample_count=1,
+        max_iter=200,
+    )
+    rrt_traj: list[np.ndarray] | None = None
+    sst_traj: list[np.ndarray] | None = None
+    if rrt_path is not None:
+        try:
+            res = opt.optimize(rrt_path)
+            rrt_traj = res.states
+            logger.info("RRT* trajectory optimised: cost=%.3f", res.cost)
+        except Exception:
+            logger.exception(
+                "RRT* TrajectoryOptimizer failed; skipping overlay."
+            )
+    if sst_path is not None:
+        try:
+            res = opt.optimize(sst_path)
+            sst_traj = res.states
+            logger.info("SST trajectory optimised: cost=%.3f", res.cost)
+        except Exception:
+            logger.exception(
+                "SST TrajectoryOptimizer failed; skipping overlay."
+            )
+
     # --- 3-D figure ---------------------------------------------------------
     fig = plt.figure(figsize=(14, 7))
 
     specs = [
-        ("RRT* — 3-D PPP warehouse", rrt_path, rrt_len, "royalblue"),
-        ("SST — 3-D PPP warehouse", sst_path, sst_len, "mediumseagreen"),
+        (
+            "RRT* — 3-D PPP warehouse",
+            rrt_path,
+            rrt_len,
+            "royalblue",
+            rrt_traj,
+        ),
+        (
+            "SST — 3-D PPP warehouse",
+            sst_path,
+            sst_len,
+            "mediumseagreen",
+            sst_traj,
+        ),
     ]
     x_lim = (
         float(_cfg["bounds"][0][0]),
@@ -203,7 +251,7 @@ def main(save_path: str | None = None) -> None:
     )
     z_lim = (0.0, float(_cfg["bounds"][2][1]))
 
-    for col, (title, path, length, color) in enumerate(specs):
+    for col, (title, path, length, color, traj) in enumerate(specs):
         ax = fig.add_subplot(1, 2, col + 1, projection="3d")
 
         # Obstacle boxes — wall is coloured distinctly from scatter boxes.
@@ -215,18 +263,35 @@ def main(save_path: str | None = None) -> None:
                 alpha=0.45,
             )
 
-        # Solution path
+        # Solution path — dimmed when trajectory is drawn on top
         if path is not None and len(path) >= 2:
             arr = np.array(path)
+            path_alpha = 0.35 if traj is not None else 1.0
             label = f"Path  {length:.1f} m | {len(path)} wpts"
             ax.plot(  # type: ignore[attr-defined]
                 arr[:, 0],
                 arr[:, 1],
                 arr[:, 2],
                 color=color,
-                linewidth=2.5,
+                linewidth=1.5,
+                alpha=path_alpha,
                 zorder=5,
                 label=label,
+            )
+
+        # Optimised trajectory — bright highlight on top of path
+        if traj is not None and len(traj) >= 2:
+            tarr = np.array([[p[0], p[1], p[2]] for p in traj])
+            ax.plot(  # type: ignore[attr-defined]
+                tarr[:, 0],
+                tarr[:, 1],
+                tarr[:, 2],
+                "o-",
+                color="orangered",
+                linewidth=2.5,
+                markersize=3,
+                zorder=7,
+                label="Optimised trajectory",
             )
 
         # Start and goal markers

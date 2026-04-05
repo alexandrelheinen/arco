@@ -237,8 +237,10 @@ _C_WALL_EDGE = (0.38, 0.17, 0.09)
 _C_BOX = (0.56, 0.41, 0.23)
 _C_BOX_EDGE = (0.31, 0.23, 0.13)
 _C_GRID = (0.15, 0.17, 0.22)
-_C_RRT = (0.40, 0.64, 1.00)
-_C_SST = (0.23, 0.90, 0.75)
+_C_RRT = (0.40, 0.64, 1.00)  # raw RRT* path (kept dimmer in show)
+_C_SST = (0.23, 0.90, 0.75)  # raw SST path (kept dimmer in show)
+_C_TRAJ_RRT = (1.00, 0.50, 0.20)  # optimised RRT* trajectory — highlight
+_C_TRAJ_SST = (1.00, 0.86, 0.25)  # optimised SST trajectory — highlight
 _C_START = (0.22, 0.86, 0.33)
 _C_GOAL = (0.86, 0.30, 0.86)
 
@@ -930,10 +932,14 @@ def run_race(
     camera = Camera3D()
     rrt_path = scene.rrt_path
     sst_path = scene.sst_path
+    # Use optimised trajectory (if available) as the carrot path so the
+    # robot follows the time-optimal route; fall back to raw plan.
+    rrt_nav = scene.rrt_traj if scene.rrt_traj else rrt_path
+    sst_nav = scene.sst_traj if scene.sst_traj else sst_path
     boxes = scene.boxes
 
-    rrt_arcs = _arc_lengths(rrt_path) if rrt_path else [0.0]
-    sst_arcs = _arc_lengths(sst_path) if sst_path else [0.0]
+    rrt_arcs = _arc_lengths(rrt_nav) if rrt_nav else [0.0]
+    sst_arcs = _arc_lengths(sst_nav) if sst_nav else [0.0]
 
     # Race state
     hold_timer = 0.0
@@ -975,8 +981,12 @@ def run_race(
                     elif event.key == pygame.K_r:
                         camera = Camera3D()
                         hold_timer = 0.0
-                        rrt_robot = PPPRobot(scene.start)
-                        sst_robot = PPPRobot(scene.start)
+                        rrt_robot = PPPRobot(
+                            scene.start, max_joint_vel, max_joint_acc
+                        )
+                        sst_robot = PPPRobot(
+                            scene.start, max_joint_vel, max_joint_acc
+                        )
                         rrt_carrot_dist = 0.0
                         sst_carrot_dist = 0.0
                         rrt_carrot = scene.start.copy()
@@ -1022,7 +1032,7 @@ def run_race(
                     if hold_timer >= _HOLD_SECS:
                         phase = "race"
                 elif phase == "race":
-                    if rrt_path and not rrt_done:
+                    if rrt_nav and not rrt_done:
                         rrt_lag = float(
                             np.linalg.norm(rrt_robot.pos - rrt_carrot)
                         )
@@ -1032,7 +1042,7 @@ def run_race(
                                 rrt_arcs[-1],
                             )
                         rrt_carrot, _ = _path_pos(
-                            rrt_path, rrt_arcs, rrt_carrot_dist
+                            rrt_nav, rrt_arcs, rrt_carrot_dist
                         )
                         rrt_robot.step(rrt_carrot, dt)
                         rrt_trail.append(rrt_robot.pos.copy())
@@ -1040,7 +1050,7 @@ def run_race(
                             float(np.linalg.norm(rrt_robot.pos - scene.goal))
                             < goal_reach_dist
                         )
-                    if sst_path and not sst_done:
+                    if sst_nav and not sst_done:
                         sst_lag = float(
                             np.linalg.norm(sst_robot.pos - sst_carrot)
                         )
@@ -1050,7 +1060,7 @@ def run_race(
                                 sst_arcs[-1],
                             )
                         sst_carrot, _ = _path_pos(
-                            sst_path, sst_arcs, sst_carrot_dist
+                            sst_nav, sst_arcs, sst_carrot_dist
                         )
                         sst_robot.step(sst_carrot, dt)
                         sst_trail.append(sst_robot.pos.copy())
@@ -1087,9 +1097,14 @@ def run_race(
                 _draw_box_edges(*box, *ec)
 
             if rrt_path:
+                # Raw plan — dimmed so the optimised trajectory stands out.
                 _draw_path(rrt_path, *_C_RRT)
+            if scene.rrt_traj:
+                _draw_path(scene.rrt_traj, *_C_TRAJ_RRT)
             if sst_path:
                 _draw_path(sst_path, *_C_SST)
+            if scene.sst_traj:
+                _draw_path(scene.sst_traj, *_C_TRAJ_SST)
 
             # Trajectory tracebacks (traveled portions, drawn thicker).
             if phase in ("race", "done"):

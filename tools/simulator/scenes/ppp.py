@@ -162,19 +162,29 @@ class PPPScene:
         self._cfg = cfg
         self._rrt_path: list[np.ndarray] | None = None
         self._sst_path: list[np.ndarray] | None = None
+        self._rrt_traj: list[np.ndarray] = []
+        self._sst_traj: list[np.ndarray] = []
 
     # ------------------------------------------------------------------
     # Build
     # ------------------------------------------------------------------
 
     def build(self) -> None:
-        """Build the occupancy map and run both planners.
+        """Build the occupancy map, run both planners, and optimise paths.
 
         Imports are deferred so that ``pygame.init()`` can be called
         before this method if needed.
         """
+        import logging
+
         from arco.mapping import KDTreeOccupancy
-        from arco.planning.continuous import RRTPlanner, SSTPlanner
+        from arco.planning.continuous import (
+            RRTPlanner,
+            SSTPlanner,
+            TrajectoryOptimizer,
+        )
+
+        _log = logging.getLogger(__name__)
 
         all_pts: list[list[float]] = []
         for box in BOXES:
@@ -206,6 +216,36 @@ class PPPScene:
             goal_bias=float(self._cfg["goal_bias"]),
         )
         _, _, self._sst_path = sst.get_tree(START.copy(), GOAL.copy())
+
+        # --- Trajectory optimisation (3-D) --------------------------------
+        opt = TrajectoryOptimizer(
+            occ,
+            cruise_speed=float(self._cfg.get("race_speed", 2.0)),
+            weight_time=10.0,
+            weight_deviation=1.0,
+            weight_velocity=1.0,
+            weight_collision=5.0,
+            sample_count=1,
+            max_iter=200,
+        )
+        if self._rrt_path is not None:
+            try:
+                res = opt.optimize(self._rrt_path)
+                self._rrt_traj = res.states
+            except Exception:
+                _log.exception(
+                    "RRT* TrajectoryOptimizer failed; using raw path."
+                )
+                self._rrt_traj = list(self._rrt_path)
+        if self._sst_path is not None:
+            try:
+                res = opt.optimize(self._sst_path)
+                self._sst_traj = res.states
+            except Exception:
+                _log.exception(
+                    "SST TrajectoryOptimizer failed; using raw path."
+                )
+                self._sst_traj = list(self._sst_path)
 
     # ------------------------------------------------------------------
     # Properties
@@ -247,3 +287,13 @@ class PPPScene:
     def sst_path(self) -> list[np.ndarray] | None:
         """SST solution path, or ``None`` if planning failed."""
         return self._sst_path
+
+    @property
+    def rrt_traj(self) -> list[np.ndarray]:
+        """Optimised RRT* trajectory states, or empty list."""
+        return self._rrt_traj
+
+    @property
+    def sst_traj(self) -> list[np.ndarray]:
+        """Optimised SST trajectory states, or empty list."""
+        return self._sst_traj

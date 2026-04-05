@@ -7,6 +7,11 @@ first street intersection near the bottom-left corner, goal is the first
 street intersection near the top-right corner.  No straight diagonal path
 exists — both planners must navigate through the street grid.
 
+After the exploration trees are fully revealed, the raw planned paths are
+shown dimmed and the optimised trajectories (produced by
+:class:`~arco.planning.continuous.TrajectoryOptimizer`) are overlaid as
+bright highlights.  The vehicles track the optimised trajectories.
+
 All layout parameters (block extents, street centrelines, start/goal, world
 bounds) are loaded from ``tools/config/obstacles.yml``; planner tuning
 parameters (step size, sample counts, …) come from ``tools/config/sparse.yml``.
@@ -14,12 +19,15 @@ parameters (step size, sample counts, …) come from ``tools/config/sparse.yml``
 
 from __future__ import annotations
 
+import logging
 import math
 from typing import Any
 
 import numpy as np
 import renderer_gl
 from sim.tracking import VehicleConfig
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Colour palette
@@ -31,17 +39,30 @@ _C_ROAD_DOT: tuple[int, int, int] = (65, 60, 50)  # faded lane marking
 # RRT* — blue family
 _C_RRT_EDGE: tuple[int, int, int] = (60, 120, 200)
 _C_RRT_NODE: tuple[int, int, int] = (45, 95, 170)
-_C_RRT_PATH: tuple[int, int, int] = (130, 190, 255)
+_C_RRT_PATH: tuple[int, int, int] = (130, 190, 255)  # raw path — dimmer
+_C_RRT_TRAJ: tuple[int, int, int] = (
+    255,
+    130,
+    60,
+)  # optimised trajectory — highlight
 
 # SST — teal family
 _C_SST_EDGE: tuple[int, int, int] = (40, 180, 155)
 _C_SST_NODE: tuple[int, int, int] = (35, 155, 130)
-_C_SST_PATH: tuple[int, int, int] = (100, 240, 210)
+_C_SST_PATH: tuple[int, int, int] = (100, 240, 210)  # raw path — dimmer
+_C_SST_TRAJ: tuple[int, int, int] = (
+    255,
+    220,
+    80,
+)  # optimised trajectory — highlight
 
 _C_START: tuple[int, int, int] = (60, 220, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
 _C_SDF_NEAR: tuple[int, int, int] = (62, 50, 38)  # warm shadow near buildings
 _C_BARRIER: tuple[int, int, int] = (200, 120, 40)  # amber — dead-end barriers
+
+# Alpha for the raw reference paths when trajectories are drawn on top.
+_PATH_ALPHA = 0.3
 
 # World-space ring radii for start/goal markers.
 _RING_OUTER = 1.2  # metres
@@ -200,23 +221,29 @@ class SparseScene:
         self._rrt_nodes: list[Any] = []
         self._rrt_parent: dict[int, int | None] = {}
         self._rrt_path: list[Any] | None = None
+        self._rrt_traj_states: list[Any] = []
 
         # SST planner output
         self._sst_nodes: list[Any] = []
         self._sst_parent: dict[int, int | None] = {}
         self._sst_path: list[Any] | None = None
+        self._sst_traj_states: list[Any] = []
 
     # ------------------------------------------------------------------
     # Build
     # ------------------------------------------------------------------
 
     def build(self) -> None:
-        """Build the city-neighbourhood map and run both RRT* and SST planners.
+        """Build the city-neighbourhood map, run both planners, and optimise.
 
         Must be called **after** ``pygame.init()`` so that font calls inside
         any sub-components are safe.
         """
-        from arco.planning.continuous import RRTPlanner, SSTPlanner
+        from arco.planning.continuous import (
+            RRTPlanner,
+            SSTPlanner,
+            TrajectoryOptimizer,
+        )
 
         self._occ = _build_occupancy(self._obs_cfg, self._cfg)
 
@@ -246,6 +273,37 @@ class SparseScene:
         self._sst_nodes, self._sst_parent, self._sst_path = sst.get_tree(
             self._start.copy(), self._goal.copy()
         )
+
+        # --- Trajectory optimisation (scaled for the large world) --------
+        cruise = self._vehicle_cfg.cruise_speed
+        opt = TrajectoryOptimizer(
+            self._occ,
+            cruise_speed=cruise,
+            weight_time=10.0,
+            weight_deviation=1.0,
+            weight_velocity=1.0,
+            weight_collision=5.0,
+            sample_count=0,
+            max_iter=100,
+        )
+        if self._rrt_path is not None:
+            try:
+                result = opt.optimize(self._rrt_path)
+                self._rrt_traj_states = result.states
+            except Exception:
+                logger.exception(
+                    "RRT* TrajectoryOptimizer failed; using raw path."
+                )
+                self._rrt_traj_states = list(self._rrt_path)
+        if self._sst_path is not None:
+            try:
+                result = opt.optimize(self._sst_path)
+                self._sst_traj_states = result.states
+            except Exception:
+                logger.exception(
+                    "SST TrajectoryOptimizer failed; using raw path."
+                )
+                self._sst_traj_states = list(self._sst_path)
 
     # ------------------------------------------------------------------
     # Properties
@@ -285,17 +343,23 @@ class SparseScene:
 
     @property
     def rrt_waypoints(self) -> list[tuple[float, float]]:
-        """RRT* solution path as ``(x, y)`` tuples, or empty list."""
-        if self._rrt_path is None:
+        """Optimised RRT* trajectory as ``(x, y)`` tuples, or empty list."""
+        pts = (
+            self._rrt_traj_states if self._rrt_traj_states else self._rrt_path
+        )
+        if pts is None:
             return []
-        return [(float(p[0]), float(p[1])) for p in self._rrt_path]
+        return [(float(p[0]), float(p[1])) for p in pts]
 
     @property
     def sst_waypoints(self) -> list[tuple[float, float]]:
-        """SST solution path as ``(x, y)`` tuples, or empty list."""
-        if self._sst_path is None:
+        """Optimised SST trajectory as ``(x, y)`` tuples, or empty list."""
+        pts = (
+            self._sst_traj_states if self._sst_traj_states else self._sst_path
+        )
+        if pts is None:
             return []
-        return [(float(p[0]), float(p[1])) for p in self._sst_path]
+        return [(float(p[0]), float(p[1])) for p in pts]
 
     @property
     def road_dots(self) -> list[tuple[float, float]]:
@@ -368,7 +432,19 @@ class SparseScene:
             and rrt_revealed >= self.rrt_total
             and self._rrt_path is not None
         ):
-            renderer_gl.draw_path(self._rrt_path, *_c(_C_RRT_PATH), width=2.5)
+            # Raw path — dimmed
+            renderer_gl.draw_path(
+                self._rrt_path, *_c(_C_RRT_PATH), width=1.5, alpha=_PATH_ALPHA
+            )
+            # Optimised trajectory — highlighted
+            if self._rrt_traj_states:
+                renderer_gl.draw_path(
+                    self._rrt_traj_states, *_c(_C_RRT_TRAJ), width=3.0
+                )
+            elif not self._rrt_traj_states:
+                renderer_gl.draw_path(
+                    self._rrt_path, *_c(_C_RRT_PATH), width=2.5
+                )
 
         renderer_gl.draw_tree(
             self._sst_nodes,
@@ -382,7 +458,19 @@ class SparseScene:
             and sst_revealed >= self.sst_total
             and self._sst_path is not None
         ):
-            renderer_gl.draw_path(self._sst_path, *_c(_C_SST_PATH), width=2.5)
+            # Raw path — dimmed
+            renderer_gl.draw_path(
+                self._sst_path, *_c(_C_SST_PATH), width=1.5, alpha=_PATH_ALPHA
+            )
+            # Optimised trajectory — highlighted
+            if self._sst_traj_states:
+                renderer_gl.draw_path(
+                    self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
+                )
+            elif not self._sst_traj_states:
+                renderer_gl.draw_path(
+                    self._sst_path, *_c(_C_SST_PATH), width=2.5
+                )
 
         sx, sy = float(self._start[0]), float(self._start[1])
         renderer_gl.draw_ring(

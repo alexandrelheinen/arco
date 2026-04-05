@@ -2,11 +2,16 @@
 
 :class:`RRTScene` builds a 2-D obstacle field, runs the RRT* algorithm to
 completion, and then reveals the exploration tree incrementally before
-transitioning to the vehicle-tracking phase.
+transitioning to the vehicle-tracking phase.  After the tree is fully
+revealed, the optimised trajectory (produced by
+:class:`~arco.planning.continuous.TrajectoryOptimizer`) is overlaid as a
+bright highlight; the raw RRT* path is shown in a dimmer colour beneath it.
+The vehicle tracks the optimised trajectory, not the raw path.
 """
 
 from __future__ import annotations
 
+import logging
 import math
 from typing import Any
 
@@ -16,6 +21,8 @@ import renderer_gl
 from sim.scene import SimScene
 from sim.tracking import VehicleConfig
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Colour palette (RRT*-specific — blue tones for the exploration tree)
 # ---------------------------------------------------------------------------
@@ -23,13 +30,21 @@ _C_BG: tuple[int, int, int] = (28, 28, 35)
 _C_OBSTACLE: tuple[int, int, int] = (160, 60, 60)
 _C_TREE_EDGE: tuple[int, int, int] = (60, 120, 180)
 _C_TREE_NODE: tuple[int, int, int] = (50, 100, 160)
-_C_PATH: tuple[int, int, int] = (230, 170, 30)
+_C_PATH: tuple[int, int, int] = (230, 170, 30)  # raw path — kept dimmer
+_C_TRAJ: tuple[int, int, int] = (
+    255,
+    100,
+    50,
+)  # optimised trajectory — highlighted
 _C_START: tuple[int, int, int] = (60, 200, 90)
 _C_GOAL: tuple[int, int, int] = (220, 80, 220)
 _C_SDF_NEAR: tuple[int, int, int] = (80, 35, 35)
 
 _C_HUD = (220, 220, 220)
 _C_HUD_SHADOW = (40, 40, 50)
+
+# Alpha for the raw reference path when the trajectory is drawn on top.
+_PATH_ALPHA = 0.35
 
 # World-space ring radii for start/goal markers.
 _RING_OUTER = 1.2  # metres
@@ -57,7 +72,10 @@ class RRTScene(SimScene):
     """RRT* planning scene on a 2-D scattered-obstacle environment.
 
     The background-reveal phase incrementally grows the exploration tree from
-    root to leaf before transitioning to vehicle tracking.
+    root to leaf before transitioning to vehicle tracking.  Once the tree is
+    fully revealed, the raw RRT* path is shown dimmed and the two-stage
+    optimised trajectory is overlaid as an orange highlight.  The vehicle
+    then tracks the optimised trajectory.
 
     Args:
         rrt_config: Parsed RRT configuration dict (from ``rrt.yml``).
@@ -69,6 +87,7 @@ class RRTScene(SimScene):
         self._tree_nodes: list[Any] = []
         self._tree_parent: dict[int, int | None] = {}
         self._path: list[Any] | None = None
+        self._traj_states: list[np.ndarray] = []
         self._start: Any = None
         self._goal: Any = None
         self._bounds: list[tuple[float, float]] = []
@@ -79,12 +98,12 @@ class RRTScene(SimScene):
     # ------------------------------------------------------------------
 
     def build(self) -> None:
-        """Build the obstacle environment and run RRT*.
+        """Build the obstacle environment, run RRT*, and optimise the path.
 
         Raises:
             RuntimeError: If planner configuration is missing required keys.
         """
-        from arco.planning.continuous import RRTPlanner
+        from arco.planning.continuous import RRTPlanner, TrajectoryOptimizer
 
         self._occ = _build_occupancy(self._cfg)
         bounds = [tuple(b) for b in self._cfg["bounds"]]
@@ -111,6 +130,25 @@ class RRTScene(SimScene):
             self._start, self._goal
         )
 
+        # --- Trajectory optimisation -----------------------------------
+        if self._path is not None:
+            try:
+                opt = TrajectoryOptimizer(
+                    self._occ,
+                    cruise_speed=_VEHICLE_CONFIG.cruise_speed,
+                    weight_time=10.0,
+                    weight_deviation=1.0,
+                    weight_velocity=1.0,
+                    weight_collision=5.0,
+                    sample_count=2,
+                    max_iter=200,
+                )
+                result = opt.optimize(self._path)
+                self._traj_states = result.states
+            except Exception:
+                logger.exception("TrajectoryOptimizer failed; using raw path.")
+                self._traj_states = list(self._path)
+
     @property
     def title(self) -> str:
         """Human-readable scene label."""
@@ -135,10 +173,11 @@ class RRTScene(SimScene):
 
         Falls back to the full planning bounds when no path was found.
         """
-        if self._path is None:
+        pts = self._traj_states if self._traj_states else self._path
+        if pts is None:
             return self.world_points
-        path_xs = [float(p[0]) for p in self._path]
-        path_ys = [float(p[1]) for p in self._path]
+        path_xs = [float(p[0]) for p in pts]
+        path_ys = [float(p[1]) for p in pts]
         pad = max(
             (max(path_xs) - min(path_xs)) * 0.15,
             (max(path_ys) - min(path_ys)) * 0.15,
@@ -151,10 +190,14 @@ class RRTScene(SimScene):
 
     @property
     def waypoints(self) -> list[tuple[float, float]]:
-        """Planned path converted to ``(x, y)`` tuples, or empty list."""
-        if self._path is None:
+        """Optimised trajectory waypoints as ``(x, y)`` tuples.
+
+        Falls back to the raw path when the optimiser was not run.
+        """
+        pts = self._traj_states if self._traj_states else self._path
+        if pts is None:
             return []
-        return [(float(p[0]), float(p[1])) for p in self._path]
+        return [(float(p[0]), float(p[1])) for p in pts]
 
     @property
     def vehicle_config(self) -> VehicleConfig:
@@ -167,7 +210,10 @@ class RRTScene(SimScene):
         return len(self._tree_nodes)
 
     def draw_background(self, revealed: int) -> None:
-        """Draw the obstacle field, exploration tree, and (if complete) path.
+        """Draw the obstacle field, exploration tree, and (if complete) paths.
+
+        When fully revealed, draws the raw RRT* path dimmed and the optimised
+        trajectory on top as an orange highlight.
 
         Args:
             revealed: Number of tree nodes to show (0 = none, total = all).
@@ -202,7 +248,20 @@ class RRTScene(SimScene):
             *_c(_C_TREE_NODE),
         )
         if revealed >= self.background_total and self._path is not None:
-            renderer_gl.draw_path(self._path, *_c(_C_PATH), width=2.5)
+            # Raw path — dimmed so the trajectory stands out.
+            renderer_gl.draw_path(
+                self._path,
+                *_c(_C_PATH),
+                width=1.5,
+                alpha=_PATH_ALPHA,
+            )
+            # Optimised trajectory — bright highlight on top.
+            if self._traj_states:
+                renderer_gl.draw_path(
+                    self._traj_states,
+                    *_c(_C_TRAJ),
+                    width=3.0,
+                )
 
         # Start / goal rings
         sx, sy = float(self._start[0]), float(self._start[1])
@@ -232,6 +291,10 @@ class RRTScene(SimScene):
             f"Nodes: {revealed}/{self.background_total}",
             f"Path: {'found' if self._path is not None else 'none'}",
         ]
+        if revealed >= self.background_total:
+            lines.append(
+                "Traj: optimised" if self._traj_states else "Traj: raw path"
+            )
         line_h = font.get_linesize() + 2
         panel_h = len(lines) * line_h + 8
         panel_w = max(font.size(ln)[0] for ln in lines) + 20

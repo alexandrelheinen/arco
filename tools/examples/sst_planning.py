@@ -38,7 +38,7 @@ from logging_config import configure_logging
 from viewer.occupancy import draw_occupancy
 
 from arco.mapping import KDTreeOccupancy
-from arco.planning.continuous import SSTPlanner
+from arco.planning.continuous import SSTPlanner, TrajectoryOptimizer
 from config import load_config
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,33 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
         logger.warning("No path found.")
         subtitle = "No path found"
 
+    # --- Trajectory optimisation ----------------------------------------
+    traj_states = None
+    if path is not None:
+        try:
+            opt = TrajectoryOptimizer(
+                occ,
+                cruise_speed=3.0,
+                weight_time=10.0,
+                weight_deviation=1.0,
+                weight_velocity=1.0,
+                weight_collision=5.0,
+                sample_count=2,
+                max_iter=200,
+            )
+            traj_result = opt.optimize(path)
+            traj_states = traj_result.states
+            logger.info(
+                "Trajectory optimised: cost=%.3f, T=%.2fs",
+                traj_result.cost,
+                sum(traj_result.durations),
+            )
+        except Exception:
+            logger.exception("TrajectoryOptimizer failed; skipping overlay.")
+
     tree_to_draw = (tree_nodes, tree_parent) if draw_tree else (None, None)
+    # Draw raw path with reduced alpha so the trajectory stands out.
+    path_alpha = 0.35 if traj_states is not None else 1.0
     fig, ax = draw_occupancy(
         occ,
         bounds=bounds,
@@ -137,11 +163,28 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
         start=start,
         goal=goal,
         draw_tree=draw_tree,
+        path_alpha=path_alpha,
         title=(
             f"SST — {int(_cfg['max_sample_count'])} samples, "
             f"δ_s={float(_cfg['witness_radius'])}\n{subtitle}"
         ),
     )
+
+    # Overlay the optimised trajectory in a highlighted colour.
+    if traj_states is not None and len(traj_states) >= 2:
+        traj_arr = np.array([[p[0], p[1]] for p in traj_states])
+        ax.plot(
+            traj_arr[:, 0],
+            traj_arr[:, 1],
+            "o-",
+            color="orangered",
+            linewidth=2.5,
+            markersize=3,
+            zorder=6,
+            label="Optimised trajectory",
+        )
+        ax.legend(loc="upper left", fontsize=8)
+
     plt.tight_layout()
 
     if save_path is not None:
