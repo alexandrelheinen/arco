@@ -541,10 +541,13 @@ class SparseScene:
                         self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
                     )
         else:
-            # Racing: road-dot backdrop so the screen is never empty, then
-            # the adjusted trajectories so live vehicle trails stand out.
+            # Racing: full backdrop (road dots + buildings) so the obstacle
+            # field stays visible, then the adjusted trajectories.
             renderer_gl.draw_obstacle_points(
                 self._road_dots, *_c(_C_ROAD_DOT), point_size=3.0
+            )
+            renderer_gl.draw_obstacle_points(
+                self._occ.points, *_c(_C_BUILDING), point_size=5.0
             )
             if self._rrt_traj_states:
                 renderer_gl.draw_path(
