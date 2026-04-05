@@ -38,6 +38,8 @@ def _resolve_network_path() -> str:
     config_dir = os.path.join(
         os.path.dirname(__file__),
         "..",
+        "src",
+        "arco",
         "tools",
         "config",
     )
