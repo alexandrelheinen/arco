@@ -432,18 +432,19 @@ class SparseScene:
             and rrt_revealed >= self.rrt_total
             and self._rrt_path is not None
         ):
-            # Raw path — dimmed
+            # Raw path — dimmed so the trajectory stands out (or at full
+            # opacity when no trajectory was generated).
+            rrt_path_alpha = _PATH_ALPHA if self._rrt_traj_states else 1.0
             renderer_gl.draw_path(
-                self._rrt_path, *_c(_C_RRT_PATH), width=1.5, alpha=_PATH_ALPHA
+                self._rrt_path,
+                *_c(_C_RRT_PATH),
+                width=1.5 if self._rrt_traj_states else 2.5,
+                alpha=rrt_path_alpha,
             )
             # Optimised trajectory — highlighted
             if self._rrt_traj_states:
                 renderer_gl.draw_path(
                     self._rrt_traj_states, *_c(_C_RRT_TRAJ), width=3.0
-                )
-            elif not self._rrt_traj_states:
-                renderer_gl.draw_path(
-                    self._rrt_path, *_c(_C_RRT_PATH), width=2.5
                 )
 
         renderer_gl.draw_tree(
@@ -458,18 +459,19 @@ class SparseScene:
             and sst_revealed >= self.sst_total
             and self._sst_path is not None
         ):
-            # Raw path — dimmed
+            # Raw path — dimmed so the trajectory stands out (or at full
+            # opacity when no trajectory was generated).
+            sst_path_alpha = _PATH_ALPHA if self._sst_traj_states else 1.0
             renderer_gl.draw_path(
-                self._sst_path, *_c(_C_SST_PATH), width=1.5, alpha=_PATH_ALPHA
+                self._sst_path,
+                *_c(_C_SST_PATH),
+                width=1.5 if self._sst_traj_states else 2.5,
+                alpha=sst_path_alpha,
             )
             # Optimised trajectory — highlighted
             if self._sst_traj_states:
                 renderer_gl.draw_path(
                     self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
-                )
-            elif not self._sst_traj_states:
-                renderer_gl.draw_path(
-                    self._sst_path, *_c(_C_SST_PATH), width=2.5
                 )
 
         sx, sy = float(self._start[0]), float(self._start[1])
