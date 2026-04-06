@@ -23,6 +23,8 @@ def _resolve_city_network_path() -> str:
         os.path.dirname(__file__),
         "..",
         "..",
+        "src",
+        "arco",
         "tools",
         "config",
     )

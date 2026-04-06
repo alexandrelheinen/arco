@@ -33,14 +33,14 @@ jobs:
 
       - name: Generate racing chiptune (CC0)
         run: |
-          python tools/simulator/generate_chiptune.py \
+          python -m arco.tools.simulator.generate_chiptune \
             --output /tmp/sim_videos/racing_theme.wav
 
       - name: Generate A* general view (full network camera)
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/astar.py \
+          xvfb-run -a python -m arco.tools.simulator.main.astar \
             --fps 30 \
             --camera full \
             --record /tmp/sim_videos/astar_full.mp4 \
@@ -50,7 +50,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/astar.py \
+          xvfb-run -a python -m arco.tools.simulator.main.astar \
             --fps 30 \
             --camera follow \
             --record /tmp/sim_videos/astar_zoom.mp4 \
@@ -60,7 +60,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rrt.py \
+          xvfb-run -a python -m arco.tools.simulator.main.rrt \
             --fps 30 \
             --record /tmp/sim_videos/rrt_full.mp4 \
             --record-duration 60
@@ -69,7 +69,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rrt.py \
+          xvfb-run -a python -m arco.tools.simulator.main.rrt \
             --fps 30 \
             --zoom \
             --camera follow \
@@ -80,7 +80,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/sst.py \
+          xvfb-run -a python -m arco.tools.simulator.main.sst \
             --fps 30 \
             --record /tmp/sim_videos/sst_full.mp4 \
             --record-duration 60
@@ -89,7 +89,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/sst.py \
+          xvfb-run -a python -m arco.tools.simulator.main.sst \
             --fps 30 \
             --zoom \
             --camera follow \
@@ -100,7 +100,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/sparse.py \
+          xvfb-run -a python -m arco.tools.simulator.main.sparse \
             --fps 30 \
             --record /tmp/sim_videos/sparse.mp4 \
             --record-duration 90

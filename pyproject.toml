@@ -1,6 +1,6 @@
 [project]
 name = "arco"
-version = "0.1.1"
+version = "0.2.0"
 description = "Autonomous Routing, Control, and Observation algorithms in Python"
 authors = [
     { name = "Alexandre Loeblein Heinen" }
@@ -21,7 +21,6 @@ dev = [
     "pydocstyle"
 ]
 tools = [
-    "arco",
     "matplotlib",
     "pyyaml"
 ]
@@ -41,3 +40,6 @@ line_length = 79
 [tool.pydocstyle]
 convention = "google"
 add_ignore = ["D100", "D104"]  # Ignore module and package docstrings
+
+[tool.setuptools.packages.find]
+where = ["src"]

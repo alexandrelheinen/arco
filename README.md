@@ -82,8 +82,12 @@ Guidance is applied after planning:
 │   └── planning
 │       ├── discrete       ← graph-search planners (A*, route planning)
 │       └── continuous     ← sampling-based planners (RRT*, SST)
-├── tests                  ← mirrored test layout
-└── tools                  ← examples and visualization utilities
+└── tools                  ← simulation harness and visualization utilities
+    ├── config             ← YAML config files (loaded via ARCO_ROOT_DIR)
+    ├── examples           ← runnable example scripts
+    ├── graph              ← road-graph generator
+    ├── simulator          ← PyOpenGL/pygame interactive simulators
+    └── viewer             ← matplotlib visualization helpers
 ```
 
 ## Installation
@@ -92,6 +96,12 @@ Guidance is applied after planning:
 git clone https://github.com/alexandrelheinen/arco.git
 cd arco
 pip install -e ".[dev]"
+```
+
+To run examples and simulators, also install the `tools` extras:
+
+```bash
+pip install -e ".[dev,tools]"
 ```
 
 Requires Python 3.10+
@@ -107,19 +117,33 @@ pytest tests/ -v
 ### Format code
 
 ```bash
-python -m black --target-version py312 --line-length 79 src/ tools/
-python -m isort --line-length 79 src/ tools/
+python -m black --target-version py312 --line-length 79 src/
+python -m isort --line-length 79 src/
 ```
 
 ### Local examples
 
+All examples are runnable as Python modules after installing the package:
+
 ```bash
-python tools/examples/astar_graph.py
-python tools/examples/astar_grid_obstacle.py
-python tools/examples/astar_manhattan.py
-python tools/examples/route_planning.py
-python tools/examples/rrt_planning.py
-python tools/examples/sst_planning.py
+python -m arco.tools.examples.astar_graph
+python -m arco.tools.examples.astar_grid_obstacle
+python -m arco.tools.examples.astar_manhattan
+python -m arco.tools.examples.route_planning
+python -m arco.tools.examples.rrt_planning
+python -m arco.tools.examples.sst_planning
+```
+
+### Configuration
+
+Tool configuration is loaded from YAML files under `src/arco/tools/config/` by
+default. Set the `ARCO_ROOT_DIR` environment variable to point to a custom
+directory to override all config files for a specific deployment:
+
+```bash
+export ARCO_ROOT_DIR=/path/to/my/config_root
+# Config is now loaded from /path/to/my/config_root/config/*.yml
+python -m arco.tools.examples.rrt_planning
 ```
 
 ## CI and Merge Policy
