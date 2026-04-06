@@ -5,7 +5,7 @@ environment (60 m × 20 m × 6 m) with ground-level box obstacles.
 
 Three barriers now cross the full bay width in sequence:
 
-    Barrier 1 (tall):   x=[10,12] y=[0,20]  z=[0,4.0]
+    Barrier 1 (tall):   x=[15,17] y=[0,20]  z=[0,2.5]
     Barrier 2 (small):  x=[24,26] y=[0,20]  z=[0,2.0]
     Barrier 3 (split):
       - half south:     x=[38,40] y=[0,10]  z=[0,3.2]
@@ -35,23 +35,20 @@ import numpy as np
 #: Box extents: (x_min, y_min, z_min, x_max, y_max, z_max).
 BOXES: list[tuple[float, float, float, float, float, float]] = [
     # Width-crossing barriers.
-    (10.0, 0.0, 0.0, 12.0, 20.0, 4.0),
+    (15.0, 0.0, 0.0, 17.0, 20.0, 2.5),
     (24.0, 0.0, 0.0, 26.0, 20.0, 2.0),
     (38.0, 0.0, 0.0, 40.0, 10.0, 3.2),
     (38.0, 10.0, 0.0, 40.0, 20.0, 1.4),
     # Scatter blocks.
     (5.0, 14.0, 0.0, 8.0, 19.0, 1.8),
-    (16.0, 2.0, 0.0, 19.0, 6.0, 2.2),
+    (20.0, 2.0, 0.0, 23.0, 6.0, 2.2),
     (31.0, 13.0, 0.0, 35.0, 18.0, 2.8),
     (45.0, 4.0, 0.0, 48.0, 9.0, 1.6),
-    # Concave U-obstacle (opening faces west) placed at the far width corner,
-    # directly blocking the approach to the goal at (59, 19, 0).
-    # The north leg sits 2 m south of the goal; planners that naively enter
-    # the y=13..17 corridor hit the back wall and must reroute through the
-    # narrow y > 18.5 gap to reach the goal.
+    # Concave U-obstacle (opening faces west) placed at the far width corner.
+    # The south leg sits at y=13..14; planners that naively enter
+    # the y=13..17 corridor hit the back wall and must reroute.
     (54.0, 13.0, 0.0, 59.0, 14.0, 2.8),  # south leg
-    (54.0, 16.0, 0.0, 59.0, 17.0, 2.8),  # north leg
-    (58.0, 14.0, 0.0, 59.0, 16.0, 2.8),  # back wall
+    (57.0, 14.0, 0.0, 58.0, 16.0, 2.8),  # back wall
 ]
 
 #: Maximum x-depth (meters) that classifies a box as a crossing barrier.
