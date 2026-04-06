@@ -379,7 +379,7 @@ def main(save_path: str | None = None) -> None:
         ax.set_ylabel("Y (m)")  # type: ignore[attr-defined]
         ax.set_zlabel("Z (m)")  # type: ignore[attr-defined]
         ax.set_title(title)  # type: ignore[attr-defined]
-        ax.legend(loc="upper left", fontsize=8)  # type: ignore[attr-defined]
+        ax.legend(loc="upper left", fontsize=8, bbox_to_anchor=(0, 1, 0.6, 1))  # type: ignore[attr-defined]
         ax.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
         metrics_lines = [
             (

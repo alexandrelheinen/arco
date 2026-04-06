@@ -78,6 +78,8 @@ class TrajectoryOptimizer:
           + w_deviation · Σ |pᵢ − refᵢ|²
           + w_velocity · Σ (|pᵢ − pᵢ₋₁| / tᵢ − v_cruise)²
           + w_collision · Σ max(0, clearance − dist(pᵢ, obstacles))²
+                    + w_collision · barrier_scale · Σ (max(0, clearance − dist)
+                                                                                         / max(clearance, ε))^barrier_power
           + w_dynamics · Σ [max(0, vᵢ − max_speed)² + max(0, min_speed − vᵢ)²]
 
     where *T = Σ tᵢ* is the total traversal time and the dynamics term
@@ -108,6 +110,11 @@ class TrajectoryOptimizer:
         weight_velocity: Weight for the velocity deviation from
             *cruise_speed*.  Prevents the degenerate solution T → 0.
         weight_collision: Weight for obstacle-penetration penalties.
+        collision_barrier_scale: Multiplier for an additional barrier-style
+            collision term. Larger values make clearance violations very
+            expensive (near-hard behavior) while keeping a smooth objective.
+        collision_barrier_power: Exponent used by the barrier-style
+            collision term. Values above 2 amplify deep penetration strongly.
         weight_dynamics: Weight for the dynamics-constraint penalty
             (speed bounds).  A large value (default 100.0) steers the
             optimiser toward feasible speed profiles.
@@ -143,6 +150,8 @@ class TrajectoryOptimizer:
         weight_deviation: float = 1.0,
         weight_velocity: float = 1.0,
         weight_collision: float = 5.0,
+        collision_barrier_scale: float = 50.0,
+        collision_barrier_power: float = 4.0,
         weight_dynamics: float = 100.0,
         max_speed: Optional[float] = None,
         min_speed: Optional[float] = None,
@@ -161,6 +170,12 @@ class TrajectoryOptimizer:
             weight_deviation: Cost weight for path-deviation term.
             weight_velocity: Cost weight for velocity-deviation term.
             weight_collision: Cost weight for collision-penalty term.
+            collision_barrier_scale: Multiplier for the barrier-style
+                collision term used to approximate a hard clearance
+                constraint.
+            collision_barrier_power: Exponent for barrier-style collision
+                growth. Values greater than 2 penalize penetration
+                increasingly aggressively.
             weight_dynamics: Cost weight for dynamics-constraint penalty
                 (speed bounds).
             max_speed: Upper speed limit (world units / s) for the
@@ -190,6 +205,8 @@ class TrajectoryOptimizer:
         self.weight_deviation = weight_deviation
         self.weight_velocity = weight_velocity
         self.weight_collision = weight_collision
+        self.collision_barrier_scale = collision_barrier_scale
+        self.collision_barrier_power = collision_barrier_power
         self.weight_dynamics = weight_dynamics
         self.max_speed = max_speed
         self.min_speed = min_speed
@@ -415,6 +432,7 @@ class TrajectoryOptimizer:
         # --- Collision penalty (batch query) -----------------------------
         clearance = getattr(self.occupancy, "clearance", 0.5)
         j_collision = 0.0
+        j_collision_barrier = 0.0
 
         # Collect all query points: interior waypoints + segment samples
         query_pts_list: list[np.ndarray] = []
@@ -442,6 +460,17 @@ class TrajectoryOptimizer:
             j_collision = self.weight_collision * float(
                 np.sum(penetrations**2)
             )
+            clearance_safe = max(float(clearance), 1e-9)
+            normalized_penetrations = penetrations / clearance_safe
+            j_collision_barrier = (
+                self.weight_collision
+                * self.collision_barrier_scale
+                * float(
+                    np.sum(
+                        normalized_penetrations**self.collision_barrier_power
+                    )
+                )
+            )
 
         # --- Dynamics penalty (speed bounds) -----------------------------
         # Penalises implied segment speeds that violate max_speed / min_speed.
@@ -456,7 +485,14 @@ class TrajectoryOptimizer:
                 j_dynamics += float(np.sum(under**2))
             j_dynamics *= self.weight_dynamics
 
-        return j_time + j_deviation + j_velocity + j_collision + j_dynamics
+        return (
+            j_time
+            + j_deviation
+            + j_velocity
+            + j_collision
+            + j_collision_barrier
+            + j_dynamics
+        )
 
     # ------------------------------------------------------------------
     # Helpers

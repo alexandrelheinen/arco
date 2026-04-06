@@ -177,6 +177,11 @@ def draw_graph(
                 [0], [0], color=path_edge_color, linewidth=2.5, label="Path"
             ),
         ]
-    ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
+    ax.legend(
+        handles=legend_handles,
+        loc="upper left",
+        fontsize=8,
+        bbox_to_anchor=(0, 1, 0.6, 1),
+    )
 
     return fig, ax
