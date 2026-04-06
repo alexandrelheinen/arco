@@ -27,6 +27,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 
 # Make the package importable when running the script directly.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -45,6 +46,23 @@ from config import load_config
 logger = logging.getLogger(__name__)
 
 _cfg = load_config("rrt")
+
+
+def _format_clock(seconds: float) -> str:
+    """Format seconds as ``MMminSSs`` rounded to whole seconds."""
+    rounded = int(round(seconds))
+    mins, secs = divmod(rounded, 60)
+    return f"{mins:02d}min{secs:02d}s"
+
+
+def _polyline_length(path: list[np.ndarray] | None) -> float:
+    """Return total Euclidean arc length for a waypoint sequence."""
+    if path is None or len(path) < 2:
+        return 0.0
+    return sum(
+        float(np.linalg.norm(path[i + 1] - path[i]))
+        for i in range(len(path) - 1)
+    )
 
 
 def build_occupancy() -> KDTreeOccupancy:
@@ -111,24 +129,28 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
     )
 
     logger.info("Running RRT* …")
+    planner_t0 = time.perf_counter()
     tree_nodes, tree_parent, path = planner.get_tree(start, goal)
+    planner_elapsed = time.perf_counter() - planner_t0
     logger.info("Tree size: %d nodes", len(tree_nodes))
 
+    planner_nodes = len(tree_nodes)
+    planner_steps = max(0, (len(path) - 1) if path is not None else 0)
+    path_found_text = "found" if path is not None else "stalled"
+    path_len = _polyline_length(path)
+
     if path is not None:
-        path_len = sum(
-            float(np.linalg.norm(path[i + 1] - path[i]))
-            for i in range(len(path) - 1)
-        )
         logger.info(
             "Path found: %d waypoints, length=%.2f", len(path), path_len
         )
-        subtitle = f"Path length: {path_len:.1f} | {len(path)} waypoints"
     else:
         logger.warning("No path found.")
-        subtitle = "No path found"
 
     # --- Trajectory optimization ----------------------------------------
     traj_states = None
+    traj_duration = 0.0
+    traj_arc_len = 0.0
+    opt_status_text = "not-run"
     if path is not None:
         try:
             opt = TrajectoryOptimizer(
@@ -141,15 +163,24 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
                 sample_count=2,
                 max_iter=200,
             )
+            opt_t0 = time.perf_counter()
             traj_result = opt.optimize(path)
+            _ = time.perf_counter() - opt_t0
             traj_states = traj_result.states
+            traj_duration = sum(traj_result.durations)
+            traj_arc_len = _polyline_length(traj_result.states)
+            opt_status_text = (
+                f"{traj_result.optimizer_status_code}: "
+                f"{traj_result.optimizer_status_text}"
+            )
             logger.info(
                 "Trajectory optimized: cost=%.3f, T=%.2fs",
                 traj_result.cost,
-                sum(traj_result.durations),
+                traj_duration,
             )
         except Exception:
             logger.exception("TrajectoryOptimizer failed; skipping overlay.")
+            opt_status_text = "exception"
 
     tree_to_draw = (tree_nodes, tree_parent) if draw_tree else (None, None)
     # Draw raw path with reduced alpha so the trajectory stands out.
@@ -164,7 +195,34 @@ def main(save_path: str | None = None, draw_tree: bool = False) -> None:
         goal=goal,
         draw_tree=draw_tree,
         path_alpha=path_alpha,
-        title=f"RRT* — {int(_cfg['max_sample_count'])} samples\n{subtitle}",
+        title=f"RRT* — {int(_cfg['max_sample_count'])} samples",
+    )
+
+    metrics_lines = [
+        f"Planner steps / nodes: {planner_steps} / {planner_nodes}",
+        f"Planner time: {_format_clock(planner_elapsed)}",
+        f"Planned path length: {int(round(path_len))} m",
+        f"Trajectory arc length: {int(round(traj_arc_len))} m",
+        f"Trajectory duration: {_format_clock(traj_duration)}",
+        f"Path status: {path_found_text}",
+        f"Optimizer status: {opt_status_text}",
+    ]
+    ax.text(
+        0.01,
+        0.99,
+        "\n".join(metrics_lines),
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        fontsize=7,
+        color="white",
+        bbox={
+            "boxstyle": "round,pad=0.3",
+            "facecolor": "black",
+            "alpha": 0.65,
+            "edgecolor": "none",
+        },
+        zorder=10,
     )
 
     # Overlay the optimized trajectory in a highlighted color.

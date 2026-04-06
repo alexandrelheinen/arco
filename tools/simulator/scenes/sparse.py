@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from typing import Any
 
 import numpy as np
@@ -296,12 +297,23 @@ class SparseScene:
         self._rrt_parent: dict[int, int | None] = {}
         self._rrt_path: list[Any] | None = None
         self._rrt_traj_states: list[Any] = []
+        self._rrt_metrics: dict[str, Any] = {
+            "steps": 0,
+            "nodes": 0,
+            "planner_time": 0.0,
+            "planned_path_length": 0.0,
+            "trajectory_arc_length": 0.0,
+            "trajectory_duration": 0.0,
+            "path_status": "stalled",
+            "optimizer_status": "not-run",
+        }
 
         # SST planner output
         self._sst_nodes: list[Any] = []
         self._sst_parent: dict[int, int | None] = {}
         self._sst_path: list[Any] | None = None
         self._sst_traj_states: list[Any] = []
+        self._sst_metrics: dict[str, Any] = dict(self._rrt_metrics)
 
     # ------------------------------------------------------------------
     # Build
@@ -315,6 +327,17 @@ class SparseScene:
                 invoked at each build milestone for loading-screen feedback.
         """
         _total = 5
+
+        def _polyline_length(path: list[Any] | None) -> float:
+            if path is None or len(path) < 2:
+                return 0.0
+            return sum(
+                float(
+                    np.linalg.norm(np.array(path[i + 1]) - np.array(path[i]))
+                )
+                for i in range(len(path) - 1)
+            )
+
         from arco.planning.continuous import (
             RRTPlanner,
             SSTPlanner,
@@ -342,8 +365,28 @@ class SparseScene:
             collision_check_count=int(self._cfg["collision_check_count"]),
             goal_bias=float(self._cfg["goal_bias"]),
         )
+        rrt_t0 = time.perf_counter()
         self._rrt_nodes, self._rrt_parent, self._rrt_path = rrt.get_tree(
             self._start.copy(), self._goal.copy()
+        )
+        rrt_elapsed = time.perf_counter() - rrt_t0
+        self._rrt_metrics.update(
+            {
+                "steps": max(
+                    0,
+                    (
+                        (len(self._rrt_path) - 1)
+                        if self._rrt_path is not None
+                        else 0
+                    ),
+                ),
+                "nodes": len(self._rrt_nodes),
+                "planner_time": rrt_elapsed,
+                "planned_path_length": _polyline_length(self._rrt_path),
+                "path_status": (
+                    "found" if self._rrt_path is not None else "stalled"
+                ),
+            }
         )
 
         if progress is not None:
@@ -358,8 +401,28 @@ class SparseScene:
             goal_bias=float(self._cfg["goal_bias"]),
             witness_radius=float(self._cfg["witness_radius"]),
         )
+        sst_t0 = time.perf_counter()
         self._sst_nodes, self._sst_parent, self._sst_path = sst.get_tree(
             self._start.copy(), self._goal.copy()
+        )
+        sst_elapsed = time.perf_counter() - sst_t0
+        self._sst_metrics.update(
+            {
+                "steps": max(
+                    0,
+                    (
+                        (len(self._sst_path) - 1)
+                        if self._sst_path is not None
+                        else 0
+                    ),
+                ),
+                "nodes": len(self._sst_nodes),
+                "planner_time": sst_elapsed,
+                "planned_path_length": _polyline_length(self._sst_path),
+                "path_status": (
+                    "found" if self._sst_path is not None else "stalled"
+                ),
+            }
         )
 
         # --- Trajectory optimization (scaled for the large world) --------
@@ -380,20 +443,70 @@ class SparseScene:
             try:
                 result = opt.optimize(self._rrt_path)
                 self._rrt_traj_states = result.states
+                self._rrt_metrics.update(
+                    {
+                        "trajectory_arc_length": _polyline_length(
+                            result.states
+                        ),
+                        "trajectory_duration": sum(result.durations),
+                        "path_status": (
+                            "found" if result.is_feasible else "stalled"
+                        ),
+                        "optimizer_status": (
+                            f"{result.optimizer_status_code}: "
+                            f"{result.optimizer_status_text}"
+                        ),
+                    }
+                )
             except Exception:
                 logger.exception(
                     "RRT* TrajectoryOptimizer failed; using raw path."
                 )
                 self._rrt_traj_states = list(self._rrt_path)
+                self._rrt_metrics.update(
+                    {
+                        "trajectory_arc_length": _polyline_length(
+                            self._rrt_traj_states
+                        ),
+                        "trajectory_duration": 0.0,
+                        "path_status": "stalled",
+                        "optimizer_status": "exception",
+                    }
+                )
         if self._sst_path is not None:
             try:
                 result = opt.optimize(self._sst_path)
                 self._sst_traj_states = result.states
+                self._sst_metrics.update(
+                    {
+                        "trajectory_arc_length": _polyline_length(
+                            result.states
+                        ),
+                        "trajectory_duration": sum(result.durations),
+                        "path_status": (
+                            "found" if result.is_feasible else "stalled"
+                        ),
+                        "optimizer_status": (
+                            f"{result.optimizer_status_code}: "
+                            f"{result.optimizer_status_text}"
+                        ),
+                    }
+                )
             except Exception:
                 logger.exception(
                     "SST TrajectoryOptimizer failed; using raw path."
                 )
                 self._sst_traj_states = list(self._sst_path)
+                self._sst_metrics.update(
+                    {
+                        "trajectory_arc_length": _polyline_length(
+                            self._sst_traj_states
+                        ),
+                        "trajectory_duration": 0.0,
+                        "path_status": "stalled",
+                        "optimizer_status": "exception",
+                    }
+                )
 
     # ------------------------------------------------------------------
     # Properties
@@ -455,6 +568,16 @@ class SparseScene:
     def road_dots(self) -> list[tuple[float, float]]:
         """Road-marking dot positions along street centerlines."""
         return self._road_dots
+
+    @property
+    def rrt_metrics(self) -> dict[str, Any]:
+        """RRT* planning and trajectory metrics for HUD display."""
+        return dict(self._rrt_metrics)
+
+    @property
+    def sst_metrics(self) -> dict[str, Any]:
+        """SST planning and trajectory metrics for HUD display."""
+        return dict(self._sst_metrics)
 
     # ------------------------------------------------------------------
     # Drawing

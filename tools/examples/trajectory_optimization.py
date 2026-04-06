@@ -26,6 +26,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -50,6 +51,23 @@ logger = logging.getLogger(__name__)
 
 _rrt_cfg = load_config("rrt")
 _opt_cfg = load_config("optimizer")
+
+
+def _format_clock(seconds: float) -> str:
+    """Format seconds as ``MMminSSs`` rounded to whole seconds."""
+    rounded = int(round(seconds))
+    mins, secs = divmod(rounded, 60)
+    return f"{mins:02d}min{secs:02d}s"
+
+
+def _polyline_length(path: list[np.ndarray] | None) -> float:
+    """Return total Euclidean arc length for a waypoint sequence."""
+    if path is None or len(path) < 2:
+        return 0.0
+    return sum(
+        float(np.linalg.norm(path[i + 1] - path[i]))
+        for i in range(len(path) - 1)
+    )
 
 
 def build_occupancy() -> KDTreeOccupancy:
@@ -118,7 +136,14 @@ def main(save_path: str | None = None) -> None:
     )
 
     logger.info("Running RRT* …")
-    reference_path = planner.plan(start, goal)
+    planner_t0 = time.perf_counter()
+    tree_nodes, _, reference_path = planner.get_tree(start, goal)
+    planner_elapsed = time.perf_counter() - planner_t0
+    planner_nodes = len(tree_nodes)
+    planner_steps = (
+        max(0, len(reference_path) - 1) if reference_path is not None else 0
+    )
+    planned_len = _polyline_length(reference_path)
 
     if reference_path is None:
         logger.error("RRT* failed to find a path — aborting example.")
@@ -150,13 +175,20 @@ def main(save_path: str | None = None) -> None:
     )
 
     logger.info("Running TrajectoryOptimizer …")
+    opt_t0 = time.perf_counter()
     result: TrajectoryResult = optimizer.optimize(
         reference_path,
         inverse_kinematics=vehicle.inverse_kinematics,
         feasibility=vehicle.is_feasible,
     )
+    _ = time.perf_counter() - opt_t0
 
     total_time = sum(result.durations)
+    traj_arc_len = _polyline_length(result.states)
+    path_status = "found" if result.is_feasible else "stalled"
+    optimizer_status = (
+        f"{result.optimizer_status_code}: {result.optimizer_status_text}"
+    )
     logger.info(
         "Optimized trajectory: cost=%.3f, total_time=%.2fs",
         result.cost,
@@ -173,11 +205,34 @@ def main(save_path: str | None = None) -> None:
         start=start,
         goal=goal,
         path_color="steelblue",
-        title=(
-            "Trajectory Optimization\n"
-            f"RRT* reference (blue)  ·  Optimized trajectory (orange)"
-            f"  ·  T = {total_time:.1f} s"
-        ),
+        title="Trajectory Optimization",
+    )
+
+    metrics_lines = [
+        f"Planner steps / nodes: {planner_steps} / {planner_nodes}",
+        f"Planner time: {_format_clock(planner_elapsed)}",
+        f"Planned path length: {int(round(planned_len))} m",
+        f"Trajectory arc length: {int(round(traj_arc_len))} m",
+        f"Trajectory duration: {_format_clock(total_time)}",
+        f"Path status: {path_status}",
+        f"Optimizer status: {optimizer_status}",
+    ]
+    ax.text(
+        0.01,
+        0.99,
+        "\n".join(metrics_lines),
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        fontsize=7,
+        color="white",
+        bbox={
+            "boxstyle": "round,pad=0.3",
+            "facecolor": "black",
+            "alpha": 0.65,
+            "edgecolor": "none",
+        },
+        zorder=10,
     )
 
     # Overlay optimized trajectory

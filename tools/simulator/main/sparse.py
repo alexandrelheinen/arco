@@ -110,6 +110,13 @@ def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
     return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
+def _format_clock(seconds: float) -> str:
+    """Format seconds as ``MMminSSs`` rounded to whole seconds."""
+    rounded = int(round(seconds))
+    mins, secs = divmod(rounded, 60)
+    return f"{mins:02d}min{secs:02d}s"
+
+
 # ---------------------------------------------------------------------------
 # HUD helpers — build a pygame surface then blit_overlay
 # ---------------------------------------------------------------------------
@@ -327,6 +334,8 @@ def run_race(
     sst_wps = scene.sst_waypoints
     rrt_total = scene.rrt_total
     sst_total = scene.sst_total
+    rrt_metrics = scene.rrt_metrics
+    sst_metrics = scene.sst_metrics
 
     # Pacing: reveal both trees in parallel, finishing together at ~half-time.
     half_frames = (
@@ -544,10 +553,10 @@ def run_race(
                     font,
                     rrt_revealed,
                     rrt_total,
-                    scene._rrt_path is not None,
+                    rrt_metrics,
                     sst_revealed,
                     sst_total,
-                    scene._sst_path is not None,
+                    sst_metrics,
                     paused,
                     sw,
                     sh,
@@ -612,6 +621,8 @@ def run_race(
                     race_time,
                     rrt_finish_time,
                     sst_finish_time,
+                    rrt_metrics,
+                    sst_metrics,
                     paused,
                     sw,
                     sh,
@@ -686,10 +697,10 @@ def _draw_planning_hud(
     font: pygame.font.Font,
     rrt_revealed: int,
     rrt_total: int,
-    rrt_found: bool,
+    rrt_metrics: dict,
     sst_revealed: int,
     sst_total: int,
-    sst_found: bool,
+    sst_metrics: dict,
     paused: bool,
     sw: int,
     sh: int,
@@ -702,23 +713,50 @@ def _draw_planning_hud(
         font: Pygame font.
         rrt_revealed: Nodes revealed so far for RRT*.
         rrt_total: Total RRT* nodes.
-        rrt_found: Whether RRT* found a path.
+        rrt_metrics: RRT* metrics dictionary.
         sst_revealed: Nodes revealed so far for SST.
         sst_total: Total SST nodes.
-        sst_found: Whether SST found a path.
+        sst_metrics: SST metrics dictionary.
         paused: Whether simulation is paused.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
     """
+
+    def _planner_lines(
+        name: str, revealed: int, total: int, metrics: dict
+    ) -> list[str]:
+        return [
+            name,
+            f"Reveal nodes: {revealed}/{total}",
+            (
+                "Planner steps / nodes: "
+                f"{int(metrics['steps'])} / {int(metrics['nodes'])}"
+            ),
+            (
+                "Planner time: "
+                f"{_format_clock(float(metrics['planner_time']))}"
+            ),
+            (
+                "Planned path length: "
+                f"{int(round(float(metrics['planned_path_length'])))} m"
+            ),
+            (
+                "Trajectory arc length: "
+                f"{int(round(float(metrics['trajectory_arc_length'])))} m"
+            ),
+            (
+                "Trajectory duration: "
+                f"{_format_clock(float(metrics['trajectory_duration']))}"
+            ),
+            f"Path status: {metrics['path_status']}",
+            f"Optimizer status: {metrics['optimizer_status']}",
+        ]
+
     rrt_lines = [
-        "RRT*",
-        f"Nodes: {rrt_revealed}/{rrt_total}",
-        f"Path:  {'found' if rrt_found else 'none'}",
+        *_planner_lines("RRT*", rrt_revealed, rrt_total, rrt_metrics),
     ]
     sst_lines = [
-        "SST",
-        f"Nodes: {sst_revealed}/{sst_total}",
-        f"Path:  {'found' if sst_found else 'none'}",
+        *_planner_lines("SST", sst_revealed, sst_total, sst_metrics),
     ]
     _blit_left(font, rrt_lines, _C_RRT_HUD, sw, sh)
     _blit_right(font, sst_lines, _C_SST_HUD, sw, sh)
@@ -739,6 +777,8 @@ def _draw_race_hud(
     race_time: float,
     rrt_finish: float | None,
     sst_finish: float | None,
+    rrt_metrics: dict,
+    sst_metrics: dict,
     paused: bool,
     sw: int,
     sh: int,
@@ -750,6 +790,8 @@ def _draw_race_hud(
         race_time: Elapsed race simulation time in seconds.
         rrt_finish: Simulation time at which RRT* vehicle finished, or None.
         sst_finish: Simulation time at which SST vehicle finished, or None.
+        rrt_metrics: RRT* metrics dictionary.
+        sst_metrics: SST metrics dictionary.
         paused: Whether the simulation is paused.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
@@ -764,8 +806,61 @@ def _draw_race_hud(
     else:
         sst_status = f"GOAL  in {sst_finish:.1f} s"
 
-    _blit_left(font, ["RRT*", rrt_status], _C_RRT_HUD, sw, sh)
-    _blit_right(font, ["SST", sst_status], _C_SST_HUD, sw, sh)
+    rrt_lines = [
+        "RRT*",
+        rrt_status,
+        (
+            "Planner steps / nodes: "
+            f"{int(rrt_metrics['steps'])} / {int(rrt_metrics['nodes'])}"
+        ),
+        (
+            "Planner time: "
+            f"{_format_clock(float(rrt_metrics['planner_time']))}"
+        ),
+        (
+            "Planned path length: "
+            f"{int(round(float(rrt_metrics['planned_path_length'])))} m"
+        ),
+        (
+            "Trajectory arc length: "
+            f"{int(round(float(rrt_metrics['trajectory_arc_length'])))} m"
+        ),
+        (
+            "Trajectory duration: "
+            f"{_format_clock(float(rrt_metrics['trajectory_duration']))}"
+        ),
+        f"Path status: {rrt_metrics['path_status']}",
+        f"Optimizer status: {rrt_metrics['optimizer_status']}",
+    ]
+    sst_lines = [
+        "SST",
+        sst_status,
+        (
+            "Planner steps / nodes: "
+            f"{int(sst_metrics['steps'])} / {int(sst_metrics['nodes'])}"
+        ),
+        (
+            "Planner time: "
+            f"{_format_clock(float(sst_metrics['planner_time']))}"
+        ),
+        (
+            "Planned path length: "
+            f"{int(round(float(sst_metrics['planned_path_length'])))} m"
+        ),
+        (
+            "Trajectory arc length: "
+            f"{int(round(float(sst_metrics['trajectory_arc_length'])))} m"
+        ),
+        (
+            "Trajectory duration: "
+            f"{_format_clock(float(sst_metrics['trajectory_duration']))}"
+        ),
+        f"Path status: {sst_metrics['path_status']}",
+        f"Optimizer status: {sst_metrics['optimizer_status']}",
+    ]
+
+    _blit_left(font, rrt_lines, _C_RRT_HUD, sw, sh)
+    _blit_right(font, sst_lines, _C_SST_HUD, sw, sh)
 
     center = f"Race  {race_time:.1f} s"
     if paused:

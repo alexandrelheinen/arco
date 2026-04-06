@@ -7,9 +7,10 @@ OpenGL provides depth testing, Phong lighting, and proper 3-D geometry
 without any software painter's-algorithm hacks.
 
 Both planners race from a start corner to the opposite goal corner of a
-20 m x 10 m x 6 m warehouse bay.  A full-width blocking wall forces both
-paths to arc above z = 4.5 m.  Exploration trees are *not* shown — only
-the final paths are rendered.
+60 m x 20 m x 6 m warehouse bay. Three width-crossing barriers (tall,
+small, then split-half with mixed heights) increase the difficulty of the
+3-D route selection. Exploration trees are *not* shown — only the final
+paths are rendered.
 
 Camera controls
 ---------------
@@ -110,6 +111,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex2f,
     glVertex3f,
 )
+from scenes.ppp import BOUNDS as _SCENE_BOUNDS
 from scenes.ppp import PPPScene
 from scenes.ppp import is_wall as _is_wall_box
 from sim.loading import run_with_loading_screen
@@ -216,8 +218,12 @@ _POST_FINISH_SECS: float = 2.5
 # Camera defaults
 _CAM_AZIM: float = math.radians(40)
 _CAM_ELEV: float = math.radians(28)
-_CAM_DIST: float = 36.0
-_WS_CENTER: tuple[float, float, float] = (10.0, 5.0, 1.5)
+_CAM_DIST: float = 72.0
+_WS_CENTER: tuple[float, float, float] = (
+    (_SCENE_BOUNDS[0][0] + _SCENE_BOUNDS[0][1]) / 2.0,
+    (_SCENE_BOUNDS[1][0] + _SCENE_BOUNDS[1][1]) / 2.0,
+    (_SCENE_BOUNDS[2][0] + _SCENE_BOUNDS[2][1]) / 4.0,
+)
 _CAM_ROT_SPEED: float = math.radians(50)
 _CAM_AUTO_ROT: float = math.radians(7)  # slow orbit for recording
 _CAM_ZOOM_STEP: float = 0.03
@@ -257,6 +263,13 @@ _HC_TIE = (200, 200, 80)
 # End-effector half-dimensions (meters)
 _EFF_HXY: float = 0.25
 _EFF_HZ: float = 0.40
+
+
+def _format_clock(seconds: float) -> str:
+    """Format seconds as ``MMminSSs`` rounded to whole seconds."""
+    rounded = int(round(seconds))
+    mins, secs = divmod(rounded, 60)
+    return f"{mins:02d}min{secs:02d}s"
 
 
 # ---------------------------------------------------------------------------
@@ -651,10 +664,8 @@ def _blit_overlay(
 
 def _status_surface(
     font: pygame.font.Font,
-    rrt_pct: int,
-    sst_pct: int,
-    rrt_found: bool,
-    sst_found: bool,
+    rrt_metrics: dict,
+    sst_metrics: dict,
     phase: str,
     hold_remaining: float,
 ) -> pygame.Surface:
@@ -662,30 +673,52 @@ def _status_surface(
 
     Args:
         font: Monospace font.
-        rrt_pct: RRT* completion percentage (0-100).
-        sst_pct: SST completion percentage (0-100).
-        rrt_found: Whether RRT* found a path.
-        sst_found: Whether SST found a path.
+        rrt_metrics: RRT* metrics dictionary.
+        sst_metrics: SST metrics dictionary.
         phase: Current phase string (``"show"``, ``"race"``, ``"done"``).
         hold_remaining: Seconds until race start (only shown in ``"show"``).
 
     Returns:
         Transparent RGBA pygame surface.
     """
-    rrt_tag = "path found" if rrt_found else "no path"
-    sst_tag = "path found" if sst_found else "no path"
+
+    def _planner_lines(name: str, metrics: dict) -> list[str]:
+        return [
+            name,
+            (
+                "  Planner steps / nodes: "
+                f"{int(metrics['steps'])} / {int(metrics['nodes'])}"
+            ),
+            (
+                "  Planner time: "
+                f"{_format_clock(float(metrics['planner_time']))}"
+            ),
+            (
+                "  Planned path length: "
+                f"{int(round(float(metrics['planned_path_length'])))} m"
+            ),
+            (
+                "  Trajectory arc length: "
+                f"{int(round(float(metrics['trajectory_arc_length'])))} m"
+            ),
+            (
+                "  Trajectory duration: "
+                f"{_format_clock(float(metrics['trajectory_duration']))}"
+            ),
+            f"  Path status: {metrics['path_status']}",
+            f"  Optimizer status: {metrics['optimizer_status']}",
+        ]
+
     lines: list[tuple[str, tuple[int, int, int]]] = [
-        ("RRT*", _HC_RRT),
-        (f"  {rrt_tag:>12}  {rrt_pct:3d}%", _HC_RRT),
+        *[(line, _HC_RRT) for line in _planner_lines("RRT*", rrt_metrics)],
         ("", _HC_HUD),
-        ("SST", _HC_SST),
-        (f"  {sst_tag:>12}  {sst_pct:3d}%", _HC_SST),
+        *[(line, _HC_SST) for line in _planner_lines("SST", sst_metrics)],
     ]
     if phase == "show":
         lines.append((f"  race in {hold_remaining:.1f} s", _HC_DIM))
 
     lh = font.get_linesize() + 2
-    surf_w = 268
+    surf_w = 536
     surf_h = len(lines) * lh + 10
     surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
     surf.fill((10, 14, 24, 185))
@@ -943,6 +976,8 @@ def run_race(
     rrt_nav = scene.rrt_traj if scene.rrt_traj else rrt_path
     sst_nav = scene.sst_traj if scene.sst_traj else sst_path
     boxes = scene.boxes
+    rrt_metrics = scene.rrt_metrics
+    sst_metrics = scene.sst_metrics
 
     rrt_arcs = _arc_lengths(rrt_nav) if rrt_nav else [0.0]
     sst_arcs = _arc_lengths(sst_nav) if sst_nav else [0.0]
@@ -1102,7 +1137,7 @@ def run_race(
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             _set_camera(camera)
 
-            _draw_floor_grid(20.0, 10.0)
+            _draw_floor_grid(scene.bounds[0][1], scene.bounds[1][1])
 
             for box in boxes:
                 if _is_wall_box(box):
@@ -1175,23 +1210,11 @@ def run_race(
                 _draw_effector(sst_robot.pos, *_C_SST)
 
             # --- 2-D HUD overlay ----------------------------------------
-            rrt_pct = (
-                min(100, int(100 * rrt_carrot_dist / max(rrt_arcs[-1], 1e-6)))
-                if rrt_path
-                else 0
-            )
-            sst_pct = (
-                min(100, int(100 * sst_carrot_dist / max(sst_arcs[-1], 1e-6)))
-                if sst_path
-                else 0
-            )
             _blit_overlay(
                 _status_surface(
                     font,
-                    rrt_pct,
-                    sst_pct,
-                    rrt_path is not None,
-                    sst_path is not None,
+                    rrt_metrics,
+                    sst_metrics,
                     phase,
                     max(0.0, _HOLD_SECS - hold_timer),
                 ),

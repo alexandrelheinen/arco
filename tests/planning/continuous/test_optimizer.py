@@ -603,7 +603,6 @@ def test_optimize_dubins_primitive_turning_radius_constraint():
     assert result.is_feasible is False
 
 
-
 def test_feasibility_feasible_state():
     """is_feasible must return True for a valid 5-element state."""
     vehicle = DubinsVehicle(max_speed=5.0, min_speed=0.0, max_turn_rate=1.0)
@@ -712,4 +711,3 @@ def test_ik_heading_toward_goal():
     cmd = vehicle.inverse_kinematics(start, goal, speed=2.0, duration=2.0)
     # Expected: target heading ≈ pi/4, current heading = 0 → turn left (>0)
     assert cmd[1] > 0
-

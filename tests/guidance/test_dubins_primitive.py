@@ -7,7 +7,6 @@ import pytest
 
 from arco.guidance.primitive.dubins import DubinsPrimitive
 
-
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
