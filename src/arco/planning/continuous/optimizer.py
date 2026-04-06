@@ -214,8 +214,9 @@ class TrajectoryOptimizer:
         divided by segment duration) is checked against :attr:`max_speed`
         and :attr:`min_speed` when those limits are set.  If a *feasibility*
         callable is provided, it is invoked with a derived state
-        ``(x, y, θ, v)`` for each waypoint, where *θ* is the segment
-        heading and *v* is the implied speed.  Any violation sets
+        ``(x, y, θ, v, ω)`` for each waypoint, where *θ* is the segment
+        heading, *v* is the implied speed, and *ω* is the estimated turn
+        rate.  Any violation sets
         :attr:`~TrajectoryResult.is_feasible` to ``False`` on the returned
         result.  Callers **must** check this flag and stall the vehicle
         rather than executing an infeasible trajectory.
@@ -278,7 +279,7 @@ class TrajectoryOptimizer:
         )
 
         # --- Hard feasibility check ----------------------------------
-        # Build derived states (x, y, θ, v) for each waypoint so that
+        # Build derived states (x, y, θ, v, ω) for each waypoint so that
         # model is_feasible callables receive meaningful dynamics info.
         derived = self._compute_derived_states(waypoints, durations)
         traj_feasible = self._check_speed_bounds(durations, waypoints)
@@ -556,7 +557,7 @@ class TrajectoryOptimizer:
             if i == 0 or n < 2:
                 omega = 0.0
             else:
-                prev_theta = seg_theta[i - 1] if i <= n else seg_theta[n - 1]
+                prev_theta = seg_theta[i - 1]
                 cur_theta = seg_theta[i] if i < n else seg_theta[n - 1]
                 delta = math.atan2(
                     math.sin(cur_theta - prev_theta),

@@ -1,4 +1,4 @@
-"""Tests for DubinsPrimitive.is_feasible dynamic constraint checker."""
+"""Tests for DubinsPrimitive: turning-radius dynamic constraint."""
 
 from __future__ import annotations
 
