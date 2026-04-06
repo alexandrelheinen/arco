@@ -11,6 +11,9 @@ Both planners race from a start corner to the opposite goal corner of a
 paths to arc above z = 4.5 m.  Exploration trees are *not* shown — only
 the final paths are rendered.
 
+The victory screen stays visible after the race until the user closes the
+window.  Pass ``--close`` to exit automatically once the winner is shown.
+
 Camera controls
 ---------------
 LEFT / RIGHT   Rotate azimuth
@@ -110,6 +113,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex2f,
     glVertex3f,
 )
+from marmot import make_marmot_surface
 from scenes.ppp import PPPScene
 from scenes.ppp import is_wall as _is_wall_box
 from sim.loading import run_with_loading_screen
@@ -253,6 +257,17 @@ _HC_DIM = (120, 120, 130)
 _HC_SHADOW = (25, 30, 42)
 _HC_WINNER = (255, 215, 50)
 _HC_TIE = (200, 200, 80)
+# Marmot fill colors: bright planner-specific tints derived from trail colors.
+_HC_MARMOT_RRT: tuple[int, int, int] = (
+    int(_C_TRAIL_RRT[0] * 255),
+    int(_C_TRAIL_RRT[1] * 255),
+    int(_C_TRAIL_RRT[2] * 255),
+)  # ~(153, 204, 255) — light blue
+_HC_MARMOT_SST: tuple[int, int, int] = (
+    int(_C_TRAIL_SST[0] * 255),
+    int(_C_TRAIL_SST[1] * 255),
+    int(_C_TRAIL_SST[2] * 255),
+)  # ~(89, 217, 115) — light green
 
 # End-effector half-dimensions (meters)
 _EFF_HXY: float = 0.25
@@ -724,24 +739,43 @@ def _banner_surface(
     big_font: pygame.font.Font,
     text: str,
     color: tuple[int, int, int],
+    marmot_color: tuple[int, int, int] | None = None,
 ) -> pygame.Surface:
-    """Build a translucent centered winner-banner surface.
+    """Build a translucent centered winner-banner surface with marmot mascot.
+
+    The marmot is placed to the left of the winner text and rendered in
+    *marmot_color* (defaults to *color* when omitted).
 
     Args:
         big_font: Large bold font.
         text: Banner text (e.g. ``"RRT* WINS!"``).
         color: Text color.
+        marmot_color: Fill color for the marmot mascot.  Defaults to
+            *color* when ``None``.
 
     Returns:
         RGBA banner surface.
     """
+    m_color = marmot_color if marmot_color is not None else color
     rendered = big_font.render(text, True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
+    marmot_surf = make_marmot_surface(m_color, height=rh + 30)
+    mw, mh = marmot_surf.get_size()
+
+    gap = 16
     pad = 20
-    surf = pygame.Surface((rw + 2 * pad, rh + 2 * pad), pygame.SRCALPHA)
+    surf = pygame.Surface(
+        (pad + mw + gap + rw + pad, max(mh, rh) + 2 * pad), pygame.SRCALPHA
+    )
     surf.fill((8, 10, 22, 215))
-    surf.blit(big_font.render(text, True, _HC_SHADOW), (pad + 1, pad + 1))
-    surf.blit(rendered, (pad, pad))
+    surf_h = surf.get_height()
+    surf.blit(marmot_surf, (pad, (surf_h - mh) // 2))
+    # Shadow + text for the winner label
+    surf.blit(
+        big_font.render(text, True, _HC_SHADOW),
+        (pad + mw + gap + 1, (surf_h - rh) // 2 + 1),
+    )
+    surf.blit(rendered, (pad + mw + gap, (surf_h - rh) // 2))
     return surf
 
 
@@ -880,6 +914,7 @@ def run_race(
     dt: float = 0.05,
     record: str = "",
     record_duration: float = 90.0,
+    auto_close: bool = False,
 ) -> None:
     """Run the 3-D PPP warehouse race with OpenGL rendering.
 
@@ -890,8 +925,9 @@ def run_race(
     the ``race_speed`` configured in ``ppp.yml``; the first to reach
     the goal wins.
 
-    Phase 3 — **winner**: a banner is shown for :data:`_POST_FINISH_SECS`
-    seconds before the simulation exits.
+    Phase 3 — **winner**: the victory banner with the marmot mascot is
+    shown.  In interactive mode the window stays open until the user
+    presses **Q / Escape**, unless ``auto_close=True``.
 
     Recording requires a real or virtual OpenGL-capable display (use
     ``xvfb-run -a`` on headless Linux systems).
@@ -903,6 +939,8 @@ def run_race(
         dt: Simulation timestep in seconds.
         record: Output MP4 path.  Empty string = interactive mode.
         record_duration: Maximum recording length in seconds.
+        auto_close: If ``True``, exit automatically when the race is
+            done (interactive mode only; recording always exits on done).
     """
     recording = bool(record)
     max_frames = int(fps * record_duration)
@@ -1097,6 +1135,8 @@ def run_race(
                     post_timer += dt
                     if recording and post_timer >= _POST_FINISH_SECS:
                         running = False
+                    elif not recording and auto_close and post_timer >= _POST_FINISH_SECS:
+                        running = False
 
             # --- 3-D render (OpenGL) ------------------------------------
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -1209,7 +1249,13 @@ def run_race(
             )
             if winner:
                 w_color = _HC_TIE if winner == "TIE!" else _HC_WINNER
-                ban = _banner_surface(big_font, winner, w_color)
+                if winner == "RRT* WINS!":
+                    m_color: tuple[int, int, int] = _HC_MARMOT_RRT
+                elif winner == "SST WINS!":
+                    m_color = _HC_MARMOT_SST
+                else:
+                    m_color = _HC_TIE
+                ban = _banner_surface(big_font, winner, w_color, marmot_color=m_color)
                 _blit_overlay(
                     ban,
                     (sw - ban.get_width()) // 2,
@@ -1269,6 +1315,12 @@ def main() -> None:
         metavar="SECS",
         help="Maximum recording length in seconds (default: 90).",
     )
+    parser.add_argument(
+        "--close",
+        action="store_true",
+        default=False,
+        help="Close the window automatically when the race is done.",
+    )
     args = parser.parse_args()
 
     cfg = load_config("ppp")
@@ -1279,6 +1331,7 @@ def main() -> None:
         fps=args.fps,
         record=args.record,
         record_duration=args.record_duration,
+        auto_close=args.close,
     )
 
 

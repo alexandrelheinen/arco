@@ -4,6 +4,9 @@ Phase 1 — **background**: incrementally reveals ``scene.background_total``
 items (e.g. exploration-tree nodes).  Skipped when ``background_total`` is 0.
 
 Phase 2 — **tracking**: drives a Dubins vehicle along ``scene.waypoints``.
+When the vehicle reaches the goal the victory screen is shown.  The window
+stays open until the user presses **Q / Escape** (or closes it), unless
+``auto_close=True`` is passed to :func:`run_sim`.
 
 Entry point: :func:`run_sim`.
 """
@@ -16,6 +19,7 @@ import os
 
 import pygame
 import renderer_gl
+from marmot import make_marmot_surface
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
@@ -45,6 +49,9 @@ _DEFAULT_SCREEN_H = 800
 # Frames to hold the completed background before switching to tracking.
 _HOLD_FRAMES = 60
 
+# Seconds to keep the victory screen visible before auto-closing.
+_FINISH_HOLD_SECS = 2.0
+
 _FOLLOW_ZOOM_DEFAULT = 2.0
 _FOLLOW_ZOOM_MIN = 0.4
 _FOLLOW_ZOOM_MAX = 8.0
@@ -59,6 +66,8 @@ _LOOKAHEAD_DISC_R = 0.5  # meters
 _C_TRAJECTORY = (60 / 255, 140 / 255, 220 / 255)
 _C_LOOKAHEAD = (240 / 255, 200 / 255, 0 / 255)
 _C_VEHICLE = (80 / 255, 220 / 255, 100 / 255)
+# Integer RGB version of the vehicle color used for pygame surfaces.
+_C_VEHICLE_INT: tuple[int, int, int] = (80, 220, 100)
 _C_HUD = (220, 220, 220)
 _C_HUD_SHADOW = (40, 40, 50)
 
@@ -134,6 +143,7 @@ def _draw_tracking_hud(
     cte: float,
     finished: bool,
     paused: bool,
+    show_close_hint: bool = False,
 ) -> None:
     """Render the vehicle-tracking HUD as a texture overlay.
 
@@ -147,6 +157,8 @@ def _draw_tracking_hud(
         cte: Cross-track error in meters.
         finished: Whether the vehicle has reached the goal.
         paused: Whether the simulation is paused.
+        show_close_hint: When ``True`` and *finished*, append a closing
+            keyboard hint to the HUD lines.
     """
     lines = [
         f"{label} — tracking",
@@ -158,6 +170,8 @@ def _draw_tracking_hud(
         lines.append("[ PAUSED — press SPACE ]")
     if finished:
         lines.append("[ GOAL REACHED ]")
+        if show_close_hint:
+            lines.append("Press Q or ESC to close")
 
     line_h = font.get_linesize() + 2
     panel_h = len(lines) * line_h + 8
@@ -174,6 +188,42 @@ def _draw_tracking_hud(
     renderer_gl.blit_overlay(surf, 0, 0, sw, sh)
 
 
+def _draw_goal_reached_overlay(
+    big_font: pygame.font.Font,
+    sw: int,
+    sh: int,
+) -> None:
+    """Draw a centered marmot mascot + "GOAL  REACHED!" banner.
+
+    Called once the vehicle has finished.  The marmot is rendered in the
+    vehicle color, providing a celebratory visual on the victory screen.
+
+    Args:
+        big_font: Large bold pygame font.
+        sw: Screen width in pixels.
+        sh: Screen height in pixels.
+    """
+    color = _C_VEHICLE_INT
+    rendered = big_font.render("GOAL  REACHED!", True, color)
+    rw, rh = rendered.get_width(), rendered.get_height()
+    marmot_surf = make_marmot_surface(color, height=rh + 30)
+    mw, mh = marmot_surf.get_size()
+
+    gap = 16
+    pad = 14
+    banner_w = pad + mw + gap + rw + pad
+    banner_h = max(mh, rh) + 2 * pad
+
+    banner = pygame.Surface((banner_w, banner_h), pygame.SRCALPHA)
+    banner.fill((10, 10, 20, 200))
+    banner.blit(marmot_surf, (pad, (banner_h - mh) // 2))
+    banner.blit(rendered, (pad + mw + gap, (banner_h - rh) // 2))
+
+    bx = (sw - banner_w) // 2
+    by = (sh - banner_h) // 2
+    renderer_gl.blit_overlay(banner, bx, by, sw, sh)
+
+
 def run_sim(
     scene: SimScene,
     *,
@@ -183,6 +233,7 @@ def run_sim(
     zoom: bool = False,
     record: str = "",
     record_duration: float = 60.0,
+    auto_close: bool = False,
 ) -> None:
     """Run the unified two-phase simulator loop for *scene*.
 
@@ -208,6 +259,9 @@ def run_sim(
         record: Output MP4 file path for a headless recording.  Empty string
             means interactive mode (opens a window).
         record_duration: Maximum recording length in seconds.
+        auto_close: If ``True``, close the window automatically once the
+            vehicle reaches the goal (interactive mode only; recording mode
+            always closes after the finish hold).
     """
     recording = bool(record)
     max_record_frames = int(fps * record_duration)
@@ -229,6 +283,7 @@ def run_sim(
     pygame.display.set_mode(screen_size, pygame.OPENGL | pygame.DOUBLEBUF)
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("monospace", 14)
+    big_font = pygame.font.SysFont("monospace", 36, bold=True)
 
     # Build scene AFTER pygame.init() so SysFont is safe to call.
     run_with_loading_screen(scene, screen_w, screen_h, bg_color=scene.bg_color)
@@ -301,10 +356,12 @@ def run_sim(
     trajectory: list[tuple[float, float, float]] = []
     veh_step = 0
     veh_finished = False
+    finish_hold_frames = 0
     paused = False
 
     def _start_tracking() -> None:
         nonlocal vehicle, veh_loop, trajectory, veh_step, veh_finished
+        nonlocal finish_hold_frames
         if not waypoints:
             veh_finished = True
             logger.warning("Scene has no waypoints; skipping tracking.")
@@ -316,11 +373,12 @@ def run_sim(
         trajectory = []
         veh_step = 0
         veh_finished = False
+        finish_hold_frames = 0
         if camera_follow:
             cam_filter.reset(waypoints[0][0], waypoints[0][1])
 
     def _restart() -> None:
-        nonlocal phase, revealed, hold, paused
+        nonlocal phase, revealed, hold, paused, finish_hold_frames
         if background_total > 0:
             phase = "background"
             revealed = 0
@@ -328,6 +386,7 @@ def run_sim(
         else:
             phase = "tracking"
             _start_tracking()
+        finish_hold_frames = 0
         paused = False
 
     # Initialize immediately if no background phase.
@@ -479,6 +538,9 @@ def run_sim(
                 metrics = (
                     (veh_loop.metrics or {}) if veh_loop is not None else {}
                 )
+                show_close_hint = (
+                    not recording and not auto_close and veh_finished
+                )
                 _draw_tracking_hud(
                     font,
                     screen_w,
@@ -489,7 +551,10 @@ def run_sim(
                     float(metrics.get("cross_track_error", 0.0)),
                     veh_finished,
                     paused,
+                    show_close_hint=show_close_hint,
                 )
+                if veh_finished:
+                    _draw_goal_reached_overlay(big_font, screen_w, screen_h)
 
             # ------------------------------------------------------------------
             # Output: record frame or flip display
@@ -501,10 +566,16 @@ def run_sim(
                 if record_frames >= max_record_frames:
                     running = False
                 elif phase == "tracking" and veh_finished:
-                    running = False
+                    finish_hold_frames += 1
+                    if finish_hold_frames >= int(fps * _FINISH_HOLD_SECS):
+                        running = False
             else:
                 pygame.display.flip()
                 clock.tick(fps)
+                if auto_close and phase == "tracking" and veh_finished:
+                    finish_hold_frames += 1
+                    if finish_hold_frames >= int(fps * _FINISH_HOLD_SECS):
+                        running = False
     finally:
         if writer is not None:
             writer.close()

@@ -25,6 +25,7 @@ Optional flags::
     python main/astar.py --dt 0.05
     python main/astar.py --camera follow
     python main/astar.py --zoom
+    python main/astar.py --close
     python main/astar.py --record out.mp4 --record-duration 45
 """
 
@@ -94,6 +95,12 @@ def main() -> None:
         dest="record_duration",
         help="Maximum recording duration in seconds (default: 60).",
     )
+    parser.add_argument(
+        "--close",
+        action="store_true",
+        default=False,
+        help="Close the window automatically when the vehicle reaches the goal.",
+    )
     args = parser.parse_args()
 
     scene = AStarScene(load_config("graph"), load_config("vehicle"))
@@ -105,6 +112,7 @@ def main() -> None:
         zoom=args.zoom,
         record=args.record,
         record_duration=args.record_duration,
+        auto_close=args.close,
     )
 
 

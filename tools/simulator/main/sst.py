@@ -24,6 +24,7 @@ Optional flags::
 
     python main/sst.py --fps 30
     python main/sst.py --zoom
+    python main/sst.py --close
     python main/sst.py --record /tmp/sst.mp4 --record-duration 60
 """
 
@@ -93,6 +94,12 @@ def main() -> None:
         dest="record_duration",
         help="Maximum recording duration in seconds (default: 60).",
     )
+    parser.add_argument(
+        "--close",
+        action="store_true",
+        default=False,
+        help="Close the window automatically when the vehicle reaches the goal.",
+    )
     args = parser.parse_args()
 
     scene = SSTScene(load_config("sst"))
@@ -104,6 +111,7 @@ def main() -> None:
         zoom=args.zoom,
         record=args.record,
         record_duration=args.record_duration,
+        auto_close=args.close,
     )
 
 
