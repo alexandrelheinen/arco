@@ -198,6 +198,69 @@ def test_all_four_cost_terms_nonzero():
 
 
 # ---------------------------------------------------------------------------
+# Dynamics penalty in cost function
+# ---------------------------------------------------------------------------
+
+
+def test_cost_dynamics_penalty_over_max_speed():
+    """Implied speed exceeding max_speed must incur dynamics penalty."""
+    occ = _free_occupancy()
+    max_spd = 1.0  # very tight
+    opt = TrajectoryOptimizer(
+        occ,
+        weight_time=0.0,
+        weight_velocity=0.0,
+        weight_collision=0.0,
+        weight_dynamics=10.0,
+        max_speed=max_spd,
+    )
+    # Single segment, length=4, duration=1 → implied speed=4 > max_speed=1
+    ref = [np.array([0.0, 0.0]), np.array([4.0, 0.0])]
+    x_fast = np.array([1.0])  # t=1, v=4 → violates max_speed=1
+
+    # Without dynamics penalty (max_speed=None)
+    opt_no_dyn = TrajectoryOptimizer(
+        occ,
+        weight_time=0.0,
+        weight_velocity=0.0,
+        weight_collision=0.0,
+        weight_dynamics=10.0,
+        max_speed=None,
+    )
+    cost_nodyn = opt_no_dyn._cost(x_fast, ref, 1, 2)
+    cost_dyn = opt._cost(x_fast, ref, 1, 2)
+    assert cost_dyn > cost_nodyn
+
+
+def test_cost_dynamics_penalty_under_min_speed():
+    """Implied speed below min_speed must incur dynamics penalty."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(
+        occ,
+        weight_time=0.0,
+        weight_velocity=0.0,
+        weight_collision=0.0,
+        weight_dynamics=10.0,
+        min_speed=3.0,
+    )
+    # Single segment, length=4, duration=10 → implied speed=0.4 < min_speed=3
+    ref = [np.array([0.0, 0.0]), np.array([4.0, 0.0])]
+    x_slow = np.array([10.0])
+
+    opt_no_dyn = TrajectoryOptimizer(
+        occ,
+        weight_time=0.0,
+        weight_velocity=0.0,
+        weight_collision=0.0,
+        weight_dynamics=10.0,
+        min_speed=None,
+    )
+    cost_nodyn = opt_no_dyn._cost(x_slow, ref, 1, 2)
+    cost_dyn = opt._cost(x_slow, ref, 1, 2)
+    assert cost_dyn > cost_nodyn
+
+
+# ---------------------------------------------------------------------------
 # Stage 1 → Stage 2 pipeline
 # ---------------------------------------------------------------------------
 
@@ -328,8 +391,217 @@ def test_optimize_single_segment():
 
 
 # ---------------------------------------------------------------------------
-# Feasibility interface — DubinsVehicle
+# TrajectoryResult.is_feasible — default and flag semantics
 # ---------------------------------------------------------------------------
+
+
+def test_result_is_feasible_default_true():
+    """TrajectoryResult.is_feasible must default to True."""
+    result = TrajectoryResult()
+    assert result.is_feasible is True
+
+
+def test_optimize_is_feasible_true_when_no_constraints():
+    """Without speed limits or feasibility callable, result must be feasible."""
+    occ = _free_occupancy()
+    ref = _straight_path(n_segments=2)
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+    result = opt.optimize(ref)
+    assert result.is_feasible is True
+
+
+def test_optimize_is_feasible_false_when_max_speed_violated():
+    """result.is_feasible must be False when any segment exceeds max_speed."""
+    occ = _free_occupancy()
+    ref = [np.array([0.0, 0.0]), np.array([100.0, 0.0])]  # long path
+    # Set max_speed so tight that the optimizer cannot respect it: 0.001 m/s
+    opt = TrajectoryOptimizer(
+        occ,
+        cruise_speed=2.0,
+        max_speed=0.001,
+        weight_dynamics=0.0,  # disable penalty so violation remains
+        max_iter=1,  # force early stop with initial guess
+    )
+    result = opt.optimize(ref)
+    assert result.is_feasible is False
+
+
+def test_optimize_is_feasible_false_when_feasibility_callable_rejects():
+    """result.is_feasible must be False when feasibility callable rejects."""
+    occ = _free_occupancy()
+    ref = _straight_path(n_segments=2)
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+
+    result = opt.optimize(ref, feasibility=lambda _state: False)
+    assert result.is_feasible is False
+
+
+def test_optimize_feasibility_callable_receives_derived_state():
+    """feasibility callable must receive a 5-element derived state (x,y,θ,v,ω)."""
+    occ = _free_occupancy()
+    ref = _straight_path(n_segments=2)
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+
+    received: list[np.ndarray] = []
+
+    def capture_and_accept(state: np.ndarray) -> bool:
+        received.append(state.copy())
+        return True
+
+    opt.optimize(ref, feasibility=capture_and_accept)
+    assert len(received) > 0
+    for st in received:
+        assert st.shape == (5,)  # (x, y, θ, v, ω)
+
+
+# ---------------------------------------------------------------------------
+# Unit tests — _compute_derived_states helper
+# ---------------------------------------------------------------------------
+
+
+def test_compute_derived_states_shape():
+    """_compute_derived_states must return N+1 states of shape (5,)."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+    n = 3
+    waypoints = [np.array([float(i) * 4.0, 0.0]) for i in range(n + 1)]
+    durations = np.array([2.0, 2.0, 2.0])
+    derived = opt._compute_derived_states(waypoints, durations)
+    assert len(derived) == n + 1
+    for st in derived:
+        assert st.shape == (5,)
+
+
+def test_compute_derived_states_speed_values():
+    """Implied speed in derived state must match segment length / duration."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+    waypoints = [np.array([0.0, 0.0]), np.array([6.0, 0.0])]
+    durations = np.array([3.0])
+    derived = opt._compute_derived_states(waypoints, durations)
+    # v = 6/3 = 2.0
+    assert math.isclose(derived[0][3], 2.0, rel_tol=1e-9)
+    assert math.isclose(derived[1][3], 2.0, rel_tol=1e-9)
+
+
+def test_compute_derived_states_heading_east():
+    """Segment heading must be 0 rad for an eastward path."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+    waypoints = [np.array([0.0, 0.0]), np.array([4.0, 0.0])]
+    durations = np.array([2.0])
+    derived = opt._compute_derived_states(waypoints, durations)
+    assert math.isclose(derived[0][2], 0.0, abs_tol=1e-9)
+
+
+def test_compute_derived_states_first_waypoint_zero_omega():
+    """Turn rate at the first waypoint must always be zero."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+    waypoints = [np.array([0.0, 0.0]), np.array([4.0, 0.0])]
+    durations = np.array([2.0])
+    derived = opt._compute_derived_states(waypoints, durations)
+    assert math.isclose(derived[0][4], 0.0, abs_tol=1e-9)
+
+
+def test_compute_derived_states_omega_right_turn():
+    """Interior waypoint omega must be negative for a right-turn path."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+    # Path: east then south → right turn at waypoint 1
+    waypoints = [
+        np.array([0.0, 0.0]),
+        np.array([4.0, 0.0]),
+        np.array([4.0, -4.0]),
+    ]
+    durations = np.array([2.0, 2.0])
+    derived = opt._compute_derived_states(waypoints, durations)
+    # At waypoint 1: heading goes from 0 to -π/2 → omega < 0
+    assert derived[1][4] < 0.0
+
+
+# ---------------------------------------------------------------------------
+# Unit tests — _check_speed_bounds helper
+# ---------------------------------------------------------------------------
+
+
+def test_check_speed_bounds_no_limits():
+    """Without speed limits every segment is considered feasible."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
+    waypoints = [np.array([0.0, 0.0]), np.array([100.0, 0.0])]
+    durations = np.array([0.001])  # very fast
+    assert opt._check_speed_bounds(durations, waypoints) is True
+
+
+def test_check_speed_bounds_within_limits():
+    """All segments respecting max_speed must return True."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0, max_speed=10.0)
+    waypoints = [np.array([0.0, 0.0]), np.array([4.0, 0.0])]
+    durations = np.array([2.0])  # v=2 < 10 ✓
+    assert opt._check_speed_bounds(durations, waypoints) is True
+
+
+def test_check_speed_bounds_at_exact_max_speed():
+    """Speed exactly at max_speed must be considered feasible."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0, max_speed=2.0)
+    waypoints = [np.array([0.0, 0.0]), np.array([4.0, 0.0])]
+    durations = np.array([2.0])  # v=2.0 == max_speed ✓
+    assert opt._check_speed_bounds(durations, waypoints) is True
+
+
+def test_check_speed_bounds_exceeds_max_speed():
+    """Any segment exceeding max_speed must return False."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0, max_speed=1.0)
+    waypoints = [np.array([0.0, 0.0]), np.array([4.0, 0.0])]
+    durations = np.array([2.0])  # v=2 > max_speed=1 ✗
+    assert opt._check_speed_bounds(durations, waypoints) is False
+
+
+def test_check_speed_bounds_below_min_speed():
+    """Any segment below min_speed must return False."""
+    occ = _free_occupancy()
+    opt = TrajectoryOptimizer(occ, cruise_speed=2.0, min_speed=5.0)
+    waypoints = [np.array([0.0, 0.0]), np.array([4.0, 0.0])]
+    durations = np.array([4.0])  # v=1 < min_speed=5 ✗
+    assert opt._check_speed_bounds(durations, waypoints) is False
+
+
+# ---------------------------------------------------------------------------
+# DubinsPrimitive turning-radius constraint via optimizer
+# ---------------------------------------------------------------------------
+
+
+def test_optimize_dubins_primitive_turning_radius_constraint():
+    """Optimizer must mark infeasible when the DubinsPrimitive constraint fails.
+
+    A path with a very sharp turn produces a large turn rate at the interior
+    waypoint.  When the speed is high enough that |v/ω| < turning_radius, the
+    DubinsPrimitive.is_feasible check should flag the result as infeasible.
+    """
+    from arco.guidance.primitive.dubins import DubinsPrimitive
+
+    # Very large turning radius → tight turns are infeasible
+    prim = DubinsPrimitive(turning_radius=100.0)
+    occ = _free_occupancy()
+    # Path makes a nearly 90-degree turn at the interior waypoint
+    ref = [
+        np.array([0.0, 0.0]),
+        np.array([5.0, 0.0]),
+        np.array([5.0, 5.0]),
+    ]
+    opt = TrajectoryOptimizer(
+        occ,
+        cruise_speed=5.0,
+        weight_dynamics=0.0,  # no penalty; just flag check
+        max_iter=1,  # force early stop; we want the check, not convergence
+    )
+    result = opt.optimize(ref, feasibility=prim.is_feasible)
+    assert result.is_feasible is False
+
 
 
 def test_feasibility_feasible_state():
@@ -368,31 +640,25 @@ def test_feasibility_kinematic_state_always_true():
 
 
 # ---------------------------------------------------------------------------
-# Feasibility warning in optimizer
+# DubinsVehicle.is_feasible via optimizer — derived state integration
 # ---------------------------------------------------------------------------
 
 
-def test_optimize_feasibility_warning_issued():
-    """optimize() must issue RuntimeWarning for infeasible states."""
-    vehicle = DubinsVehicle(max_speed=0.1, max_turn_rate=0.01, min_speed=0.0)
-
-    # The occupancy-based optimizer will produce positions; extend them with
-    # a deliberately infeasible speed/turn_rate so the check fires.
-    def always_infeasible(state: np.ndarray) -> bool:
-        return False
-
+def test_optimize_with_vehicle_feasibility_sets_flag():
+    """optimizer with vehicle.is_feasible must set is_feasible correctly."""
+    # Vehicle with a very low max_speed so the optimizer cannot satisfy it
+    vehicle = DubinsVehicle(
+        max_speed=0.001, min_speed=0.0, max_turn_rate=100.0
+    )
     occ = _free_occupancy()
-    ref = _straight_path(n_segments=3)
-    opt = TrajectoryOptimizer(occ, cruise_speed=2.0)
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        opt.optimize(ref, feasibility=always_infeasible)
-
-    runtime_warnings = [
-        w for w in caught if issubclass(w.category, RuntimeWarning)
-    ]
-    assert len(runtime_warnings) > 0
+    ref = _straight_path(n_segments=2)
+    # weight_dynamics=0 so penalty doesn't steer optimizer; just flag check
+    opt = TrajectoryOptimizer(
+        occ, cruise_speed=2.0, weight_dynamics=0.0, max_iter=1
+    )
+    result = opt.optimize(ref, feasibility=vehicle.is_feasible)
+    # Derived speed will be >> vehicle.max_speed → infeasible
+    assert result.is_feasible is False
 
 
 # ---------------------------------------------------------------------------
@@ -446,3 +712,4 @@ def test_ik_heading_toward_goal():
     cmd = vehicle.inverse_kinematics(start, goal, speed=2.0, duration=2.0)
     # Expected: target heading ≈ pi/4, current heading = 0 → turn left (>0)
     assert cmd[1] > 0
+

@@ -25,19 +25,25 @@ class TrajectoryResult:
         durations: List of N positive segment traversal times (seconds).
         cost: Scalar value of the composite cost function at the optimized
             solution.
+        is_feasible: ``True`` when the optimized trajectory satisfies all
+            dynamic constraints (speed bounds, feasibility callable).
+            ``False`` indicates at least one waypoint or segment violates
+            the model limits; the vehicle should stall instead of executing
+            this trajectory.
     """
 
     states: List[np.ndarray] = field(default_factory=list)
     commands: List[np.ndarray] = field(default_factory=list)
     durations: List[float] = field(default_factory=list)
     cost: float = 0.0
+    is_feasible: bool = True
 
 
 class TrajectoryOptimizer:
     """Model-agnostic two-stage trajectory optimizer.
 
     Refines a reference path from a global planner (RRT*, SST, …) into a
-    time-optimal trajectory that minimizes a four-term composite cost while
+    time-optimal trajectory that minimizes a five-term composite cost while
     staying close to the reference path and avoiding obstacles.
 
     **Stage 1 — Initialisation (inverse kinematics).**
@@ -61,9 +67,18 @@ class TrajectoryOptimizer:
           + w_deviation · Σ |pᵢ − refᵢ|²
           + w_velocity · Σ (|pᵢ − pᵢ₋₁| / tᵢ − v_cruise)²
           + w_collision · Σ max(0, clearance − dist(pᵢ, obstacles))²
+          + w_dynamics · Σ [max(0, vᵢ − max_speed)² + max(0, min_speed − vᵢ)²]
 
-    where *T = Σ tᵢ* is the total traversal time and ``clearance`` is taken
-    from the occupancy map.
+    where *T = Σ tᵢ* is the total traversal time and the dynamics term
+    penalises implied segment speeds that exceed :attr:`max_speed` or fall
+    below :attr:`min_speed`.  With a large *weight_dynamics* this penalty
+    acts as a near-hard constraint during optimisation.
+
+    After optimisation :meth:`optimize` checks every segment's implied speed
+    and every waypoint via the optional *feasibility* callable.  If any
+    violation is detected :attr:`~TrajectoryResult.is_feasible` is set to
+    ``False`` on the returned result.  Callers must inspect this flag and
+    stall the vehicle rather than execute an infeasible trajectory.
 
     The trajectory is discretized by a progress variable *s* that advances
     linearly from 0 to *N* (one unit per segment).  The bijection between
@@ -82,6 +97,15 @@ class TrajectoryOptimizer:
         weight_velocity: Weight for the velocity deviation from
             *cruise_speed*.  Prevents the degenerate solution T → 0.
         weight_collision: Weight for obstacle-penetration penalties.
+        weight_dynamics: Weight for the dynamics-constraint penalty
+            (speed bounds).  A large value (default 100.0) steers the
+            optimiser toward feasible speed profiles.
+        max_speed: Upper speed limit (world units / s).  When provided,
+            implied segment speeds exceeding this value incur a penalty
+            scaled by *weight_dynamics*.  Also used in the post-optimisation
+            feasibility check.
+        min_speed: Lower speed limit (world units / s).  When provided,
+            implied segment speeds below this value incur a penalty.
         time_relaxation: Relaxation factor *α* for the initial segment
             duration estimate: ``t_i⁰ = α · L_i / cruise_speed``.  Values
             above 1.0 give the optimizer room to tighten time. Defaults to
@@ -108,6 +132,9 @@ class TrajectoryOptimizer:
         weight_deviation: float = 1.0,
         weight_velocity: float = 1.0,
         weight_collision: float = 5.0,
+        weight_dynamics: float = 100.0,
+        max_speed: Optional[float] = None,
+        min_speed: Optional[float] = None,
         time_relaxation: float = 1.5,
         method: str = "L-BFGS-B",
         sample_count: int = 3,
@@ -123,6 +150,14 @@ class TrajectoryOptimizer:
             weight_deviation: Cost weight for path-deviation term.
             weight_velocity: Cost weight for velocity-deviation term.
             weight_collision: Cost weight for collision-penalty term.
+            weight_dynamics: Cost weight for dynamics-constraint penalty
+                (speed bounds).
+            max_speed: Upper speed limit (world units / s) for the
+                dynamics penalty and post-optimisation feasibility check.
+                ``None`` disables the upper-speed constraint.
+            min_speed: Lower speed limit (world units / s) for the
+                dynamics penalty and post-optimisation feasibility check.
+                ``None`` disables the lower-speed constraint.
             time_relaxation: Relaxation factor for the initial time
                 estimate.
             method: ``scipy.optimize.minimize`` method.
@@ -144,6 +179,9 @@ class TrajectoryOptimizer:
         self.weight_deviation = weight_deviation
         self.weight_velocity = weight_velocity
         self.weight_collision = weight_collision
+        self.weight_dynamics = weight_dynamics
+        self.max_speed = max_speed
+        self.min_speed = min_speed
         self.time_relaxation = time_relaxation
         self.method = method
         self.sample_count = sample_count
@@ -172,6 +210,16 @@ class TrajectoryOptimizer:
         2. **Stage 2** refines the guess with
            ``scipy.optimize.minimize`` using the composite cost function.
 
+        After optimisation, each waypoint's implied speed (segment length
+        divided by segment duration) is checked against :attr:`max_speed`
+        and :attr:`min_speed` when those limits are set.  If a *feasibility*
+        callable is provided, it is invoked with a derived state
+        ``(x, y, θ, v)`` for each waypoint, where *θ* is the segment
+        heading and *v* is the implied speed.  Any violation sets
+        :attr:`~TrajectoryResult.is_feasible` to ``False`` on the returned
+        result.  Callers **must** check this flag and stall the vehicle
+        rather than executing an infeasible trajectory.
+
         Args:
             reference_path: Ordered list of N+1 position arrays from the
                 global planner (start + N waypoints).  Must contain at
@@ -181,13 +229,17 @@ class TrajectoryOptimizer:
                 returns control commands for a segment.  When ``None``,
                 commands are estimated from the segment geometry.
             feasibility: Optional callable ``(state) -> bool`` used to
-                check physical realizability of the optimized waypoints.
-                A warning is logged for each infeasible state but the
-                result is still returned.
+                check physical realizability of each optimized waypoint.
+                The callable receives a derived state array
+                ``(x, y, θ, v, ω)`` built from the waypoint position,
+                inferred heading, implied segment speed, and estimated
+                turn rate.  When any waypoint fails the check,
+                ``result.is_feasible`` is set to ``False``.
 
         Returns:
             A :class:`TrajectoryResult` containing the optimized states,
-            commands, segment durations, and final cost.
+            commands, segment durations, final cost, and an
+            :attr:`~TrajectoryResult.is_feasible` flag.
 
         Raises:
             ValueError: If *reference_path* has fewer than two waypoints.
@@ -225,18 +277,16 @@ class TrajectoryOptimizer:
             waypoints, durations, inverse_kinematics
         )
 
-        # Feasibility check
+        # --- Hard feasibility check ----------------------------------
+        # Build derived states (x, y, θ, v) for each waypoint so that
+        # model is_feasible callables receive meaningful dynamics info.
+        derived = self._compute_derived_states(waypoints, durations)
+        traj_feasible = self._check_speed_bounds(durations, waypoints)
         if feasibility is not None:
-            for i, state in enumerate(waypoints):
+            for state in derived:
                 if not feasibility(state):
-                    import warnings
-
-                    warnings.warn(
-                        f"Optimized waypoint {i} failed feasibility "
-                        f"check: {state}.",
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
+                    traj_feasible = False
+                    break
 
         final_cost = float(self._cost(x_opt, ref, segment_count, dim))
         return TrajectoryResult(
@@ -244,6 +294,7 @@ class TrajectoryOptimizer:
             commands=commands,
             durations=list(durations),
             cost=final_cost,
+            is_feasible=traj_feasible,
         )
 
     # ------------------------------------------------------------------
@@ -376,7 +427,20 @@ class TrajectoryOptimizer:
                 np.sum(penetrations**2)
             )
 
-        return j_time + j_deviation + j_velocity + j_collision
+        # --- Dynamics penalty (speed bounds) -----------------------------
+        # Penalises implied segment speeds that violate max_speed / min_speed.
+        # Acts as a soft-to-hard barrier scaled by weight_dynamics.
+        j_dynamics = 0.0
+        if self.max_speed is not None or self.min_speed is not None:
+            if self.max_speed is not None:
+                over = np.maximum(0.0, speeds - self.max_speed)
+                j_dynamics += float(np.sum(over**2))
+            if self.min_speed is not None:
+                under = np.maximum(0.0, self.min_speed - speeds)
+                j_dynamics += float(np.sum(under**2))
+            j_dynamics *= self.weight_dynamics
+
+        return j_time + j_deviation + j_velocity + j_collision + j_dynamics
 
     # ------------------------------------------------------------------
     # Helpers
@@ -433,6 +497,107 @@ class TrajectoryOptimizer:
         duration_bounds = [(1e-3, None)] * segment_count
         position_bounds = [(None, None)] * (dim * (segment_count - 1))
         return duration_bounds + position_bounds
+
+    def _compute_derived_states(
+        self,
+        waypoints: List[np.ndarray],
+        durations: np.ndarray,
+    ) -> List[np.ndarray]:
+        """Build derived states ``(x, y, θ, v, ω)`` for each waypoint.
+
+        The heading *θ* at each waypoint is the direction of the outgoing
+        segment (or the incoming segment for the final waypoint).  The
+        implied speed *v* is the segment length divided by the segment
+        duration.  The turn rate *ω* is the normalized heading change
+        between consecutive segments divided by the incoming segment
+        duration; it is zero for the first waypoint.
+
+        This five-element representation matches the extended state
+        expected by :meth:`DubinsVehicle.is_feasible` and
+        :meth:`DubinsPrimitive.is_feasible`, enabling meaningful
+        dynamic-constraint checks (speed bounds and minimum turning
+        radius) during post-optimisation validation.
+
+        Args:
+            waypoints: List of *N+1* optimized position arrays.
+            durations: Length-*N* array of segment durations.
+
+        Returns:
+            List of *N+1* derived state arrays ``(x, y, θ, v, ω)``.
+        """
+        n = len(durations)
+
+        # Pre-compute per-segment headings and speeds.
+        seg_theta: List[float] = []
+        seg_speed: List[float] = []
+        for i in range(n):
+            seg = waypoints[i + 1] - waypoints[i]
+            seg_len = float(np.linalg.norm(seg))
+            theta = (
+                math.atan2(float(seg[1]), float(seg[0]))
+                if seg_len > 1e-12
+                else 0.0
+            )
+            seg_theta.append(theta)
+            seg_speed.append(seg_len / max(float(durations[i]), 1e-9))
+
+        derived: List[np.ndarray] = []
+        for i in range(n + 1):
+            pos = waypoints[i]
+            # Heading and speed: outgoing segment, or incoming for last pt.
+            if i < n:
+                theta = seg_theta[i]
+                speed = seg_speed[i]
+            else:
+                theta = seg_theta[n - 1]
+                speed = seg_speed[n - 1]
+
+            # Turn rate: heading change / incoming segment duration.
+            if i == 0 or n < 2:
+                omega = 0.0
+            else:
+                prev_theta = seg_theta[i - 1] if i <= n else seg_theta[n - 1]
+                cur_theta = seg_theta[i] if i < n else seg_theta[n - 1]
+                delta = math.atan2(
+                    math.sin(cur_theta - prev_theta),
+                    math.cos(cur_theta - prev_theta),
+                )
+                omega = delta / max(float(durations[i - 1]), 1e-9)
+
+            x = float(pos[0]) if pos.shape[0] >= 1 else 0.0
+            y = float(pos[1]) if pos.shape[0] >= 2 else 0.0
+            derived.append(np.array([x, y, theta, speed, omega], dtype=float))
+        return derived
+
+    def _check_speed_bounds(
+        self,
+        durations: np.ndarray,
+        waypoints: List[np.ndarray],
+    ) -> bool:
+        """Return ``True`` iff all implied segment speeds satisfy the bounds.
+
+        A segment speed ``v_i = ||p_{i+1} - p_i|| / t_i`` is checked
+        against :attr:`max_speed` and :attr:`min_speed` when those limits
+        are set.
+
+        Args:
+            durations: Length-*N* array of segment durations.
+            waypoints: List of *N+1* position arrays.
+
+        Returns:
+            ``True`` if all segments are within speed bounds, ``False``
+            otherwise.
+        """
+        n = len(durations)
+        for i in range(n):
+            length = float(np.linalg.norm(waypoints[i + 1] - waypoints[i]))
+            t_i = max(float(durations[i]), 1e-9)
+            v_i = length / t_i
+            if self.max_speed is not None and v_i > self.max_speed + 1e-9:
+                return False
+            if self.min_speed is not None and v_i < self.min_speed - 1e-9:
+                return False
+        return True
 
     def _compute_commands(
         self,
