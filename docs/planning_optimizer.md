@@ -155,7 +155,7 @@ class TrajectoryResult:
 All tuning parameters live in `tools/config/optimizer.yml`:
 
 ```yaml
-cruise_speed: 2.0       # Target speed (world units / s)
+cruise_speed: 1.0       # Target speed (world units / s)
 weight_time: 10.0       # Time cost weight (dominant)
 weight_deviation: 1.0   # Deviation cost weight
 weight_velocity: 1.0    # Velocity cost weight

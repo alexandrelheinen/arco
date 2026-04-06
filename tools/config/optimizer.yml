@@ -17,11 +17,11 @@
 # max_iter         – maximum number of Stage-2 solver iterations.
 # ftol             – Stage-2 convergence tolerance (function value change).
 
-cruise_speed: 2.0
-weight_time: 10.0
-weight_deviation: 1.0
-weight_velocity: 1.0
-weight_collision: 5.0
+cruise_speed: 1.0
+weight_time: 100.0  # 1 s² deviation = 10² m²
+weight_deviation: 1.0  # Reference: 1 cost unit ≈ 1 m² deviation 
+weight_velocity: 0.25  # 1 m/s deviation = 0.5² m²/s²
+weight_collision: 100.0  # 0.1² m² penetration = 1 cost unit
 time_relaxation: 1.5
 method: L-BFGS-B
 sample_count: 3
