@@ -19,7 +19,7 @@ import os
 
 import pygame
 import renderer_gl
-from marmot import make_marmot_surface
+from groundhog import make_groundhog_surface
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
@@ -193,9 +193,9 @@ def _draw_goal_reached_overlay(
     sw: int,
     sh: int,
 ) -> None:
-    """Draw a centered marmot mascot + "GOAL  REACHED!" banner.
+    """Draw a centered groundhog mascot + "GOAL  REACHED!" banner.
 
-    Called once the vehicle has finished.  The marmot is rendered in the
+    Called once the vehicle has finished.  The groundhog is rendered in the
     vehicle color, providing a celebratory visual on the victory screen.
 
     Args:
@@ -206,8 +206,8 @@ def _draw_goal_reached_overlay(
     color = _C_VEHICLE_INT
     rendered = big_font.render("GOAL  REACHED!", True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
-    marmot_surf = make_marmot_surface(color, height=rh + 30)
-    mw, mh = marmot_surf.get_size()
+    groundhog_surf = make_groundhog_surface(color, height=rh + 30)
+    mw, mh = groundhog_surf.get_size()
 
     gap = 16
     pad = 14
@@ -216,7 +216,7 @@ def _draw_goal_reached_overlay(
 
     banner = pygame.Surface((banner_w, banner_h), pygame.SRCALPHA)
     banner.fill((10, 10, 20, 200))
-    banner.blit(marmot_surf, (pad, (banner_h - mh) // 2))
+    banner.blit(groundhog_surf, (pad, (banner_h - mh) // 2))
     banner.blit(rendered, (pad + mw + gap, (banner_h - rh) // 2))
 
     bx = (sw - banner_w) // 2

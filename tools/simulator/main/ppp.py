@@ -53,6 +53,7 @@ sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import numpy as np
 import pygame
+from groundhog import make_groundhog_surface
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_AMBIENT,
     GL_AMBIENT_AND_DIFFUSE,
@@ -113,7 +114,6 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex2f,
     glVertex3f,
 )
-from marmot import make_marmot_surface
 from scenes.ppp import PPPScene
 from scenes.ppp import is_wall as _is_wall_box
 from sim.loading import run_with_loading_screen
@@ -258,12 +258,12 @@ _HC_SHADOW = (25, 30, 42)
 _HC_WINNER = (255, 215, 50)
 _HC_TIE = (200, 200, 80)
 # Marmot fill colors: bright planner-specific tints derived from trail colors.
-_HC_MARMOT_RRT: tuple[int, int, int] = (
+_HC_GROUNDHOG_RRT: tuple[int, int, int] = (
     int(_C_TRAIL_RRT[0] * 255),
     int(_C_TRAIL_RRT[1] * 255),
     int(_C_TRAIL_RRT[2] * 255),
 )  # ~(153, 204, 255) — light blue
-_HC_MARMOT_SST: tuple[int, int, int] = (
+_HC_GROUNDHOG_SST: tuple[int, int, int] = (
     int(_C_TRAIL_SST[0] * 255),
     int(_C_TRAIL_SST[1] * 255),
     int(_C_TRAIL_SST[2] * 255),
@@ -739,28 +739,28 @@ def _banner_surface(
     big_font: pygame.font.Font,
     text: str,
     color: tuple[int, int, int],
-    marmot_color: tuple[int, int, int] | None = None,
+    groundhog_color: tuple[int, int, int] | None = None,
 ) -> pygame.Surface:
-    """Build a translucent centered winner-banner surface with marmot mascot.
+    """Build a translucent centered winner-banner surface with groundhog mascot.
 
-    The marmot is placed to the left of the winner text and rendered in
-    *marmot_color* (defaults to *color* when omitted).
+    The groundhog is placed to the left of the winner text and rendered in
+    *groundhog_color* (defaults to *color* when omitted).
 
     Args:
         big_font: Large bold font.
         text: Banner text (e.g. ``"RRT* WINS!"``).
         color: Text color.
-        marmot_color: Fill color for the marmot mascot.  Defaults to
+        groundhog_color: Fill color for the groundhog mascot.  Defaults to
             *color* when ``None``.
 
     Returns:
         RGBA banner surface.
     """
-    m_color = marmot_color if marmot_color is not None else color
+    m_color = groundhog_color if groundhog_color is not None else color
     rendered = big_font.render(text, True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
-    marmot_surf = make_marmot_surface(m_color, height=rh + 30)
-    mw, mh = marmot_surf.get_size()
+    groundhog_surf = make_groundhog_surface(m_color, height=rh + 30)
+    mw, mh = groundhog_surf.get_size()
 
     gap = 16
     pad = 20
@@ -769,7 +769,7 @@ def _banner_surface(
     )
     surf.fill((8, 10, 22, 215))
     surf_h = surf.get_height()
-    surf.blit(marmot_surf, (pad, (surf_h - mh) // 2))
+    surf.blit(groundhog_surf, (pad, (surf_h - mh) // 2))
     # Shadow + text for the winner label
     surf.blit(
         big_font.render(text, True, _HC_SHADOW),
@@ -925,7 +925,7 @@ def run_race(
     the ``race_speed`` configured in ``ppp.yml``; the first to reach
     the goal wins.
 
-    Phase 3 — **winner**: the victory banner with the marmot mascot is
+    Phase 3 — **winner**: the victory banner with the groundhog mascot is
     shown.  In interactive mode the window stays open until the user
     presses **Q / Escape**, unless ``auto_close=True``.
 
@@ -1135,7 +1135,11 @@ def run_race(
                     post_timer += dt
                     if recording and post_timer >= _POST_FINISH_SECS:
                         running = False
-                    elif not recording and auto_close and post_timer >= _POST_FINISH_SECS:
+                    elif (
+                        not recording
+                        and auto_close
+                        and post_timer >= _POST_FINISH_SECS
+                    ):
                         running = False
 
             # --- 3-D render (OpenGL) ------------------------------------
@@ -1250,12 +1254,14 @@ def run_race(
             if winner:
                 w_color = _HC_TIE if winner == "TIE!" else _HC_WINNER
                 if winner == "RRT* WINS!":
-                    m_color: tuple[int, int, int] = _HC_MARMOT_RRT
+                    m_color: tuple[int, int, int] = _HC_GROUNDHOG_RRT
                 elif winner == "SST WINS!":
-                    m_color = _HC_MARMOT_SST
+                    m_color = _HC_GROUNDHOG_SST
                 else:
                     m_color = _HC_TIE
-                ban = _banner_surface(big_font, winner, w_color, marmot_color=m_color)
+                ban = _banner_surface(
+                    big_font, winner, w_color, groundhog_color=m_color
+                )
                 _blit_overlay(
                     ban,
                     (sw - ban.get_width()) // 2,

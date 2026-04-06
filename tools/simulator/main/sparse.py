@@ -45,7 +45,7 @@ sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import pygame
 import renderer_gl
-from marmot import make_marmot_surface
+from groundhog import make_groundhog_surface
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
@@ -227,22 +227,22 @@ def _draw_winner_banner(
     sw: int,
     sh: int,
 ) -> None:
-    """Draw a translucent centered banner with winner text and marmot mascot.
+    """Draw a translucent centered banner with winner text and groundhog mascot.
 
-    The marmot is rendered in *color* and placed to the left of the winner
+    The groundhog is rendered in *color* and placed to the left of the winner
     text inside the banner, giving the victory screen a visual identity.
 
     Args:
         font: Large pygame font.
         text: Banner text (e.g. ``"RRT*  WINS!"``).
-        color: RGB text color (also used for the marmot fill).
+        color: RGB text color (also used for the groundhog fill).
         sw: Screen width in pixels.
         sh: Screen height in pixels.
     """
     rendered = font.render(text, True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
-    marmot_surf = make_marmot_surface(color, height=rh + 30)
-    mw, mh = marmot_surf.get_size()
+    groundhog_surf = make_groundhog_surface(color, height=rh + 30)
+    mw, mh = groundhog_surf.get_size()
 
     gap = 16
     pad = 14
@@ -251,7 +251,7 @@ def _draw_winner_banner(
 
     banner = pygame.Surface((banner_w, banner_h), pygame.SRCALPHA)
     banner.fill((10, 10, 20, 200))
-    banner.blit(marmot_surf, (pad, (banner_h - mh) // 2))
+    banner.blit(groundhog_surf, (pad, (banner_h - mh) // 2))
     banner.blit(rendered, (pad + mw + gap, (banner_h - rh) // 2))
 
     bx = (sw - banner.get_width()) // 2
