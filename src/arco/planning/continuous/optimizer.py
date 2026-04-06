@@ -30,6 +30,13 @@ class TrajectoryResult:
             ``False`` indicates at least one waypoint or segment violates
             the model limits; the vehicle should stall instead of executing
             this trajectory.
+        optimizer_success: ``True`` when the Stage-2 scipy solver reported
+            convergence, ``False`` otherwise.
+        optimizer_status_code: Integer solver exit code returned by scipy.
+        optimizer_status_text: Human-readable solver status message returned
+            by scipy.
+        optimizer_iteration_count: Number of Stage-2 solver iterations
+            performed (``0`` when unavailable).
     """
 
     states: List[np.ndarray] = field(default_factory=list)
@@ -37,6 +44,10 @@ class TrajectoryResult:
     durations: List[float] = field(default_factory=list)
     cost: float = 0.0
     is_feasible: bool = True
+    optimizer_success: bool = True
+    optimizer_status_code: int = 0
+    optimizer_status_text: str = ""
+    optimizer_iteration_count: int = 0
 
 
 class TrajectoryOptimizer:
@@ -296,6 +307,10 @@ class TrajectoryOptimizer:
             durations=list(durations),
             cost=final_cost,
             is_feasible=traj_feasible,
+            optimizer_success=bool(result.success),
+            optimizer_status_code=int(result.status),
+            optimizer_status_text=str(result.message),
+            optimizer_iteration_count=int(getattr(result, "nit", 0) or 0),
         )
 
     # ------------------------------------------------------------------

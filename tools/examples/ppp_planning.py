@@ -1,9 +1,9 @@
 """PPP (triple prismatic) robot planning in a 3-D warehouse environment.
 
 Runs RRT* and SST planners side-by-side on an industrial warehouse bay
-modelled as a box-shaped work volume (20 m × 10 m × 6 m) with ground-level
-box obstacles.  A full-width blocking wall at x = 7–9 forces both planners
-to arc over it (z > 4.5 m).
+modelled as a box-shaped work volume (60 m × 20 m × 6 m) with ground-level
+box obstacles. Three width-crossing barriers increase difficulty: a tall
+barrier, a smaller one, then a split-half barrier with mixed heights.
 
 Only the chosen path is rendered — no exploration tree — to keep the 3-D
 view uncluttered.
@@ -25,6 +25,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -35,6 +36,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from logging_config import configure_logging
 from scenes.ppp import BOXES as _BOXES
+from scenes.ppp import GOAL as _GOAL
+from scenes.ppp import START as _START
 from scenes.ppp import (
     _sample_box_surface,
 )
@@ -52,8 +55,22 @@ logger = logging.getLogger(__name__)
 
 _cfg = load_config("ppp")
 
-_START = np.array([1.0, 1.0, 0.0])
-_GOAL = np.array([19.0, 9.0, 0.0])
+
+def _format_clock(seconds: float) -> str:
+    """Format seconds as ``MMminSSs`` rounded to whole seconds."""
+    rounded = int(round(seconds))
+    mins, secs = divmod(rounded, 60)
+    return f"{mins:02d}min{secs:02d}s"
+
+
+def _polyline_length(path: list[np.ndarray] | None) -> float:
+    """Return total Euclidean arc length for a waypoint sequence."""
+    if path is None or len(path) < 2:
+        return 0.0
+    return sum(
+        float(np.linalg.norm(path[i + 1] - path[i]))
+        for i in range(len(path) - 1)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -153,13 +170,11 @@ def main(save_path: str | None = None) -> None:
         early_stop=True,
     )
     logger.info("Running RRT* in 3-D …")
-    _, _, rrt_path = rrt.get_tree(_START.copy(), _GOAL.copy())
-    rrt_len = 0.0
+    rrt_t0 = time.perf_counter()
+    rrt_nodes, _, rrt_path = rrt.get_tree(_START.copy(), _GOAL.copy())
+    rrt_elapsed = time.perf_counter() - rrt_t0
+    rrt_len = _polyline_length(rrt_path)
     if rrt_path is not None:
-        rrt_len = sum(
-            float(np.linalg.norm(rrt_path[i + 1] - rrt_path[i]))
-            for i in range(len(rrt_path) - 1)
-        )
         logger.info(
             "RRT*: %d waypoints, length=%.1f m", len(rrt_path), rrt_len
         )
@@ -179,13 +194,11 @@ def main(save_path: str | None = None) -> None:
         early_stop=True,
     )
     logger.info("Running SST in 3-D …")
-    _, _, sst_path = sst.get_tree(_START.copy(), _GOAL.copy())
-    sst_len = 0.0
+    sst_t0 = time.perf_counter()
+    sst_nodes, _, sst_path = sst.get_tree(_START.copy(), _GOAL.copy())
+    sst_elapsed = time.perf_counter() - sst_t0
+    sst_len = _polyline_length(sst_path)
     if sst_path is not None:
-        sst_len = sum(
-            float(np.linalg.norm(sst_path[i + 1] - sst_path[i]))
-            for i in range(len(sst_path) - 1)
-        )
         logger.info("SST: %d waypoints, length=%.1f m", len(sst_path), sst_len)
     else:
         logger.warning("SST: no path found.")
@@ -203,24 +216,46 @@ def main(save_path: str | None = None) -> None:
     )
     rrt_traj: list[np.ndarray] | None = None
     sst_traj: list[np.ndarray] | None = None
+    rrt_traj_dur = 0.0
+    sst_traj_dur = 0.0
+    rrt_traj_len = 0.0
+    sst_traj_len = 0.0
+    rrt_opt_status = "not-run"
+    sst_opt_status = "not-run"
+    rrt_feasible = False
+    sst_feasible = False
     if rrt_path is not None:
         try:
             res = opt.optimize(rrt_path)
             rrt_traj = res.states
+            rrt_traj_dur = sum(res.durations)
+            rrt_traj_len = _polyline_length(res.states)
+            rrt_opt_status = (
+                f"{res.optimizer_status_code}: {res.optimizer_status_text}"
+            )
+            rrt_feasible = bool(res.is_feasible)
             logger.info("RRT* trajectory optimized: cost=%.3f", res.cost)
         except Exception:
             logger.exception(
                 "RRT* TrajectoryOptimizer failed; skipping overlay."
             )
+            rrt_opt_status = "exception"
     if sst_path is not None:
         try:
             res = opt.optimize(sst_path)
             sst_traj = res.states
+            sst_traj_dur = sum(res.durations)
+            sst_traj_len = _polyline_length(res.states)
+            sst_opt_status = (
+                f"{res.optimizer_status_code}: {res.optimizer_status_text}"
+            )
+            sst_feasible = bool(res.is_feasible)
             logger.info("SST trajectory optimized: cost=%.3f", res.cost)
         except Exception:
             logger.exception(
                 "SST TrajectoryOptimizer failed; skipping overlay."
             )
+            sst_opt_status = "exception"
 
     # --- 3-D figure ---------------------------------------------------------
     fig = plt.figure(figsize=(14, 7))
@@ -232,6 +267,20 @@ def main(save_path: str | None = None) -> None:
             rrt_len,
             "royalblue",
             rrt_traj,
+            {
+                "steps": max(0, (len(rrt_path) - 1) if rrt_path else 0),
+                "nodes": len(rrt_nodes),
+                "planner_time": rrt_elapsed,
+                "path_len": rrt_len,
+                "traj_len": rrt_traj_len,
+                "traj_dur": rrt_traj_dur,
+                "path_status": (
+                    "found"
+                    if (rrt_path is not None and rrt_feasible)
+                    else "stalled"
+                ),
+                "opt_status": rrt_opt_status,
+            },
         ),
         (
             "SST — 3-D PPP warehouse",
@@ -239,19 +288,27 @@ def main(save_path: str | None = None) -> None:
             sst_len,
             "mediumseagreen",
             sst_traj,
+            {
+                "steps": max(0, (len(sst_path) - 1) if sst_path else 0),
+                "nodes": len(sst_nodes),
+                "planner_time": sst_elapsed,
+                "path_len": sst_len,
+                "traj_len": sst_traj_len,
+                "traj_dur": sst_traj_dur,
+                "path_status": (
+                    "found"
+                    if (sst_path is not None and sst_feasible)
+                    else "stalled"
+                ),
+                "opt_status": sst_opt_status,
+            },
         ),
     ]
-    x_lim = (
-        float(_cfg["bounds"][0][0]),
-        float(_cfg["bounds"][0][1]),
-    )
-    y_lim = (
-        float(_cfg["bounds"][1][0]),
-        float(_cfg["bounds"][1][1]),
-    )
+    x_lim = (float(_cfg["bounds"][0][0]), float(_cfg["bounds"][0][1]))
+    y_lim = (float(_cfg["bounds"][1][0]), float(_cfg["bounds"][1][1]))
     z_lim = (0.0, float(_cfg["bounds"][2][1]))
 
-    for col, (title, path, length, color, traj) in enumerate(specs):
+    for col, (title, path, length, color, traj, metrics) in enumerate(specs):
         ax = fig.add_subplot(1, 2, col + 1, projection="3d")
 
         # Obstacle boxes — wall is colored distinctly from scatter boxes.
@@ -321,11 +378,46 @@ def main(save_path: str | None = None) -> None:
         ax.set_xlabel("X (m)")  # type: ignore[attr-defined]
         ax.set_ylabel("Y (m)")  # type: ignore[attr-defined]
         ax.set_zlabel("Z (m)")  # type: ignore[attr-defined]
-        n_wpts = len(path) if path else 0
-        subtitle = f"Length {length:.1f} m | {n_wpts} waypoints"
-        ax.set_title(f"{title}\n{subtitle}")  # type: ignore[attr-defined]
+        ax.set_title(title)  # type: ignore[attr-defined]
         ax.legend(loc="upper left", fontsize=8)  # type: ignore[attr-defined]
         ax.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
+        metrics_lines = [
+            (
+                f"Planner steps / nodes: "
+                f"{metrics['steps']} / {metrics['nodes']}"
+            ),
+            f"Planner time: {_format_clock(float(metrics['planner_time']))}",
+            (
+                f"Planned path length: "
+                f"{int(round(float(metrics['path_len'])))} m"
+            ),
+            (
+                f"Trajectory arc length: "
+                f"{int(round(float(metrics['traj_len'])))} m"
+            ),
+            (
+                f"Trajectory duration: "
+                f"{_format_clock(float(metrics['traj_dur']))}"
+            ),
+            f"Path status: {metrics['path_status']}",
+            f"Optimizer status: {metrics['opt_status']}",
+        ]
+        ax.text2D(  # type: ignore[attr-defined]
+            0.02,
+            0.98,
+            "\n".join(metrics_lines),
+            transform=ax.transAxes,
+            va="top",
+            ha="left",
+            fontsize=7,
+            color="white",
+            bbox={
+                "boxstyle": "round,pad=0.3",
+                "facecolor": "black",
+                "alpha": 0.65,
+                "edgecolor": "none",
+            },
+        )
 
     plt.suptitle(
         "PPP robot — RRT* vs SST in 3-D warehouse",
