@@ -31,7 +31,7 @@ road_half_width: 15.0
 # ── Obstacle sampling ───────────────────────────────────────────────────────
 # obstacle_sampling_spacing - grid step (m) used to densely sample the
 #                             interior of each triangular city block.
-obstacle_sampling_spacing: 8.0
+obstacle_sampling_spacing: 4.0
 
 # road_dot_spacing  - spacing (m) between decorative road-marking dots drawn
 #                     along every road edge centerline.
