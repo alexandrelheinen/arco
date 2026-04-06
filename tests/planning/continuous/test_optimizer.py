@@ -161,6 +161,47 @@ def test_cost_function_collision_term():
     assert cost_collision > cost_clear
 
 
+def test_collision_barrier_term_increases_penetration_cost():
+    """Barrier-style term should amplify obstacle-penetration penalties."""
+    occ = _obstacle_occupancy(clearance=1.5)
+    ref = [
+        np.array([0.0, 5.0]),
+        np.array([5.0, 5.0]),
+        np.array([10.0, 5.0]),
+    ]
+    segment_count = 2
+    dim = 2
+    x_collision = np.array([1.0, 1.0, 5.0, 5.0])
+
+    opt_no_barrier = TrajectoryOptimizer(
+        occ,
+        weight_time=0.0,
+        weight_deviation=0.0,
+        weight_velocity=0.0,
+        weight_collision=10.0,
+        collision_barrier_scale=0.0,
+        sample_count=0,
+    )
+    opt_with_barrier = TrajectoryOptimizer(
+        occ,
+        weight_time=0.0,
+        weight_deviation=0.0,
+        weight_velocity=0.0,
+        weight_collision=10.0,
+        collision_barrier_scale=50.0,
+        collision_barrier_power=4.0,
+        sample_count=0,
+    )
+
+    cost_no_barrier = opt_no_barrier._cost(
+        x_collision, ref, segment_count, dim
+    )
+    cost_with_barrier = opt_with_barrier._cost(
+        x_collision, ref, segment_count, dim
+    )
+    assert cost_with_barrier > cost_no_barrier
+
+
 def test_all_four_cost_terms_nonzero():
     """All four cost terms should contribute to the total cost."""
     occ = _obstacle_occupancy(clearance=2.0)

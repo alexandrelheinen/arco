@@ -260,7 +260,7 @@ def main(save_path: str | None = None) -> None:
             zorder=6,
         )
 
-    ax.legend(loc="upper left", fontsize=8)
+    ax.legend(loc="upper left", fontsize=8, bbox_to_anchor=(0, 1, 0.6, 1))
     plt.tight_layout()
 
     if save_path is not None:

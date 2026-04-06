@@ -115,6 +115,11 @@ def draw_grid(
             plt.Rectangle((0, 0), 1, 1, color=goal_color, label="Goal"),
             plt.Rectangle((0, 0), 1, 1, color=path_color, label="Path"),
         ]
-    ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
+    ax.legend(
+        handles=legend_handles,
+        loc="upper left",
+        fontsize=8,
+        bbox_to_anchor=(0, 1, 0.6, 1),
+    )
 
     return fig, ax

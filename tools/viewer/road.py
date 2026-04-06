@@ -207,7 +207,12 @@ def draw_road_network(
             )
         )
 
-    ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
+    ax.legend(
+        handles=legend_handles,
+        loc="upper left",
+        fontsize=8,
+        bbox_to_anchor=(0, 1, 0.6, 1),
+    )
 
     if title:
         ax.set_title(title)
