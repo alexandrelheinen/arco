@@ -6,7 +6,8 @@ concave obstacle that blocks the direct path to the goal.  Their exploration
 trees are revealed simultaneously.  Once both paths are drawn, both vehicles
 launch at the same instant — the first one to reach the goal wins.
 
-The simulation stops 2 seconds after the last vehicle arrives.
+The simulation keeps the victory screen open until the user closes it.
+Pass ``--close`` to exit automatically once the race is done.
 
 Keyboard controls
 -----------------
@@ -24,6 +25,7 @@ Usage
 Optional flags::
 
     python main/sparse.py --fps 30
+    python main/sparse.py --close
     python main/sparse.py --record /tmp/race.mp4 --record-duration 90
 """
 
@@ -43,6 +45,7 @@ sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import pygame
 import renderer_gl
+from groundhog import make_groundhog_surface
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
@@ -224,21 +227,33 @@ def _draw_winner_banner(
     sw: int,
     sh: int,
 ) -> None:
-    """Draw a translucent centered banner with large winner text.
+    """Draw a translucent centered banner with winner text and groundhog mascot.
+
+    The groundhog is rendered in *color* and placed to the left of the winner
+    text inside the banner, giving the victory screen a visual identity.
 
     Args:
         font: Large pygame font.
-        text: Banner text (e.g. ``"RRT* WINS!"``).
-        color: RGB text color.
+        text: Banner text (e.g. ``"RRT*  WINS!"``).
+        color: RGB text color (also used for the groundhog fill).
         sw: Screen width in pixels.
         sh: Screen height in pixels.
     """
     rendered = font.render(text, True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
+    groundhog_surf = make_groundhog_surface(color, height=rh + 30)
+    mw, mh = groundhog_surf.get_size()
+
+    gap = 16
     pad = 14
-    banner = pygame.Surface((rw + 2 * pad, rh + 2 * pad), pygame.SRCALPHA)
+    banner_w = pad + mw + gap + rw + pad
+    banner_h = max(mh, rh) + 2 * pad
+
+    banner = pygame.Surface((banner_w, banner_h), pygame.SRCALPHA)
     banner.fill((10, 10, 20, 200))
-    banner.blit(rendered, (pad, pad))
+    banner.blit(groundhog_surf, (pad, (banner_h - mh) // 2))
+    banner.blit(rendered, (pad + mw + gap, (banner_h - rh) // 2))
+
     bx = (sw - banner.get_width()) // 2
     by = (sh - banner.get_height()) // 2
     renderer_gl.blit_overlay(banner, bx, by, sw, sh)
@@ -256,6 +271,7 @@ def run_race(
     dt: float = 0.1,
     record: str = "",
     record_duration: float = 90.0,
+    auto_close: bool = False,
 ) -> None:
     """Run the dual-vehicle cul-de-sac race.
 
@@ -265,7 +281,11 @@ def run_race(
     Phase 2 — **racing**: both vehicles follow their respective planned paths
     from a shared start.  The first to arrive is declared the winner.  The
     simulation continues for :data:`_POST_FINISH_SECS` after the last vehicle
-    reaches the goal, then exits.
+    reaches the goal, then transitions to **done**.
+
+    Phase 3 — **done**: the victory screen stays visible.  In interactive
+    mode the user presses **R** to restart or **Q/Escape** to quit.  Pass
+    ``auto_close=True`` (or use ``--close``) to exit automatically.
 
     Args:
         scene: Fully built :class:`~scenes.sparse.SparseScene`.
@@ -273,6 +293,8 @@ def run_race(
         dt: Simulation timestep in seconds.
         record: Output MP4 file path.  Empty string means interactive mode.
         record_duration: Maximum headless recording length in seconds.
+        auto_close: If ``True``, exit automatically once the race is done
+            (interactive mode only; recording mode always exits on done).
     """
     recording = bool(record)
     max_record_frames = int(fps * record_duration)
@@ -647,9 +669,14 @@ def run_race(
                         )
 
             if phase == "done" and not recording:
+                hint = (
+                    "Press  R  to restart   |   Q  to quit"
+                    if not auto_close
+                    else "Press  Q  to quit"
+                )
                 _blit_center(
                     font,
-                    "Press  R  to restart   |   Q  to quit",
+                    hint,
                     _C_HUD_DIM,
                     sw,
                     sh,
@@ -670,6 +697,8 @@ def run_race(
             else:
                 pygame.display.flip()
                 clock.tick(fps)
+                if auto_close and phase == "done":
+                    running = False
 
     finally:
         if writer is not None:
@@ -813,6 +842,12 @@ def main() -> None:
         dest="record_duration",
         help="Maximum recording duration in seconds (default: 90).",
     )
+    parser.add_argument(
+        "--close",
+        action="store_true",
+        default=False,
+        help="Close the window automatically when the race is done.",
+    )
     args = parser.parse_args()
 
     scene = SparseScene(load_config("sparse"), load_config("obstacles"))
@@ -822,6 +857,7 @@ def main() -> None:
         dt=args.dt,
         record=args.record,
         record_duration=args.record_duration,
+        auto_close=args.close,
     )
 
 
