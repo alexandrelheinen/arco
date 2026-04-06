@@ -12,18 +12,35 @@
 # Safety clearance = 2 × face_diagonal ≈ 1.41 m  →  1.5 m.
 #
 # Three width-crossing barriers force vertical and lateral strategy shifts:
-# - Tall barrier (x=10..12, y=0..20, z=0..4.0)
+# - Tall barrier (x=15..17, y=0..20, z=0..2.5, reduced height for algorithm convergence)
 # - Smaller barrier (x=24..26, y=0..20, z=0..2.0)
 # - Split barrier (x=38..40), with two half-width sections of different
 #   heights: y=0..10 up to z=3.2, and y=10..20 up to z=1.4.
 
 bounds: [[0.0, 60.0], [0.0, 20.0], [0.0, 6.0]]
 
-step_size: 3.0
-goal_tolerance: 4.0
+step_size: 2.0
+goal_tolerance: 2.5
 collision_check_count: 3
 goal_bias: 0.07
-obstacle_clearance: 40
+obstacle_clearance: 2.0
+
+# Obstacles configuration
+# Box format: [x_min, y_min, z_min, x_max, y_max, z_max]
+obstacles:
+  # Width-crossing barriers
+  - [15.0, 0.0, 0.0, 17.0, 20.0, 2.5]  # First barrier (reduced height for convergence)
+  - [24.0, 0.0, 0.0, 26.0, 20.0, 2.0]  # Second barrier
+  - [38.0, 0.0, 0.0, 40.0, 10.0, 3.2]  # Third barrier (south half)
+  - [38.0, 10.0, 0.0, 40.0, 20.0, 1.4] # Third barrier (north half)
+  # Scatter blocks
+  - [5.0, 14.0, 0.0, 8.0, 19.0, 1.8]
+  - [20.0, 2.0, 0.0, 23.0, 6.0, 2.2]
+  - [31.0, 13.0, 0.0, 35.0, 18.0, 2.8]
+  - [45.0, 4.0, 0.0, 48.0, 9.0, 1.6]
+  # Concave U-obstacle (far corner)
+  - [54.0, 13.0, 0.0, 59.0, 14.0, 2.8]  # south leg
+  - [57.0, 14.0, 0.0, 58.0, 16.0, 2.8]  # back wall
 
 # Higher sample budgets needed for 3-D search space.
 rrt_max_sample_count: 10000
