@@ -940,12 +940,13 @@ def run_race(
     recording = bool(record)
     max_frames = int(fps * record_duration)
 
-    race_speed = float(cfg["race_speed"])
-    max_joint_vel = float(cfg["max_joint_vel"])
-    max_joint_acc = float(cfg["max_joint_acc"])
-    max_carrot_lag = float(cfg["max_carrot_lag"])
-    goal_reach_dist = float(cfg["goal_reach_dist"])
-    proportional_gain = float(cfg.get("proportional_gain", 2.0))
+    sim_cfg = cfg.get("simulator", cfg)
+    race_speed = float(sim_cfg["race_speed"])
+    max_joint_vel = float(sim_cfg["max_joint_vel"])
+    max_joint_acc = float(sim_cfg["max_joint_acc"])
+    max_carrot_lag = float(sim_cfg["max_carrot_lag"])
+    goal_reach_dist = float(sim_cfg["goal_reach_dist"])
+    proportional_gain = float(sim_cfg.get("proportional_gain", 2.0))
 
     pygame.init()
     sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H

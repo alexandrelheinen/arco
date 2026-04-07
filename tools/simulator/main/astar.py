@@ -96,7 +96,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    scene = AStarScene(load_config("graph"), load_config("vehicle"))
+    cfg = load_config("astar")
+    scene = AStarScene(
+        cfg.get("graph", {}),
+        cfg.get("vehicle", {}),
+    )
     run_sim(
         scene,
         fps=args.fps,

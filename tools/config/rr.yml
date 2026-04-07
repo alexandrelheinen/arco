@@ -15,38 +15,40 @@
 # converts each (q1, q2) sample to Cartesian and tests both arm-link
 # segments against all obstacle rectangles to build the C-space map.
 
-l1: 1.0
-l2: 0.8
+robot:
+  l1: 1.0
+  l2: 0.8
 
 # Rectangular obstacles [[x_min, y_min, x_max, y_max], ...] in metres.
 # Both arm links are checked against every obstacle.
-obstacles:
-  - [0.6, -1.2, 0.9, -1.0]  # right-side box
-  - [-0.9, 1.0, -0.6, 1.2]  # left-side box (diagonal mirror)
+environment:
+  obstacles:
+    - [0.6, -1.2, 0.9, -1.0]
+    - [-0.9, 1.0, -0.6, 1.2]
 
 # End-effector Cartesian start / goal used for IK to get joint config.
-start_xy: [-1.2, -0.8]   # lower-left
-goal_xy:  [1.4,   0.5]   # upper-right
+  start_xy: [-1.2, -0.8]
+  goal_xy: [1.4, 0.5]
 
 # Joint-space bounds [theta_min, theta_max] in radians for each joint.
-bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159]]
+  bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159]]
 
 # KDTree clearance in radians — buffer around sampled collision configs.
-obstacle_clearance: 0.40
+  obstacle_clearance: 0.40
 
-# Planner parameters
-step_size: 0.20
-goal_tolerance: 0.30
-collision_check_count: 4
-goal_bias: 0.10
-
-rrt_max_sample_count: 30000
-sst_max_sample_count: 20000
-witness_radius: 0.15
+planner:
+  step_size: 0.20
+  goal_tolerance: 0.30
+  collision_check_count: 4
+  goal_bias: 0.10
+  rrt_max_sample_count: 30000
+  sst_max_sample_count: 20000
+  witness_radius: 0.15
 
 # ---------------------------------------------------------------------------
 # Simulator parameters
 # ---------------------------------------------------------------------------
 
 # Speed at which the parametric progress variable advances along the path.
-race_speed: 0.8
+simulator:
+  race_speed: 0.8

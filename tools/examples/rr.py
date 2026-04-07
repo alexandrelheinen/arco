@@ -17,11 +17,11 @@ Usage
 -----
 Run interactively (opens a matplotlib window)::
 
-    python tools/examples/rr_planning.py
+    python tools/examples/rr.py
 
 Save the output image without opening a window::
 
-    python tools/examples/rr_planning.py --save path/to/output.png
+    python tools/examples/rr.py --save path/to/output.png
 """
 
 from __future__ import annotations
@@ -58,6 +58,10 @@ from config import load_config
 logger = logging.getLogger(__name__)
 
 _cfg = load_config("rr")
+_robot_cfg = _cfg.get("robot", _cfg)
+_env_cfg = _cfg.get("environment", _cfg)
+_planner_cfg = _cfg.get("planner", _cfg)
+_sim_cfg = _cfg.get("simulator", _cfg)
 
 # Minimum annulus inner radius below which the inner-hole outline is skipped.
 _INNER_RADIUS_THRESHOLD: float = 1e-6
@@ -158,15 +162,15 @@ def main() -> None:
         matplotlib.use("Agg")
 
     # --- Setup -----------------------------------------------------------
-    robot = RRRobot(l1=float(_cfg["l1"]), l2=float(_cfg["l2"]))
+    robot = RRRobot(l1=float(_robot_cfg["l1"]), l2=float(_robot_cfg["l2"]))
     obstacles: list[list[float]] = [
-        [float(v) for v in obs] for obs in _cfg["obstacles"]
+        [float(v) for v in obs] for obs in _env_cfg["obstacles"]
     ]
-    bounds = [tuple(b) for b in _cfg["bounds"]]
-    clearance = float(_cfg["obstacle_clearance"])
+    bounds = [tuple(b) for b in _env_cfg["bounds"]]
+    clearance = float(_env_cfg["obstacle_clearance"])
 
-    start_xy = [float(v) for v in _cfg["start_xy"]]
-    goal_xy = [float(v) for v in _cfg["goal_xy"]]
+    start_xy = [float(v) for v in _env_cfg["start_xy"]]
+    goal_xy = [float(v) for v in _env_cfg["goal_xy"]]
 
     start_q = pick_collision_free_ik(robot, start_xy, obstacles, [-2.2, 1.8])
     goal_q = pick_collision_free_ik(robot, goal_xy, obstacles, [1.0, -1.6])
@@ -182,11 +186,11 @@ def main() -> None:
     rrt = RRTPlanner(
         occ,
         bounds=bounds,
-        max_sample_count=int(_cfg["rrt_max_sample_count"]),
-        step_size=float(_cfg["step_size"]),
-        goal_tolerance=float(_cfg["goal_tolerance"]),
-        collision_check_count=int(_cfg["collision_check_count"]),
-        goal_bias=float(_cfg["goal_bias"]),
+        max_sample_count=int(_planner_cfg["rrt_max_sample_count"]),
+        step_size=float(_planner_cfg["step_size"]),
+        goal_tolerance=float(_planner_cfg["goal_tolerance"]),
+        collision_check_count=int(_planner_cfg["collision_check_count"]),
+        goal_bias=float(_planner_cfg["goal_bias"]),
         early_stop=True,
     )
     logger.info("Running RRT* in joint space …")
@@ -209,12 +213,12 @@ def main() -> None:
     sst = SSTPlanner(
         occ,
         bounds=bounds,
-        max_sample_count=int(_cfg["sst_max_sample_count"]),
-        step_size=float(_cfg["step_size"]),
-        goal_tolerance=float(_cfg["goal_tolerance"]),
-        collision_check_count=int(_cfg["collision_check_count"]),
-        goal_bias=float(_cfg["goal_bias"]),
-        witness_radius=float(_cfg["witness_radius"]),
+        max_sample_count=int(_planner_cfg["sst_max_sample_count"]),
+        step_size=float(_planner_cfg["step_size"]),
+        goal_tolerance=float(_planner_cfg["goal_tolerance"]),
+        collision_check_count=int(_planner_cfg["collision_check_count"]),
+        goal_bias=float(_planner_cfg["goal_bias"]),
+        witness_radius=float(_planner_cfg["witness_radius"]),
         early_stop=True,
     )
     logger.info("Running SST in joint space …")
@@ -236,7 +240,7 @@ def main() -> None:
     # --- Trajectory optimization -----------------------------------------
     optimizer = TrajectoryOptimizer(
         occ,
-        cruise_speed=float(_cfg.get("race_speed", 1.0)),
+        cruise_speed=float(_sim_cfg.get("race_speed", 1.0)),
         weight_time=10.0,
         weight_deviation=1.0,
         weight_velocity=1.0,
@@ -304,15 +308,6 @@ def main() -> None:
 
     # --- Figure ----------------------------------------------------------
     fig, (ax_rrt, ax_sst, ax_joint) = plt.subplots(1, 3, figsize=(18, 6))
-    fig.patch.set_facecolor("#0d1117")
-    for ax in (ax_rrt, ax_sst, ax_joint):
-        ax.set_facecolor("#161b22")
-        ax.tick_params(colors="white")
-        ax.xaxis.label.set_color("white")
-        ax.yaxis.label.set_color("white")
-        ax.title.set_color("white")
-        for spine in ax.spines.values():
-            spine.set_edgecolor("#30363d")
 
     specs = [
         (
@@ -368,7 +363,7 @@ def main() -> None:
         # Workspace annulus
         ax.fill(outer_x, outer_y, alpha=0.07, color="steelblue")
         if r_min > _INNER_RADIUS_THRESHOLD:
-            ax.fill(inner_x, inner_y, alpha=0.25, color="#161b22")
+            ax.fill(inner_x, inner_y, alpha=0.25, color="white")
         ax.plot(outer_x, outer_y, color="steelblue", linewidth=0.8, alpha=0.5)
         if r_min > _INNER_RADIUS_THRESHOLD:
             ax.plot(
@@ -461,11 +456,11 @@ def main() -> None:
             va="top",
             ha="left",
             fontsize=7,
-            color="white",
+            color="black",
             bbox={
                 "boxstyle": "round,pad=0.3",
-                "facecolor": "black",
-                "alpha": 0.65,
+                "facecolor": "white",
+                "alpha": 0.80,
                 "edgecolor": "none",
             },
         )

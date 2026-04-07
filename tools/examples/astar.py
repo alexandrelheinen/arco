@@ -15,11 +15,11 @@ Usage
 -----
 Run interactively (opens a matplotlib window)::
 
-    python tools/astar_manhattan_example.py
+    python tools/examples/astar.py
 
 Save the output image without opening a window::
 
-    python tools/astar_manhattan_example.py --save path/to/output.png
+    python tools/examples/astar.py --save path/to/output.png
 """
 
 from __future__ import annotations
@@ -46,9 +46,9 @@ from config import load_config
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Parameters (loaded from tools/config/grid.yml)
+# Parameters (loaded from tools/config/astar.yml -> grid)
 # ---------------------------------------------------------------------------
-_cfg = load_config("grid")
+_cfg = load_config("astar").get("grid", {})
 
 
 def build_grid_with_obstacle(

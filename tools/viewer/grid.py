@@ -117,9 +117,8 @@ def draw_grid(
         ]
     ax.legend(
         handles=legend_handles,
-        loc="upper left",
+        loc="upper right",
         fontsize=8,
-        bbox_to_anchor=(0, 1, 0.6, 1),
     )
 
     return fig, ax

@@ -454,7 +454,9 @@ def run_rr_sim(
     start_q = scene.start_q
     goal_q = scene.goal_q
     r_min, r_max = robot.workspace_annulus()
-    race_speed = float(load_config("rr").get("race_speed", 0.8))
+    _rr_cfg = load_config("rr")
+    _rr_sim = _rr_cfg.get("simulator", _rr_cfg)
+    race_speed = float(_rr_sim.get("race_speed", 0.8))
 
     # Build trajectory lists — prefer optimized, fall back to raw path
     def _prefer_optimized_trajectory(
