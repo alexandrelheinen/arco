@@ -46,16 +46,19 @@ sys.path.insert(0, os.path.join(_HERE, ".."))
 import numpy as np
 import pygame
 import renderer_gl
+from logging_config import configure_logging
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
     GL_DEPTH_TEST,
-    GL_LINE_STRIP,
     GL_LIGHTING,
-    GL_LINES,
     GL_LINE_LOOP,
+    GL_LINE_STRIP,
+    GL_LINES,
+    GL_MODELVIEW,
     GL_ONE_MINUS_SRC_ALPHA,
     GL_POINTS,
+    GL_PROJECTION,
     GL_QUADS,
     GL_SCISSOR_TEST,
     GL_SRC_ALPHA,
@@ -76,15 +79,12 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glScissor,
     glVertex2f,
     glViewport,
-    GL_MODELVIEW,
-    GL_PROJECTION,
 )
 from scenes.rr import RRScene
 from sim.loading import run_with_loading_screen
 from sim.video import VideoWriter
 
 from config import load_config
-from logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -377,7 +377,7 @@ def _draw_cspace_scatter(
     """
     if not collision_pts:
         return
-    pts = collision_pts[::max(1, len(collision_pts) // max_pts)]
+    pts = collision_pts[:: max(1, len(collision_pts) // max_pts)]
     glPointSize(2.0)
     glColor4f(0.5, 0.5, 0.5, 0.4)
     glBegin(GL_POINTS)
@@ -568,15 +568,11 @@ def run_rr_sim(
         # ---- Simulation step ----------------------------------------------
         if not paused:
             sim_time += dt
-            progress_s = min(
-                progress_s + race_speed * dt, current_total
-            )
+            progress_s = min(progress_s + race_speed * dt, current_total)
 
             # Current joint config
             if current_traj and current_cum:
-                q_now = _interp_path(
-                    current_traj, current_cum, progress_s
-                )
+                q_now = _interp_path(current_traj, current_cum, progress_s)
             else:
                 q_now = goal_q.copy()
                 progress_s = current_total

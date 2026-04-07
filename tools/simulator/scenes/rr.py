@@ -197,9 +197,7 @@ class RRScene:
             "path_status": "stalled",
             "optimizer_status": "not-run",
         }
-        self._sst_metrics: dict[str, Any] = copy.deepcopy(
-            self._rrt_metrics
-        )
+        self._sst_metrics: dict[str, Any] = copy.deepcopy(self._rrt_metrics)
 
     # ------------------------------------------------------------------
     # Build
@@ -226,9 +224,7 @@ class RRScene:
         _total = 5
 
         # --- Setup robot -----------------------------------------------
-        robot = RRRobot(
-            l1=float(self._cfg["l1"]), l2=float(self._cfg["l2"])
-        )
+        robot = RRRobot(l1=float(self._cfg["l1"]), l2=float(self._cfg["l2"]))
         self._robot = robot
         obstacle: list[float] = [float(v) for v in self._cfg["obstacle"]]
         self._obstacle = obstacle
@@ -354,11 +350,7 @@ class RRScene:
                 result = optimizer.optimize(path)
                 traj = list(result.states)
                 traj_len = _polyline_length(traj)
-                dur = (
-                    float(sum(result.durations))
-                    if result.durations
-                    else 0.0
-                )
+                dur = float(sum(result.durations)) if result.durations else 0.0
                 status = (
                     f"{result.optimizer_status_code}:"
                     f" {result.optimizer_status_text}"
