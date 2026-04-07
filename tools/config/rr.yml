@@ -11,9 +11,6 @@
 # arc through the lower half of the workspace.  Both arm links are checked
 # against every obstacle, so neither link may touch any box.
 #
-#   Box 1 (right): x ∈ [0.2, 0.9], y ∈ [0.1, 0.6]
-#   Box 2 (left):  x ∈ [-0.9, -0.2], y ∈ [0.1, 0.6]  (mirror of box 1)
-#
 # Planning is done in joint space (theta1, theta2).  Obstacle checking
 # converts each (q1, q2) sample to Cartesian and tests both arm-link
 # segments against all obstacle rectangles to build the C-space map.
@@ -24,8 +21,8 @@ l2: 0.8
 # Rectangular obstacles [[x_min, y_min, x_max, y_max], ...] in metres.
 # Both arm links are checked against every obstacle.
 obstacles:
-  - [0.2, 0.1, 0.9, 0.6]    # right-side box
-  - [-0.9, 0.1, -0.2, 0.6]  # left-side box (mirror)
+  - [0.6, -1.2, 0.9, -1.0]  # right-side box
+  - [-0.9, 1.0, -0.6, 1.2]  # left-side box (diagonal mirror)
 
 # End-effector Cartesian start / goal used for IK to get joint config.
 start_xy: [-1.2, -0.8]   # lower-left
@@ -35,16 +32,16 @@ goal_xy:  [1.4,   0.5]   # upper-right
 bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159]]
 
 # KDTree clearance in radians — buffer around sampled collision configs.
-obstacle_clearance: 0.08
+obstacle_clearance: 0.40
 
 # Planner parameters
-step_size: 0.25
-goal_tolerance: 0.15
+step_size: 0.20
+goal_tolerance: 0.30
 collision_check_count: 4
 goal_bias: 0.10
 
-rrt_max_sample_count: 8000
-sst_max_sample_count: 6000
+rrt_max_sample_count: 30000
+sst_max_sample_count: 20000
 witness_radius: 0.15
 
 # ---------------------------------------------------------------------------
