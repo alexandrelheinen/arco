@@ -27,11 +27,11 @@ environment:
     - [-0.9, 1.0, -0.6, 1.2]
 
 # End-effector Cartesian start / goal used for IK to get joint config.
-  start_xy: [-1.2, -0.8]
-  goal_xy: [1.4, 0.5]
+  goal_xy: [-1.0, -0.4]
+  start_xy: [0.5, 1.0]
 
 # Joint-space bounds [theta_min, theta_max] in radians for each joint.
-  bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159]]
+  bounds: [[-6.2832, 6.2832], [-3.14159, 3.14159]]
 
 # KDTree clearance in radians — buffer around sampled collision configs.
   obstacle_clearance: 0.40

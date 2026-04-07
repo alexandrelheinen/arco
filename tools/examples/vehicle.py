@@ -199,6 +199,7 @@ def main(save_path: str | None = None) -> None:
         color="black",
         bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
     )
+    ax1.grid(True, alpha=0.3)
 
     fig2, ax2 = draw_occupancy(
         occ,
@@ -244,6 +245,7 @@ def main(save_path: str | None = None) -> None:
         color="black",
         bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
     )
+    ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
     if save_path is not None:

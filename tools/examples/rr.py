@@ -180,7 +180,9 @@ def main() -> None:
 
     # --- Occupancy map ---------------------------------------------------
     logger.info("Building C-space occupancy map …")
-    occ, collision_pts = build_cspace_occupancy(robot, obstacles, clearance)
+    occ, collision_pts = build_cspace_occupancy(
+        robot, obstacles, bounds, clearance
+    )
 
     # --- RRT* ------------------------------------------------------------
     rrt = RRTPlanner(
@@ -438,6 +440,7 @@ def main() -> None:
         ax.set_ylabel("Y (m)")
         ax.set_title(title)
         ax.legend(loc="upper left", fontsize=7)
+        ax.grid(True, alpha=0.3)
 
         metrics_lines = [
             f"Steps/nodes: {metrics['steps']}/{metrics['nodes']}",
@@ -543,12 +546,14 @@ def main() -> None:
         label="Goal",
     )
 
-    ax_joint.set_xlim(-math.pi, math.pi)
-    ax_joint.set_ylim(-math.pi, math.pi)
+    ax_joint.set_xlim(*bounds[0])
+    ax_joint.set_ylim(*bounds[1])
     ax_joint.set_xlabel("θ₁ (rad)")
     ax_joint.set_ylabel("θ₂ (rad)")
     ax_joint.set_title("Joint C-space — configuration trajectories")
     ax_joint.legend(loc="upper right", fontsize=7)
+    ax_joint.grid(True, alpha=0.3)
+    ax_joint.set_aspect("equal")
 
     plt.tight_layout()
 

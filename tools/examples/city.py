@@ -142,6 +142,9 @@ def main(save_path: str | None = None) -> None:
         metrics=scene.sst_metrics,
     )
 
+    ax1.grid(True, alpha=0.3)
+    ax2.grid(True, alpha=0.3)
+
     plt.tight_layout()
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)

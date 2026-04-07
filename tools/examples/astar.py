@@ -99,6 +99,8 @@ def main(save_path: str | None = None) -> None:
 
     fig, ax = draw_grid(grid, path, title=title)
     plt.tight_layout()
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, alpha=0.3)
 
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
