@@ -4,13 +4,15 @@
 then runs both RRT* and SST planners between a start and goal joint
 configuration.
 
-The arm navigates around a rectangular Cartesian obstacle.  Planning is
-performed in joint space (theta1, theta2); resulting paths are converted to
-Cartesian end-effector traces via forward kinematics for visualization.
+The arm navigates around rectangular Cartesian obstacles (one per side).
+Planning is performed in joint space (theta1, theta2); resulting paths are
+converted to Cartesian end-effector traces via forward kinematics for
+visualization.
 
 Module-level helpers :func:`_segment_intersects_rect`, :func:`_arm_collides`,
-and :func:`build_cspace_occupancy` are exported so that
-``tools/examples/rr_planning.py`` can import them without duplication.
+:func:`build_cspace_occupancy`, and :func:`pick_collision_free_ik` are
+exported so that ``tools/examples/rr_planning.py`` can import them without
+duplication.
 """
 
 from __future__ import annotations
@@ -118,24 +120,26 @@ def _arm_collides(
 
 def build_cspace_occupancy(
     robot: Any,
-    obstacle: list[float],
+    obstacles: list[list[float]],
     clearance: float,
     grid_n: int = 120,
 ) -> tuple[Any, list[list[float]]]:
-    """Build a joint-space KDTree occupancy map for the rectangular obstacle.
+    """Build a joint-space KDTree occupancy map for a list of obstacles.
 
     Samples a ``grid_n × grid_n`` grid of joint configurations and marks
-    those whose arm links intersect the Cartesian obstacle rectangle.
+    those whose arm links intersect any of the Cartesian obstacle rectangles.
+    Both link segments (shoulder→elbow and elbow→end-effector) are checked
+    against every obstacle, so neither link may touch a box.
 
-    A single dummy point at the origin is injected when no collision
-    configurations are found (e.g. the obstacle is entirely outside the
+    A single dummy point outside the valid joint bounds is injected when no
+    collision configurations are found (e.g. all obstacles are outside the
     workspace), so the KDTree constructor receives a non-empty point cloud.
-    In that degenerate case the planner will still find a path because the
-    clearance distance keeps the dummy point's neighbourhood small.
+    In that degenerate case the planner still finds a path because the
+    clearance keeps the dummy point's influence negligible.
 
     Args:
         robot: An :class:`~arco.kinematics.RRRobot` instance.
-        obstacle: ``[x_min, y_min, x_max, y_max]`` in metres.
+        obstacles: List of obstacles, each ``[x_min, y_min, x_max, y_max]``.
         clearance: KDTree clearance radius in radians.
         grid_n: Number of samples per joint axis (default 120).
 
@@ -150,14 +154,50 @@ def build_cspace_occupancy(
     collision_pts: list[list[float]] = []
     for q1v in theta_samples:
         for q2v in theta_samples:
-            if _arm_collides(robot, float(q1v), float(q2v), obstacle):
+            if any(
+                _arm_collides(robot, float(q1v), float(q2v), obs)
+                for obs in obstacles
+            ):
                 collision_pts.append([float(q1v), float(q2v)])
     if not collision_pts:
-        # Obstacle entirely outside workspace — insert a dummy point well
-        # outside the valid joint bounds (±π) so that it never interferes
-        # with real collision checking or planner paths.
+        # All obstacles outside workspace — insert a dummy point well outside
+        # the valid joint bounds (±π) so it never interferes with planning.
         collision_pts = [[math.pi + 1.0, math.pi + 1.0]]
     return KDTreeOccupancy(collision_pts, clearance=clearance), collision_pts
+
+
+def pick_collision_free_ik(
+    robot: Any,
+    xy: list[float],
+    obstacles: list[list[float]],
+    fallback: list[float],
+) -> Any:
+    """Return the first collision-free IK solution for target position *xy*.
+
+    Iterates through all IK solutions and returns the joint configuration
+    of the first one whose arm links do not intersect any obstacle.  If no
+    collision-free solution exists (degenerate case) the first available
+    solution is returned unchanged.
+
+    Args:
+        robot: An :class:`~arco.kinematics.RRRobot` instance.
+        xy: Target end-effector position ``[x, y]`` in metres.
+        obstacles: List of obstacles, each ``[x_min, y_min, x_max, y_max]``.
+        fallback: Default ``[q1, q2]`` used when IK returns no solutions at
+            all (i.e. the target is outside the reachable workspace).
+
+    Returns:
+        A ``numpy.ndarray`` of shape ``(2,)`` with the joint angles
+        ``[q1, q2]`` in radians.
+    """
+    import numpy as np
+
+    solutions = robot.inverse_kinematics(xy[0], xy[1])
+    for sol in solutions:
+        q1, q2 = sol
+        if not any(_arm_collides(robot, q1, q2, obs) for obs in obstacles):
+            return np.array([q1, q2])
+    return np.array(solutions[0]) if solutions else np.array(fallback)
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +208,10 @@ def build_cspace_occupancy(
 class RRScene:
     """2-D revolute-revolute arm planning scene.
 
-    Builds a joint-space KDTree occupancy map from a Cartesian rectangular
-    obstacle, then runs both RRT* and SST planners between start and goal
-    joint configurations.
+    Builds a joint-space KDTree occupancy map from a list of Cartesian
+    rectangular obstacles, then runs both RRT* and SST planners between
+    start and goal joint configurations.  Both arm links are checked against
+    every obstacle.
 
     Args:
         cfg: Configuration dict loaded from ``tools/config/rr.yml``.
@@ -179,7 +220,7 @@ class RRScene:
     def __init__(self, cfg: dict[str, Any]) -> None:
         self._cfg = cfg
         self._robot: Any = None
-        self._obstacle: list[float] = []
+        self._obstacles: list[list[float]] = []
         self._start_q: np.ndarray = np.zeros(2)
         self._goal_q: np.ndarray = np.zeros(2)
         self._rrt_path: list[np.ndarray] | None = None
@@ -226,20 +267,20 @@ class RRScene:
         # --- Setup robot -----------------------------------------------
         robot = RRRobot(l1=float(self._cfg["l1"]), l2=float(self._cfg["l2"]))
         self._robot = robot
-        obstacle: list[float] = [float(v) for v in self._cfg["obstacle"]]
-        self._obstacle = obstacle
+        obstacles: list[list[float]] = [
+            [float(v) for v in obs] for obs in self._cfg["obstacles"]
+        ]
+        self._obstacles = obstacles
         bounds = [tuple(b) for b in self._cfg["bounds"]]
 
         start_xy: list[float] = [float(v) for v in self._cfg["start_xy"]]
         goal_xy: list[float] = [float(v) for v in self._cfg["goal_xy"]]
 
-        ik_start = robot.inverse_kinematics(start_xy[0], start_xy[1])
-        self._start_q = (
-            np.array(ik_start[0]) if ik_start else np.array([-2.2, 1.8])
+        self._start_q = pick_collision_free_ik(
+            robot, start_xy, obstacles, [-2.2, 1.8]
         )
-        ik_goal = robot.inverse_kinematics(goal_xy[0], goal_xy[1])
-        self._goal_q = (
-            np.array(ik_goal[0]) if ik_goal else np.array([1.0, -1.6])
+        self._goal_q = pick_collision_free_ik(
+            robot, goal_xy, obstacles, [1.0, -1.6]
         )
 
         # --- Build C-space occupancy (uses module-level helpers) -------
@@ -247,7 +288,7 @@ class RRScene:
             progress("Building C-space occupancy", 1, _total)
         occ, collision_pts = build_cspace_occupancy(
             robot,
-            obstacle,
+            obstacles,
             clearance=float(self._cfg["obstacle_clearance"]),
         )
         self._collision_pts = collision_pts
@@ -390,9 +431,9 @@ class RRScene:
         return self._robot
 
     @property
-    def obstacle(self) -> list[float]:
-        """Rectangular obstacle ``[x_min, y_min, x_max, y_max]``."""
-        return self._obstacle
+    def obstacles(self) -> list[list[float]]:
+        """List of rectangular obstacles ``[[x_min, y_min, x_max, y_max]]``."""
+        return self._obstacles
 
     @property
     def start_q(self) -> np.ndarray:
