@@ -42,37 +42,33 @@ environment:
     # --- Pillar A: right-quadrant column ---
     - [0.55, -1.25, 0.0, 0.95, -0.95, 4.0]
     # --- Pillar B: left-quadrant column ---
-    - [-0.95,  1.00, 0.0, -0.55,  1.25, 4.0]
-    # --- Slab 1: lower horizontal barrier (z=0.8..1.6) with a gap
-    #     above z=1.6.  Only the far-right sector is open (x > 1.4) ---
-    - [-1.85, -1.85, 0.8,  1.85,  0.20, 1.6]
-    # --- Slab 2: upper horizontal barrier (z=2.4..3.2) with a gap
-    #     below z=2.4.  Open sector on the left side (x < -1.4) ---
-    - [-0.20, -1.85, 2.4,  1.85,  1.85, 3.2]
+    - [-0.95, 1.00, 0.0, -0.55, 1.25, 4.0]
+    # --- Slab 1: vertical gate on +Y side ---
+    - [0.0, 0.5, 0.0, 0.2, 3.0, 1.0]
+    # --- Slab 1: vertical gate on -Y side ---
+    - [0.0, -3.0, 0.0, 0.2, -0.5, 1.0]
 
-  # IK target positions (Cartesian XY) for start and goal.
-  start_xy: [-1.2, -0.8]
-  goal_xy:  [ 1.4,  0.5]
-  start_z:  0.2
-  goal_z:   3.8
+  # IK target positions [x, y, z] for start and goal.
+  start_position: [-1.5, 0.0, 0.2]
+  goal_position:  [1.4,  0.0, 0.2]
 
   # Joint-space bounds: (q1_min, q1_max), (q2_min, q2_max), (z_min, z_max).
   bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159], [0.0, 4.0]]
 
   # KDTree clearance (radians / metres in the blended C-space).
-  obstacle_clearance: 0.30
+  obstacle_clearance: 0.40
 
 planner:
-  step_size: 0.25
-  goal_tolerance: 0.30
-  collision_check_count: 4
+  step_size: 0.15 # [rad, m]
+  goal_tolerance: 0.25
+  collision_check_count: 3
   goal_bias: 0.10
   rrt_max_sample_count: 40000
-  sst_max_sample_count: 30000
-  witness_radius: 0.18
+  sst_max_sample_count: 50000
+  witness_radius: 0.08
 
   # Grid resolution for C-space sampling (n^3 points evaluated).
-  cspace_grid_n: 60
+  cspace_grid_n: 80
 
 # ---------------------------------------------------------------------------
 # Simulator parameters

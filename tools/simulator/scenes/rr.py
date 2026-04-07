@@ -284,14 +284,18 @@ class RRScene:
         self._obstacles = obstacles
         bounds = [tuple(b) for b in self._env_cfg["bounds"]]
 
-        start_xy: list[float] = [float(v) for v in self._env_cfg["start_xy"]]
-        goal_xy: list[float] = [float(v) for v in self._env_cfg["goal_xy"]]
+        start_position: list[float] = [
+            float(v) for v in self._env_cfg["start_position"]
+        ]
+        goal_position: list[float] = [
+            float(v) for v in self._env_cfg["goal_position"]
+        ]
 
         self._start_q = pick_collision_free_ik(
-            robot, start_xy, obstacles, [-2.2, 1.8]
+            robot, start_position, obstacles, [-2.2, 1.8]
         )
         self._goal_q = pick_collision_free_ik(
-            robot, goal_xy, obstacles, [1.0, -1.6]
+            robot, goal_position, obstacles, [1.0, -1.6]
         )
 
         # --- Build C-space occupancy (uses module-level helpers) -------

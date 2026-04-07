@@ -94,3 +94,12 @@ jobs:
             --fps 30 \
             --record /tmp/smoke_ppp.mp4 \
             --record-duration 5
+
+      - name: Smoke test RRP 3-D simulator
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          xvfb-run -a python tools/simulator/main/rrp.py \
+            --fps 30 \
+            --record /tmp/smoke_rrp.mp4 \
+            --record-duration 5

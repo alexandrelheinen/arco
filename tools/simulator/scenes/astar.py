@@ -89,13 +89,13 @@ class AStarScene(SimScene):
         node_ids = list(self._graph.nodes)
         start_pos, goal_pos = _find_farthest_pair(self._graph, node_ids)
 
-        start_xy = np.array(
+        start_position = np.array(
             [
                 start_pos[0] + _ENDPOINT_OFFSET_M,
                 start_pos[1] + _ENDPOINT_OFFSET_M,
             ]
         )
-        goal_xy = np.array(
+        goal_position = np.array(
             [
                 goal_pos[0] - _ENDPOINT_OFFSET_M,
                 goal_pos[1] - _ENDPOINT_OFFSET_M,
@@ -105,7 +105,7 @@ class AStarScene(SimScene):
         if progress is not None:
             progress("Planning A* route", 2, _total)
         router = RouteRouter(self._graph, activation_radius=_ACTIVATION_RADIUS)
-        result = router.plan(start_xy, goal_xy)
+        result = router.plan(start_position, goal_position)
         if result is None:
             raise RuntimeError(
                 "A* route planning failed — check start/goal positions and "
