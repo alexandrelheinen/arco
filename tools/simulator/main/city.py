@@ -6,7 +6,7 @@ concave obstacle that blocks the direct path to the goal.  Their exploration
 trees are revealed simultaneously.  Once both paths are drawn, both vehicles
 launch at the same instant — the first one to reach the goal wins.
 
-The simulation stops 2 seconds after the last vehicle arrives.
+The simulation stops 3 seconds after the second vehicle arrives.
 
 Keyboard controls
 -----------------
@@ -73,8 +73,8 @@ _DEFAULT_SCREEN_H = 720
 
 # Frames to hold both completed trees before starting the race.
 _HOLD_FRAMES = 60
-# Simulation seconds to keep running after the last vehicle reaches the goal.
-_POST_FINISH_SECS = 2.0
+# Simulation seconds to keep running after the second vehicle reaches the goal.
+_POST_FINISH_SECS = 3.0
 
 # ---------------------------------------------------------------------------
 # Color constants — loaded from tools/config/colors.yml
@@ -272,8 +272,8 @@ def run_race(
 
     Phase 2 — **racing**: both vehicles follow their respective planned paths
     from a shared start.  The first to arrive is declared the winner.  The
-    simulation continues for :data:`_POST_FINISH_SECS` after the last vehicle
-    reaches the goal, then exits.
+    simulation continues for :data:`_POST_FINISH_SECS` after the second
+    vehicle reaches the goal, then exits.
 
     Args:
         scene: Fully built city race scene.
@@ -516,13 +516,15 @@ def run_race(
                                     "SST reached goal at t=%.2f s", race_time
                                 )
 
-                    if rrt_finished or sst_finished:
-                        candidate = max(
-                            t
-                            for t in (rrt_finish_time, sst_finish_time)
-                            if t is not None
+                    if (
+                        rrt_finished
+                        and sst_finished
+                        and last_finish_time is None
+                    ):
+                        last_finish_time = max(
+                            float(rrt_finish_time),
+                            float(sst_finish_time),
                         )
-                        last_finish_time = candidate
 
                     if (
                         last_finish_time is not None

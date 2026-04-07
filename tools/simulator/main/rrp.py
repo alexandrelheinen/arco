@@ -199,7 +199,7 @@ _DEFAULT_SCREEN_W = 1280
 _DEFAULT_SCREEN_H = 800
 
 _HOLD_SECS: float = 2.0
-_POST_FINISH_SECS: float = 2.5
+_POST_FINISH_SECS: float = 3.0
 
 _CAM_AZIM: float = math.radians(50)
 _CAM_ELEV: float = math.radians(35)
@@ -483,6 +483,15 @@ def _draw_arm_3d(
     ex, ey, ez_val = float(ee[0]), float(ee[1]), float(ee[2])
 
     glDisable(GL_LIGHTING)
+
+    # Prismatic (P) axis indicator from world origin to current arm base.
+    glLineWidth(4.0)
+    glColor3f(0.92, 0.92, 0.96)
+    glBegin(GL_LINES)
+    glVertex3f(0.0, 0.0, 0.0)
+    glVertex3f(0.0, 0.0, oz)
+    glEnd()
+
     glLineWidth(6.0)
 
     glColor3f(*link1_color)
@@ -871,7 +880,8 @@ def run_race(
 
     Phase 1 — **path reveal**: both paths shown for :data:`_HOLD_SECS` s.
     Phase 2 — **race**: both arms advance simultaneously.
-    Phase 3 — **winner**: banner shown for :data:`_POST_FINISH_SECS` s.
+    Phase 3 — **post-finish**: once both robots reach the goal, the
+    simulation continues for :data:`_POST_FINISH_SECS` seconds.
 
     Args:
         scene: Fully built :class:`~scenes.rrp.RRPScene`.
@@ -1060,7 +1070,7 @@ def run_race(
                             winner = "RRT* WINS!"
                         elif sst_done:
                             winner = "SST WINS!"
-                    if winner:
+                    if rrt_done and sst_done:
                         phase = "done"
                 elif phase == "done":
                     post_timer += dt

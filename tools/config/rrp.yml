@@ -74,4 +74,4 @@ planner:
 # Simulator parameters
 # ---------------------------------------------------------------------------
 simulator:
-  race_speed: 0.6
+  race_speed: 0.6  # [m/s] for the end-effector

@@ -213,7 +213,7 @@ _DEFAULT_SCREEN_W = 1280
 _DEFAULT_SCREEN_H = 800
 
 _HOLD_SECS: float = 2.0
-_POST_FINISH_SECS: float = 2.5
+_POST_FINISH_SECS: float = 3.0
 
 # Camera defaults
 _CAM_AZIM: float = math.radians(40)
@@ -920,11 +920,11 @@ def run_race(
     :data:`_HOLD_SECS` seconds.
 
     Phase 2 — **race**: both end-effectors advance simultaneously at
-    the ``race_speed`` configured in ``ppp.yml``; the first to reach
-    the goal wins.
+    the ``race_speed`` configured in ``ppp.yml``.
 
-    Phase 3 — **winner**: a banner is shown for :data:`_POST_FINISH_SECS`
-    seconds before the simulation exits.
+    Phase 3 — **post-finish**: once both robots reach the goal, the
+    simulation continues for :data:`_POST_FINISH_SECS` seconds before
+    exiting.
 
     Recording requires a real or virtual OpenGL-capable display (use
     ``xvfb-run -a`` on headless Linux systems).
@@ -1127,7 +1127,7 @@ def run_race(
                             winner = "RRT* WINS!"
                         elif sst_done:
                             winner = "SST WINS!"
-                    if winner:
+                    if rrt_done and sst_done:
                         phase = "done"
                 elif phase == "done":
                     post_timer += dt
