@@ -1,18 +1,24 @@
-"""RR 2-D robot arm dual-planner scene.
+"""RRP 3-D SCARA-like robot dual-planner scene.
 
-:class:`RRScene` builds a C-space occupancy map for a two-link planar arm,
-then runs both RRT* and SST planners between a start and goal joint
-configuration.
+:class:`RRPScene` builds a 3-D C-space occupancy map for a two-link planar
+RR arm elevated by a vertical prismatic joint, then runs both RRT* and SST
+planners between a start and goal configuration.
 
-The arm navigates around rectangular Cartesian obstacles (one per side).
-Planning is performed in joint space (theta1, theta2); resulting paths are
-converted to Cartesian end-effector traces via forward kinematics for
-visualization.
+The configuration space is 3-D: ``(q1, q2, z)``.  Collision checking
+combines the **planar** arm-link intersection test from the RR scene (both
+links at the current Z height against every obstacle's XY footprint) with a
+**vertical** Z-range test (the obstacle must span the arm's current Z).
 
-Module-level helpers :func:`_segment_intersects_rect`, :func:`_arm_collides`,
-:func:`build_cspace_occupancy`, and :func:`pick_collision_free_ik` are
-exported so that ``tools/examples/rr.py`` can import them without
-duplication.
+Two obstacle types force combined motion:
+
+* **Pillar obstacles** — full-height box columns.  The revolute joints must
+  route around them in the XY plane; the Z joint alone cannot escape.
+* **Slab obstacles** — wide horizontal barriers with limited Z extent.  The
+  Z joint must find a height corridor; the revolute joints alone cannot escape.
+
+Module-level helpers :func:`_arm_collides_3d` and
+:func:`build_cspace_occupancy_3d` are exported so that
+``tools/examples/rrp.py`` can import them without duplication.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ from typing import Any
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Shared collision / geometry helpers (exported)
+# Collision helpers (exported)
 # ---------------------------------------------------------------------------
 
 
@@ -54,17 +60,17 @@ def _segment_intersects_rect(
     xmax: float,
     ymax: float,
 ) -> bool:
-    """Cohen-Sutherland parametric clipping of a segment against an AABB.
+    """Parametric clipping of a 2-D segment against an AABB.
 
-    Also returns ``True`` if either endpoint is inside the rectangle.
+    Also returns ``True`` if either endpoint lies inside the rectangle.
 
     Args:
-        p1: Start point of segment ``(x, y)``.
-        p2: End point of segment ``(x, y)``.
-        xmin: Left bound of rectangle.
-        ymin: Bottom bound of rectangle.
-        xmax: Right bound of rectangle.
-        ymax: Top bound of rectangle.
+        p1: Start point ``(x, y)``.
+        p2: End point ``(x, y)``.
+        xmin: Left bound.
+        ymin: Bottom bound.
+        xmax: Right bound.
+        ymax: Top bound.
 
     Returns:
         ``True`` if the segment intersects or lies inside the rectangle.
@@ -94,114 +100,117 @@ def _segment_intersects_rect(
     return True
 
 
-def _arm_collides(
+def _arm_collides_3d(
     robot: Any,
     q1: float,
     q2: float,
+    z: float,
     obstacle: list[float],
 ) -> bool:
-    """Check whether any arm link intersects the rectangular obstacle.
+    """Check whether any arm link intersects a 3-D box obstacle.
+
+    The arm occupies the XY plane at height *z*.  A box intersects the arm
+    only when its Z range includes *z* **and** its XY footprint overlaps at
+    least one of the two arm-link segments.
 
     Args:
-        robot: An :class:`~arco.kinematics.RRRobot` instance.
-        q1: First joint angle in radians.
-        q2: Second joint angle in radians.
-        obstacle: ``[x_min, y_min, x_max, y_max]`` in metres.
+        robot: An :class:`~arco.kinematics.RRPRobot` instance.
+        q1: First revolute joint angle in radians.
+        q2: Second revolute joint angle in radians.
+        z: Prismatic joint height in metres.
+        obstacle: ``[x_min, y_min, z_min, x_max, y_max, z_max]`` in metres.
 
     Returns:
-        ``True`` if any link segment intersects the rectangle.
+        ``True`` if any link segment collides with the obstacle.
     """
-    origin, j2, ee = robot.link_segments(q1, q2)
-    xmin, ymin, xmax, ymax = obstacle
+    xmin, ymin, zmin, xmax, ymax, zmax = obstacle
+    if not (zmin <= z <= zmax):
+        return False
+    origin, j2, ee = robot.link_segments(q1, q2, z)
+    p1 = (origin[0], origin[1])
+    p2 = (j2[0], j2[1])
+    p3 = (ee[0], ee[1])
     return _segment_intersects_rect(
-        origin, j2, xmin, ymin, xmax, ymax
-    ) or _segment_intersects_rect(j2, ee, xmin, ymin, xmax, ymax)
+        p1, p2, xmin, ymin, xmax, ymax
+    ) or _segment_intersects_rect(p2, p3, xmin, ymin, xmax, ymax)
 
 
-def build_cspace_occupancy(
+def build_cspace_occupancy_3d(
     robot: Any,
     obstacles: list[list[float]],
-    bounds: list[tuple[float, float]],
     clearance: float,
-    grid_n: int = 120,
+    grid_n: int = 60,
 ) -> tuple[Any, list[list[float]]]:
-    """Build a joint-space KDTree occupancy map for a list of obstacles.
+    """Build a 3-D joint-space KDTree occupancy map.
 
-    Samples a ``grid_n × grid_n`` grid of joint configurations and marks
-    those whose arm links intersect any of the Cartesian obstacle rectangles.
-    Both link segments (shoulder→elbow and elbow→end-effector) are checked
-    against every obstacle, so neither link may touch a box.
+    Samples a ``grid_n × grid_n × grid_n`` grid over the joint-space
+    bounds ``(q1, q2, z)`` and marks configurations whose arm links
+    intersect any 3-D obstacle box.
 
-    A single dummy point outside the valid joint bounds is injected when no
-    collision configurations are found (e.g. all obstacles are outside the
-    workspace), so the KDTree constructor receives a non-empty point cloud.
-    In that degenerate case the planner still finds a path because the
-    clearance keeps the dummy point's influence negligible.
+    Both revolute and prismatic bounds are taken from *robot* properties.
 
     Args:
-        robot: An :class:`~arco.kinematics.RRRobot` instance.
-        obstacles: List of obstacles, each ``[x_min, y_min, x_max, y_max]``.
-        bounds: List of joint bounds, each ``(min, max)``.
-        clearance: KDTree clearance radius in radians.
-        grid_n: Number of samples per joint axis (default 120).
+        robot: An :class:`~arco.kinematics.RRPRobot` instance.
+        obstacles: List of obstacles, each
+            ``[x_min, y_min, z_min, x_max, y_max, z_max]``.
+        clearance: KDTree clearance radius (blended C-space units).
+        grid_n: Samples per joint axis (default 60; total is ``grid_n³``).
 
     Returns:
-        A tuple ``(occupancy, collision_pts)`` where *occupancy* is the
-        :class:`~arco.mapping.KDTreeOccupancy` and *collision_pts* is the
-        raw list of ``[q1, q2]`` collision samples used to build it.
+        A tuple ``(occupancy, collision_pts)`` where *occupancy* is a
+        :class:`~arco.mapping.KDTreeOccupancy` and *collision_pts* is
+        the raw list of ``[q1, q2, z]`` collision samples.
     """
     from arco.mapping import KDTreeOccupancy
 
-    q1_samples = np.linspace(bounds[0][0], bounds[0][1], grid_n)
-    q2_samples = np.linspace(bounds[1][0], bounds[1][1], grid_n)
-
+    theta_samples = np.linspace(-math.pi, math.pi, grid_n)
+    z_samples = np.linspace(robot.z_min, robot.z_max, grid_n)
     collision_pts: list[list[float]] = []
-    for q1v in q1_samples:
-        for q2v in q2_samples:
-            if any(
-                _arm_collides(robot, float(q1v), float(q2v), obs)
-                for obs in obstacles
-            ):
-                collision_pts.append([float(q1v), float(q2v)])
+    for q1v in theta_samples:
+        for q2v in theta_samples:
+            for zv in z_samples:
+                if any(
+                    _arm_collides_3d(
+                        robot, float(q1v), float(q2v), float(zv), obs
+                    )
+                    for obs in obstacles
+                ):
+                    collision_pts.append([float(q1v), float(q2v), float(zv)])
     if not collision_pts:
-        # All obstacles outside workspace — insert a dummy point well outside
-        # the valid joint bounds (±π) so it never interferes with planning.
-        collision_pts = [[math.pi + 1.0, math.pi + 1.0]]
+        collision_pts = [[math.pi + 1.0, math.pi + 1.0, robot.z_max + 1.0]]
     return KDTreeOccupancy(collision_pts, clearance=clearance), collision_pts
 
 
-def pick_collision_free_ik(
+def pick_collision_free_config(
     robot: Any,
     xy: list[float],
+    z: float,
     obstacles: list[list[float]],
     fallback: list[float],
 ) -> Any:
-    """Return the first collision-free IK solution for target position *xy*.
-
-    Iterates through all IK solutions and returns the joint configuration
-    of the first one whose arm links do not intersect any obstacle.  If no
-    collision-free solution exists (degenerate case) the first available
-    solution is returned unchanged.
+    """Return the first collision-free IK solution for *(xy, z)*.
 
     Args:
-        robot: An :class:`~arco.kinematics.RRRobot` instance.
-        xy: Target end-effector position ``[x, y]`` in metres.
-        obstacles: List of obstacles, each ``[x_min, y_min, x_max, y_max]``.
-        fallback: Default ``[q1, q2]`` used when IK returns no solutions at
-            all (i.e. the target is outside the reachable workspace).
+        robot: An :class:`~arco.kinematics.RRPRobot` instance.
+        xy: Target end-effector ``[x, y]`` in metres.
+        z: Target prismatic height in metres.
+        obstacles: List of 3-D obstacles.
+        fallback: Default ``[q1, q2, z]`` when IK has no solutions.
 
     Returns:
-        A ``numpy.ndarray`` of shape ``(2,)`` with the joint angles
-        ``[q1, q2]`` in radians.
+        A ``numpy.ndarray`` of shape ``(3,)`` with ``[q1, q2, z]``.
     """
-    import numpy as np
-
-    solutions = robot.inverse_kinematics(xy[0], xy[1])
-    for sol in solutions:
-        q1, q2 = sol
-        if not any(_arm_collides(robot, q1, q2, obs) for obs in obstacles):
-            return np.array([q1, q2])
-    return np.array(solutions[0]) if solutions else np.array(fallback)
+    solutions = robot.inverse_kinematics_xy(xy[0], xy[1])
+    for q1, q2 in solutions:
+        if not any(
+            _arm_collides_3d(robot, q1, q2, z, obs) for obs in obstacles
+        ):
+            return np.array([q1, q2, z])
+    return (
+        np.array([solutions[0][0], solutions[0][1], z])
+        if solutions
+        else np.array(fallback)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -209,16 +218,15 @@ def pick_collision_free_ik(
 # ---------------------------------------------------------------------------
 
 
-class RRScene:
-    """2-D revolute-revolute arm planning scene.
+class RRPScene:
+    """3-D SCARA (RRP) robot arm dual-planner scene.
 
-    Builds a joint-space KDTree occupancy map from a list of Cartesian
-    rectangular obstacles, then runs both RRT* and SST planners between
-    start and goal joint configurations.  Both arm links are checked against
-    every obstacle.
+    Builds a 3-D joint-space KDTree occupancy map from a list of 3-D box
+    obstacles and runs both RRT* and SST planners between start and goal
+    configurations in ``(q1, q2, z)`` joint space.
 
     Args:
-        cfg: Configuration dict loaded from ``tools/config/rr.yml``.
+        cfg: Configuration dict loaded from ``tools/config/rrp.yml``.
     """
 
     def __init__(self, cfg: dict[str, Any]) -> None:
@@ -229,8 +237,8 @@ class RRScene:
         self._sim_cfg = cfg.get("simulator", cfg)
         self._robot: Any = None
         self._obstacles: list[list[float]] = []
-        self._start_q: np.ndarray = np.zeros(2)
-        self._goal_q: np.ndarray = np.zeros(2)
+        self._start_q: np.ndarray = np.zeros(3)
+        self._goal_q: np.ndarray = np.zeros(3)
         self._rrt_path: list[np.ndarray] | None = None
         self._sst_path: list[np.ndarray] | None = None
         self._rrt_traj: list[np.ndarray] = []
@@ -258,11 +266,11 @@ class RRScene:
         Args:
             progress: Optional callable
                 ``(step_name, step_index, total_steps)`` invoked at each
-                build milestone for loading-screen feedback.
+                milestone for loading-screen feedback.
         """
         import logging
 
-        from arco.kinematics import RRRobot
+        from arco.kinematics import RRPRobot
         from arco.planning.continuous import (
             RRTPlanner,
             SSTPlanner,
@@ -272,10 +280,11 @@ class RRScene:
         _log = logging.getLogger(__name__)
         _total = 5
 
-        # --- Setup robot -----------------------------------------------
-        robot = RRRobot(
+        robot = RRPRobot(
             l1=float(self._robot_cfg["l1"]),
             l2=float(self._robot_cfg["l2"]),
+            z_min=float(self._robot_cfg["z_min"]),
+            z_max=float(self._robot_cfg["z_max"]),
         )
         self._robot = robot
         obstacles: list[list[float]] = [
@@ -286,26 +295,27 @@ class RRScene:
 
         start_xy: list[float] = [float(v) for v in self._env_cfg["start_xy"]]
         goal_xy: list[float] = [float(v) for v in self._env_cfg["goal_xy"]]
+        start_z = float(self._env_cfg["start_z"])
+        goal_z = float(self._env_cfg["goal_z"])
 
-        self._start_q = pick_collision_free_ik(
-            robot, start_xy, obstacles, [-2.2, 1.8]
+        self._start_q = pick_collision_free_config(
+            robot, start_xy, start_z, obstacles, [-2.2, 1.8, start_z]
         )
-        self._goal_q = pick_collision_free_ik(
-            robot, goal_xy, obstacles, [1.0, -1.6]
+        self._goal_q = pick_collision_free_config(
+            robot, goal_xy, goal_z, obstacles, [1.0, -1.6, goal_z]
         )
 
-        # --- Build C-space occupancy (uses module-level helpers) -------
         if progress is not None:
-            progress("Building C-space occupancy", 1, _total)
-        occ, collision_pts = build_cspace_occupancy(
+            progress("Building 3-D C-space occupancy", 1, _total)
+        grid_n = int(self._planner_cfg.get("cspace_grid_n", 60))
+        occ, collision_pts = build_cspace_occupancy_3d(
             robot,
             obstacles,
-            bounds,
             clearance=float(self._env_cfg["obstacle_clearance"]),
+            grid_n=grid_n,
         )
         self._collision_pts = collision_pts
 
-        # --- RRT* ------------------------------------------------------
         if progress is not None:
             progress("Running RRT*", 2, _total)
         rrt = RRTPlanner(
@@ -338,12 +348,11 @@ class RRScene:
             "optimizer_status": "not-run",
         }
         _log.info(
-            "RRT*: %d waypoints, length=%.3f rad",
+            "RRT*: %d waypoints, length=%.3f",
             len(self._rrt_path) if self._rrt_path else 0,
             rrt_len,
         )
 
-        # --- SST -------------------------------------------------------
         if progress is not None:
             progress("Running SST", 3, _total)
         sst = SSTPlanner(
@@ -377,18 +386,17 @@ class RRScene:
             "optimizer_status": "not-run",
         }
         _log.info(
-            "SST: %d waypoints, length=%.3f rad",
+            "SST: %d waypoints, length=%.3f",
             len(self._sst_path) if self._sst_path else 0,
             sst_len,
         )
 
-        # --- Trajectory optimisation -----------------------------------
         if progress is not None:
             progress("Optimizing trajectories", 4, _total)
 
         optimizer = TrajectoryOptimizer(
             occ,
-            cruise_speed=float(self._sim_cfg.get("race_speed", 1.0)),
+            cruise_speed=float(self._sim_cfg.get("race_speed", 0.6)),
             weight_time=10.0,
             weight_deviation=1.0,
             weight_velocity=1.0,
@@ -396,7 +404,6 @@ class RRScene:
             sample_count=1,
             max_iter=200,
         )
-
         for path, is_rrt in (
             (self._rrt_path, True),
             (self._sst_path, False),
@@ -411,11 +418,6 @@ class RRScene:
                 status = (
                     f"{result.optimizer_status_code}:"
                     f" {result.optimizer_status_text}"
-                )
-                _log.info(
-                    "%s trajectory optimized: cost=%.3f",
-                    "RRT*" if is_rrt else "SST",
-                    result.cost,
                 )
             except Exception as exc:
                 _log.warning("Trajectory optimization failed: %s", exc)
@@ -443,47 +445,47 @@ class RRScene:
 
     @property
     def robot(self) -> Any:
-        """The :class:`~arco.kinematics.RRRobot` instance."""
+        """The :class:`~arco.kinematics.RRPRobot` instance."""
         return self._robot
 
     @property
     def obstacles(self) -> list[list[float]]:
-        """List of rectangular obstacles ``[[x_min, y_min, x_max, y_max]]``."""
+        """3-D box obstacles ``[[x1,y1,z1,x2,y2,z2], ...]``."""
         return self._obstacles
 
     @property
     def start_q(self) -> np.ndarray:
-        """Start joint configuration ``[q1, q2]`` in radians."""
+        """Start configuration ``[q1, q2, z]``."""
         return self._start_q
 
     @property
     def goal_q(self) -> np.ndarray:
-        """Goal joint configuration ``[q1, q2]`` in radians."""
+        """Goal configuration ``[q1, q2, z]``."""
         return self._goal_q
 
     @property
     def rrt_path(self) -> list[np.ndarray] | None:
-        """Raw RRT* joint-space path, or ``None`` if planning failed."""
+        """Raw RRT* path in joint space, or ``None``."""
         return self._rrt_path
 
     @property
     def sst_path(self) -> list[np.ndarray] | None:
-        """Raw SST joint-space path, or ``None`` if planning failed."""
+        """Raw SST path in joint space, or ``None``."""
         return self._sst_path
 
     @property
     def rrt_traj(self) -> list[np.ndarray]:
-        """Optimized RRT* joint-space trajectory."""
+        """Optimized RRT* trajectory."""
         return self._rrt_traj
 
     @property
     def sst_traj(self) -> list[np.ndarray]:
-        """Optimized SST joint-space trajectory."""
+        """Optimized SST trajectory."""
         return self._sst_traj
 
     @property
     def collision_pts(self) -> list[list[float]]:
-        """List of ``[q1, q2]`` joint configs that collide with the obstacle."""
+        """``[q1, q2, z]`` configurations that collide with any obstacle."""
         return self._collision_pts
 
     @property
