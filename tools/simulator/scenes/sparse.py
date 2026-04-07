@@ -1,6 +1,6 @@
 """City-neighborhood dual-planner (RRT* vs SST) race scene.
 
-:class:`SparseScene` builds a 2-D obstacle environment on a 1280 × 720 m
+:class:`CityScene` builds a 2-D obstacle environment on a 1280 × 720 m
 procedural triangular road network.  A jittered hexagonal lattice is
 triangulated with scipy Delaunay; every surviving edge (≤ 1.7 × mean-edge-
 length) becomes a 30 m wide road corridor.  The interior of each triangular
@@ -16,8 +16,9 @@ shown dimmed and the optimized trajectories (produced by
 bright highlights.  The vehicles track the optimized trajectories.
 
 All layout parameters (world size, mesh geometry, road width, obstacle
-sampling) are loaded from ``tools/config/obstacles.yml``; planner tuning
-parameters (step size, sample counts, …) come from ``tools/config/sparse.yml``.
+sampling) are loaded from ``tools/config/city.yml`` under ``world``;
+planner tuning parameters (step size, sample counts, ...) come from the
+same file under ``planner``.
 """
 
 from __future__ import annotations
@@ -102,7 +103,7 @@ def _generate_neighborhood_mesh(
     only need the road-network skeleton (nodes + edges).
 
     Args:
-        obs_cfg: Parsed ``obstacles.yml`` dict.  Must contain
+        obs_cfg: Parsed city ``world`` configuration dict. Must contain
             ``world_width``, ``world_height``, ``mean_edge_length``,
             ``jitter_sigma``, ``max_edge_factor``, and ``seed``.
 
@@ -202,7 +203,7 @@ def _make_road_dots(
     Args:
         positions: Node coordinates from :func:`_generate_neighborhood_mesh`.
         edges: Edge index pairs from :func:`_generate_neighborhood_mesh`.
-        obs_cfg: Parsed ``obstacles.yml`` dict.
+        obs_cfg: Parsed city ``world`` configuration dict.
 
     Returns:
         List of ``(x, y)`` world positions.
@@ -227,7 +228,7 @@ def _make_vehicle_config(obs_cfg: dict[str, Any]) -> VehicleConfig:
     neighborhood roads at a realistic pace.
 
     Args:
-        obs_cfg: Parsed ``obstacles.yml`` dict.
+        obs_cfg: Parsed city ``world`` configuration dict.
 
     Returns:
         :class:`~sim.tracking.VehicleConfig` ready for both racers.
@@ -249,7 +250,7 @@ def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
     return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
-class SparseScene:
+class CityScene:
     """Dual-planner race scene on a procedural triangular neighborhood.
 
     Runs RRT* and SST on the same 1280 × 720 m obstacle map generated from a
@@ -259,8 +260,8 @@ class SparseScene:
     placed at the two mesh nodes with the greatest separation.
 
     Args:
-        cfg: Parsed planner configuration dict (from ``sparse.yml``).
-        obs_cfg: Parsed obstacle-layout dict (from ``obstacles.yml``).
+        cfg: Parsed planner configuration dict (from ``city.yml`` ``planner``).
+        obs_cfg: Parsed obstacle-layout dict (from ``city.yml`` ``world``).
     """
 
     def __init__(self, cfg: dict[str, Any], obs_cfg: dict[str, Any]) -> None:
@@ -711,6 +712,10 @@ class SparseScene:
             gx, gy, self._ring_outer, self._ring_inner, *_c(_C_GOAL)
         )
         renderer_gl.draw_disc(gx, gy, self._ring_inner, *_c(_C_BG))
+
+
+# Backward-compatible alias kept during refactor.
+SparseScene = CityScene
 
 
 # ---------------------------------------------------------------------------

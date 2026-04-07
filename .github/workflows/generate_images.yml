@@ -11,7 +11,7 @@ on:
 
 jobs:
   generate-images:
-    name: Generate algorithm examples and diagrams
+    name: Generate scenario examples and diagrams
     runs-on: ubuntu-latest
 
     permissions:
@@ -36,57 +36,31 @@ jobs:
       - name: Create output directory
         run: mkdir -p /tmp/generated_images
 
-      # Generate A* example images
-      - name: Generate A* graph example
+      # Generate the 5 scenario example images
+      - name: Generate A* example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar_graph.py \
-            --save /tmp/generated_images/astar_graph.png
+          MPLBACKEND=Agg python tools/examples/astar.py \
+            --save /tmp/generated_images/example_astar.png
 
-      - name: Generate A* Euclidean grid example
+      - name: Generate PPP example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar_grid_obstacle.py \
-            --save /tmp/generated_images/astar_grid_obstacle_euclidean.png
+          MPLBACKEND=Agg python tools/examples/ppp.py \
+            --save /tmp/generated_images/example_ppp.png
 
-      - name: Generate A* Manhattan grid example
+      - name: Generate RR example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar_manhattan.py \
-            --save /tmp/generated_images/astar_grid_obstacle_manhattan.png
+          MPLBACKEND=Agg python tools/examples/rr.py \
+            --save /tmp/generated_images/example_rr.png
 
-      # Generate A* pipeline example
-      - name: Generate A* pipeline example
+      - name: Generate city example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar_pipeline.py \
-            --save /tmp/generated_images/astar_pipeline.png
+          MPLBACKEND=Agg python tools/examples/city.py \
+            --save /tmp/generated_images/example_city.png
 
-      # Generate RRT* example image
-      - name: Generate RRT* planning example
+      - name: Generate vehicle benchmark example
         run: |
-          MPLBACKEND=Agg python tools/examples/rrt_planning.py \
-            --save /tmp/generated_images/rrt_planning.png
-
-      # Generate SST example image
-      - name: Generate SST planning example
-        run: |
-          MPLBACKEND=Agg python tools/examples/sst_planning.py \
-            --save /tmp/generated_images/sst_planning.png
-
-      # Generate PPP 3-D example image (RRT* vs SST in 3-D warehouse)
-      - name: Generate PPP 3-D planning example
-        run: |
-          MPLBACKEND=Agg python tools/examples/ppp_planning.py \
-            --save /tmp/generated_images/ppp_planning.png
-
-      # Generate RR 2-D arm example image (RRT* vs SST in joint space)
-      - name: Generate RR arm planning example
-        run: |
-          MPLBACKEND=Agg python tools/examples/rr_planning.py \
-            --save /tmp/generated_images/rr_planning.png
-
-      # Generate trajectory optimization example image
-      - name: Generate trajectory optimization example
-        run: |
-          MPLBACKEND=Agg python tools/examples/trajectory_optimization.py \
-            --save /tmp/generated_images/trajectory_optimization.png
+          MPLBACKEND=Agg python tools/examples/vehicle.py \
+            --save /tmp/generated_images/example_vehicle.png
 
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
@@ -120,40 +94,19 @@ jobs:
             const body = [
               '## 📊 Generated Images',
               '',
-              'Algorithm examples and architecture diagrams have been generated for this PR.',
+              'Scenario examples and architecture diagrams have been generated for this PR.',
               '',
               `📦 **[Download all images](${artifactUrl})**`,
               '',
-              '### A\\* Visualization Examples',
-              '',
-              '| Image | Description |',
-              '|-------|-------------|',
-              '| `astar_graph.png` | A\\* on a randomly generated 2D weighted graph |',
-              '| `astar_grid_obstacle_euclidean.png` | A\\* on Euclidean (8-connected) grid with diagonal paths |',
-              '| `astar_grid_obstacle_manhattan.png` | A\\* on Manhattan (4-connected) grid with staircase paths |',
-              '',
-              '### Complete Pipeline Examples',
-              '',
-              '| Image | Description |',
-              '|-------|-------------|',
-              '| `astar_pipeline.png` | End-to-end: road network → route planning → path tracking simulation |',
-              '',
-              '### Continuous Planner Examples',
-              '',
-              '| Image | Description |',
-              '|-------|-------------|',
-              '| `rrt_planning.png` | RRT\\* path through a 2-D environment with a wall and scattered obstacles |',
-              '| `sst_planning.png` | SST path through the same environment (sparse active tree) |',
-              '| `ppp_planning.png` | RRT\\* vs SST paths in a 3-D warehouse bay — PPP gantry robot arcing over a blocking wall |',
-              '| `rr_planning.png` | RRT\\* vs SST joint-space planning for a 2-D RR arm avoiding a rectangle (Cartesian + C-space views) |',
-              '| `trajectory_optimization.png` | RRT\\* reference path refined by two-stage TrajectoryOptimizer |',
-              '',
-              '### Architecture Diagrams (Pyreverse)',
-              '',
-              '| Image | Description |',
-              '|-------|-------------|',
-              '| `pyreverse_classes.png` | Class diagram showing inheritance and relationships |',
-              '| `pyreverse_packages.png` | Package structure and dependencies |',
+              '| Group | Image | Description |',
+              '|-------|-------|-------------|',
+              '| Example | `example_astar.png` | A* graph scenario (2-D) |',
+              '| Example | `example_ppp.png` | PPP warehouse scenario (3-D) |',
+              '| Example | `example_rr.png` | RR arm scenario (2-D) |',
+              '| Example | `example_city.png` | City race scenario (2-D) |',
+              '| Example | `example_vehicle.png` | Vehicle benchmark scenario (2-D, RRT* vs SST) |',
+              '| Pyreverse | `pyreverse_classes.png` | Class diagram showing inheritance and relationships |',
+              '| Pyreverse | `pyreverse_packages.png` | Package structure and dependencies |',
               '',
               `_Generated by [workflow run](${runUrl})_`,
             ].join('\n');

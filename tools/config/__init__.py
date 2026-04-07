@@ -4,9 +4,9 @@ Usage::
 
     from config import load_config
 
-    cfg = load_config("grid")   # loads tools/config/grid.yml
-    cfg = load_config("map")    # loads tools/config/map.yml
-    cfg = load_config("random") # loads tools/config/random.yml
+    cfg = load_config("astar")   # loads tools/config/astar.yml
+    cfg = load_config("city")    # loads tools/config/city.yml
+    cfg = load_config("vehicle") # loads tools/config/vehicle.yml
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def load_config(name: str) -> dict[str, Any]:
 
     Args:
         name: Base name of the config file (without the ``.yml``
-            extension), e.g. ``"grid"``, ``"map"``, or ``"random"``.
+            extension), e.g. ``"astar"``, ``"city"``, or ``"vehicle"``.
 
     Returns:
         A dictionary containing the parsed YAML configuration.

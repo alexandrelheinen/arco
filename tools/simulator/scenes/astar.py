@@ -46,9 +46,9 @@ class AStarScene(SimScene):
     planned route and smooth path is rendered behind the vehicle at all times.
 
     Args:
-        graph_config: Parsed graph configuration dict (from ``graph.yml``).
+        graph_config: Parsed graph configuration dict (from ``astar.yml`` ``graph``).
         vehicle_config: Parsed vehicle configuration dict (from
-            ``vehicle.yml``).  The ``"dubins"`` sub-key is used.
+            ``astar.yml`` ``vehicle``).  The ``"dubins"`` sub-key is used.
     """
 
     def __init__(

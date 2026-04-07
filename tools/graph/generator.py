@@ -218,7 +218,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    cfg = load_config("graph")
+    cfg = load_config("astar").get("graph", {})
     graph = generate_graph(cfg)
     print(
         f"Generated '{cfg.get('type', 'ring')}' graph: "

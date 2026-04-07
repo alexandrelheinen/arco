@@ -1,0 +1,22 @@
+# City race scenario (RRT* vs SST) on a triangular neighborhood mesh.
+
+planner:
+  step_size: 15.0
+  goal_tolerance: 20.0
+  collision_check_count: 3
+  goal_bias: 0.05
+  obstacle_clearance: 8.0
+  rrt_max_sample_count: 30000
+  sst_max_sample_count: 20000
+  witness_radius: 4.0
+
+world:
+  world_width: 1280.0
+  world_height: 720.0
+  mean_edge_length: 120.0
+  jitter_sigma: 0.15
+  max_edge_factor: 1.7
+  road_half_width: 15.0
+  obstacle_sampling_spacing: 4.0
+  road_dot_spacing: 15.0
+  seed: 42

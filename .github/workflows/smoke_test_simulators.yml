@@ -59,31 +59,31 @@ jobs:
             --record /tmp/smoke_astar.mp4 \
             --record-duration 5
 
-      - name: Smoke test RRT* simulator
+      - name: Smoke test city simulator
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rrt.py \
+          xvfb-run -a python tools/simulator/main/city.py \
             --fps 30 \
-            --record /tmp/smoke_rrt.mp4 \
+            --record /tmp/smoke_city.mp4 \
             --record-duration 5
 
-      - name: Smoke test SST simulator
+      - name: Smoke test RR simulator
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/sst.py \
+          xvfb-run -a python tools/simulator/main/rr.py \
             --fps 30 \
-            --record /tmp/smoke_sst.mp4 \
+            --record /tmp/smoke_rr.mp4 \
             --record-duration 5
 
-      - name: Smoke test sparse neighborhood simulator
+      - name: Smoke test vehicle benchmark simulator
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/sparse.py \
+          xvfb-run -a python tools/simulator/main/vehicle.py \
             --fps 30 \
-            --record /tmp/smoke_sparse.mp4 \
+            --record /tmp/smoke_vehicle.mp4 \
             --record-duration 5
 
       - name: Smoke test PPP 3-D simulator

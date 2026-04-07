@@ -11,7 +11,7 @@ visualization.
 
 Module-level helpers :func:`_segment_intersects_rect`, :func:`_arm_collides`,
 :func:`build_cspace_occupancy`, and :func:`pick_collision_free_ik` are
-exported so that ``tools/examples/rr_planning.py`` can import them without
+exported so that ``tools/examples/rr.py`` can import them without
 duplication.
 """
 
@@ -219,6 +219,10 @@ class RRScene:
 
     def __init__(self, cfg: dict[str, Any]) -> None:
         self._cfg = cfg
+        self._robot_cfg = cfg.get("robot", cfg)
+        self._env_cfg = cfg.get("environment", cfg)
+        self._planner_cfg = cfg.get("planner", cfg)
+        self._sim_cfg = cfg.get("simulator", cfg)
         self._robot: Any = None
         self._obstacles: list[list[float]] = []
         self._start_q: np.ndarray = np.zeros(2)
@@ -265,16 +269,19 @@ class RRScene:
         _total = 5
 
         # --- Setup robot -----------------------------------------------
-        robot = RRRobot(l1=float(self._cfg["l1"]), l2=float(self._cfg["l2"]))
+        robot = RRRobot(
+            l1=float(self._robot_cfg["l1"]),
+            l2=float(self._robot_cfg["l2"]),
+        )
         self._robot = robot
         obstacles: list[list[float]] = [
-            [float(v) for v in obs] for obs in self._cfg["obstacles"]
+            [float(v) for v in obs] for obs in self._env_cfg["obstacles"]
         ]
         self._obstacles = obstacles
-        bounds = [tuple(b) for b in self._cfg["bounds"]]
+        bounds = [tuple(b) for b in self._env_cfg["bounds"]]
 
-        start_xy: list[float] = [float(v) for v in self._cfg["start_xy"]]
-        goal_xy: list[float] = [float(v) for v in self._cfg["goal_xy"]]
+        start_xy: list[float] = [float(v) for v in self._env_cfg["start_xy"]]
+        goal_xy: list[float] = [float(v) for v in self._env_cfg["goal_xy"]]
 
         self._start_q = pick_collision_free_ik(
             robot, start_xy, obstacles, [-2.2, 1.8]
@@ -289,7 +296,7 @@ class RRScene:
         occ, collision_pts = build_cspace_occupancy(
             robot,
             obstacles,
-            clearance=float(self._cfg["obstacle_clearance"]),
+            clearance=float(self._env_cfg["obstacle_clearance"]),
         )
         self._collision_pts = collision_pts
 
@@ -299,11 +306,13 @@ class RRScene:
         rrt = RRTPlanner(
             occ,
             bounds=bounds,
-            max_sample_count=int(self._cfg["rrt_max_sample_count"]),
-            step_size=float(self._cfg["step_size"]),
-            goal_tolerance=float(self._cfg["goal_tolerance"]),
-            collision_check_count=int(self._cfg["collision_check_count"]),
-            goal_bias=float(self._cfg["goal_bias"]),
+            max_sample_count=int(self._planner_cfg["rrt_max_sample_count"]),
+            step_size=float(self._planner_cfg["step_size"]),
+            goal_tolerance=float(self._planner_cfg["goal_tolerance"]),
+            collision_check_count=int(
+                self._planner_cfg["collision_check_count"]
+            ),
+            goal_bias=float(self._planner_cfg["goal_bias"]),
             early_stop=True,
         )
         rrt_t0 = time.perf_counter()
@@ -335,12 +344,14 @@ class RRScene:
         sst = SSTPlanner(
             occ,
             bounds=bounds,
-            max_sample_count=int(self._cfg["sst_max_sample_count"]),
-            step_size=float(self._cfg["step_size"]),
-            goal_tolerance=float(self._cfg["goal_tolerance"]),
-            collision_check_count=int(self._cfg["collision_check_count"]),
-            goal_bias=float(self._cfg["goal_bias"]),
-            witness_radius=float(self._cfg["witness_radius"]),
+            max_sample_count=int(self._planner_cfg["sst_max_sample_count"]),
+            step_size=float(self._planner_cfg["step_size"]),
+            goal_tolerance=float(self._planner_cfg["goal_tolerance"]),
+            collision_check_count=int(
+                self._planner_cfg["collision_check_count"]
+            ),
+            goal_bias=float(self._planner_cfg["goal_bias"]),
+            witness_radius=float(self._planner_cfg["witness_radius"]),
             early_stop=True,
         )
         sst_t0 = time.perf_counter()
@@ -372,7 +383,7 @@ class RRScene:
 
         optimizer = TrajectoryOptimizer(
             occ,
-            cruise_speed=float(self._cfg.get("race_speed", 1.0)),
+            cruise_speed=float(self._sim_cfg.get("race_speed", 1.0)),
             weight_time=10.0,
             weight_deviation=1.0,
             weight_velocity=1.0,

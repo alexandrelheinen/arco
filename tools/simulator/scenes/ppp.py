@@ -156,6 +156,8 @@ class PPPScene:
 
     def __init__(self, cfg: dict[str, Any]) -> None:
         self._cfg = cfg
+        self._planner_cfg = cfg.get("planner", cfg)
+        self._sim_cfg = cfg.get("simulator", cfg)
         self._rrt_nodes: list[np.ndarray] = []
         self._sst_nodes: list[np.ndarray] = []
         self._rrt_path: list[np.ndarray] | None = None
@@ -217,7 +219,8 @@ class PPPScene:
         if progress is not None:
             progress("Building occupancy map", 2, _total)
         occ = KDTreeOccupancy(
-            all_pts, clearance=float(self._cfg["obstacle_clearance"])
+            all_pts,
+            clearance=float(self._planner_cfg["obstacle_clearance"]),
         )
 
         if progress is not None:
@@ -225,11 +228,13 @@ class PPPScene:
         rrt = RRTPlanner(
             occ,
             bounds=BOUNDS,
-            max_sample_count=int(self._cfg["rrt_max_sample_count"]),
-            step_size=float(self._cfg["step_size"]),
-            goal_tolerance=float(self._cfg["goal_tolerance"]),
-            collision_check_count=int(self._cfg["collision_check_count"]),
-            goal_bias=float(self._cfg["goal_bias"]),
+            max_sample_count=int(self._planner_cfg["rrt_max_sample_count"]),
+            step_size=float(self._planner_cfg["step_size"]),
+            goal_tolerance=float(self._planner_cfg["goal_tolerance"]),
+            collision_check_count=int(
+                self._planner_cfg["collision_check_count"]
+            ),
+            goal_bias=float(self._planner_cfg["goal_bias"]),
         )
         rrt_t0 = time.perf_counter()
         self._rrt_nodes, _, self._rrt_path = rrt.get_tree(
@@ -260,12 +265,14 @@ class PPPScene:
         sst = SSTPlanner(
             occ,
             bounds=BOUNDS,
-            max_sample_count=int(self._cfg["sst_max_sample_count"]),
-            step_size=float(self._cfg["step_size"]),
-            goal_tolerance=float(self._cfg["goal_tolerance"]),
-            witness_radius=float(self._cfg["witness_radius"]),
-            collision_check_count=int(self._cfg["collision_check_count"]),
-            goal_bias=float(self._cfg["goal_bias"]),
+            max_sample_count=int(self._planner_cfg["sst_max_sample_count"]),
+            step_size=float(self._planner_cfg["step_size"]),
+            goal_tolerance=float(self._planner_cfg["goal_tolerance"]),
+            witness_radius=float(self._planner_cfg["witness_radius"]),
+            collision_check_count=int(
+                self._planner_cfg["collision_check_count"]
+            ),
+            goal_bias=float(self._planner_cfg["goal_bias"]),
         )
         sst_t0 = time.perf_counter()
         self._sst_nodes, _, self._sst_path = sst.get_tree(
@@ -296,7 +303,7 @@ class PPPScene:
             progress("Optimizing trajectories", 5, _total)
         opt = TrajectoryOptimizer(
             occ,
-            cruise_speed=float(self._cfg.get("race_speed", 2.0)),
+            cruise_speed=float(self._sim_cfg.get("race_speed", 2.0)),
             weight_time=10.0,
             weight_deviation=1.0,
             weight_velocity=1.0,

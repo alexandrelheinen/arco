@@ -19,12 +19,12 @@ Usage
 ::
 
     cd tools/simulator
-    python main/sparse.py
+    python main/city.py
 
 Optional flags::
 
-    python main/sparse.py --fps 30
-    python main/sparse.py --record /tmp/race.mp4 --record-duration 90
+    python main/city.py --fps 30
+    python main/city.py --record /tmp/race.mp4 --record-duration 90
 """
 
 from __future__ import annotations
@@ -34,6 +34,7 @@ import logging
 import math
 import os
 import sys
+from typing import Any
 
 # Make arco and tools packages importable without a full install.
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -58,7 +59,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
-from scenes.sparse import SparseScene
+from scenes.sparse import CityScene
 from sim.loading import run_with_loading_screen
 from sim.tracking import VehicleConfig, build_vehicle_sim, find_lookahead
 from sim.video import VideoWriter
@@ -257,7 +258,7 @@ def _draw_winner_banner(
 
 
 def run_race(
-    scene: SparseScene,
+    scene: Any,
     *,
     fps: int = 30,
     dt: float = 0.1,
@@ -275,7 +276,7 @@ def run_race(
     reaches the goal, then exits.
 
     Args:
-        scene: Fully built :class:`~scenes.sparse.SparseScene`.
+        scene: Fully built city race scene.
         fps: Target frame rate in frames per second.
         dt: Simulation timestep in seconds.
         record: Output MP4 file path.  Empty string means interactive mode.
@@ -910,7 +911,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    scene = SparseScene(load_config("sparse"), load_config("obstacles"))
+    cfg = load_config("city")
+    scene = CityScene(cfg.get("planner", {}), cfg.get("world", {}))
     run_race(
         scene,
         fps=args.fps,

@@ -42,80 +42,54 @@ jobs:
         run: |
           xvfb-run -a python tools/simulator/main/astar.py \
             --fps 30 \
-            --camera full \
-            --record /tmp/sim_videos/astar_full.mp4 \
+            --record /tmp/sim_videos/astar.mp4 \
             --record-duration 60
 
-      - name: Generate A* zoomed view (follow-vehicle camera)
+      - name: Generate city race video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/astar.py \
+          xvfb-run -a python tools/simulator/main/city.py \
             --fps 30 \
-            --camera follow \
-            --record /tmp/sim_videos/astar_zoom.mp4 \
-            --record-duration 60
+            --record /tmp/sim_videos/city.mp4 \
+            --record-duration 90
 
-      - name: Generate RRT* planning visualisation
+      - name: Generate PPP warehouse video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rrt.py \
+          xvfb-run -a python tools/simulator/main/ppp.py \
             --fps 30 \
-            --record /tmp/sim_videos/rrt_full.mp4 \
-            --record-duration 60
+            --record /tmp/sim_videos/ppp.mp4 \
+            --record-duration 90
 
-      - name: Generate RRT* zoomed visualisation
+      - name: Generate RR arm video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rrt.py \
+          xvfb-run -a python tools/simulator/main/rr.py \
             --fps 30 \
-            --zoom \
-            --camera follow \
-            --record /tmp/sim_videos/rrt_zoom.mp4 \
-            --record-duration 60
+            --record /tmp/sim_videos/rr.mp4 \
+            --record-duration 90
 
-      - name: Generate SST planning visualisation
+      - name: Generate vehicle benchmark video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/sst.py \
+          xvfb-run -a python tools/simulator/main/vehicle.py \
             --fps 30 \
-            --record /tmp/sim_videos/sst_full.mp4 \
-            --record-duration 60
-
-      - name: Generate SST zoomed visualisation
-        env:
-          SDL_AUDIODRIVER: dummy
-        run: |
-          xvfb-run -a python tools/simulator/main/sst.py \
-            --fps 30 \
-            --zoom \
-            --camera follow \
-            --record /tmp/sim_videos/sst_zoom.mp4 \
-            --record-duration 60
-
-      - name: Generate RRT* vs SST cul-de-sac race
-        env:
-          SDL_AUDIODRIVER: dummy
-        run: |
-          xvfb-run -a python tools/simulator/main/sparse.py \
-            --fps 30 \
-            --record /tmp/sim_videos/sparse.mp4 \
+            --record /tmp/sim_videos/vehicle.mp4 \
             --record-duration 90
 
       - name: Mix racing chiptune into all videos
         run: |
           AUDIO=/tmp/sim_videos/racing_theme.wav
           for VIDEO in \
-            astar_full \
-            astar_zoom \
-            rrt_full \
-            rrt_zoom \
-            sst_full \
-            sst_zoom \
-            sparse; do
+            astar \
+            city \
+            ppp \
+            rr \
+            vehicle; do
             SRC=/tmp/sim_videos/${VIDEO}.mp4
             TMP=/tmp/sim_videos/${VIDEO}_audio.mp4
             ffmpeg -y \
@@ -128,58 +102,42 @@ jobs:
             mv "$TMP" "$SRC"
           done
 
-      - name: Upload A* full view to release
+      - name: Upload A* video to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/astar_full.mp4 \
+            /tmp/sim_videos/astar.mp4 \
             --clobber
 
-      - name: Upload A* zoomed view to release
+      - name: Upload city video to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/astar_zoom.mp4 \
+            /tmp/sim_videos/city.mp4 \
             --clobber
 
-      - name: Upload RRT* full view to release
+      - name: Upload PPP video to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/rrt_full.mp4 \
+            /tmp/sim_videos/ppp.mp4 \
             --clobber
 
-      - name: Upload RRT* zoomed view to release
+      - name: Upload RR video to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/rrt_zoom.mp4 \
+            /tmp/sim_videos/rr.mp4 \
             --clobber
 
-      - name: Upload SST full view to release
+      - name: Upload vehicle benchmark video to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/sst_full.mp4 \
-            --clobber
-
-      - name: Upload SST zoomed view to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/sst_zoom.mp4 \
-            --clobber
-
-      - name: Upload RRT* vs SST cul-de-sac race to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/sparse.mp4 \
+            /tmp/sim_videos/vehicle.mp4 \
             --clobber

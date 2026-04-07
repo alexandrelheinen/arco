@@ -174,6 +174,7 @@ def draw_occupancy(
     ax.set_ylabel("Y")
     if title:
         ax.set_title(title)
-    ax.legend(loc="upper left", fontsize=8, bbox_to_anchor=(0, 1, 0.6, 1))
+    ax.set_aspect("equal", adjustable="box")
+    ax.legend(loc="upper right", fontsize=8)
 
     return fig, ax

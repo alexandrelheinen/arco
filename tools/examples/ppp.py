@@ -12,11 +12,11 @@ Usage
 -----
 Run interactively (opens a matplotlib window)::
 
-    python tools/examples/ppp_planning.py
+    python tools/examples/ppp.py
 
 Save the output image without opening a window::
 
-    python tools/examples/ppp_planning.py --save path/to/output.png
+    python tools/examples/ppp.py --save path/to/output.png
 """
 
 from __future__ import annotations
@@ -54,6 +54,9 @@ from config import load_config
 logger = logging.getLogger(__name__)
 
 _cfg = load_config("ppp")
+_env_cfg = _cfg.get("environment", _cfg)
+_planner_cfg = _cfg.get("planner", _cfg)
+_sim_cfg = _cfg.get("simulator", _cfg)
 
 
 def _format_clock(seconds: float) -> str:
@@ -92,7 +95,7 @@ def build_occupancy() -> KDTreeOccupancy:
     for box in _BOXES:
         all_pts.extend(_sample_box_surface(*box))
     return KDTreeOccupancy(
-        all_pts, clearance=float(_cfg["obstacle_clearance"])
+        all_pts, clearance=float(_planner_cfg["obstacle_clearance"])
     )
 
 
@@ -155,18 +158,18 @@ def main(save_path: str | None = None) -> None:
     if save_path is not None:
         matplotlib.use("Agg")
 
-    bounds = [tuple(b) for b in _cfg["bounds"]]
+    bounds = [tuple(b) for b in _env_cfg["bounds"]]
     occ = build_occupancy()
 
     # --- RRT* ---------------------------------------------------------------
     rrt = RRTPlanner(
         occ,
         bounds=bounds,
-        max_sample_count=int(_cfg["rrt_max_sample_count"]),
-        step_size=float(_cfg["step_size"]),
-        goal_tolerance=float(_cfg["goal_tolerance"]),
-        collision_check_count=int(_cfg["collision_check_count"]),
-        goal_bias=float(_cfg["goal_bias"]),
+        max_sample_count=int(_planner_cfg["rrt_max_sample_count"]),
+        step_size=float(_planner_cfg["step_size"]),
+        goal_tolerance=float(_planner_cfg["goal_tolerance"]),
+        collision_check_count=int(_planner_cfg["collision_check_count"]),
+        goal_bias=float(_planner_cfg["goal_bias"]),
         early_stop=True,
     )
     logger.info("Running RRT* in 3-D …")
@@ -185,12 +188,12 @@ def main(save_path: str | None = None) -> None:
     sst = SSTPlanner(
         occ,
         bounds=bounds,
-        max_sample_count=int(_cfg["sst_max_sample_count"]),
-        step_size=float(_cfg["step_size"]),
-        goal_tolerance=float(_cfg["goal_tolerance"]),
-        witness_radius=float(_cfg["witness_radius"]),
-        collision_check_count=int(_cfg["collision_check_count"]),
-        goal_bias=float(_cfg["goal_bias"]),
+        max_sample_count=int(_planner_cfg["sst_max_sample_count"]),
+        step_size=float(_planner_cfg["step_size"]),
+        goal_tolerance=float(_planner_cfg["goal_tolerance"]),
+        witness_radius=float(_planner_cfg["witness_radius"]),
+        collision_check_count=int(_planner_cfg["collision_check_count"]),
+        goal_bias=float(_planner_cfg["goal_bias"]),
         early_stop=True,
     )
     logger.info("Running SST in 3-D …")
@@ -206,7 +209,7 @@ def main(save_path: str | None = None) -> None:
     # --- Trajectory optimization (3-D) -------------------------------------
     opt = TrajectoryOptimizer(
         occ,
-        cruise_speed=float(_cfg.get("race_speed", 2.0)),
+        cruise_speed=float(_sim_cfg.get("race_speed", 2.0)),
         weight_time=10.0,
         weight_deviation=1.0,
         weight_velocity=1.0,
@@ -304,9 +307,15 @@ def main(save_path: str | None = None) -> None:
             },
         ),
     ]
-    x_lim = (float(_cfg["bounds"][0][0]), float(_cfg["bounds"][0][1]))
-    y_lim = (float(_cfg["bounds"][1][0]), float(_cfg["bounds"][1][1]))
-    z_lim = (0.0, float(_cfg["bounds"][2][1]))
+    x_lim = (
+        float(_env_cfg["bounds"][0][0]),
+        float(_env_cfg["bounds"][0][1]),
+    )
+    y_lim = (
+        float(_env_cfg["bounds"][1][0]),
+        float(_env_cfg["bounds"][1][1]),
+    )
+    z_lim = (0.0, float(_env_cfg["bounds"][2][1]))
 
     for col, (title, path, length, color, traj, metrics) in enumerate(specs):
         ax = fig.add_subplot(1, 2, col + 1, projection="3d")
@@ -379,7 +388,10 @@ def main(save_path: str | None = None) -> None:
         ax.set_ylabel("Y (m)")  # type: ignore[attr-defined]
         ax.set_zlabel("Z (m)")  # type: ignore[attr-defined]
         ax.set_title(title)  # type: ignore[attr-defined]
-        ax.legend(loc="upper left", fontsize=8, bbox_to_anchor=(0, 1, 0.6, 1))  # type: ignore[attr-defined]
+        ax.set_box_aspect(  # type: ignore[attr-defined]
+            [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
+        )
+        ax.legend(loc="upper right", fontsize=8)  # type: ignore[attr-defined]
         ax.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
         metrics_lines = [
             (
@@ -410,11 +422,11 @@ def main(save_path: str | None = None) -> None:
             va="top",
             ha="left",
             fontsize=7,
-            color="white",
+            color="black",
             bbox={
                 "boxstyle": "round,pad=0.3",
-                "facecolor": "black",
-                "alpha": 0.65,
+                "facecolor": "white",
+                "alpha": 0.80,
                 "edgecolor": "none",
             },
         )
