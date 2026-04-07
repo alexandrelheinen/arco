@@ -97,6 +97,9 @@ _LEFT_FRAC = 2.0 / 3.0
 # Post-finish hold time in seconds before switching planners.
 _POST_FINISH_SECS = 1.5
 
+# Minimum annulus inner radius below which the inner-hole punch-out is skipped.
+_INNER_RADIUS_THRESHOLD: float = 1e-6
+
 # ---------------------------------------------------------------------------
 # Color helpers
 # ---------------------------------------------------------------------------
@@ -252,7 +255,7 @@ def _draw_workspace_annulus(
         glVertex2f(r_max * math.cos(a), r_max * math.sin(a))
     glEnd()
     # Punch out the inner hole
-    if r_min > 1e-6:
+    if r_min > _INNER_RADIUS_THRESHOLD:
         glColor4f(0.09, 0.11, 0.14, 1.0)
         glBegin(GL_TRIANGLE_FAN)
         glVertex2f(0.0, 0.0)
@@ -268,7 +271,7 @@ def _draw_workspace_annulus(
         a = 2.0 * math.pi * i / segs
         glVertex2f(r_max * math.cos(a), r_max * math.sin(a))
     glEnd()
-    if r_min > 1e-6:
+    if r_min > _INNER_RADIUS_THRESHOLD:
         glBegin(GL_LINE_STRIP)
         for i in range(segs + 1):
             a = 2.0 * math.pi * i / segs

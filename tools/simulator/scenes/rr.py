@@ -153,10 +153,10 @@ def build_cspace_occupancy(
             if _arm_collides(robot, float(q1v), float(q2v), obstacle):
                 collision_pts.append([float(q1v), float(q2v)])
     if not collision_pts:
-        # Obstacle entirely outside workspace — insert a dummy point so
-        # KDTreeOccupancy can be instantiated.  Its influence is negligible
-        # because the real workspace has no forbidden configurations.
-        collision_pts = [[0.0, 0.0]]
+        # Obstacle entirely outside workspace — insert a dummy point well
+        # outside the valid joint bounds (±π) so that it never interferes
+        # with real collision checking or planner paths.
+        collision_pts = [[math.pi + 1.0, math.pi + 1.0]]
     return KDTreeOccupancy(collision_pts, clearance=clearance), collision_pts
 
 

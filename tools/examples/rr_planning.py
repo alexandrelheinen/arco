@@ -62,6 +62,8 @@ logger = logging.getLogger(__name__)
 
 _cfg = load_config("rr")
 
+# Minimum annulus inner radius below which the inner-hole outline is skipped.
+_INNER_RADIUS_THRESHOLD: float = 1e-6
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -375,12 +377,12 @@ def main() -> None:
     ) in specs:
         # Workspace annulus
         ax.fill(outer_x, outer_y, alpha=0.07, color="steelblue")
-        if r_min > 1e-6:
+        if r_min > _INNER_RADIUS_THRESHOLD:
             ax.fill(inner_x, inner_y, alpha=0.25, color="#161b22")
         ax.plot(
             outer_x, outer_y, color="steelblue", linewidth=0.8, alpha=0.5
         )
-        if r_min > 1e-6:
+        if r_min > _INNER_RADIUS_THRESHOLD:
             ax.plot(
                 inner_x,
                 inner_y,
