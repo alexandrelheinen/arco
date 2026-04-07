@@ -450,7 +450,7 @@ def run_rr_sim(
     glDisable(GL_LIGHTING)
 
     robot = scene.robot
-    obstacle = scene.obstacle
+    obstacles = scene.obstacles
     start_q = scene.start_q
     goal_q = scene.goal_q
     r_min, r_max = robot.workspace_annulus()
@@ -612,7 +612,8 @@ def run_rr_sim(
         _set_left_viewport(sw, sh, left_w)
 
         _draw_workspace_annulus(r_min, r_max)
-        _draw_obstacle(obstacle)
+        for obs in obstacles:
+            _draw_obstacle(obs)
 
         # Planned path trace (dim)
         if current_planner == "rrt" and scene.rrt_path:

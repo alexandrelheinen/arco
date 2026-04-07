@@ -43,9 +43,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from logging_config import configure_logging
 from scenes.rr import (
-    _arm_collides,
-    _segment_intersects_rect,
     build_cspace_occupancy,
+    pick_collision_free_ik,
 )
 
 from arco.kinematics import RRRobot
@@ -160,24 +159,24 @@ def main() -> None:
 
     # --- Setup -----------------------------------------------------------
     robot = RRRobot(l1=float(_cfg["l1"]), l2=float(_cfg["l2"]))
-    obstacle: list[float] = [float(v) for v in _cfg["obstacle"]]
+    obstacles: list[list[float]] = [
+        [float(v) for v in obs] for obs in _cfg["obstacles"]
+    ]
     bounds = [tuple(b) for b in _cfg["bounds"]]
     clearance = float(_cfg["obstacle_clearance"])
 
     start_xy = [float(v) for v in _cfg["start_xy"]]
     goal_xy = [float(v) for v in _cfg["goal_xy"]]
 
-    ik_start = robot.inverse_kinematics(start_xy[0], start_xy[1])
-    start_q = np.array(ik_start[0] if ik_start else [-2.2, 1.8])
-    ik_goal = robot.inverse_kinematics(goal_xy[0], goal_xy[1])
-    goal_q = np.array(ik_goal[0] if ik_goal else [1.0, -1.6])
+    start_q = pick_collision_free_ik(robot, start_xy, obstacles, [-2.2, 1.8])
+    goal_q = pick_collision_free_ik(robot, goal_xy, obstacles, [1.0, -1.6])
 
     logger.info("Start joint config: (%.3f, %.3f)", start_q[0], start_q[1])
     logger.info("Goal  joint config: (%.3f, %.3f)", goal_q[0], goal_q[1])
 
     # --- Occupancy map ---------------------------------------------------
     logger.info("Building C-space occupancy map …")
-    occ, collision_pts = build_cspace_occupancy(robot, obstacle, clearance)
+    occ, collision_pts = build_cspace_occupancy(robot, obstacles, clearance)
 
     # --- RRT* ------------------------------------------------------------
     rrt = RRTPlanner(
@@ -285,13 +284,12 @@ def main() -> None:
     inner_x = r_min * np.cos(theta_range)
     inner_y = r_min * np.sin(theta_range)
 
-    obs_xmin, obs_ymin, obs_xmax, obs_ymax = obstacle
-
-    def _obs_patch() -> mpatches.Rectangle:
+    def _obs_patch(obs: list[float]) -> mpatches.Rectangle:
+        xmin, ymin, xmax, ymax = obs
         return mpatches.Rectangle(
-            (obs_xmin, obs_ymin),
-            obs_xmax - obs_xmin,
-            obs_ymax - obs_ymin,
+            (xmin, ymin),
+            xmax - xmin,
+            ymax - ymin,
             linewidth=1,
             edgecolor="red",
             facecolor="tomato",
@@ -322,7 +320,7 @@ def main() -> None:
             "RRT* — RR robot Cartesian space",
             rrt_cart,
             rrt_traj_cart,
-            _obs_patch(),
+            [_obs_patch(obs) for obs in obstacles],
             "royalblue",
             rrt_path,
             {
@@ -341,7 +339,7 @@ def main() -> None:
             "SST — RR robot Cartesian space",
             sst_cart,
             sst_traj_cart,
-            _obs_patch(),
+            [_obs_patch(obs) for obs in obstacles],
             "mediumseagreen",
             sst_path,
             {
@@ -362,7 +360,7 @@ def main() -> None:
         title,
         cart_path,
         traj_cart,
-        obs_patch,
+        obs_patches,
         color,
         joint_path,
         metrics,
@@ -381,8 +379,9 @@ def main() -> None:
                 alpha=0.5,
             )
 
-        # Obstacle
-        ax.add_patch(obs_patch)
+        # Obstacles
+        for obs_patch in obs_patches:
+            ax.add_patch(obs_patch)
 
         # Arm at start and goal
         _draw_arm(

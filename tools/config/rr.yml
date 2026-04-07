@@ -5,25 +5,31 @@
 #   l2 = 0.8 m (second link — slightly shorter)
 #   Workspace annulus: [0.2, 1.8] m
 #
-# One rectangular obstacle at x=[0.2, 0.9], y=[0.1, 0.6] forces the
-# arm to route around it.
+# Scenario: arm crosses from the lower-left (-1.2, -0.8) to the upper-right
+# (1.4, 0.5).  Two smaller boxes — one on each side of the workspace —
+# block the natural horizontal corridor (y ∈ [0.1, 0.6]) so the arm must
+# arc through the lower half of the workspace.  Both arm links are checked
+# against every obstacle, so neither link may touch any box.
 #
-# Start end-effector position: (0.2, -1.5) — lower-left of workspace
-# Goal  end-effector position: (1.4,  0.5) — right of workspace
+#   Box 1 (right): x ∈ [0.2, 0.9], y ∈ [0.1, 0.6]
+#   Box 2 (left):  x ∈ [-0.9, -0.2], y ∈ [0.1, 0.6]  (mirror of box 1)
 #
 # Planning is done in joint space (theta1, theta2).  Obstacle checking
-# converts each (q1, q2) sample to Cartesian and tests arm-segment /
-# rectangle intersection to build the C-space occupancy map.
+# converts each (q1, q2) sample to Cartesian and tests both arm-link
+# segments against all obstacle rectangles to build the C-space map.
 
 l1: 1.0
 l2: 0.8
 
-# Rectangular obstacle [x_min, y_min, x_max, y_max] in metres.
-obstacle: [0.2, 0.1, 0.9, 0.6]
+# Rectangular obstacles [[x_min, y_min, x_max, y_max], ...] in metres.
+# Both arm links are checked against every obstacle.
+obstacles:
+  - [0.2, 0.1, 0.9, 0.6]    # right-side box
+  - [-0.9, 0.1, -0.2, 0.6]  # left-side box (mirror)
 
 # End-effector Cartesian start / goal used for IK to get joint config.
-start_xy: [0.2, -1.5]
-goal_xy:  [1.4,  0.5]
+start_xy: [-1.2, -0.8]   # lower-left
+goal_xy:  [1.4,   0.5]   # upper-right
 
 # Joint-space bounds [theta_min, theta_max] in radians for each joint.
 bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159]]
