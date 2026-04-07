@@ -76,6 +76,12 @@ jobs:
           MPLBACKEND=Agg python tools/examples/ppp_planning.py \
             --save /tmp/generated_images/ppp_planning.png
 
+      # Generate RR 2-D arm example image (RRT* vs SST in joint space)
+      - name: Generate RR arm planning example
+        run: |
+          MPLBACKEND=Agg python tools/examples/rr_planning.py \
+            --save /tmp/generated_images/rr_planning.png
+
       # Generate trajectory optimization example image
       - name: Generate trajectory optimization example
         run: |
@@ -139,6 +145,7 @@ jobs:
               '| `rrt_planning.png` | RRT\\* path through a 2-D environment with a wall and scattered obstacles |',
               '| `sst_planning.png` | SST path through the same environment (sparse active tree) |',
               '| `ppp_planning.png` | RRT\\* vs SST paths in a 3-D warehouse bay — PPP gantry robot arcing over a blocking wall |',
+              '| `rr_planning.png` | RRT\\* vs SST joint-space planning for a 2-D RR arm avoiding a rectangle (Cartesian + C-space views) |',
               '| `trajectory_optimization.png` | RRT\\* reference path refined by two-stage TrajectoryOptimizer |',
               '',
               '### Architecture Diagrams (Pyreverse)',
