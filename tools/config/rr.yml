@@ -1,0 +1,49 @@
+# RR (2-joint revolute-revolute) robot planning configuration.
+#
+# Planar SCARA-style arm operating in the XY plane.
+#   l1 = 1.0 m (first link)
+#   l2 = 0.8 m (second link — slightly shorter)
+#   Workspace annulus: [0.2, 1.8] m
+#
+# One rectangular obstacle at x=[0.2, 0.9], y=[0.1, 0.6] forces the
+# arm to route around it.
+#
+# Start end-effector position: (0.2, -1.5) — lower-left of workspace
+# Goal  end-effector position: (1.4,  0.5) — right of workspace
+#
+# Planning is done in joint space (theta1, theta2).  Obstacle checking
+# converts each (q1, q2) sample to Cartesian and tests arm-segment /
+# rectangle intersection to build the C-space occupancy map.
+
+l1: 1.0
+l2: 0.8
+
+# Rectangular obstacle [x_min, y_min, x_max, y_max] in metres.
+obstacle: [0.2, 0.1, 0.9, 0.6]
+
+# End-effector Cartesian start / goal used for IK to get joint config.
+start_xy: [0.2, -1.5]
+goal_xy:  [1.4,  0.5]
+
+# Joint-space bounds [theta_min, theta_max] in radians for each joint.
+bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159]]
+
+# KDTree clearance in radians — buffer around sampled collision configs.
+obstacle_clearance: 0.08
+
+# Planner parameters
+step_size: 0.25
+goal_tolerance: 0.15
+collision_check_count: 4
+goal_bias: 0.10
+
+rrt_max_sample_count: 8000
+sst_max_sample_count: 6000
+witness_radius: 0.15
+
+# ---------------------------------------------------------------------------
+# Simulator parameters
+# ---------------------------------------------------------------------------
+
+# Speed at which the parametric progress variable advances along the path.
+race_speed: 0.8
