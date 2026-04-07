@@ -94,8 +94,8 @@ _SH = 720
 # Fraction of screen width for the Cartesian (left) panel.
 _LEFT_FRAC = 2.0 / 3.0
 
-# Post-finish hold time in seconds before switching planners.
-_POST_FINISH_SECS = 1.5
+# Post-finish hold time in seconds before switching planners/ending.
+_POST_FINISH_SECS = 3.0
 
 # Minimum annulus inner radius below which the inner-hole punch-out is skipped.
 _INNER_RADIUS_THRESHOLD: float = 1e-6
