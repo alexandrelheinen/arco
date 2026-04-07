@@ -10,7 +10,7 @@ Figure layout (3 subplots in a row)
 -------------------------------------
 * Left   — RRT* end-effector trace in 3-D Cartesian workspace
 * Middle — SST end-effector trace in 3-D Cartesian workspace
-* Right  — C-space (q1, q2) scatter coloured by collision-config Z height
+* Right  — C-space (q1, q2, z) voxel-surface mesh of the collision volume
 
 Usage
 -----
@@ -40,6 +40,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from logging_config import configure_logging
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scenes.rrp import (
     _arm_collides_3d,
     build_cspace_occupancy_3d,
@@ -169,6 +170,113 @@ def _workspace_annulus(
         ax.plot(  # type: ignore[attr-defined]
             xs, ys, zs, color="gray", linewidth=0.6, alpha=0.4, linestyle="--"
         )
+
+
+# ---------------------------------------------------------------------------
+# C-space mesh helper
+# ---------------------------------------------------------------------------
+
+
+def _build_cspace_mesh(
+    collision_pts: list[list[float]],
+    q_bounds: tuple[float, float] = (-math.pi, math.pi),
+    z_bounds: tuple[float, float] = (0.0, 4.0),
+    grid_n: int = 20,
+) -> np.ndarray | None:
+    """Build a voxel-surface mesh from C-space collision samples.
+
+    Re-bins *collision_pts* onto a ``grid_n³`` occupancy grid and
+    extracts the exposed outer faces (occupied voxels bordering a free
+    cell) as an array of triangles for
+    :class:`~mpl_toolkits.mplot3d.art3d.Poly3DCollection`.
+
+    Args:
+        collision_pts: List of ``[q1, q2, z]`` collision samples.
+        q_bounds: Shared ``(q_min, q_max)`` for both revolute joints.
+        z_bounds: ``(z_min, z_max)`` for the prismatic joint.
+        grid_n: Visualisation grid resolution along each axis.
+
+    Returns:
+        Float array of shape ``(T, 3, 3)`` — T triangles each defined
+        by three ``[q1, q2, z]`` vertices — or ``None`` when
+        *collision_pts* is empty.
+    """
+    if not collision_pts:
+        return None
+    cpts = np.asarray(collision_pts, dtype=float)
+    q_lo, q_hi = q_bounds
+    z_lo, z_hi = z_bounds
+    q_sc = (grid_n - 1) / max(q_hi - q_lo, 1e-9)
+    z_sc = (grid_n - 1) / max(z_hi - z_lo, 1e-9)
+    gi = np.clip(
+        np.rint((cpts[:, 0] - q_lo) * q_sc).astype(int), 0, grid_n - 1
+    )
+    gj = np.clip(
+        np.rint((cpts[:, 1] - q_lo) * q_sc).astype(int), 0, grid_n - 1
+    )
+    gk = np.clip(
+        np.rint((cpts[:, 2] - z_lo) * z_sc).astype(int), 0, grid_n - 1
+    )
+    # Padded occupancy: boundary voxels always border a free cell.
+    occ = np.zeros((grid_n + 2, grid_n + 2, grid_n + 2), dtype=bool)
+    occ[gi + 1, gj + 1, gk + 1] = True
+    inner = occ[1:-1, 1:-1, 1:-1]
+    q1_ax = np.linspace(q_lo, q_hi, grid_n)
+    q2_ax = np.linspace(q_lo, q_hi, grid_n)
+    z_ax = np.linspace(z_lo, z_hi, grid_n)
+    dq1 = q1_ax[1] - q1_ax[0] if grid_n > 1 else 1.0
+    dq2 = q2_ax[1] - q2_ax[0] if grid_n > 1 else 1.0
+    dz = z_ax[1] - z_ax[0] if grid_n > 1 else 1.0
+    all_tris: list[np.ndarray] = []
+    for di, dj, dk in (
+        (1, 0, 0),
+        (-1, 0, 0),
+        (0, 1, 0),
+        (0, -1, 0),
+        (0, 0, 1),
+        (0, 0, -1),
+    ):
+        if di == 1:
+            exp = inner & ~occ[2:, 1:-1, 1:-1]
+        elif di == -1:
+            exp = inner & ~occ[:-2, 1:-1, 1:-1]
+        elif dj == 1:
+            exp = inner & ~occ[1:-1, 2:, 1:-1]
+        elif dj == -1:
+            exp = inner & ~occ[1:-1, :-2, 1:-1]
+        elif dk == 1:
+            exp = inner & ~occ[1:-1, 1:-1, 2:]
+        else:
+            exp = inner & ~occ[1:-1, 1:-1, :-2]
+        ii, jj, kk = np.where(exp)
+        if ii.size == 0:
+            continue
+        q1c = q1_ax[ii]
+        q2c = q2_ax[jj]
+        zc = z_ax[kk]
+        fc1 = q1c + di * dq1 * 0.5
+        fc2 = q2c + dj * dq2 * 0.5
+        fcz = zc + dk * dz * 0.5
+        if di != 0:
+            c00 = np.column_stack([fc1, q2c - dq2 * 0.5, zc - dz * 0.5])
+            c10 = np.column_stack([fc1, q2c + dq2 * 0.5, zc - dz * 0.5])
+            c11 = np.column_stack([fc1, q2c + dq2 * 0.5, zc + dz * 0.5])
+            c01 = np.column_stack([fc1, q2c - dq2 * 0.5, zc + dz * 0.5])
+        elif dj != 0:
+            c00 = np.column_stack([q1c - dq1 * 0.5, fc2, zc - dz * 0.5])
+            c10 = np.column_stack([q1c + dq1 * 0.5, fc2, zc - dz * 0.5])
+            c11 = np.column_stack([q1c + dq1 * 0.5, fc2, zc + dz * 0.5])
+            c01 = np.column_stack([q1c - dq1 * 0.5, fc2, zc + dz * 0.5])
+        else:
+            c00 = np.column_stack([q1c - dq1 * 0.5, q2c - dq2 * 0.5, fcz])
+            c10 = np.column_stack([q1c + dq1 * 0.5, q2c - dq2 * 0.5, fcz])
+            c11 = np.column_stack([q1c + dq1 * 0.5, q2c + dq2 * 0.5, fcz])
+            c01 = np.column_stack([q1c - dq1 * 0.5, q2c + dq2 * 0.5, fcz])
+        all_tris.append(np.stack([c00, c10, c11], axis=1))
+        all_tris.append(np.stack([c00, c11, c01], axis=1))
+    if not all_tris:
+        return None
+    return np.concatenate(all_tris, axis=0)
 
 
 # ---------------------------------------------------------------------------
@@ -535,47 +643,64 @@ def main(save_path: str | None = None) -> None:
             },
         )
 
-    # --- C-space scatter panel (q1-q2 plane, coloured by z) -----------------
-    ax_c = fig.add_subplot(1, 3, 3)
+    # --- C-space 3-D panel (q1, q2, z) --------------------------------------
+    ax_c = fig.add_subplot(1, 3, 3, projection="3d")
+    q_bnd = (-math.pi, math.pi)
+    z_bnd = (robot.z_min, robot.z_max)
     if collision_pts:
-        cpts = np.array(collision_pts)
-        sc = ax_c.scatter(
-            cpts[:, 0],
-            cpts[:, 1],
-            c=cpts[:, 2],
-            cmap="viridis",
-            s=2,
-            alpha=0.3,
-            label="Collision configs",
+        tris = _build_cspace_mesh(
+            collision_pts, q_bounds=q_bnd, z_bounds=z_bnd
         )
-        plt.colorbar(sc, ax=ax_c, label="Z height (m)", fraction=0.04)
+        if tris is not None and len(tris) > 0:
+            ax_c.add_collection3d(  # type: ignore[attr-defined]
+                Poly3DCollection(
+                    list(tris),
+                    alpha=0.25,
+                    facecolor="slategray",
+                    edgecolor="none",
+                    linewidth=0,
+                )
+            )
+        else:
+            cpts_arr = np.array(collision_pts)
+            ax_c.scatter(  # type: ignore[attr-defined]
+                cpts_arr[:, 0],
+                cpts_arr[:, 1],
+                cpts_arr[:, 2],
+                c="slategray",
+                s=2,
+                alpha=0.30,
+            )
 
-    for path, label, color in (
+    for path, lbl, color in (
         (rrt_path, "RRT* path", "royalblue"),
         (sst_path, "SST path", "mediumseagreen"),
     ):
         if path is not None and len(path) >= 2:
             arr = np.array(path)
-            ax_c.plot(
+            ax_c.plot(  # type: ignore[attr-defined]
                 arr[:, 0],
                 arr[:, 1],
+                arr[:, 2],
                 color=color,
                 linewidth=1.5,
-                alpha=0.8,
-                label=label,
+                alpha=0.85,
+                label=lbl,
             )
 
-    ax_c.scatter(
+    ax_c.scatter(  # type: ignore[attr-defined]
         [float(start_q[0])],
         [float(start_q[1])],
+        [float(start_q[2])],
         color="limegreen",
         s=80,
         zorder=6,
         label="Start",
     )
-    ax_c.scatter(
+    ax_c.scatter(  # type: ignore[attr-defined]
         [float(goal_q[0])],
         [float(goal_q[1])],
+        [float(goal_q[2])],
         color="orangered",
         marker="*",
         s=120,
@@ -583,13 +708,20 @@ def main(save_path: str | None = None) -> None:
         label="Goal",
     )
 
-    ax_c.set_xlabel("q1 (rad)")
-    ax_c.set_ylabel("q2 (rad)")
-    ax_c.set_title("C-space (q1–q2) — collision by height")
-    ax_c.set_xlim(-math.pi, math.pi)
-    ax_c.set_ylim(-math.pi, math.pi)
-    ax_c.set_aspect("equal")
-    ax_c.legend(loc="upper right", fontsize=7)
+    ax_c.set_xlabel("q\u2081 (rad)")  # type: ignore[attr-defined]
+    ax_c.set_ylabel("q\u2082 (rad)")  # type: ignore[attr-defined]
+    ax_c.set_zlabel("z (m)")  # type: ignore[attr-defined]
+    ax_c.set_title(  # type: ignore[attr-defined]
+        "C-space (q\u2081, q\u2082, z) \u2014 collision volume"
+    )
+    ax_c.set_xlim(-math.pi, math.pi)  # type: ignore[attr-defined]
+    ax_c.set_ylim(-math.pi, math.pi)  # type: ignore[attr-defined]
+    ax_c.set_zlim(*z_bnd)  # type: ignore[attr-defined]
+    ax_c.set_box_aspect(  # type: ignore[attr-defined]
+        [2 * math.pi, 2 * math.pi, z_bnd[1] - z_bnd[0]]
+    )
+    ax_c.view_init(elev=20, azim=-55)  # type: ignore[attr-defined]
+    ax_c.legend(loc="upper right", fontsize=7)  # type: ignore[attr-defined]
 
     plt.suptitle(
         "RRP robot (SCARA) — RRT* vs SST in 3-D cylindrical workspace",
