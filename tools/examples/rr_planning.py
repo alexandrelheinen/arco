@@ -35,15 +35,18 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "simulator")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "simulator"))
 
 import matplotlib
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from logging_config import configure_logging
+from scenes.rr import (
+    _arm_collides,
+    _segment_intersects_rect,
+    build_cspace_occupancy,
+)
 
 from arco.kinematics import RRRobot
 from arco.planning.continuous import (
@@ -52,11 +55,6 @@ from arco.planning.continuous import (
     TrajectoryOptimizer,
 )
 from config import load_config
-from scenes.rr import (
-    _arm_collides,
-    _segment_intersects_rect,
-    build_cspace_occupancy,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -307,9 +305,7 @@ def main() -> None:
     sst_traj_cart = _fk_path(robot, sst_traj)
 
     # --- Figure ----------------------------------------------------------
-    fig, (ax_rrt, ax_sst, ax_joint) = plt.subplots(
-        1, 3, figsize=(18, 6)
-    )
+    fig, (ax_rrt, ax_sst, ax_joint) = plt.subplots(1, 3, figsize=(18, 6))
     fig.patch.set_facecolor("#0d1117")
     for ax in (ax_rrt, ax_sst, ax_joint):
         ax.set_facecolor("#161b22")
@@ -336,9 +332,7 @@ def main() -> None:
                 "path_len": rrt_len,
                 "traj_len": rrt_traj_len,
                 "traj_dur": rrt_traj_dur,
-                "path_status": (
-                    "found" if rrt_feasible else "stalled"
-                ),
+                "path_status": ("found" if rrt_feasible else "stalled"),
                 "opt_status": rrt_opt_status,
             },
         ),
@@ -357,9 +351,7 @@ def main() -> None:
                 "path_len": sst_len,
                 "traj_len": sst_traj_len,
                 "traj_dur": sst_traj_dur,
-                "path_status": (
-                    "found" if sst_feasible else "stalled"
-                ),
+                "path_status": ("found" if sst_feasible else "stalled"),
                 "opt_status": sst_opt_status,
             },
         ),
@@ -379,9 +371,7 @@ def main() -> None:
         ax.fill(outer_x, outer_y, alpha=0.07, color="steelblue")
         if r_min > _INNER_RADIUS_THRESHOLD:
             ax.fill(inner_x, inner_y, alpha=0.25, color="#161b22")
-        ax.plot(
-            outer_x, outer_y, color="steelblue", linewidth=0.8, alpha=0.5
-        )
+        ax.plot(outer_x, outer_y, color="steelblue", linewidth=0.8, alpha=0.5)
         if r_min > _INNER_RADIUS_THRESHOLD:
             ax.plot(
                 inner_x,
@@ -444,12 +434,8 @@ def main() -> None:
             )
 
         # Start / goal end-effector markers
-        sx, sy = robot.forward_kinematics(
-            float(start_q[0]), float(start_q[1])
-        )
-        gx, gy = robot.forward_kinematics(
-            float(goal_q[0]), float(goal_q[1])
-        )
+        sx, sy = robot.forward_kinematics(float(start_q[0]), float(start_q[1]))
+        gx, gy = robot.forward_kinematics(float(goal_q[0]), float(goal_q[1]))
         ax.plot(sx, sy, "o", color="limegreen", ms=8, zorder=9)
         ax.plot(gx, gy, "*", color="orangered", ms=12, zorder=9)
 
