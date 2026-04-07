@@ -169,11 +169,15 @@ def main() -> None:
     bounds = [tuple(b) for b in _env_cfg["bounds"]]
     clearance = float(_env_cfg["obstacle_clearance"])
 
-    start_xy = [float(v) for v in _env_cfg["start_xy"]]
-    goal_xy = [float(v) for v in _env_cfg["goal_xy"]]
+    start_position = [float(v) for v in _env_cfg["start_position"]]
+    goal_position = [float(v) for v in _env_cfg["goal_position"]]
 
-    start_q = pick_collision_free_ik(robot, start_xy, obstacles, [-2.2, 1.8])
-    goal_q = pick_collision_free_ik(robot, goal_xy, obstacles, [1.0, -1.6])
+    start_q = pick_collision_free_ik(
+        robot, start_position, obstacles, [-2.2, 1.8]
+    )
+    goal_q = pick_collision_free_ik(
+        robot, goal_position, obstacles, [1.0, -1.6]
+    )
 
     logger.info("Start joint config: (%.3f, %.3f)", start_q[0], start_q[1])
     logger.info("Goal  joint config: (%.3f, %.3f)", goal_q[0], goal_q[1])

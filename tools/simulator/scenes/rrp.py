@@ -293,17 +293,61 @@ class RRPScene:
         self._obstacles = obstacles
         bounds = [tuple(b) for b in self._env_cfg["bounds"]]
 
-        start_xy: list[float] = [float(v) for v in self._env_cfg["start_xy"]]
-        goal_xy: list[float] = [float(v) for v in self._env_cfg["goal_xy"]]
-        start_z = float(self._env_cfg["start_z"])
-        goal_z = float(self._env_cfg["goal_z"])
+        start_position: list[float] = [
+            float(v) for v in self._env_cfg["start_position"]
+        ]
+        goal_position: list[float] = [
+            float(v) for v in self._env_cfg["goal_position"]
+        ]
+        if len(start_position) >= 3:
+            start_xy = start_position[:2]
+            start_z = float(start_position[2])
+        else:
+            # Backward compatibility with older configs.
+            start_xy = start_position[:2]
+            start_z = float(self._env_cfg["start_z"])
+        if len(goal_position) >= 3:
+            goal_xy = goal_position[:2]
+            goal_z = float(goal_position[2])
+        else:
+            # Backward compatibility with older configs.
+            goal_xy = goal_position[:2]
+            goal_z = float(self._env_cfg["goal_z"])
 
         self._start_q = pick_collision_free_config(
-            robot, start_xy, start_z, obstacles, [-2.2, 1.8, start_z]
+            robot, start_xy, start_z, obstacles, [0.0, 0.0, start_z]
         )
         self._goal_q = pick_collision_free_config(
-            robot, goal_xy, goal_z, obstacles, [1.0, -1.6, goal_z]
+            robot, goal_xy, goal_z, obstacles, [0.0, 0.0, goal_z]
         )
+        if any(
+            _arm_collides_3d(
+                robot,
+                float(self._start_q[0]),
+                float(self._start_q[1]),
+                float(self._start_q[2]),
+                obs,
+            )
+            for obs in obstacles
+        ):
+            raise ValueError(
+                "Start configuration is in collision. "
+                "Adjust environment.start_position/obstacles."
+            )
+        if any(
+            _arm_collides_3d(
+                robot,
+                float(self._goal_q[0]),
+                float(self._goal_q[1]),
+                float(self._goal_q[2]),
+                obs,
+            )
+            for obs in obstacles
+        ):
+            raise ValueError(
+                "Goal configuration is in collision. "
+                "Adjust environment.goal_position/obstacles."
+            )
 
         if progress is not None:
             progress("Building 3-D C-space occupancy", 1, _total)
@@ -444,6 +488,11 @@ class RRPScene:
     # ------------------------------------------------------------------
 
     @property
+    def title(self) -> str:
+        """Window caption for the simulator."""
+        return "RRT* vs SST — RRP 3-D SCARA arm race"
+
+    @property
     def robot(self) -> Any:
         """The :class:`~arco.kinematics.RRPRobot` instance."""
         return self._robot
@@ -462,6 +511,35 @@ class RRPScene:
     def goal_q(self) -> np.ndarray:
         """Goal configuration ``[q1, q2, z]``."""
         return self._goal_q
+
+    @property
+    def start(self) -> np.ndarray:
+        """Start end-effector 3-D Cartesian position ``[x, y, z]``."""
+        if self._robot is None:
+            return self._start_q.copy()
+        x, y, z = self._robot.forward_kinematics(
+            float(self._start_q[0]),
+            float(self._start_q[1]),
+            float(self._start_q[2]),
+        )
+        return np.array([x, y, z])
+
+    @property
+    def goal(self) -> np.ndarray:
+        """Goal end-effector 3-D Cartesian position ``[x, y, z]``."""
+        if self._robot is None:
+            return self._goal_q.copy()
+        x, y, z = self._robot.forward_kinematics(
+            float(self._goal_q[0]),
+            float(self._goal_q[1]),
+            float(self._goal_q[2]),
+        )
+        return np.array([x, y, z])
+
+    @property
+    def bounds(self) -> list[tuple[float, float]]:
+        """Planning bounds ``[(q1_min, q1_max), (q2_min, q2_max), (z_min, z_max)]``."""
+        return [tuple(b) for b in self._env_cfg["bounds"]]  # type: ignore[return-value]
 
     @property
     def rrt_path(self) -> list[np.ndarray] | None:

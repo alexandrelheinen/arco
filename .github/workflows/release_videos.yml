@@ -81,6 +81,15 @@ jobs:
             --record /tmp/sim_videos/vehicle.mp4 \
             --record-duration 90
 
+        - name: Generate RRP SCARA arm video
+          env:
+            SDL_AUDIODRIVER: dummy
+          run: |
+            xvfb-run -a python tools/simulator/main/rrp.py \
+              --fps 30 \
+              --record /tmp/sim_videos/rrp.mp4 \
+              --record-duration 90
+
       - name: Mix racing chiptune into all videos
         run: |
           AUDIO=/tmp/sim_videos/racing_theme.wav
@@ -89,7 +98,8 @@ jobs:
             city \
             ppp \
             rr \
-            vehicle; do
+              vehicle \
+              rrp; do
             SRC=/tmp/sim_videos/${VIDEO}.mp4
             TMP=/tmp/sim_videos/${VIDEO}_audio.mp4
             ffmpeg -y \
@@ -141,3 +151,11 @@ jobs:
           gh release upload "${{ github.event.release.tag_name }}" \
             /tmp/sim_videos/vehicle.mp4 \
             --clobber
+
+        - name: Upload RRP SCARA video to release
+          env:
+            GH_TOKEN: ${{ github.token }}
+          run: |
+            gh release upload "${{ github.event.release.tag_name }}" \
+              /tmp/sim_videos/rrp.mp4 \
+              --clobber
