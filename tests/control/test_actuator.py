@@ -215,7 +215,7 @@ class TestSecondOrderParams:
         assert a.zeta == pytest.approx(1.0)
         assert a.spring_stiffness == pytest.approx(200.0)
 
-    def test_angle_velocities_initial_zero(self, array4: ActuatorArray) -> None:
+    def test_angle_velocities_initially_zero(self, array4: ActuatorArray) -> None:
         np.testing.assert_array_almost_equal(
             array4.angle_velocities, np.zeros(4)
         )
@@ -519,19 +519,19 @@ class TestConvergenceDegradation:
         w_desired = np.array([5.0, 0.0, 0.0])
         dt = 0.01
 
-        def _residual() -> float:
+        def residual() -> float:
             forces = a.spring_forces(body)
             G = a.grasp_matrix(body)
             w_actual = G @ forces
             return float(np.linalg.norm(w_desired - w_actual))
 
-        early_residual = _residual()
+        early_residual = residual()
         for _ in range(200):
             a.update_angles_for_target(body, w_desired)
             f_des = a.allocate_radial_forces(w_desired, body)
             a.compute_ref_radii(body, f_des)
             a.step_actuators(dt)
-        late_residual = _residual()
+        late_residual = residual()
         assert late_residual < early_residual or late_residual < 0.5, (
             f"Slow actuators: early {early_residual:.4f}, late {late_residual:.4f}"
         )

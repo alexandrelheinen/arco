@@ -308,10 +308,7 @@ class ActuatorArray:
         desired_world = math.atan2(-fy, -fx) + math.pi
         desired_body = desired_world - psi
         n = self._actuator_count
-        new_ref = np.empty(n, dtype=float)
-        for i in range(n):
-            new_ref[i] = desired_body + 2.0 * math.pi * i / n
-        self._ref_angles = new_ref
+        self._ref_angles = desired_body + 2.0 * math.pi * np.arange(n) / n
 
     # ------------------------------------------------------------------
     # Second-order actuator dynamics
@@ -431,10 +428,11 @@ class ActuatorArray:
         """
         if self._radii is None:
             self.init_radii(body)
+        assert self._radii is not None
         r_nom = body.bounding_radius + self._standoff
         forces = np.zeros(2 * self._actuator_count, dtype=float)
         for i in range(self._actuator_count):
-            compression = r_nom - float(self._radii[i])  # type: ignore[index]
+            compression = r_nom - float(self._radii[i])
             forces[2 * i] = self._spring_stiffness * max(0.0, compression)
         return forces
 
