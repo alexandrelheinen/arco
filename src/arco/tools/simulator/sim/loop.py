@@ -15,7 +15,6 @@ import math
 import os
 
 import pygame
-from arco.tools.simulator import renderer_gl
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
@@ -31,6 +30,9 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
+
+from arco.tools.simulator import renderer_gl
+
 from .camera import CameraFilter, FollowTransform
 from .loading import run_with_loading_screen
 from .scene import SimScene
