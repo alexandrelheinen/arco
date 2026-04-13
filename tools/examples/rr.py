@@ -144,21 +144,28 @@ def _fk_path(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
-    """Run the RR planning example and display or save the figure."""
-    configure_logging()
-    parser = argparse.ArgumentParser(
-        description="RR robot arm planning example"
-    )
-    parser.add_argument(
-        "--save",
-        metavar="PATH",
-        default="",
-        help="Save the figure to this path instead of showing it.",
-    )
-    args = parser.parse_args()
+def main(save_path: str | None = None) -> None:
+    """Run the RR planning example and display or save the figure.
 
-    if args.save:
+    Args:
+        save_path: Optional path to save the output image.  When ``None``
+            an interactive matplotlib window is opened instead.
+    """
+    configure_logging()
+    if save_path is None:
+        parser = argparse.ArgumentParser(
+            description="RR robot arm planning example"
+        )
+        parser.add_argument(
+            "--save",
+            metavar="PATH",
+            default="",
+            help="Save the figure to this path instead of showing it.",
+        )
+        args = parser.parse_args()
+        save_path = args.save or None
+
+    if save_path is not None:
         matplotlib.use("Agg")
 
     # --- Setup -----------------------------------------------------------
@@ -561,9 +568,9 @@ def main() -> None:
 
     plt.tight_layout()
 
-    if args.save:
-        plt.savefig(args.save, dpi=120, bbox_inches="tight")
-        logger.info("Saved RR planning example to %s", args.save)
+    if save_path is not None:
+        plt.savefig(save_path, dpi=120, bbox_inches="tight")
+        logger.info("Saved RR planning example to %s", save_path)
     else:
         plt.show()
 

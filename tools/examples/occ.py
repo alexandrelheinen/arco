@@ -73,12 +73,19 @@ def _format_clock(seconds: float) -> str:
     return f"{mins:02d}min{secs:02d}s"
 
 
-def main() -> None:
-    """Run the OCC example visualisation."""
-    configure_logging()
-    args = _parse_args()
+def main(save_path: str | None = None) -> None:
+    """Run the OCC example visualization.
 
-    if args.save:
+    Args:
+        save_path: Optional path to save the output image.  When ``None``
+            an interactive matplotlib window is opened instead.
+    """
+    configure_logging()
+    if save_path is None:
+        args = _parse_args()
+        save_path = args.save or None
+
+    if save_path is not None:
         matplotlib.use("Agg")
 
     cfg = load_config("occ")
@@ -189,9 +196,9 @@ def main() -> None:
 
     plt.tight_layout()
 
-    if args.save:
-        fig.savefig(args.save, dpi=150, bbox_inches="tight")
-        logger.info("Saved figure to %s", args.save)
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        logger.info("Saved figure to %s", save_path)
     else:
         plt.show()
 
