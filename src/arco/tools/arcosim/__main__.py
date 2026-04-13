@@ -118,7 +118,6 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
 
 def _dispatch(
     scenario: str,
-    fps: int,
     record: str,
     record_duration: float,
     extra_argv: list[str],
@@ -129,17 +128,21 @@ def _dispatch(
     call sees the correct flags, then imports and calls
     ``tools.simulator.main.<scenario>.main()``.
 
+    Only ``--record`` and ``--record-duration`` are forwarded automatically
+    because they are accepted by every simulator.  Scenario-specific flags
+    (e.g. ``--fps``, ``--dt``, ``--camera``) should be passed via
+    ``extra_argv`` so they reach the underlying argparser unmodified.
+
     Args:
         scenario: Scenario name, e.g. ``"city"`` or ``"ppp"``.
-        fps: Target frames per second.
         record: Output MP4 file path, or an empty string to run interactively.
         record_duration: Maximum recording duration in seconds.
         extra_argv: Additional flags forwarded verbatim to the simulator
-            module (e.g. ``["--dt", "0.05", "--camera", "follow"]``).
+            module (e.g. ``["--fps", "60", "--camera", "follow"]``).
     """
     import importlib
 
-    sim_argv: list[str] = [f"arcosim_{scenario}", "--fps", str(fps)]
+    sim_argv: list[str] = [f"arcosim_{scenario}"]
     if record:
         sim_argv += [
             "--record",
@@ -169,6 +172,10 @@ def main() -> None:
     Parses CLI arguments, validates the scenario YAML file, sets up import
     paths, and dispatches to the matching simulator handler.
 
+    Unknown flags are forwarded verbatim to the underlying simulator so that
+    scenario-specific options (e.g. ``--fps``, ``--dt``, ``--camera``) can be
+    passed through without needing to be declared here.
+
     Raises:
         SystemExit: On any validation error or missing dependencies.
     """
@@ -183,13 +190,6 @@ def main() -> None:
         "scenario_file",
         metavar="SCENARIO",
         help="Path to the scenario .yml file (must contain 'scenario:' key).",
-    )
-    parser.add_argument(
-        "--fps",
-        type=int,
-        default=30,
-        metavar="N",
-        help="Target frame rate (default: 30).",
     )
     parser.add_argument(
         "--record",
@@ -209,9 +209,7 @@ def main() -> None:
 
     scenario, _ = _load_scenario(args.scenario_file)
     _setup_import_paths()
-    _dispatch(
-        scenario, args.fps, args.record, args.record_duration, extra_argv
-    )
+    _dispatch(scenario, args.record, args.record_duration, extra_argv)
 
 
 if __name__ == "__main__":

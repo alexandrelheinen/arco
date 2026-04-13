@@ -77,6 +77,11 @@ jobs:
           MPLBACKEND=Agg arcoex src/arco/tools/config/map/rrp.yml \
             --save /tmp/generated_images/arcoex_rrp_${{ steps.ref.outputs.label }}.png
 
+      - name: Generate OCC piano movers example
+        run: |
+          MPLBACKEND=Agg arcoex src/arco/tools/config/map/occ.yml \
+            --save /tmp/generated_images/arcoex_occ_${{ steps.ref.outputs.label }}.png
+
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
         run: |
@@ -122,6 +127,7 @@ jobs:
               `| Example | \`arcoex_city_${ref}.png\` | City race scenario (2-D) |`,
               `| Example | \`arcoex_vehicle_${ref}.png\` | Vehicle benchmark scenario (2-D, RRT* vs SST) |`,
               `| Example | \`arcoex_rrp_${ref}.png\` | RRP SCARA arm scenario (3-D) |`,
+              `| Example | \`arcoex_occ_${ref}.png\` | OCC piano movers scenario (2-D) |`,
               '| Pyreverse | `pyreverse_classes.png` | Class diagram showing inheritance and relationships |',
               '| Pyreverse | `pyreverse_packages.png` | Package structure and dependencies |',
               '',

@@ -108,6 +108,10 @@ def _dispatch(scenario: str, save_path: str | None) -> None:
     Imports ``tools.examples.<scenario>`` dynamically (after path setup) and
     calls its ``main(save_path=...)`` function.
 
+    ``sys.argv`` is trimmed to just the program name before the call so that
+    the example's own ``argparse`` (if invoked as a fallback) does not see
+    the scenario-file path as an unrecognized argument.
+
     Args:
         scenario: Scenario name, e.g. ``"city"`` or ``"ppp"``.
         save_path: Optional file path to save the output image to.  When
@@ -130,7 +134,13 @@ def _dispatch(scenario: str, save_path: str | None) -> None:
             )
             sys.exit(1)
         raise
-    mod.main(save_path=save_path)
+
+    saved_argv = sys.argv
+    sys.argv = [sys.argv[0]]
+    try:
+        mod.main(save_path=save_path)
+    finally:
+        sys.argv = saved_argv
 
 
 # ---------------------------------------------------------------------------

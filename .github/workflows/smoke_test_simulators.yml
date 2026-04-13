@@ -45,11 +45,6 @@ jobs:
       - name: Install package with pygame
         run: pip install -e ".[tools,pygame]"
 
-      - name: Smoke test chiptune generator
-        run: |
-          python tools/simulator/generate_chiptune.py \
-            --output /tmp/smoke_chiptune.wav
-
       - name: Smoke test A* simulator
         env:
           SDL_AUDIODRIVER: dummy

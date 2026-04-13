@@ -31,11 +31,6 @@ jobs:
       - name: Create output directory
         run: mkdir -p /tmp/sim_videos
 
-      - name: Generate racing chiptune (CC0)
-        run: |
-          python src/arco/tools/simulator/generate_chiptune.py \
-            --output /tmp/sim_videos/racing_theme.wav
-
       - name: Generate A* simulation video
         env:
           SDL_AUDIODRIVER: dummy
@@ -90,29 +85,20 @@ jobs:
             --record /tmp/sim_videos/arcosim_rrp_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
 
-      - name: Mix racing chiptune into all videos
+      - name: Generate OCC piano movers video
+        env:
+          SDL_AUDIODRIVER: dummy
         run: |
-          AUDIO=/tmp/sim_videos/racing_theme.wav
-          TAG="${{ github.event.release.tag_name }}"
-          for SCENARIO in astar city ppp rr vehicle rrp; do
-            SRC=/tmp/sim_videos/arcosim_${SCENARIO}_${TAG}.mp4
-            TMP=/tmp/sim_videos/arcosim_${SCENARIO}_${TAG}_audio.mp4
-            ffmpeg -y \
-              -i "$SRC" \
-              -stream_loop -1 -i "$AUDIO" \
-              -shortest \
-              -map 0:v -map 1:a \
-              -c:v copy -c:a aac -b:a 128k \
-              "$TMP"
-            mv "$TMP" "$SRC"
-          done
+          xvfb-run -a arcosim src/arco/tools/config/map/occ.yml \
+            --record /tmp/sim_videos/arcosim_occ_${{ github.event.release.tag_name }}.mp4 \
+            --record-duration 60
 
       - name: Upload videos to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.release.tag_name }}"
-          for SCENARIO in astar city ppp rr vehicle rrp; do
+          for SCENARIO in astar city ppp rr vehicle rrp occ; do
             gh release upload "${TAG}" \
               /tmp/sim_videos/arcosim_${SCENARIO}_${TAG}.mp4 \
               --clobber
