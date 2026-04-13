@@ -1,0 +1,47 @@
+# Object-centric control — piano movers problem.
+#
+# A 2-D object (square or circle) is manipulated from pose A to pose B
+# by N mobile actuators. The object pose (x, y, psi) is planned in a
+# 3-D C-space by RRT* / SST.
+#
+# All lengths are in metres, masses in kg, angles in radians.
+
+body:
+  type: square          # "square" or "circle"
+  mass: 5.0             # kg
+  side_length: 0.5      # metres (used for square)
+  radius: 0.3           # metres (used for circle)
+
+actuator:
+  count: 4
+  standoff: 0.05        # metres beyond bounding_radius
+
+# 2-D Cartesian obstacles [x_min, y_min, x_max, y_max] in metres.
+environment:
+  obstacles:
+    - [1.5, 0.5, 2.5, 1.5]
+    - [-2.0, -1.5, -1.0, 0.5]
+  x_range: [-4.0, 4.0]
+  y_range: [-3.0, 3.0]
+  start_pose: [-3.0, -2.0, 0.0]
+  goal_pose:  [ 3.0,  2.0, 0.78]   # ~45 deg rotation
+
+planner:
+  step_size: 0.20
+  goal_tolerance: 0.25
+  collision_check_count: 5
+  goal_bias: 0.10
+  rrt_max_sample_count: 30000
+  sst_max_sample_count: 40000
+  witness_radius: 0.10
+  cspace_grid_n: 60
+
+control:
+  kp_pos: 5.0     # proportional gain position
+  kd_pos: 2.0     # derivative gain position
+  kp_psi: 3.0     # proportional gain heading
+  kd_psi: 1.5     # derivative gain heading
+
+simulator:
+  dt: 0.02        # seconds
+  race_speed: 0.3 # metres/second
