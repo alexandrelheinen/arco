@@ -9,25 +9,23 @@ import pytest
 import yaml
 
 # Make arco.tools importable even if not pip-installed in this test run.
-_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 sys.path.insert(0, os.path.join(_REPO, "src"))
 
-from arco.tools.arcoex.__main__ import (
-    SUPPORTED_SCENARIOS as ARCOEX_SCENARIOS,
-    _load_scenario as _arcoex_load,
-)
+from arco.tools.arcoex.__main__ import SUPPORTED_SCENARIOS as ARCOEX_SCENARIOS
+from arco.tools.arcoex.__main__ import _load_scenario as _arcoex_load
 from arco.tools.arcosim.__main__ import (
     SUPPORTED_SCENARIOS as ARCOSIM_SCENARIOS,
-    _load_scenario as _arcosim_load,
 )
+from arco.tools.arcosim.__main__ import _load_scenario as _arcosim_load
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-_CONFIG_MAP = os.path.join(
-    _REPO, "src", "arco", "tools", "config", "map"
-)
+_CONFIG_MAP = os.path.join(_REPO, "src", "arco", "tools", "config", "map")
 
 
 def _scenario_yml(name: str) -> str:
@@ -81,13 +79,17 @@ def test_arcosim_load_scenario_shipped_configs(scenario: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_arcoex_load_missing_file_exits(tmp_path: pytest.TempPathFactory) -> None:
+def test_arcoex_load_missing_file_exits(
+    tmp_path: pytest.TempPathFactory,
+) -> None:
     with pytest.raises(SystemExit) as exc:
         _arcoex_load(str(tmp_path / "does_not_exist.yml"))
     assert exc.value.code != 0
 
 
-def test_arcosim_load_missing_file_exits(tmp_path: pytest.TempPathFactory) -> None:
+def test_arcosim_load_missing_file_exits(
+    tmp_path: pytest.TempPathFactory,
+) -> None:
     with pytest.raises(SystemExit) as exc:
         _arcosim_load(str(tmp_path / "does_not_exist.yml"))
     assert exc.value.code != 0
@@ -143,14 +145,18 @@ def test_config_map_contains_only_yml_and_json() -> None:
     entries = os.listdir(_CONFIG_MAP)
     for entry in entries:
         full = os.path.join(_CONFIG_MAP, entry)
-        assert os.path.isfile(full), f"Unexpected subdirectory in config/map/: {entry}"
-        assert entry.endswith((".yml", ".json")), (
-            f"Unexpected file type in config/map/: {entry}"
-        )
+        assert os.path.isfile(
+            full
+        ), f"Unexpected subdirectory in config/map/: {entry}"
+        assert entry.endswith(
+            (".yml", ".json")
+        ), f"Unexpected file type in config/map/: {entry}"
 
 
 def test_config_system_contains_colors() -> None:
-    system_dir = os.path.join(_REPO, "src", "arco", "tools", "config", "system")
+    system_dir = os.path.join(
+        _REPO, "src", "arco", "tools", "config", "system"
+    )
     assert os.path.isfile(os.path.join(system_dir, "colors.yml"))
 
 
