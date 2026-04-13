@@ -15,7 +15,7 @@ import math
 import os
 
 import pygame
-import renderer_gl
+from arco.tools.simulator import renderer_gl
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
@@ -31,11 +31,11 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
-from sim.camera import CameraFilter, FollowTransform
-from sim.loading import run_with_loading_screen
-from sim.scene import SimScene
-from sim.tracking import build_vehicle_sim, find_lookahead
-from sim.video import VideoWriter
+from .camera import CameraFilter, FollowTransform
+from .loading import run_with_loading_screen
+from .scene import SimScene
+from .tracking import build_vehicle_sim, find_lookahead
+from .video import VideoWriter
 
 logger = logging.getLogger(__name__)
 

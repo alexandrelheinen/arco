@@ -189,3 +189,74 @@ def test_early_stop_terminates_before_full_iterations():
         start, goal
     )
     assert len(nodes_early) <= len(nodes_full)
+
+
+# ---------------------------------------------------------------------------
+# Vector step_size (per-dimension scaling)
+# ---------------------------------------------------------------------------
+
+
+def test_vector_step_size_construction():
+    """Vector step_size is stored as a numpy array."""
+    occ = _empty_occupancy()
+    step = np.array([0.5, 2.0])
+    planner = SSTPlanner(occ, bounds=BOUNDS_2D, step_size=step)
+    assert np.array_equal(planner.step_size, step)
+
+
+def test_vector_step_size_zero_element_raises():
+    """A zero in the step_size vector must raise ValueError."""
+    occ = _empty_occupancy()
+    with pytest.raises(ValueError, match="step_size must be positive"):
+        SSTPlanner(occ, bounds=BOUNDS_2D, step_size=[0.5, 0.0])
+
+
+def test_vector_step_size_finds_path_heterogeneous_space():
+    """SST succeeds with strongly anisotropic step scales."""
+    occ = _empty_occupancy()
+    planner = SSTPlanner(
+        occ,
+        bounds=BOUNDS_2D,
+        max_sample_count=3000,
+        step_size=np.array([0.5, 2.0]),
+        goal_tolerance=1.0,
+        witness_radius=0.5,
+        goal_bias=0.15,
+    )
+    path = planner.plan(np.array([0.5, 0.5]), np.array([9.5, 9.5]))
+    assert path is not None
+    assert np.allclose(path[0], [0.5, 0.5])
+    assert np.allclose(path[-1], [9.5, 9.5])
+
+
+def test_vector_step_size_mixed_units_3d():
+    """SST finds a path in a (x, y, psi) space with mixed-unit axes."""
+    BOUNDS_3D = [(0.0, 5.0), (0.0, 5.0), (-np.pi, np.pi)]
+    occ3d = KDTreeOccupancy([[100.0, 100.0, 0.0]], clearance=0.1)
+    planner = SSTPlanner(
+        occ3d,
+        bounds=BOUNDS_3D,
+        max_sample_count=5000,
+        step_size=np.array([0.4, 0.4, 0.15]),
+        goal_tolerance=1.2,
+        witness_radius=0.5,
+        goal_bias=0.15,
+    )
+    start = np.array([0.3, 0.3, -np.pi / 4])
+    goal = np.array([4.7, 4.7, np.pi / 4])
+    path = planner.plan(start, goal)
+    assert path is not None
+    assert np.allclose(path[0], start)
+    assert np.allclose(path[-1], goal)
+
+
+def test_vector_step_size_steer_respects_per_dimension():
+    """_steer must not exceed one normalized step."""
+    occ = _empty_occupancy()
+    step = np.array([0.3, 2.0])
+    planner = SSTPlanner(occ, bounds=BOUNDS_2D, step_size=step)
+    from_pt = np.array([0.0, 0.0])
+    to_pt = np.array([10.0, 10.0])
+    new_pt = planner._steer(from_pt, to_pt)
+    norm_dist = float(np.linalg.norm((new_pt - from_pt) / step))
+    assert norm_dist <= 1.0 + 1e-9

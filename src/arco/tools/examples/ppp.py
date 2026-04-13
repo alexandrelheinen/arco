@@ -23,25 +23,11 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
-import sys
 import time
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "simulator"))
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from logging_config import configure_logging
-from scenes.ppp import BOXES as _BOXES
-from scenes.ppp import GOAL as _GOAL
-from scenes.ppp import START as _START
-from scenes.ppp import (
-    _sample_box_surface,
-)
-from scenes.ppp import is_wall as _is_wall
 
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import (
@@ -49,7 +35,15 @@ from arco.planning.continuous import (
     SSTPlanner,
     TrajectoryOptimizer,
 )
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator.logging_config import configure_logging
+from arco.tools.simulator.scenes.ppp import BOXES as _BOXES
+from arco.tools.simulator.scenes.ppp import GOAL as _GOAL
+from arco.tools.simulator.scenes.ppp import START as _START
+from arco.tools.simulator.scenes.ppp import (
+    _sample_box_surface,
+)
+from arco.tools.simulator.scenes.ppp import is_wall as _is_wall
 
 logger = logging.getLogger(__name__)
 

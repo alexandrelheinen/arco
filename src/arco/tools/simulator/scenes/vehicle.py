@@ -7,10 +7,10 @@ import time
 from typing import Any
 
 import numpy as np
-import renderer_gl
-from sim.tracking import VehicleConfig
 
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator import renderer_gl
+from arco.tools.simulator.sim.tracking import VehicleConfig
 
 _COLORS = load_config("colors")
 

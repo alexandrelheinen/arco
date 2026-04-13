@@ -29,6 +29,7 @@ def circle() -> CircleBody:
 def array4() -> ActuatorArray:
     return ActuatorArray(actuator_count=4, standoff=0.05)
 
+
 # ---------------------------------------------------------------------------
 # Init
 # ---------------------------------------------------------------------------
@@ -215,7 +216,9 @@ class TestSecondOrderParams:
         assert a.zeta == pytest.approx(1.0)
         assert a.spring_stiffness == pytest.approx(200.0)
 
-    def test_angle_velocities_initially_zero(self, array4: ActuatorArray) -> None:
+    def test_angle_velocities_initially_zero(
+        self, array4: ActuatorArray
+    ) -> None:
         np.testing.assert_array_almost_equal(
             array4.angle_velocities, np.zeros(4)
         )
@@ -226,9 +229,7 @@ class TestSecondOrderParams:
     def test_ref_angles_match_initial_angles(
         self, array4: ActuatorArray
     ) -> None:
-        np.testing.assert_array_almost_equal(
-            array4.ref_angles, array4.angles
-        )
+        np.testing.assert_array_almost_equal(array4.ref_angles, array4.angles)
 
 
 # ---------------------------------------------------------------------------
@@ -501,9 +502,9 @@ class TestConvergenceDegradation:
     def test_fast_actuators_converge(self) -> None:
         """Fast actuators must produce small steady-state wrench residual."""
         residual = self._simulate_wrench_residual(omega=30.0, steps=600)
-        assert residual < 1.0, (
-            f"Expected residual < 1.0 for fast actuators, got {residual:.4f}"
-        )
+        assert (
+            residual < 1.0
+        ), f"Expected residual < 1.0 for fast actuators, got {residual:.4f}"
 
     def test_slow_actuators_still_reduce_residual_over_time(self) -> None:
         """Even slow actuators must improve from their initial residual."""
@@ -532,9 +533,9 @@ class TestConvergenceDegradation:
             a.compute_ref_radii(body, f_des)
             a.step_actuators(dt)
         late_residual = residual()
-        assert late_residual < early_residual or late_residual < 0.5, (
-            f"Slow actuators: early {early_residual:.4f}, late {late_residual:.4f}"
-        )
+        assert (
+            late_residual < early_residual or late_residual < 0.5
+        ), f"Slow actuators: early {early_residual:.4f}, late {late_residual:.4f}"
 
 
 # ---------------------------------------------------------------------------

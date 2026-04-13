@@ -36,12 +36,17 @@ class SSTPlanner(ContinuousPlanner):
         occupancy: The occupancy map used for collision checking.
         bounds: Axis-aligned sampling bounds as ``[(min, max), …]``.
         max_sample_count: Maximum number of propagation attempts.
-        step_size: Maximum extension step size (world units).
-        goal_tolerance: Distance at which a node is considered to have
-            reached the goal.
-        witness_radius: Witness cell half-width (δ_s).  Controls tree
-            sparsity: smaller values → denser tree → better optimality.
-            Must be less than *step_size* to allow tree growth.
+        step_size: Per-dimension maximum extension as a scalar or 1-D
+            array of shape ``(D,)``.  All distances (nearest-neighbor
+            selection, witness proximity, goal check) are measured in the
+            space normalized by these scales.  A scalar is broadcast to
+            all dimensions.
+        goal_tolerance: Distance threshold in normalized units at which a
+            node is considered to have reached the goal.
+        witness_radius: Witness cell half-width (δ_s) in normalized units.
+            Controls tree sparsity: smaller values → denser tree → better
+            optimality.  Must be less than 1.0 (one normalized step) to
+            allow tree growth.
         collision_check_count: Segment resolution for collision checks.
         goal_bias: Probability of sampling the goal state directly.
         early_stop: If ``True``, terminate as soon as the first node within
@@ -54,7 +59,7 @@ class SSTPlanner(ContinuousPlanner):
         occupancy: Occupancy,
         bounds: Sequence[Tuple[float, float]],
         max_sample_count: int = 3000,
-        step_size: float = 1.0,
+        step_size: float | np.ndarray = 1.0,
         goal_tolerance: float = 1.0,
         witness_radius: float = 0.5,
         collision_check_count: int = 10,
@@ -67,26 +72,30 @@ class SSTPlanner(ContinuousPlanner):
             occupancy: The occupancy map for collision checking.
             bounds: Sampling bounds as ``[(min_0, max_0), …]``.
             max_sample_count: Maximum number of iterations.
-            step_size: Maximum extension step size (world units).
-            goal_tolerance: Distance to goal that triggers path extraction.
-            witness_radius: Half-width of witness cells (δ_s).  Should be
-                less than *step_size* to allow tree growth.
+            step_size: Per-dimension maximum extension as a scalar or 1-D
+                array of shape ``(D,)``.  All distances are measured in the
+                space normalized by these scales.
+            goal_tolerance: Distance in normalized units that triggers path
+                extraction.
+            witness_radius: Half-width of witness cells (δ_s) in normalized
+                units.  Should be less than 1.0 to allow tree growth.
             collision_check_count: Segment resolution for collision checks.
             goal_bias: Probability of sampling the goal directly.
             early_stop: If ``True``, stop at the first node that reaches the
                 goal.  If ``False``, run all iterations to optimize cost.
 
         Raises:
-            ValueError: If *bounds* is empty or *step_size* is not positive.
+            ValueError: If *bounds* is empty or any element of *step_size*
+                is not positive.
         """
         super().__init__(occupancy)
         if not bounds:
             raise ValueError("bounds must not be empty.")
-        if step_size <= 0:
+        self.step_size = np.asarray(step_size, dtype=float)
+        if np.any(self.step_size <= 0):
             raise ValueError(f"step_size must be positive, got {step_size!r}.")
         self.bounds = list(bounds)
         self.max_sample_count = max_sample_count
-        self.step_size = step_size
         self.goal_tolerance = goal_tolerance
         self.witness_radius = witness_radius
         self.collision_check_count = collision_check_count
@@ -211,7 +220,7 @@ class SSTPlanner(ContinuousPlanner):
                 continue
 
             new_cost = cost[x_selected_idx] + float(
-                np.linalg.norm(x_new - x_selected)
+                np.linalg.norm((x_new - x_selected) / self.step_size)
             )
 
             # --- Witness update ------------------------------------------
@@ -242,7 +251,9 @@ class SSTPlanner(ContinuousPlanner):
             witness_rep[w_idx] = new_idx
 
             # --- Goal check ----------------------------------------------
-            dist_to_goal = float(np.linalg.norm(x_new - goal))
+            dist_to_goal = float(
+                np.linalg.norm((x_new - goal) / self.step_size)
+            )
             if (
                 dist_to_goal <= self.goal_tolerance
                 and new_cost < best_goal_cost
@@ -346,24 +357,27 @@ class SSTPlanner(ContinuousPlanner):
             return None
         return min(
             active,
-            key=lambda i: float(np.linalg.norm(nodes[i] - x_rand)),
+            key=lambda i: float(
+                np.linalg.norm((nodes[i] - x_rand) / self.step_size)
+            ),
         )
 
     def _steer(self, from_pt: np.ndarray, to_pt: np.ndarray) -> np.ndarray:
-        """Move from *from_pt* toward *to_pt* by at most :attr:`step_size`.
+        """Move from *from_pt* toward *to_pt* by at most one normalized step.
 
         Args:
             from_pt: Origin position.
             to_pt: Target position.
 
         Returns:
-            New position at most :attr:`step_size` away from *from_pt*.
+            New position at most one :attr:`step_size` away from *from_pt*
+            in normalized space.
         """
         delta = to_pt - from_pt
-        dist = float(np.linalg.norm(delta))
-        if dist <= self.step_size:
+        dist = float(np.linalg.norm(delta / self.step_size))
+        if dist <= 1.0:
             return to_pt.copy()
-        return from_pt + (delta / dist) * self.step_size
+        return from_pt + delta / dist
 
     def _nearest_witness(
         self,
@@ -383,7 +397,7 @@ class SSTPlanner(ContinuousPlanner):
         best_idx: Optional[int] = None
         best_dist = math.inf
         for i, w in enumerate(witnesses):
-            d = float(np.linalg.norm(w - point))
+            d = float(np.linalg.norm((w - point) / self.step_size))
             if d < best_dist and d <= self.witness_radius:
                 best_dist = d
                 best_idx = i

@@ -18,18 +18,10 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
-import sys
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", ".."))
-sys.path.insert(0, os.path.join(_HERE, ".."))
-
-from city import run_race
-from scenes.vehicle import VehicleScene
-
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator.main.city import run_race
+from arco.tools.simulator.scenes.vehicle import VehicleScene
 
 
 def main() -> None:

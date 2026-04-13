@@ -37,12 +37,6 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 
-#: Absolute path to the ``tools/`` directory (two levels above this file).
-_TOOLS_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-#: Absolute path to the ``tools/simulator/`` directory (for scenes imports).
-_SIMULATOR_DIR: str = os.path.join(_TOOLS_DIR, "simulator")
-
 #: Supported scenario names — must match modules in ``tools/examples/``.
 SUPPORTED_SCENARIOS: frozenset[str] = frozenset(
     {"astar", "city", "occ", "ppp", "rr", "rrp", "vehicle"}
@@ -52,18 +46,6 @@ SUPPORTED_SCENARIOS: frozenset[str] = frozenset(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _setup_import_paths() -> None:
-    """Prepend ``tools/`` and ``tools/simulator/`` to ``sys.path``.
-
-    This allows the example modules (which use relative-style imports such as
-    ``from config import load_config``) to locate their dependencies without
-    needing to be installed as proper packages.
-    """
-    for path in (_TOOLS_DIR, _SIMULATOR_DIR):
-        if path not in sys.path:
-            sys.path.insert(0, path)
 
 
 def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
@@ -124,7 +106,7 @@ def _dispatch(scenario: str, save_path: str | None) -> None:
     import importlib
 
     try:
-        mod = importlib.import_module(f"examples.{scenario}")
+        mod = importlib.import_module(f"arco.tools.examples.{scenario}")
     except ImportError as exc:
         if "pygame" in str(exc) or "OpenGL" in str(exc):
             print(
@@ -151,8 +133,8 @@ def _dispatch(scenario: str, save_path: str | None) -> None:
 def main() -> None:
     """Entry point for the ``arcoex`` CLI.
 
-    Parses CLI arguments, validates the scenario YAML file, sets up import
-    paths, and dispatches to the matching example handler.
+    Parses CLI arguments, validates the scenario YAML file, and dispatches
+    to the matching example handler.
 
     Raises:
         SystemExit: On any validation error or missing dependencies.
@@ -178,7 +160,6 @@ def main() -> None:
     args = parser.parse_args()
 
     scenario, _ = _load_scenario(args.scenario_file)
-    _setup_import_paths()
     _dispatch(scenario, args.save)
 
 

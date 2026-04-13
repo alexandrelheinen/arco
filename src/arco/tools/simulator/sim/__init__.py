@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from sim.loop import run_sim
+from .loop import run_sim
 
 __all__ = ["run_sim"]

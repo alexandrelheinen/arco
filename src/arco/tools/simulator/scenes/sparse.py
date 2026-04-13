@@ -29,11 +29,11 @@ import time
 from typing import Any
 
 import numpy as np
-import renderer_gl
 from scipy.spatial import Delaunay as _Delaunay
-from sim.tracking import VehicleConfig
 
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator import renderer_gl
+from arco.tools.simulator.sim.tracking import VehicleConfig
 
 logger = logging.getLogger(__name__)
 

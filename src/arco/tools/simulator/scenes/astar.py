@@ -13,9 +13,10 @@ from typing import Any
 
 import numpy as np
 import pygame
-import renderer_gl
-from sim.scene import SimScene
-from sim.tracking import VehicleConfig
+
+from arco.tools.simulator import renderer_gl
+from arco.tools.simulator.sim.scene import SimScene
+from arco.tools.simulator.sim.tracking import VehicleConfig
 
 # Small metric offset applied to start/goal to exercise the projection logic.
 _ENDPOINT_OFFSET_M = 1.0

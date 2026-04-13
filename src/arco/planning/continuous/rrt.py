@@ -34,14 +34,19 @@ class RRTPlanner(ContinuousPlanner):
         bounds: Axis-aligned bounding box for random sampling given as a
             sequence of ``(min, max)`` pairs — one per spatial dimension.
         max_sample_count: Maximum number of iterations (tree extensions).
-        step_size: Maximum extension length per iteration (world units).
-        goal_tolerance: Distance threshold within which a node is
-            considered to have reached the goal.
-        rewire_radius: Search radius for RRT* rewiring.  When ``None`` the
-            radius shrinks as ``gamma * (log(n)/n)^(1/d)`` where *n* is
-            the current tree size, *d* the dimension, and *gamma* is
-            computed from the sampling volume to guarantee asymptotic
-            optimality.
+        step_size: Per-dimension maximum extension as a scalar or 1-D
+            array of shape ``(D,)``.  All distances (nearest-neighbor,
+            rewire radius, goal check) are measured in the space
+            normalized by these scales, so dimensions in different units
+            (e.g. metres and radians) are handled correctly without one
+            axis dominating.  A scalar is broadcast to all dimensions.
+        goal_tolerance: Distance threshold in normalized units within
+            which a node is considered to have reached the goal.
+        rewire_radius: Search radius for RRT* rewiring in normalized
+            units.  When ``None`` the radius shrinks as
+            ``gamma * (log(n)/n)^(1/d)`` where *n* is the current tree
+            size, *d* the dimension, and *gamma* is computed from the
+            normalized sampling volume to guarantee asymptotic optimality.
         collision_check_count: Number of intermediate points used when
             checking a new edge for collisions.
         goal_bias: Probability of sampling the goal state directly instead
@@ -57,7 +62,7 @@ class RRTPlanner(ContinuousPlanner):
         occupancy: Occupancy,
         bounds: Sequence[Tuple[float, float]],
         max_sample_count: int = 2000,
-        step_size: float = 1.0,
+        step_size: float | np.ndarray = 1.0,
         goal_tolerance: float = 1.0,
         rewire_radius: Optional[float] = None,
         collision_check_count: int = 10,
@@ -70,25 +75,33 @@ class RRTPlanner(ContinuousPlanner):
             occupancy: The occupancy map for collision checking.
             bounds: Sampling bounds as ``[(min_0, max_0), …, (min_d, max_d)]``.
             max_sample_count: Maximum number of iterations.
-            step_size: Maximum extension step size (world units).
-            goal_tolerance: Distance to goal that triggers path extraction.
-            rewire_radius: Fixed rewire radius.  Adaptive when ``None``.
+            step_size: Per-dimension maximum step as a scalar or a 1-D
+                array of shape ``(D,)``.  All distances and the rewire
+                radius are measured in the space normalized by these
+                scales, so different units across dimensions (e.g. metres
+                vs. radians) are handled correctly.  A scalar is broadcast
+                to all dimensions.
+            goal_tolerance: Distance to goal (in normalized units) that
+                triggers path extraction.
+            rewire_radius: Fixed rewire radius (normalized units).  When
+                ``None`` the radius adapts via the RRT* formula.
             collision_check_count: Segment resolution for collision checks.
             goal_bias: Probability of sampling the goal directly.
             early_stop: If ``True``, stop at the first node that reaches the
                 goal.  If ``False``, run all iterations to optimize cost.
 
         Raises:
-            ValueError: If *bounds* is empty or *step_size* is not positive.
+            ValueError: If *bounds* is empty or any element of *step_size*
+                is not positive.
         """
         super().__init__(occupancy)
         if not bounds:
             raise ValueError("bounds must not be empty.")
-        if step_size <= 0:
+        self.step_size = np.asarray(step_size, dtype=float)
+        if np.any(self.step_size <= 0):
             raise ValueError(f"step_size must be positive, got {step_size!r}.")
         self.bounds = list(bounds)
         self.max_sample_count = max_sample_count
-        self.step_size = step_size
         self.goal_tolerance = goal_tolerance
         self._fixed_rewire_radius = rewire_radius
         self.collision_check_count = collision_check_count
@@ -161,12 +174,14 @@ class RRTPlanner(ContinuousPlanner):
             # --- Choose best parent --------------------------------------
             best_parent_idx = nearest_idx
             best_cost = cost[nearest_idx] + float(
-                np.linalg.norm(x_new - x_nearest)
+                np.linalg.norm((x_new - x_nearest) / self.step_size)
             )
             for idx in near_idxs:
                 if idx == nearest_idx:
                     continue
-                c = cost[idx] + float(np.linalg.norm(x_new - nodes[idx]))
+                c = cost[idx] + float(
+                    np.linalg.norm((x_new - nodes[idx]) / self.step_size)
+                )
                 if c < best_cost and self._segment_free(nodes[idx], x_new):
                     best_cost = c
                     best_parent_idx = idx
@@ -182,7 +197,7 @@ class RRTPlanner(ContinuousPlanner):
                 if idx == best_parent_idx:
                     continue
                 c_through_new = best_cost + float(
-                    np.linalg.norm(nodes[idx] - x_new)
+                    np.linalg.norm((nodes[idx] - x_new) / self.step_size)
                 )
                 if c_through_new < cost[idx] and self._segment_free(
                     x_new, nodes[idx]
@@ -191,7 +206,9 @@ class RRTPlanner(ContinuousPlanner):
                     cost[idx] = c_through_new
 
             # --- Goal check -----------------------------------------------
-            dist_to_goal = float(np.linalg.norm(x_new - goal))
+            dist_to_goal = float(
+                np.linalg.norm((x_new - goal) / self.step_size)
+            )
             if (
                 dist_to_goal <= self.goal_tolerance
                 and best_cost < best_goal_cost
@@ -282,12 +299,14 @@ class RRTPlanner(ContinuousPlanner):
 
             best_parent_idx = nearest_idx
             best_cost = cost[nearest_idx] + float(
-                np.linalg.norm(x_new - x_nearest)
+                np.linalg.norm((x_new - x_nearest) / self.step_size)
             )
             for idx in near_idxs:
                 if idx == nearest_idx:
                     continue
-                c = cost[idx] + float(np.linalg.norm(x_new - nodes[idx]))
+                c = cost[idx] + float(
+                    np.linalg.norm((x_new - nodes[idx]) / self.step_size)
+                )
                 if c < best_cost and self._segment_free(nodes[idx], x_new):
                     best_cost = c
                     best_parent_idx = idx
@@ -301,7 +320,7 @@ class RRTPlanner(ContinuousPlanner):
                 if idx == best_parent_idx:
                     continue
                 c_through_new = best_cost + float(
-                    np.linalg.norm(nodes[idx] - x_new)
+                    np.linalg.norm((nodes[idx] - x_new) / self.step_size)
                 )
                 if c_through_new < cost[idx] and self._segment_free(
                     x_new, nodes[idx]
@@ -309,7 +328,9 @@ class RRTPlanner(ContinuousPlanner):
                     parent[idx] = new_idx
                     cost[idx] = c_through_new
 
-            dist_to_goal = float(np.linalg.norm(x_new - goal))
+            dist_to_goal = float(
+                np.linalg.norm((x_new - goal) / self.step_size)
+            )
             if (
                 dist_to_goal <= self.goal_tolerance
                 and best_cost < best_goal_cost
@@ -346,6 +367,8 @@ class RRTPlanner(ContinuousPlanner):
     def _nearest(self, nodes: List[np.ndarray], point: np.ndarray) -> int:
         """Return the index of the node in *nodes* closest to *point*.
 
+        Distance is measured in the space normalized by :attr:`step_size`.
+
         Args:
             nodes: Current tree nodes.
             point: Query point as a numpy array.
@@ -353,34 +376,42 @@ class RRTPlanner(ContinuousPlanner):
         Returns:
             Index of the nearest node in *nodes*.
         """
-        dists = [float(np.linalg.norm(n - point)) for n in nodes]
+        dists = [
+            float(np.linalg.norm((n - point) / self.step_size)) for n in nodes
+        ]
         return int(np.argmin(dists))
 
     def _steer(self, from_pt: np.ndarray, to_pt: np.ndarray) -> np.ndarray:
-        """Move from *from_pt* toward *to_pt* by at most :attr:`step_size`.
+        """Move from *from_pt* toward *to_pt* by at most one normalized step.
+
+        The step is limited to unit length in the space normalized by
+        :attr:`step_size`, so each dimension is bounded by its own scale.
 
         Args:
             from_pt: Origin position.
             to_pt: Target position.
 
         Returns:
-            New position at most :attr:`step_size` away from *from_pt*.
+            New position at most one :attr:`step_size` away from *from_pt*
+            in normalized space.
         """
         delta = to_pt - from_pt
-        dist = float(np.linalg.norm(delta))
-        if dist <= self.step_size:
+        dist = float(np.linalg.norm(delta / self.step_size))
+        if dist <= 1.0:
             return to_pt.copy()
-        return from_pt + (delta / dist) * self.step_size
+        return from_pt + delta / dist
 
     def _near(
         self, nodes: List[np.ndarray], point: np.ndarray, radius: float
     ) -> List[int]:
         """Return indices of all nodes within *radius* of *point*.
 
+        Distance is measured in the space normalized by :attr:`step_size`.
+
         Args:
             nodes: Current tree nodes.
             point: Query point.
-            radius: Search radius.
+            radius: Search radius (normalized units).
 
         Returns:
             List of node indices within the radius.
@@ -388,24 +419,32 @@ class RRTPlanner(ContinuousPlanner):
         return [
             i
             for i, n in enumerate(nodes)
-            if float(np.linalg.norm(n - point)) <= radius
+            if float(np.linalg.norm((n - point) / self.step_size)) <= radius
         ]
 
     def _rewire_radius(self, node_count: int) -> float:
-        """Compute the adaptive RRT* rewire radius.
+        """Compute the adaptive RRT* rewire radius in normalized units.
+
+        The volume is computed in the normalized space (each axis divided
+        by its step scale), so the returned radius is dimensionless and
+        consistent with the distances used throughout the planner.
 
         Args:
             node_count: Current number of nodes in the tree.
 
         Returns:
-            Rewire radius (world units).
+            Rewire radius (normalized units).
         """
         if self._fixed_rewire_radius is not None:
             return self._fixed_rewire_radius
         if node_count <= 1:
-            return self.step_size
-        # gamma_star formula from Karaman & Frazzoli (2011)
-        vol = math.prod(b[1] - b[0] for b in self.bounds)
+            return 1.0
+        # Broadcast scalar step_size to length _dim for per-axis division.
+        scale = np.broadcast_to(np.atleast_1d(self.step_size), (self._dim,))
+        # gamma_star formula from Karaman & Frazzoli (2011), normalized space.
+        vol = math.prod(
+            (b[1] - b[0]) / float(s) for b, s in zip(self.bounds, scale)
+        )
         d = self._dim
         unit_ball_vol = (math.pi ** (d / 2.0)) / math.gamma(d / 2.0 + 1)
         gamma = (
@@ -416,7 +455,7 @@ class RRTPlanner(ContinuousPlanner):
         return float(
             min(
                 gamma * (math.log(node_count) / node_count) ** (1.0 / d),
-                self.step_size * 2,
+                2.0,
             )
         )
 

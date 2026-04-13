@@ -37,16 +37,6 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 
-#: Absolute path to the ``tools/`` directory (two levels above this file).
-_TOOLS_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-#: Absolute path to the ``tools/simulator/`` directory (for scenes imports).
-_SIMULATOR_DIR: str = os.path.join(_TOOLS_DIR, "simulator")
-
-#: Absolute path to the ``tools/simulator/main/`` directory (for sibling
-#: imports such as ``from city import run_race`` inside ``vehicle.py``).
-_SIMULATOR_MAIN_DIR: str = os.path.join(_SIMULATOR_DIR, "main")
-
 #: Supported scenario names — must match modules in
 #: ``tools/simulator/main/``.
 SUPPORTED_SCENARIOS: frozenset[str] = frozenset(
@@ -57,21 +47,6 @@ SUPPORTED_SCENARIOS: frozenset[str] = frozenset(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _setup_import_paths() -> None:
-    """Prepend ``tools/``, ``tools/simulator/``, and ``tools/simulator/main/`` to ``sys.path``.
-
-    This allows the simulator modules (which use relative-style imports such
-    as ``import renderer_gl`` or ``from scenes.city import CityScene``) to
-    locate their dependencies without needing to be installed as packages.
-    ``simulator/main/`` is also included so that sibling-module imports like
-    ``from city import run_race`` inside ``vehicle.py`` are resolved correctly
-    when the module is loaded via ``importlib`` rather than run as a script.
-    """
-    for path in (_TOOLS_DIR, _SIMULATOR_DIR, _SIMULATOR_MAIN_DIR):
-        if path not in sys.path:
-            sys.path.insert(0, path)
 
 
 def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
@@ -164,7 +139,7 @@ def _dispatch(
     saved_argv = sys.argv
     sys.argv = sim_argv
     try:
-        mod = importlib.import_module(f"simulator.main.{scenario}")
+        mod = importlib.import_module(f"arco.tools.simulator.main.{scenario}")
         mod.main()
     finally:
         sys.argv = saved_argv
@@ -178,8 +153,8 @@ def _dispatch(
 def main() -> None:
     """Entry point for the ``arcosim`` CLI.
 
-    Parses CLI arguments, validates the scenario YAML file, sets up import
-    paths, and dispatches to the matching simulator handler.
+    Parses CLI arguments, validates the scenario YAML file, and dispatches
+    to the matching simulator handler.
 
     Unknown flags are forwarded verbatim to the underlying simulator so that
     scenario-specific options (e.g. ``--fps``, ``--dt``, ``--camera``) can be
@@ -217,7 +192,6 @@ def main() -> None:
     args, extra_argv = parser.parse_known_args()
 
     scenario, _ = _load_scenario(args.scenario_file)
-    _setup_import_paths()
     _dispatch(scenario, args.record, args.record_duration, extra_argv)
 
 

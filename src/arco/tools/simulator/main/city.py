@@ -33,17 +33,9 @@ import argparse
 import logging
 import math
 import os
-import sys
 from typing import Any
 
-# Make arco and tools packages importable without a full install.
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", ".."))
-sys.path.insert(0, os.path.join(_HERE, ".."))
-
 import pygame
-import renderer_gl
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
@@ -59,12 +51,17 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
-from scenes.sparse import CityScene
-from sim.loading import run_with_loading_screen
-from sim.tracking import VehicleConfig, build_vehicle_sim, find_lookahead
-from sim.video import VideoWriter
 
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator import renderer_gl
+from arco.tools.simulator.scenes.sparse import CityScene
+from arco.tools.simulator.sim.loading import run_with_loading_screen
+from arco.tools.simulator.sim.tracking import (
+    VehicleConfig,
+    build_vehicle_sim,
+    find_lookahead,
+)
+from arco.tools.simulator.sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
 

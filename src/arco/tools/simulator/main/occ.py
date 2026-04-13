@@ -29,23 +29,17 @@ from __future__ import annotations
 import argparse
 import logging
 import math
-import os
 import sys
-
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", ".."))
-sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import numpy as np
 import pygame
-from logging_config import configure_logging
-from scenes.occ import OCCScene
 
 from arco.control import ActuatorArray
 from arco.control.rigid_body import CircleBody, SquareBody
 from arco.mapping import KDTreeOccupancy
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator.logging_config import configure_logging
+from arco.tools.simulator.scenes.occ import OCCScene
 
 logger = logging.getLogger(__name__)
 

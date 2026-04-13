@@ -306,11 +306,24 @@ class OCCScene:
             obstacles=obstacles,
             x_range=(x_range[0], x_range[1]),
             y_range=(y_range[0], y_range[1]),
-            clearance=float(self._planner_cfg.get("goal_tolerance", 0.25)),
+            clearance=float(
+                self._planner_cfg.get(
+                    "cspace_clearance",
+                    self._planner_cfg.get("goal_tolerance", 0.25),
+                )
+            ),
             grid_n=grid_n,
             psi_n=16,
         )
         self._collision_pts = collision_pts
+
+        # step_size may be a scalar or a per-dimension list/array.
+        _raw_step = self._planner_cfg.get("step_size", 0.2)
+        _step_size: float | np.ndarray = (
+            np.array(_raw_step, dtype=float)
+            if isinstance(_raw_step, list)
+            else float(_raw_step)
+        )
 
         if progress is not None:
             progress("Running RRT*", 2, _total)
@@ -320,7 +333,7 @@ class OCCScene:
             max_sample_count=int(
                 self._planner_cfg.get("rrt_max_sample_count", 10000)
             ),
-            step_size=float(self._planner_cfg.get("step_size", 0.2)),
+            step_size=_step_size,
             goal_tolerance=float(
                 self._planner_cfg.get("goal_tolerance", 0.25)
             ),
@@ -358,7 +371,7 @@ class OCCScene:
             max_sample_count=int(
                 self._planner_cfg.get("sst_max_sample_count", 15000)
             ),
-            step_size=float(self._planner_cfg.get("step_size", 0.2)),
+            step_size=_step_size,
             goal_tolerance=float(
                 self._planner_cfg.get("goal_tolerance", 0.25)
             ),
@@ -367,7 +380,7 @@ class OCCScene:
             ),
             goal_bias=float(self._planner_cfg.get("goal_bias", 0.10)),
             witness_radius=float(
-                self._planner_cfg.get("witness_radius", 0.10)
+                self._planner_cfg.get("witness_radius", 0.50)
             ),
             early_stop=True,
         )
