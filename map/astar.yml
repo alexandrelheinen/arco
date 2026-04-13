@@ -24,8 +24,8 @@ vehicle:
     cruise_speed: 1.0
     lookahead: 0.5
     max_speed: 5.0
-    max_turn_rate: 180.0
+    max_turn_rate: 90.0
     max_accel: 5.0
-    max_turn_rate_dot: 3600.0
+    max_turn_rate_dot: 1000.0
     goal_radius: 1.0
-    curvature_gain: 5.0
+    curvature_gain: 0.03

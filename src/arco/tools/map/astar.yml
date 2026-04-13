@@ -1,0 +1,31 @@
+scenario: astar
+
+# Unified A* scenario config used by:
+# - tools/examples/astar.py (grid visualization)
+# - tools/simulator/main/astar.py (road-network tracking)
+
+grid:
+  physical_size: [50.0, 50.0]
+  cell_size: 1.0
+  obstacle_fraction: 0.28
+
+graph:
+  seed: 42
+  type: ring
+  width: 50
+  height: 50
+  mean_edge_length: 7
+  hole_count: 3
+  hole_radius: 4
+  curvature: 0.1
+
+vehicle:
+  dubins:
+    cruise_speed: 1.0
+    lookahead: 0.5
+    max_speed: 5.0
+    max_turn_rate: 90.0
+    max_accel: 5.0
+    max_turn_rate_dot: 1000.0
+    goal_radius: 1.0
+    curvature_gain: 0.03

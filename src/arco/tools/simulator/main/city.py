@@ -52,7 +52,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glShadeModel,
 )
 
-from arco.tools.config import load_config
+from arco.config import load_config
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.scenes.sparse import CityScene
 from arco.tools.simulator.sim.loading import run_with_loading_screen
@@ -873,7 +873,7 @@ def _draw_race_hud(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def main(cfg: dict) -> None:
     """Parse CLI arguments and launch the cul-de-sac race."""
     logging.basicConfig(
         level=logging.INFO,
@@ -910,7 +910,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cfg = load_config("city")
     scene = CityScene(cfg.get("planner", {}), cfg.get("world", {}))
     run_race(
         scene,
@@ -922,4 +921,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse as _argparse
+
+    import yaml as _yaml
+
+    _parser = _argparse.ArgumentParser()
+    _parser.add_argument("scenario", metavar="FILE")
+    _args, _rest = _parser.parse_known_args()
+    with open(_args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    import sys as _sys
+
+    _sys.argv = [_sys.argv[0], *_rest]
+    main(_cfg)

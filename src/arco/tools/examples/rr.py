@@ -42,7 +42,6 @@ from arco.planning.continuous import (
     SSTPlanner,
     TrajectoryOptimizer,
 )
-from arco.tools.config import load_config
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.rr import (
     build_cspace_occupancy,
@@ -50,12 +49,6 @@ from arco.tools.simulator.scenes.rr import (
 )
 
 logger = logging.getLogger(__name__)
-
-_cfg = load_config("rr")
-_robot_cfg = _cfg.get("robot", _cfg)
-_env_cfg = _cfg.get("environment", _cfg)
-_planner_cfg = _cfg.get("planner", _cfg)
-_sim_cfg = _cfg.get("simulator", _cfg)
 
 # Minimum annulus inner radius below which the inner-hole outline is skipped.
 _INNER_RADIUS_THRESHOLD: float = 1e-6
@@ -138,7 +131,7 @@ def _fk_path(
 # ---------------------------------------------------------------------------
 
 
-def main(save_path: str | None = None) -> None:
+def main(cfg: dict, save_path: str | None = None) -> None:
     """Run the RR planning example and display or save the figure.
 
     Args:
@@ -162,16 +155,21 @@ def main(save_path: str | None = None) -> None:
     if save_path is not None:
         matplotlib.use("Agg")
 
-    # --- Setup -----------------------------------------------------------
-    robot = RRRobot(l1=float(_robot_cfg["l1"]), l2=float(_robot_cfg["l2"]))
-    obstacles: list[list[float]] = [
-        [float(v) for v in obs] for obs in _env_cfg["obstacles"]
-    ]
-    bounds = [tuple(b) for b in _env_cfg["bounds"]]
-    clearance = float(_env_cfg["obstacle_clearance"])
+    robot_cfg = cfg.get("robot", cfg)
+    env_cfg = cfg.get("environment", cfg)
+    planner_cfg = cfg.get("planner", cfg)
+    sim_cfg = cfg.get("simulator", cfg)
 
-    start_position = [float(v) for v in _env_cfg["start_position"]]
-    goal_position = [float(v) for v in _env_cfg["goal_position"]]
+    # --- Setup -----------------------------------------------------------
+    robot = RRRobot(l1=float(robot_cfg["l1"]), l2=float(robot_cfg["l2"]))
+    obstacles: list[list[float]] = [
+        [float(v) for v in obs] for obs in env_cfg["obstacles"]
+    ]
+    bounds = [tuple(b) for b in env_cfg["bounds"]]
+    clearance = float(env_cfg["obstacle_clearance"])
+
+    start_position = [float(v) for v in env_cfg["start_position"]]
+    goal_position = [float(v) for v in env_cfg["goal_position"]]
 
     start_q = pick_collision_free_ik(
         robot, start_position, obstacles, [-2.2, 1.8]
@@ -193,11 +191,11 @@ def main(save_path: str | None = None) -> None:
     rrt = RRTPlanner(
         occ,
         bounds=bounds,
-        max_sample_count=int(_planner_cfg["rrt_max_sample_count"]),
-        step_size=float(_planner_cfg["step_size"]),
-        goal_tolerance=float(_planner_cfg["goal_tolerance"]),
-        collision_check_count=int(_planner_cfg["collision_check_count"]),
-        goal_bias=float(_planner_cfg["goal_bias"]),
+        max_sample_count=int(planner_cfg["rrt_max_sample_count"]),
+        step_size=planner_cfg["step_size"],
+        goal_tolerance=float(planner_cfg["goal_tolerance"]),
+        collision_check_count=int(planner_cfg["collision_check_count"]),
+        goal_bias=float(planner_cfg["goal_bias"]),
         early_stop=True,
     )
     logger.info("Running RRT* in joint space …")
@@ -220,12 +218,12 @@ def main(save_path: str | None = None) -> None:
     sst = SSTPlanner(
         occ,
         bounds=bounds,
-        max_sample_count=int(_planner_cfg["sst_max_sample_count"]),
-        step_size=float(_planner_cfg["step_size"]),
-        goal_tolerance=float(_planner_cfg["goal_tolerance"]),
-        collision_check_count=int(_planner_cfg["collision_check_count"]),
-        goal_bias=float(_planner_cfg["goal_bias"]),
-        witness_radius=float(_planner_cfg["witness_radius"]),
+        max_sample_count=int(planner_cfg["sst_max_sample_count"]),
+        step_size=planner_cfg["step_size"],
+        goal_tolerance=float(planner_cfg["goal_tolerance"]),
+        collision_check_count=int(planner_cfg["collision_check_count"]),
+        goal_bias=float(planner_cfg["goal_bias"]),
+        witness_radius=float(planner_cfg["witness_radius"]),
         early_stop=True,
     )
     logger.info("Running SST in joint space …")
@@ -247,7 +245,7 @@ def main(save_path: str | None = None) -> None:
     # --- Trajectory optimization -----------------------------------------
     optimizer = TrajectoryOptimizer(
         occ,
-        cruise_speed=float(_sim_cfg.get("race_speed", 1.0)),
+        cruise_speed=float(sim_cfg.get("race_speed", 1.0)),
         weight_time=10.0,
         weight_deviation=1.0,
         weight_velocity=1.0,
@@ -570,4 +568,21 @@ def main(save_path: str | None = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import yaml as _yaml
+
+    parser = argparse.ArgumentParser(
+        description="RR robot arm planning example"
+    )
+    parser.add_argument(
+        "scenario", metavar="FILE", help="Path to scenario YAML file."
+    )
+    parser.add_argument(
+        "--save",
+        metavar="PATH",
+        default="",
+        help="Save the figure to this path instead of showing it.",
+    )
+    args = parser.parse_args()
+    with open(args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    main(_cfg, save_path=args.save or None)

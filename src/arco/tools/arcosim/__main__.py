@@ -63,11 +63,14 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
             missing, or the scenario name is not in
             :data:`SUPPORTED_SCENARIOS`.
     """
+    print(f"arcosim: loading scenario {path!r}...")
+
     if not os.path.isfile(path):
         print(f"arcosim: scenario file not found: {path!r}", file=sys.stderr)
         sys.exit(1)
     with open(path) as fh:
         cfg: dict[str, Any] = yaml.safe_load(fh) or {}
+
     scenario = cfg.get("scenario")
     if not scenario:
         print(
@@ -76,6 +79,9 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    print(f"arcosim: scenario declared: {scenario!r}")
+
     if scenario not in SUPPORTED_SCENARIOS:
         print(
             f"arcosim: unknown scenario {scenario!r}. "
@@ -88,6 +94,7 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
 
 def _dispatch(
     scenario: str,
+    cfg: dict[str, Any],
     record: str,
     record_duration: float,
     extra_argv: list[str],
@@ -105,6 +112,7 @@ def _dispatch(
 
     Args:
         scenario: Scenario name, e.g. ``"city"`` or ``"ppp"``.
+        cfg: Parsed scenario configuration dict (already loaded by the CLI).
         record: Output MP4 file path, or an empty string to run interactively.
         record_duration: Maximum recording duration in seconds.
         extra_argv: Additional flags forwarded verbatim to the simulator
@@ -140,7 +148,7 @@ def _dispatch(
     sys.argv = sim_argv
     try:
         mod = importlib.import_module(f"arco.tools.simulator.main.{scenario}")
-        mod.main()
+        mod.main(cfg)
     finally:
         sys.argv = saved_argv
 
@@ -191,8 +199,8 @@ def main() -> None:
     )
     args, extra_argv = parser.parse_known_args()
 
-    scenario, _ = _load_scenario(args.scenario_file)
-    _dispatch(scenario, args.record, args.record_duration, extra_argv)
+    scenario, cfg = _load_scenario(args.scenario_file)
+    _dispatch(scenario, cfg, args.record, args.record_duration, extra_argv)
 
 
 if __name__ == "__main__":

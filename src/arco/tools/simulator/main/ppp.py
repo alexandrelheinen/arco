@@ -105,7 +105,6 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex3f,
 )
 
-from arco.tools.config import load_config
 from arco.tools.simulator.scenes.ppp import BOUNDS as _SCENE_BOUNDS
 from arco.tools.simulator.scenes.ppp import PPPScene
 from arco.tools.simulator.scenes.ppp import is_wall as _is_wall_box
@@ -1256,7 +1255,7 @@ def run_race(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def main(cfg: dict) -> None:
     """Parse CLI arguments and launch the PPP 3-D OpenGL race simulation."""
     logging.basicConfig(
         level=logging.INFO,
@@ -1288,7 +1287,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cfg = load_config("ppp")
     scene = PPPScene(cfg)
     run_race(
         scene,
@@ -1300,4 +1298,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse as _argparse
+
+    import yaml as _yaml
+
+    _parser = _argparse.ArgumentParser()
+    _parser.add_argument("scenario", metavar="FILE")
+    _args, _rest = _parser.parse_known_args()
+    with open(_args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    import sys as _sys
+
+    _sys.argv = [_sys.argv[0], *_rest]
+    main(_cfg)

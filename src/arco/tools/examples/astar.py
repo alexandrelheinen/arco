@@ -33,22 +33,16 @@ import matplotlib.pyplot as plt
 
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
-from arco.tools.config import load_config
 from arco.tools.logging_config import configure_logging
 from arco.tools.viewer.grid import draw_grid
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Parameters (loaded from tools/config/astar.yml -> grid)
-# ---------------------------------------------------------------------------
-_cfg = load_config("astar").get("grid", {})
-
 
 def build_grid_with_obstacle(
-    physical_size: list[float] = [float(x) for x in _cfg["physical_size"]],
-    cell_size: float = float(_cfg["cell_size"]),
-    obstacle_fraction: float = float(_cfg["obstacle_fraction"]),
+    physical_size: list[float],
+    cell_size: float,
+    obstacle_fraction: float,
 ) -> ManhattanGrid:
     """Build a square Manhattan grid with a centered square obstacle.
 
@@ -73,11 +67,20 @@ def build_grid_with_obstacle(
     return grid
 
 
-def main(save_path: str | None = None) -> None:
+def main(cfg: dict, save_path: str | None = None) -> None:
     if save_path is not None:
         matplotlib.use("Agg")
 
-    grid = build_grid_with_obstacle()
+    grid_cfg = cfg.get("grid", {})
+    physical_size = [float(x) for x in grid_cfg["physical_size"]]
+    cell_size = float(grid_cfg["cell_size"])
+    obstacle_fraction = float(grid_cfg["obstacle_fraction"])
+
+    grid = build_grid_with_obstacle(
+        physical_size=physical_size,
+        cell_size=cell_size,
+        obstacle_fraction=obstacle_fraction,
+    )
     n = grid.shape[0]
     start = (0, 0)
     goal = (n - 1, n - 1)
@@ -85,7 +88,7 @@ def main(save_path: str | None = None) -> None:
     planner = AStarPlanner(grid)
     path = planner.plan(start, goal)
 
-    obs_size = int(n * float(_cfg["obstacle_fraction"]))
+    obs_size = int(n * obstacle_fraction)
     title = (
         f"A* on {n}×{n} Manhattan grid — central {obs_size}×{obs_size} obstacle\n"
         + (f"Path length: {len(path)} steps" if path else "No path found")
@@ -105,8 +108,13 @@ def main(save_path: str | None = None) -> None:
 
 
 if __name__ == "__main__":
+    import yaml as _yaml
+
     configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "scenario", metavar="FILE", help="Path to scenario YAML file."
+    )
     parser.add_argument(
         "--save",
         metavar="PATH",
@@ -114,4 +122,6 @@ if __name__ == "__main__":
         help="Save the figure to PATH instead of opening an interactive window.",
     )
     args = parser.parse_args()
-    main(save_path=args.save)
+    with open(args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    main(_cfg, save_path=args.save)

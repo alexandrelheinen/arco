@@ -1,0 +1,56 @@
+scenario: rr
+
+# RR (2-joint revolute-revolute) robot planning configuration.
+#
+# Planar SCARA-style arm operating in the XY plane.
+#   l1 = 1.0 m (first link)
+#   l2 = 0.8 m (second link — slightly shorter)
+#   Workspace annulus: [0.2, 1.8] m
+#
+# Scenario: arm crosses from the lower-left (-1.2, -0.8) to the upper-right
+# (1.4, 0.5).  Two smaller boxes — one on each side of the workspace —
+# block the natural horizontal corridor (y in [0.1, 0.6]) so the arm must
+# arc through the lower half of the workspace.  Both arm links are checked
+# against every obstacle, so neither link may touch any box.
+#
+# Planning is done in joint space (theta1, theta2).  Obstacle checking
+# converts each (q1, q2) sample to Cartesian and tests both arm-link
+# segments against all obstacle rectangles to build the C-space map.
+
+robot:
+  l1: 1.0
+  l2: 0.8
+
+# Rectangular obstacles [[x_min, y_min, x_max, y_max], ...] in metres.
+# Both arm links are checked against every obstacle.
+environment:
+  obstacles:
+    - [0.6, -1.2, 0.9, -1.0]
+    - [-0.9, 1.0, -0.6, 1.2]
+
+# End-effector Cartesian start / goal used for IK to get joint config.
+  start_position: [0.0, -1.6]
+  goal_position: [1.5, 0.5]
+
+# Joint-space bounds [theta_min, theta_max] in radians for each joint.
+  bounds: [[-3.2, 3.2], [-3.2, 3.2]]  # slightly expanded from [-pi, pi]
+
+# KDTree clearance in radians — buffer around sampled collision configs.
+  obstacle_clearance: 0.40
+
+planner:
+  step_size: [0.20, 0.12]  # [rad]
+  goal_tolerance: 0.30
+  collision_check_count: 5
+  goal_bias: 0.10
+  rrt_max_sample_count: 30000
+  sst_max_sample_count: 40000
+  witness_radius: 0.05  # [rad] < half the step size
+
+# ---------------------------------------------------------------------------
+# Simulator parameters
+# ---------------------------------------------------------------------------
+
+# Speed at which the parametric progress variable advances along the path.
+simulator:
+  race_speed: 0.8

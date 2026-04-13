@@ -42,7 +42,6 @@ from arco.planning.continuous import (
     SSTPlanner,
     TrajectoryOptimizer,
 )
-from arco.tools.config import load_config
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.rrp import (
     _arm_collides_3d,
@@ -51,12 +50,6 @@ from arco.tools.simulator.scenes.rrp import (
 )
 
 logger = logging.getLogger(__name__)
-
-_cfg = load_config("rrp")
-_robot_cfg = _cfg.get("robot", _cfg)
-_env_cfg = _cfg.get("environment", _cfg)
-_planner_cfg = _cfg.get("planner", _cfg)
-_sim_cfg = _cfg.get("simulator", _cfg)
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +272,7 @@ def _build_cspace_mesh(
 # ---------------------------------------------------------------------------
 
 
-def main(save_path: str | None = None) -> None:
+def main(cfg: dict, save_path: str | None = None) -> None:
     """Run RRT* and SST on the 3-D RRP arm and display the result.
 
     Args:
@@ -290,33 +283,38 @@ def main(save_path: str | None = None) -> None:
     if save_path is not None:
         matplotlib.use("Agg")
 
+    robot_cfg = cfg.get("robot", cfg)
+    env_cfg = cfg.get("environment", cfg)
+    planner_cfg = cfg.get("planner", cfg)
+    sim_cfg = cfg.get("simulator", cfg)
+
     robot = RRPRobot(
-        l1=float(_robot_cfg["l1"]),
-        l2=float(_robot_cfg["l2"]),
-        z_min=float(_robot_cfg["z_min"]),
-        z_max=float(_robot_cfg["z_max"]),
+        l1=float(robot_cfg["l1"]),
+        l2=float(robot_cfg["l2"]),
+        z_min=float(robot_cfg["z_min"]),
+        z_max=float(robot_cfg["z_max"]),
     )
     obstacles: list[list[float]] = [
-        [float(v) for v in obs] for obs in _env_cfg["obstacles"]
+        [float(v) for v in obs] for obs in env_cfg["obstacles"]
     ]
-    bounds = [tuple(b) for b in _env_cfg["bounds"]]
-    clearance = float(_env_cfg["obstacle_clearance"])
-    start_position = [float(v) for v in _env_cfg["start_position"]]
-    goal_position = [float(v) for v in _env_cfg["goal_position"]]
+    bounds = [tuple(b) for b in env_cfg["bounds"]]
+    clearance = float(env_cfg["obstacle_clearance"])
+    start_position = [float(v) for v in env_cfg["start_position"]]
+    goal_position = [float(v) for v in env_cfg["goal_position"]]
     if len(start_position) >= 3:
         start_xy = start_position[:2]
         start_z = float(start_position[2])
     else:
         # Backward compatibility with older configs.
         start_xy = start_position[:2]
-        start_z = float(_env_cfg["start_z"])
+        start_z = float(env_cfg["start_z"])
     if len(goal_position) >= 3:
         goal_xy = goal_position[:2]
         goal_z = float(goal_position[2])
     else:
         # Backward compatibility with older configs.
         goal_xy = goal_position[:2]
-        goal_z = float(_env_cfg["goal_z"])
+        goal_z = float(env_cfg["goal_z"])
 
     start_q = pick_collision_free_config(
         robot, start_xy, start_z, obstacles, [0.0, 0.0, start_z]
@@ -360,7 +358,7 @@ def main(save_path: str | None = None) -> None:
     )
 
     logger.info("Building 3-D C-space occupancy map …")
-    grid_n = int(_planner_cfg.get("cspace_grid_n", 60))
+    grid_n = int(planner_cfg.get("cspace_grid_n", 60))
     occ, collision_pts = build_cspace_occupancy_3d(
         robot, obstacles, clearance, grid_n=grid_n
     )
@@ -369,11 +367,11 @@ def main(save_path: str | None = None) -> None:
     rrt = RRTPlanner(
         occ,
         bounds=bounds,
-        max_sample_count=int(_planner_cfg["rrt_max_sample_count"]),
-        step_size=float(_planner_cfg["step_size"]),
-        goal_tolerance=float(_planner_cfg["goal_tolerance"]),
-        collision_check_count=int(_planner_cfg["collision_check_count"]),
-        goal_bias=float(_planner_cfg["goal_bias"]),
+        max_sample_count=int(planner_cfg["rrt_max_sample_count"]),
+        step_size=float(planner_cfg["step_size"]),
+        goal_tolerance=float(planner_cfg["goal_tolerance"]),
+        collision_check_count=int(planner_cfg["collision_check_count"]),
+        goal_bias=float(planner_cfg["goal_bias"]),
         early_stop=True,
     )
     logger.info("Running RRT* in 3-D joint space …")
@@ -395,12 +393,12 @@ def main(save_path: str | None = None) -> None:
     sst = SSTPlanner(
         occ,
         bounds=bounds,
-        max_sample_count=int(_planner_cfg["sst_max_sample_count"]),
-        step_size=float(_planner_cfg["step_size"]),
-        goal_tolerance=float(_planner_cfg["goal_tolerance"]),
-        collision_check_count=int(_planner_cfg["collision_check_count"]),
-        goal_bias=float(_planner_cfg["goal_bias"]),
-        witness_radius=float(_planner_cfg["witness_radius"]),
+        max_sample_count=int(planner_cfg["sst_max_sample_count"]),
+        step_size=float(planner_cfg["step_size"]),
+        goal_tolerance=float(planner_cfg["goal_tolerance"]),
+        collision_check_count=int(planner_cfg["collision_check_count"]),
+        goal_bias=float(planner_cfg["goal_bias"]),
+        witness_radius=float(planner_cfg["witness_radius"]),
         early_stop=True,
     )
     logger.info("Running SST in 3-D joint space …")
@@ -421,7 +419,7 @@ def main(save_path: str | None = None) -> None:
     # --- Trajectory optimisation -------------------------------------------
     opt = TrajectoryOptimizer(
         occ,
-        cruise_speed=float(_sim_cfg.get("race_speed", 0.6)),
+        cruise_speed=float(sim_cfg.get("race_speed", 0.6)),
         weight_time=10.0,
         weight_deviation=1.0,
         weight_velocity=1.0,
@@ -478,9 +476,9 @@ def main(save_path: str | None = None) -> None:
     # --- Figure -------------------------------------------------------------
     fig = plt.figure(figsize=(18, 6))
 
-    x_lim = (float(_env_cfg["bounds"][0][0]), float(_env_cfg["bounds"][0][1]))
-    y_lim = (float(_env_cfg["bounds"][1][0]), float(_env_cfg["bounds"][1][1]))
-    z_lim = (float(_env_cfg["bounds"][2][0]), float(_env_cfg["bounds"][2][1]))
+    x_lim = (float(env_cfg["bounds"][0][0]), float(env_cfg["bounds"][0][1]))
+    y_lim = (float(env_cfg["bounds"][1][0]), float(env_cfg["bounds"][1][1]))
+    z_lim = (float(env_cfg["bounds"][2][0]), float(env_cfg["bounds"][2][1]))
 
     specs = [
         (
@@ -734,8 +732,13 @@ def main(save_path: str | None = None) -> None:
 
 
 if __name__ == "__main__":
+    import yaml as _yaml
+
     configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "scenario", metavar="FILE", help="Path to scenario YAML file."
+    )
     parser.add_argument(
         "--save",
         metavar="PATH",
@@ -743,4 +746,6 @@ if __name__ == "__main__":
         help="Save the figure instead of opening an interactive window.",
     )
     args = parser.parse_args()
-    main(save_path=args.save)
+    with open(args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    main(_cfg, save_path=args.save)

@@ -28,11 +28,9 @@ dev = [
 tools = [
     "arco",
     "matplotlib",
-    "pyyaml"
-]
-pygame = [
+    "pyyaml",
     "pygame>=2.0.0",
-    "PyOpenGL>=3.1.0",
+    "PyOpenGL>=3.1.0"
 ]
 
 [project.scripts]
@@ -49,10 +47,13 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-"arco.tools.config" = [
-    "map/*.json",
-    "map/*.yml",
-    "system/*.yml",
+"arco.config" = [
+    "*.json",
+    "*.yml",
+]
+"arco.tools.map" = [
+    "*.json",
+    "*.yml",
 ]
 
 [tool.black]

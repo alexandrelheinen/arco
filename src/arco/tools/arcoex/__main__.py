@@ -62,11 +62,14 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
             missing, or the scenario name is not in
             :data:`SUPPORTED_SCENARIOS`.
     """
+    print(f"arcoex: loading scenario {path!r}...")
+
     if not os.path.isfile(path):
         print(f"arcoex: scenario file not found: {path!r}", file=sys.stderr)
         sys.exit(1)
     with open(path) as fh:
         cfg: dict[str, Any] = yaml.safe_load(fh) or {}
+
     scenario = cfg.get("scenario")
     if not scenario:
         print(
@@ -74,6 +77,9 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    print(f"arcoex: scenario declared: {scenario!r}...")
+
     if scenario not in SUPPORTED_SCENARIOS:
         print(
             f"arcoex: unknown scenario {scenario!r}. "
@@ -84,7 +90,9 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
     return scenario, cfg
 
 
-def _dispatch(scenario: str, save_path: str | None) -> None:
+def _dispatch(
+    scenario: str, cfg: dict[str, Any], save_path: str | None
+) -> None:
     """Dispatch to the example handler for the given scenario.
 
     Imports ``tools.examples.<scenario>`` dynamically (after path setup) and
@@ -96,6 +104,7 @@ def _dispatch(scenario: str, save_path: str | None) -> None:
 
     Args:
         scenario: Scenario name, e.g. ``"city"`` or ``"ppp"``.
+        cfg: Parsed scenario configuration dict (already loaded by the CLI).
         save_path: Optional file path to save the output image to.  When
             ``None`` the example opens an interactive matplotlib window.
 
@@ -120,7 +129,7 @@ def _dispatch(scenario: str, save_path: str | None) -> None:
     saved_argv = sys.argv
     sys.argv = [sys.argv[0]]
     try:
-        mod.main(save_path=save_path)
+        mod.main(cfg, save_path=save_path)
     finally:
         sys.argv = saved_argv
 
@@ -159,8 +168,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    scenario, _ = _load_scenario(args.scenario_file)
-    _dispatch(scenario, args.save)
+    scenario, cfg = _load_scenario(args.scenario_file)
+    _dispatch(scenario, cfg, args.save)
 
 
 if __name__ == "__main__":

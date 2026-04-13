@@ -2,7 +2,7 @@
 
 Verifies that the position gains produce ~10 % overshoot and that the
 body settles at the goal, matching the design intent documented in
-``src/arco/tools/config/map/occ.yml``.
+``src/arco/tools/map/occ.yml``.
 """
 
 from __future__ import annotations
