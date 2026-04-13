@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from arco.control.rigid_body.base import RigidBody
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class ActuatorArray:
@@ -448,3 +452,88 @@ class ActuatorArray:
         """
         forces = self.spring_forces(body)
         self.apply_to_body(forces, body)
+
+    def repulsive_wrench(
+        self,
+        body: RigidBody,
+        nearest_obstacle_fn: Callable[[np.ndarray], tuple[float, np.ndarray]],
+        other_positions: np.ndarray,
+        k_rep: float,
+        d0: float,
+    ) -> np.ndarray:
+        """Compute the net repulsive wrench acting on *body* via APF.
+
+        For each actuator *i*, the minimum distance ``d`` to the nearest
+        hazard is computed from two sources:
+
+        * ``nearest_obstacle_fn`` — maps an actuator world position to
+          ``(distance, nearest_point)`` (e.g. a
+          :class:`~arco.mapping.KDTreeOccupancy` query).
+        * ``other_positions`` — world positions of peer hazards such as
+          actuators from a different robot or a peer body centre.
+
+        When ``d < d0`` a repulsive force of magnitude
+        ``k_rep * (d0 - d)^2`` is applied in the direction away from the
+        nearest hazard and accumulated into a body wrench.  The field is
+        zero for ``d >= d0`` (local-only: no global completeness
+        guarantee).
+
+        Args:
+            body: The rigid body being controlled.
+            nearest_obstacle_fn: Callable mapping a 2-D world point to
+                ``(distance, nearest_point)``.
+            other_positions: Array of shape ``(M, 2)`` with world-frame
+                positions of peer hazards.  Pass ``np.empty((0, 2))`` if
+                there are none.
+            k_rep: Repulsion stiffness [N m⁻²].
+            d0: Influence radius [m].  Force is zero for ``d >= d0``.
+
+        Returns:
+            Repulsive wrench ``[Fx, Fy, tau]`` in the world frame.
+        """
+        positions = self.actuator_positions(body)  # (N, 2)
+        bx = float(body.pose[0])
+        by = float(body.pose[1])
+        total = np.zeros(3, dtype=float)
+
+        other = np.asarray(other_positions, dtype=float)
+        has_others = other.ndim == 2 and other.shape[0] > 0
+
+        for pos in positions:
+            # Distance to nearest static obstacle
+            d_best, pt_best = nearest_obstacle_fn(pos)
+            d_best = float(d_best)
+
+            # Distance to each peer position; take the nearest
+            if has_others:
+                diffs = other - pos  # (M, 2)
+                dists = np.linalg.norm(diffs, axis=1)  # (M,)
+                idx = int(np.argmin(dists))
+                if float(dists[idx]) < d_best:
+                    d_best = float(dists[idx])
+                    pt_best = other[idx]
+
+            if d_best >= d0:
+                continue
+
+            # Direction away from nearest hazard
+            diff = pos - np.asarray(pt_best, dtype=float)
+            norm_sq = float(np.dot(diff, diff))
+            if norm_sq < 1e-12:
+                # Degenerate: push radially outward from body centre
+                angle = math.atan2(pos[1] - by, pos[0] - bx)
+                direction = np.array([math.cos(angle), math.sin(angle)])
+            else:
+                direction = diff / math.sqrt(norm_sq)
+
+            mag = k_rep * (d0 - d_best) ** 2
+            fx = mag * direction[0]
+            fy = mag * direction[1]
+            # Torque: 2-D cross product of lever arm with force
+            tau = (pos[0] - bx) * fy - (pos[1] - by) * fx
+
+            total[0] += fx
+            total[1] += fy
+            total[2] += tau
+
+        return total

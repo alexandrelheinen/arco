@@ -44,6 +44,7 @@ from scenes.occ import OCCScene
 
 from arco.control import ActuatorArray
 from arco.control.rigid_body import CircleBody, SquareBody
+from arco.mapping import KDTreeOccupancy
 from config import load_config
 
 logger = logging.getLogger(__name__)
@@ -244,10 +245,10 @@ def _compute_desired_wrench(
     assert isinstance(body, RigidBody)
     pose = body.pose
     vel = body.velocity
-    kp_pos = float(ctrl_cfg.get("kp_pos", 5.0))
-    kd_pos = float(ctrl_cfg.get("kd_pos", 2.0))
-    kp_psi = float(ctrl_cfg.get("kp_psi", 3.0))
-    kd_psi = float(ctrl_cfg.get("kd_psi", 1.5))
+    kp_pos = float(ctrl_cfg.get("kp_pos", 2.5))
+    kd_pos = float(ctrl_cfg.get("kd_pos", 4.2))
+    kp_psi = float(ctrl_cfg.get("kp_psi", 0.50))
+    kd_psi = float(ctrl_cfg.get("kd_psi", 0.55))
     ex = float(goal[0]) - float(pose[0])
     ey = float(goal[1]) - float(pose[1])
     e_psi = _wrap_angle(float(goal[2]) - float(pose[2]))
@@ -255,6 +256,41 @@ def _compute_desired_wrench(
     fy = kp_pos * ey - kd_pos * float(vel[1])
     tau = kp_psi * e_psi - kd_psi * float(vel[2])
     return np.array([fx, fy, tau])
+
+
+# ---------------------------------------------------------------------------
+# Cartesian obstacle occupancy
+# ---------------------------------------------------------------------------
+
+
+def _build_cartesian_occupancy(
+    obstacles: list[list[float]],
+    n_samples: int = 32,
+) -> KDTreeOccupancy:
+    """Build a 2-D KDTreeOccupancy by sampling AABB obstacle boundaries.
+
+    Args:
+        obstacles: List of ``[x_min, y_min, x_max, y_max]`` boxes.
+        n_samples: Number of sample points per side per obstacle.
+
+    Returns:
+        :class:`~arco.mapping.KDTreeOccupancy` suitable for
+        ``nearest_obstacle`` queries.
+    """
+    pts: list[list[float]] = []
+    for obs in obstacles:
+        xmin, ymin, xmax, ymax = obs
+        dx = xmax - xmin
+        dy = ymax - ymin
+        ts = np.linspace(0.0, 1.0, n_samples, endpoint=False)
+        for t in ts:
+            pts.append([xmin + t * dx, ymin])
+            pts.append([xmin + t * dx, ymax])
+            pts.append([xmin, ymin + t * dy])
+            pts.append([xmax, ymin + t * dy])
+    if not pts:
+        pts = [[1e9, 1e9]]
+    return KDTreeOccupancy(np.array(pts, dtype=float), clearance=1e-3)
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +395,10 @@ def main() -> None:
     body = scene.body
     actuators = scene.actuators
     obstacles = scene.obstacles
+
+    occ_2d = _build_cartesian_occupancy(obstacles)
+    k_rep = float(ctrl_cfg.get("k_rep", 5.0))
+    d0 = 4.0 * float(cfg.get("actuator", {}).get("standoff", 0.05))
 
     x_range = [float(v) for v in env_cfg.get("x_range", [-4, 4])]
     y_range = [float(v) for v in env_cfg.get("y_range", [-3, 3])]
@@ -498,6 +538,19 @@ def main() -> None:
                     min(rrt_wp_idx, len(rrt_waypoints) - 1)
                 ]
                 w = _compute_desired_wrench(rrt_body, rrt_goal, ctrl_cfg)
+                sst_peers = np.vstack(
+                    [
+                        sst_acts.actuator_positions(sst_body),
+                        sst_body.pose[:2].reshape(1, 2),
+                    ]
+                )
+                w = w + rrt_acts.repulsive_wrench(
+                    rrt_body,
+                    occ_2d.nearest_obstacle,
+                    sst_peers,
+                    k_rep=k_rep,
+                    d0=d0,
+                )
                 # Step 3: reference angles from gradient descent
                 rrt_acts.update_angles_for_target(rrt_body, w)
                 # Step 4: radial-only allocation at ACTUAL angles → spring inversion
@@ -522,6 +575,19 @@ def main() -> None:
                     min(sst_wp_idx, len(sst_waypoints) - 1)
                 ]
                 w = _compute_desired_wrench(sst_body, sst_goal, ctrl_cfg)
+                rrt_peers = np.vstack(
+                    [
+                        rrt_acts.actuator_positions(rrt_body),
+                        rrt_body.pose[:2].reshape(1, 2),
+                    ]
+                )
+                w = w + sst_acts.repulsive_wrench(
+                    sst_body,
+                    occ_2d.nearest_obstacle,
+                    rrt_peers,
+                    k_rep=k_rep,
+                    d0=d0,
+                )
                 # Step 3: reference angles from gradient descent
                 sst_acts.update_angles_for_target(sst_body, w)
                 # Step 4: radial-only allocation at ACTUAL angles → spring inversion
