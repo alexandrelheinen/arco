@@ -441,9 +441,11 @@ def main() -> None:
 
             video_writer = VideoWriter(
                 args.record,
-                fps=int(1.0 / dt),
-                size=(args.width, args.height),
+                args.width,
+                args.height,
+                int(1.0 / dt),
             )
+            video_writer.open()
         except Exception as exc:
             logger.warning("Cannot record video: %s", exc)
             recording = False
@@ -584,9 +586,7 @@ def main() -> None:
         pygame.display.flip()
 
         if recording and video_writer is not None:
-            pixels = pygame.surfarray.array3d(screen)
-            pixels = pixels.transpose(1, 0, 2)
-            video_writer.write_frame(pixels)
+            video_writer.write_frame(screen)
             frame_count += 1
             if frame_count >= record_frames:
                 running = False
