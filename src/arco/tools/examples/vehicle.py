@@ -31,7 +31,7 @@ from arco.planning.continuous import (
     TrajectoryOptimizer,
 )
 from arco.tools.config import load_config
-from arco.tools.simulator.logging_config import configure_logging
+from arco.tools.logging_config import configure_logging
 from arco.tools.viewer.occupancy import draw_occupancy
 
 logger = logging.getLogger(__name__)

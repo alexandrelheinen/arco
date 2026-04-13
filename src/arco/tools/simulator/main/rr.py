@@ -73,8 +73,8 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 )
 
 from arco.tools.config import load_config
+from arco.tools.logging_config import configure_logging
 from arco.tools.simulator import renderer_gl
-from arco.tools.simulator.logging_config import configure_logging
 from arco.tools.simulator.scenes.rr import RRScene
 from arco.tools.simulator.sim.loading import run_with_loading_screen
 from arco.tools.simulator.sim.video import VideoWriter
