@@ -17,6 +17,7 @@ dev = [
     "black",
     "isort",
     "matplotlib",
+    "pyyaml",
     "pylint",
     "pydocstyle"
 ]

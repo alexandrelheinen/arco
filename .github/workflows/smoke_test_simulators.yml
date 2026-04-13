@@ -49,7 +49,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/astar.py \
+          xvfb-run -a arcosim src/arco/tools/config/map/astar.yml \
             --fps 30 \
             --record /tmp/smoke_astar.mp4 \
             --record-duration 5
@@ -58,7 +58,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/city.py \
+          xvfb-run -a arcosim src/arco/tools/config/map/city.yml \
             --fps 30 \
             --record /tmp/smoke_city.mp4 \
             --record-duration 5
@@ -67,7 +67,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rr.py \
+          xvfb-run -a arcosim src/arco/tools/config/map/rr.yml \
             --fps 30 \
             --record /tmp/smoke_rr.mp4 \
             --record-duration 5
@@ -76,7 +76,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/vehicle.py \
+          xvfb-run -a arcosim src/arco/tools/config/map/vehicle.yml \
             --fps 30 \
             --record /tmp/smoke_vehicle.mp4 \
             --record-duration 5
@@ -85,7 +85,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/ppp.py \
+          xvfb-run -a arcosim src/arco/tools/config/map/ppp.yml \
             --fps 30 \
             --record /tmp/smoke_ppp.mp4 \
             --record-duration 5
@@ -94,7 +94,15 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rrp.py \
+          xvfb-run -a arcosim src/arco/tools/config/map/rrp.yml \
             --fps 30 \
             --record /tmp/smoke_rrp.mp4 \
+            --record-duration 5
+
+      - name: Smoke test OCC piano movers simulator
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          xvfb-run -a arcosim src/arco/tools/config/map/occ.yml \
+            --record /tmp/smoke_occ.mp4 \
             --record-duration 5

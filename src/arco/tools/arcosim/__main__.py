@@ -21,25 +21,13 @@ import sys
 from typing import Any
 
 # ---------------------------------------------------------------------------
-# Optional-dependency guard — checked before any further imports.
+# Optional-dependency guard for yaml — needed for _load_scenario at import time.
 # ---------------------------------------------------------------------------
 try:
-    import matplotlib  # noqa: F401  (presence check only)
     import yaml
 except ImportError:
     print(
         "arcosim requires the 'tools' extra. "
-        "Install with: pip install arco[tools,pygame]",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-try:
-    import OpenGL  # noqa: F401  (presence check only)
-    import pygame  # noqa: F401  (presence check only)
-except ImportError:
-    print(
-        "arcosim requires the 'pygame' extra. "
         "Install with: pip install arco[tools,pygame]",
         file=sys.stderr,
     )
@@ -139,8 +127,22 @@ def _dispatch(
         record_duration: Maximum recording duration in seconds.
         extra_argv: Additional flags forwarded verbatim to the simulator
             module (e.g. ``["--fps", "60", "--camera", "follow"]``).
+
+    Raises:
+        SystemExit: If the ``pygame`` / ``PyOpenGL`` extras are not installed.
     """
     import importlib
+
+    try:
+        import OpenGL  # noqa: F401  (presence check only)
+        import pygame  # noqa: F401  (presence check only)
+    except ImportError:
+        print(
+            "arcosim requires the 'pygame' extra. "
+            "Install with: pip install arco[tools,pygame]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     sim_argv: list[str] = [f"arcosim_{scenario}"]
     if record:
