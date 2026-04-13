@@ -97,9 +97,9 @@ class TestPositionStepResponse:
         _, xs = _simulate(goal, _CTRL, n_steps=1000)  # 20 s, well past peak
         peak_x = max(xs)
         overshoot = peak_x / float(goal[0]) - 1.0
-        assert 0.05 <= overshoot <= 0.20, (
-            f"Expected overshoot in [5 %, 20 %], got {overshoot * 100:.1f} %"
-        )
+        assert (
+            0.05 <= overshoot <= 0.20
+        ), f"Expected overshoot in [5 %, 20 %], got {overshoot * 100:.1f} %"
 
     def test_settles_within_two_percent(self) -> None:
         """Body settles to within 2 % of goal after 30 s (1500 steps)."""
@@ -149,9 +149,9 @@ class TestHeadingStepResponse:
             body.step(_DT)
             peak_psi = max(peak_psi, float(body.pose[2]))
         overshoot = peak_psi / float(goal[2]) - 1.0
-        assert overshoot < 0.10, (
-            f"Heading overshoot {overshoot * 100:.1f} % should be < 10 %"
-        )
+        assert (
+            overshoot < 0.10
+        ), f"Heading overshoot {overshoot * 100:.1f} % should be < 10 %"
 
     def test_heading_settles(self) -> None:
         """Body heading reaches goal within 0.05 rad after 30 s."""

@@ -36,7 +36,7 @@ import threading
 from typing import Any, Callable
 
 import pygame
-import renderer_gl
+from arco.tools.simulator import renderer_gl
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,

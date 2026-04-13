@@ -29,23 +29,12 @@ from __future__ import annotations
 import argparse
 import logging
 import math
-import os
-import sys
 import time
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "simulator"))
 
 import matplotlib
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
-from logging_config import configure_logging
-from scenes.rr import (
-    build_cspace_occupancy,
-    pick_collision_free_ik,
-)
 
 from arco.kinematics import RRRobot
 from arco.planning.continuous import (
@@ -53,7 +42,12 @@ from arco.planning.continuous import (
     SSTPlanner,
     TrajectoryOptimizer,
 )
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator.logging_config import configure_logging
+from arco.tools.simulator.scenes.rr import (
+    build_cspace_occupancy,
+    pick_collision_free_ik,
+)
 
 logger = logging.getLogger(__name__)
 

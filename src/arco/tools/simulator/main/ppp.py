@@ -41,13 +41,6 @@ from __future__ import annotations
 import argparse
 import logging
 import math
-import os
-import sys
-
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", ".."))
-sys.path.insert(0, os.path.join(_HERE, ".."))
 
 import numpy as np
 import pygame
@@ -111,13 +104,13 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex2f,
     glVertex3f,
 )
-from scenes.ppp import BOUNDS as _SCENE_BOUNDS
-from scenes.ppp import PPPScene
-from scenes.ppp import is_wall as _is_wall_box
-from sim.loading import run_with_loading_screen
-from sim.video import VideoWriter
 
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator.scenes.ppp import BOUNDS as _SCENE_BOUNDS
+from arco.tools.simulator.scenes.ppp import PPPScene
+from arco.tools.simulator.scenes.ppp import is_wall as _is_wall_box
+from arco.tools.simulator.sim.loading import run_with_loading_screen
+from arco.tools.simulator.sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
 

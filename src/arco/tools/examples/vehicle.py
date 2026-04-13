@@ -18,18 +18,11 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
-import sys
 import time
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from logging_config import configure_logging
-from viewer.occupancy import draw_occupancy
 
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import (
@@ -37,7 +30,9 @@ from arco.planning.continuous import (
     SSTPlanner,
     TrajectoryOptimizer,
 )
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator.logging_config import configure_logging
+from arco.tools.viewer.occupancy import draw_occupancy
 
 logger = logging.getLogger(__name__)
 

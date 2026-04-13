@@ -18,20 +18,14 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "simulator"))
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from logging_config import configure_logging
-from scenes.sparse import CityScene
 
-from config import load_config
+from arco.tools.config import load_config
+from arco.tools.simulator.logging_config import configure_logging
+from arco.tools.simulator.scenes.sparse import CityScene
 
 logger = logging.getLogger(__name__)
 

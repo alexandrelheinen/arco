@@ -9,7 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import pygame.font
-from sim.tracking import VehicleConfig
+
+from .tracking import VehicleConfig
 
 
 class SimScene(ABC):

@@ -34,13 +34,17 @@ environment:
   goal_pose:  [20.0,  20.0, 0.78]   # ~45 deg rotation
 
 planner:
-  step_size: 0.20
-  goal_tolerance: 0.60
+  # step_size is a per-dimension vector [x_m, y_m, psi_rad].
+  # All distances are measured in the normalized space (delta / step_size),
+  # so metric (metres) and angular (radians) axes are balanced correctly.
+  step_size: [0.5, 0.5, 0.10]   # x [m], y [m], psi [rad]
+  goal_tolerance: 1.5            # normalized distance (within ~1.5 steps of goal)
+  cspace_clearance: 0.5          # world-unit C-space occupancy clearance radius [m/rad]
   collision_check_count: 5
   goal_bias: 0.10
   rrt_max_sample_count: 30000
   sst_max_sample_count: 40000
-  witness_radius: 0.20
+  witness_radius: 0.5            # normalized distance for SST witness cells
   cspace_grid_n: 60
 
 control:
