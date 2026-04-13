@@ -257,8 +257,15 @@ class OCCScene:
 
         count = int(self._act_cfg.get("count", 4))
         standoff = float(self._act_cfg.get("standoff", 0.05))
+        omega = float(self._act_cfg.get("omega", 10.0))
+        zeta = float(self._act_cfg.get("zeta", 0.7))
+        spring_stiffness = float(self._act_cfg.get("spring_stiffness", 100.0))
         self._actuators = ActuatorArray(
-            actuator_count=count, standoff=standoff
+            actuator_count=count,
+            standoff=standoff,
+            omega=omega,
+            zeta=zeta,
+            spring_stiffness=spring_stiffness,
         )
 
         obstacles: list[list[float]] = [
