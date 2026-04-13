@@ -23,8 +23,8 @@ from typing import Any
 # Optional-dependency guard — checked before any further imports.
 # ---------------------------------------------------------------------------
 try:
-    import yaml
     import matplotlib  # noqa: F401  (presence check only)
+    import yaml
 except ImportError:
     print(
         "arcoex requires the 'tools' extra. "
