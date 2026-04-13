@@ -61,7 +61,7 @@ environment:
   obstacle_clearance: 0.40
 
 planner:
-  step_size: 0.15 # [rad, m]
+  step_size: [0.15, 0.15, 0.10]  # [rad, rad, m]
   goal_tolerance: 0.25
   collision_check_count: 3
   goal_bias: 0.10

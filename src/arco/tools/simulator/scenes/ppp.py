@@ -229,7 +229,7 @@ class PPPScene:
             occ,
             bounds=BOUNDS,
             max_sample_count=int(self._planner_cfg["rrt_max_sample_count"]),
-            step_size=float(self._planner_cfg["step_size"]),
+            step_size=self._planner_cfg["step_size"],
             goal_tolerance=float(self._planner_cfg["goal_tolerance"]),
             collision_check_count=int(
                 self._planner_cfg["collision_check_count"]
@@ -266,7 +266,7 @@ class PPPScene:
             occ,
             bounds=BOUNDS,
             max_sample_count=int(self._planner_cfg["sst_max_sample_count"]),
-            step_size=float(self._planner_cfg["step_size"]),
+            step_size=self._planner_cfg["step_size"],
             goal_tolerance=float(self._planner_cfg["goal_tolerance"]),
             witness_radius=float(self._planner_cfg["witness_radius"]),
             collision_check_count=int(
