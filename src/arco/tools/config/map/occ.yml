@@ -17,6 +17,9 @@ body:
 actuator:
   count: 3
   standoff: 0.05        # metres beyond bounding_radius
+  omega: 10.0           # natural frequency Ω (rad/s) of the actuator loop
+  zeta: 0.7             # damping ratio ζ of the actuator loop
+  spring_stiffness: 100.0  # contact spring stiffness k_s (N/m)
 
 # 2-D Cartesian obstacles [x_min, y_min, x_max, y_max] in metres.
 environment:

@@ -407,6 +407,9 @@ def main() -> None:
         act_cfg = cfg.get("actuator", {})
         count = int(act_cfg.get("count", 3))
         standoff = float(act_cfg.get("standoff", 0.05))
+        omega = float(act_cfg.get("omega", 10.0))
+        zeta = float(act_cfg.get("zeta", 0.7))
+        spring_stiffness = float(act_cfg.get("spring_stiffness", 100.0))
 
         if body_type == "square":
             side = float(cfg.get("body", {}).get("side_length", 0.5))
@@ -426,7 +429,14 @@ def main() -> None:
                 y=float(start_pose[1]),
                 psi=float(start_pose[2]),
             )
-        a = ActuatorArray(actuator_count=count, standoff=standoff)
+        a = ActuatorArray(
+            actuator_count=count,
+            standoff=standoff,
+            omega=omega,
+            zeta=zeta,
+            spring_stiffness=spring_stiffness,
+        )
+        a.init_radii(b)
         return b, a, 0, 0
 
     rrt_body, rrt_acts, rrt_wp_idx, _ = _reset_bodies()
@@ -478,24 +488,32 @@ def main() -> None:
                     )
 
         if not paused:
+            goal_tol = float(
+                cfg.get("planner", {}).get("goal_tolerance", 0.25)
+            )
+
             # Advance RRT* body
             if rrt_wp_idx < len(rrt_waypoints):
                 rrt_goal = rrt_waypoints[
                     min(rrt_wp_idx, len(rrt_waypoints) - 1)
                 ]
                 w = _compute_desired_wrench(rrt_body, rrt_goal, ctrl_cfg)
+                # Step 3: reference angles from gradient descent
                 rrt_acts.update_angles_for_target(rrt_body, w)
-                f = rrt_acts.allocate_forces(w, rrt_body)
-                rrt_acts.apply_to_body(f, rrt_body)
+                # Step 4: radial-only allocation at ACTUAL angles → spring inversion
+                f_des = rrt_acts.allocate_radial_forces(w, rrt_body)
+                rrt_acts.compute_ref_radii(rrt_body, f_des)
+                # Integrate actuator second-order dynamics
+                rrt_acts.step_actuators(dt)
+                # Apply spring forces to body
+                rrt_acts.apply_spring_forces_to_body(rrt_body)
                 rrt_body.step(dt)
                 pose = rrt_body.pose
                 dist = math.hypot(
                     float(pose[0]) - float(rrt_goal[0]),
                     float(pose[1]) - float(rrt_goal[1]),
                 )
-                if dist < float(
-                    cfg.get("planner", {}).get("goal_tolerance", 0.25)
-                ):
+                if dist < goal_tol:
                     rrt_wp_idx = min(rrt_wp_idx + 1, len(rrt_waypoints))
 
             # Advance SST body
@@ -504,18 +522,22 @@ def main() -> None:
                     min(sst_wp_idx, len(sst_waypoints) - 1)
                 ]
                 w = _compute_desired_wrench(sst_body, sst_goal, ctrl_cfg)
+                # Step 3: reference angles from gradient descent
                 sst_acts.update_angles_for_target(sst_body, w)
-                f = sst_acts.allocate_forces(w, sst_body)
-                sst_acts.apply_to_body(f, sst_body)
+                # Step 4: radial-only allocation at ACTUAL angles → spring inversion
+                f_des = sst_acts.allocate_radial_forces(w, sst_body)
+                sst_acts.compute_ref_radii(sst_body, f_des)
+                # Integrate actuator second-order dynamics
+                sst_acts.step_actuators(dt)
+                # Apply spring forces to body
+                sst_acts.apply_spring_forces_to_body(sst_body)
                 sst_body.step(dt)
                 pose = sst_body.pose
                 dist = math.hypot(
                     float(pose[0]) - float(sst_goal[0]),
                     float(pose[1]) - float(sst_goal[1]),
                 )
-                if dist < float(
-                    cfg.get("planner", {}).get("goal_tolerance", 0.25)
-                ):
+                if dist < goal_tol:
                     sst_wp_idx = min(sst_wp_idx + 1, len(sst_waypoints))
 
         # Draw
