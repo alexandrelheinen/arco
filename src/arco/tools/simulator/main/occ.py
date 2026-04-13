@@ -37,7 +37,6 @@ import pygame
 from arco.control import ActuatorArray
 from arco.control.rigid_body import CircleBody, SquareBody
 from arco.mapping import KDTreeOccupancy
-from arco.tools.config import load_config
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.occ import OCCScene
 
@@ -355,12 +354,11 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def main() -> None:
+def main(cfg: dict) -> None:
     """Run the OCC 2-D piano movers simulator."""
     configure_logging()
     args = _parse_args()
 
-    cfg = load_config("occ")
     env_cfg: dict = cfg.get("environment", {})
     ctrl_cfg: dict = cfg.get("control", {})
     sim_cfg: dict = cfg.get("simulator", {})
@@ -684,4 +682,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse as _argparse
+
+    import yaml as _yaml
+
+    _parser = _argparse.ArgumentParser()
+    _parser.add_argument("scenario", metavar="FILE")
+    _args, _rest = _parser.parse_known_args()
+    with open(_args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    import sys as _sys
+
+    _sys.argv = [_sys.argv[0], *_rest]
+    main(_cfg)

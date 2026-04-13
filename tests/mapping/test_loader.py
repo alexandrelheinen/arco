@@ -26,7 +26,6 @@ def _resolve_city_network_path() -> str:
         "src",
         "arco",
         "tools",
-        "config",
         "map",
     )
     for filename in ("city_network.json", "city.json"):

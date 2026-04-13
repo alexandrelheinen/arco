@@ -25,7 +25,7 @@ from arco.tools.arcosim.__main__ import _load_scenario as _arcosim_load
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-_CONFIG_MAP = os.path.join(_REPO, "src", "arco", "tools", "config", "map")
+_CONFIG_MAP = os.path.join(_REPO, "src", "arco", "tools", "map")
 
 
 def _scenario_yml(name: str) -> str:
@@ -141,47 +141,50 @@ def test_arcosim_load_unknown_scenario_exits(
 
 
 def test_config_map_contains_only_yml_and_json() -> None:
-    """config/map/ must contain only .yml and .json files (no sub-folders)."""
+    """tools/map/ must contain only .yml and .json files (no sub-folders)."""
     entries = os.listdir(_CONFIG_MAP)
     for entry in entries:
         full = os.path.join(_CONFIG_MAP, entry)
+        if entry in ("__init__.py", "__pycache__"):
+            continue
         assert os.path.isfile(
             full
-        ), f"Unexpected subdirectory in config/map/: {entry}"
+        ), f"Unexpected subdirectory in tools/map/: {entry}"
         assert entry.endswith(
             (".yml", ".json")
-        ), f"Unexpected file type in config/map/: {entry}"
+        ), f"Unexpected file type in tools/map/: {entry}"
 
 
-def test_config_system_contains_colors() -> None:
-    system_dir = os.path.join(
-        _REPO, "src", "arco", "tools", "config", "system"
-    )
-    assert os.path.isfile(os.path.join(system_dir, "colors.yml"))
+def test_config_dir_contains_colors() -> None:
+    """arco/config/ must contain colors.yml."""
+    config_dir = os.path.join(_REPO, "src", "arco", "config")
+    assert os.path.isfile(os.path.join(config_dir, "colors.yml"))
 
 
-def test_config_dir_contains_only_map_and_system() -> None:
-    """config/ must contain only map/, system/, and __init__.py."""
-    config_dir = os.path.join(_REPO, "src", "arco", "tools", "config")
-    allowed = {"map", "system", "__init__.py", "__pycache__"}
+def test_config_dir_contains_no_subdirs() -> None:
+    """arco/config/ must not have subdirectories besides __pycache__."""
+    config_dir = os.path.join(_REPO, "src", "arco", "config")
     for entry in os.listdir(config_dir):
-        assert entry in allowed, (
-            f"Unexpected entry in config/: {entry!r}. "
-            "config/ must contain only map/, system/, and __init__.py."
-        )
+        full = os.path.join(config_dir, entry)
+        if os.path.isdir(full):
+            assert entry == "__pycache__", (
+                f"Unexpected subdirectory in arco/config/: {entry!r}. "
+                "config/ must not have subdirectories (use tools/map/ for "
+                "scenario files)."
+            )
 
 
 def test_pyproject_includes_tool_config_package_data() -> None:
-    """Wheel metadata must include tool config YAML and JSON files."""
+    """Wheel metadata must include tool config and map YAML/JSON files."""
     pyproject = os.path.join(_REPO, "pyproject.toml")
     with open(pyproject, encoding="utf-8") as fh:
         content = fh.read()
 
     assert "[tool.setuptools.package-data]" in content
-    assert '"arco.tools.config" = [' in content
-    assert '"map/*.yml"' in content
-    assert '"map/*.json"' in content
-    assert '"system/*.yml"' in content
+    assert '"arco.config" = [' in content
+    assert '"arco.tools.map" = [' in content
+    assert '"*.yml"' in content
+    assert '"*.json"' in content
 
 
 def test_occ_config_uses_three_actuators() -> None:

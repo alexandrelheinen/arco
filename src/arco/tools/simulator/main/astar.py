@@ -33,12 +33,11 @@ from __future__ import annotations
 import argparse
 import logging
 
-from arco.tools.config import load_config
 from arco.tools.simulator.scenes.astar import AStarScene
 from arco.tools.simulator.sim import run_sim
 
 
-def main() -> None:
+def main(cfg: dict) -> None:
     """Parse CLI arguments and launch the A* simulator."""
     logging.basicConfig(
         level=logging.INFO,
@@ -87,7 +86,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cfg = load_config("astar")
     scene = AStarScene(
         cfg.get("graph", {}),
         cfg.get("vehicle", {}),
@@ -104,4 +102,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse as _argparse
+
+    import yaml as _yaml
+
+    _parser = _argparse.ArgumentParser()
+    _parser.add_argument("scenario", metavar="FILE")
+    _args, _rest = _parser.parse_known_args()
+    with open(_args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    import sys as _sys
+
+    _sys.argv = [_sys.argv[0], *_rest]
+    main(_cfg)

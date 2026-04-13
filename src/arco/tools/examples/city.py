@@ -24,7 +24,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.tools.config import load_config
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.sparse import CityScene
 
@@ -96,11 +95,10 @@ def _draw_panel(
     )
 
 
-def main(save_path: str | None = None) -> None:
+def main(cfg: dict, save_path: str | None = None) -> None:
     if save_path is not None:
         matplotlib.use("Agg")
 
-    cfg = load_config("city")
     scene = CityScene(cfg.get("planner", {}), cfg.get("world", {}))
     scene.build()
 
@@ -150,8 +148,15 @@ def main(save_path: str | None = None) -> None:
 
 
 if __name__ == "__main__":
+    import yaml as _yaml
+
     configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "scenario", metavar="FILE", help="Path to scenario YAML file."
+    )
     parser.add_argument("--save", metavar="PATH", default=None)
     args = parser.parse_args()
-    main(save_path=args.save)
+    with open(args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    main(_cfg, save_path=args.save)

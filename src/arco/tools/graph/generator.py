@@ -198,7 +198,7 @@ def _generate_ring(cfg: dict[str, Any]) -> RoadGraph:
 if __name__ == "__main__":
     import argparse
 
-    from config import load_config
+    from arco.config import load_map_config
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    cfg = load_config("astar").get("graph", {})
+    cfg = load_map_config("astar").get("graph", {})
     graph = generate_graph(cfg)
     print(
         f"Generated '{cfg.get('type', 'ring')}' graph: "

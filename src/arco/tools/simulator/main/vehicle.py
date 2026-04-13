@@ -19,12 +19,11 @@ from __future__ import annotations
 import argparse
 import logging
 
-from arco.tools.config import load_config
 from arco.tools.simulator.main.city import run_race
 from arco.tools.simulator.scenes.vehicle import VehicleScene
 
 
-def main() -> None:
+def main(cfg: dict) -> None:
     """Parse CLI arguments and launch the vehicle benchmark race."""
     logging.basicConfig(
         level=logging.INFO,
@@ -43,7 +42,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    scene = VehicleScene(load_config("vehicle"))
+    scene = VehicleScene(cfg)
     run_race(
         scene,
         fps=args.fps,
@@ -54,4 +53,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse as _argparse
+
+    import yaml as _yaml
+
+    _parser = _argparse.ArgumentParser()
+    _parser.add_argument("scenario", metavar="FILE")
+    _args, _rest = _parser.parse_known_args()
+    with open(_args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    import sys as _sys
+
+    _sys.argv = [_sys.argv[0], *_rest]
+    main(_cfg)

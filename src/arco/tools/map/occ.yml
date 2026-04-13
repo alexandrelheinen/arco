@@ -1,0 +1,66 @@
+scenario: occ
+
+# Object-centric control — piano movers problem.
+#
+# A 2-D object (square or circle) is manipulated from pose A to pose B
+# by N mobile actuators. The object pose (x, y, psi) is planned in a
+# 3-D C-space by RRT* / SST.
+#
+# All lengths are in metres, masses in kg, angles in radians.
+
+# Inpiration: https://www.pointp.fr/p/gros-oeuvre-bpe-voirie-tp/ciment-le-classic-cem-ii-a-ou-b-32-5r-sac-protect-ce-nf-sac-de-A7309875#details
+body:
+  type: square           # "square", "circle"...
+  mass: 25.0             # [kg]
+  side_length: 0.46      # [m] (460 mm x 410 mm)
+  radius: -1.0           # [m] (used for circle type only)
+
+actuator:
+  count: 3              # number of actuators (N)
+  standoff: 0.05        # [m] beyond bounding_radius
+  omega: 10.0           # [rad/s] natural frequency of the actuator loop
+  zeta: 0.7             # [] damping ratio of the actuator loop
+  spring_stiffness: 100.0  # [N/m] contact spring stiffness k_s
+
+# 2-D Cartesian obstacles [x_min, y_min, x_max, y_max] in metres.
+environment:
+  obstacles:
+    - [-10.0, -15.0, -6.0, 0.0]
+    - [6.0, 0.0, 10.0, 30.0]
+    - [10.0, 0.0, 12.0, 6.0]
+  x_range: [-50.0, 50.0]
+  y_range: [-50.0, 50.0]
+  start_pose: [-20.0, -20.0, 0.00]
+  goal_pose:  [20.0,  20.0, 0.78]   # ~45 deg rotation
+
+planner:
+  # step_size is a per-dimension vector [x_m, y_m, psi_rad].
+  # All distances are measured in the normalized space (delta / step_size),
+  # so metric (metres) and angular (radians) axes are balanced correctly.
+  step_size: [1.0, 1.0, 0.1]   # x [m], y [m], psi [rad]
+  goal_tolerance: 2.0            # normalized distance (within ~1.5 steps of goal)
+  cspace_clearance: 0.5          # world-unit C-space occupancy clearance radius [m/rad]
+  collision_check_count: 5
+  goal_bias: 0.10
+  rrt_max_sample_count: 30000
+  sst_max_sample_count: 40000
+  witness_radius: 0.5            # normalized distance for SST witness cells
+  cspace_grid_n: 120
+
+control:
+  # Position PD — target: ωn ≈ 0.71 rad/s, ζ ≈ 0.59 → ~10 % overshoot.
+  # Design: kp = ωn² · m = 0.5 · 5, kd = 2 · ζ · ωn · m = 2 · 0.59 · 0.707 · 5.
+  # Peak body speed ≈ 0.28 m/s ≤ race_speed; actuators ride rigidly on the body.
+  kp_pos: 2.5
+  kd_pos: 4.2
+
+  # Heading PD — target: ωn ≈ 1.55 rad/s, ζ ≈ 0.85 → near-critical (< 1 % overshoot).
+  # Design: kp = ωn² · I = 2.4 · 0.208, kd = 2 · ζ · ωn · I = 2 · 0.85 · 1.55 · 0.208.
+  kp_psi: 0.50
+  kd_psi: 0.55
+
+  k_rep: 5.0      # APF repulsion stiffness [N/m²]; d0 = 4 × standoff
+
+simulator:
+  dt: 0.1         # seconds
+  race_speed: 0.1 # metres/second

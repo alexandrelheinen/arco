@@ -31,7 +31,7 @@ from typing import Any
 import numpy as np
 from scipy.spatial import Delaunay as _Delaunay
 
-from arco.tools.config import load_config
+from arco.config import load_config
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.sim.tracking import VehicleConfig
 

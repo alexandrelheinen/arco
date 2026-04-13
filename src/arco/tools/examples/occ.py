@@ -33,24 +33,10 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.tools.config import load_config
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.occ import OCCScene
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_args() -> argparse.Namespace:
-    """Parse command-line arguments.
-
-    Returns:
-        Parsed argument namespace.
-    """
-    p = argparse.ArgumentParser(
-        description="OCC planning visualisation (RRT* vs SST)"
-    )
-    p.add_argument("--save", metavar="PATH", help="Save figure to PATH")
-    return p.parse_args()
 
 
 def _format_clock(seconds: float) -> str:
@@ -67,22 +53,18 @@ def _format_clock(seconds: float) -> str:
     return f"{mins:02d}min{secs:02d}s"
 
 
-def main(save_path: str | None = None) -> None:
+def main(cfg: dict, save_path: str | None = None) -> None:
     """Run the OCC example visualization.
 
     Args:
+        cfg: Scenario configuration dictionary (loaded from ``occ.yml``).
         save_path: Optional path to save the output image.  When ``None``
             an interactive matplotlib window is opened instead.
     """
     configure_logging()
-    if save_path is None:
-        args = _parse_args()
-        save_path = args.save or None
-
     if save_path is not None:
         matplotlib.use("Agg")
 
-    cfg = load_config("occ")
     env_cfg: dict = cfg.get("environment", {})
 
     t_start = time.perf_counter()
@@ -198,4 +180,18 @@ def main(save_path: str | None = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import yaml as _yaml
+
+    _p = argparse.ArgumentParser(
+        description="OCC planning visualisation (RRT* vs SST)"
+    )
+    _p.add_argument(
+        "scenario", metavar="FILE", help="Path to scenario YAML file."
+    )
+    _p.add_argument(
+        "--save", metavar="PATH", default=None, help="Save figure to PATH."
+    )
+    _args = _p.parse_args()
+    with open(_args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    main(_cfg, save_path=_args.save)

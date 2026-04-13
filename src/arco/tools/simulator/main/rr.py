@@ -72,7 +72,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glViewport,
 )
 
-from arco.tools.config import load_config
+from arco.config import load_config
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.scenes.rr import RRScene
@@ -411,6 +411,7 @@ def _draw_joint_path(
 
 def run_rr_sim(
     scene: RRScene,
+    cfg: dict,
     *,
     fps: int = 30,
     dt: float = 0.05,
@@ -422,6 +423,7 @@ def run_rr_sim(
 
     Args:
         scene: Pre-built :class:`RRScene` instance.
+        cfg: Parsed scenario configuration dict (used for ``simulator`` section).
         fps: Target frames per second.
         dt: Simulation time step in seconds.
         record: If non-empty, record to this MP4 path.
@@ -447,8 +449,7 @@ def run_rr_sim(
     start_q = scene.start_q
     goal_q = scene.goal_q
     r_min, r_max = robot.workspace_annulus()
-    _rr_cfg = load_config("rr")
-    _rr_sim = _rr_cfg.get("simulator", _rr_cfg)
+    _rr_sim = cfg.get("simulator", cfg)
     race_speed = float(_rr_sim.get("race_speed", 0.8))
 
     # Build trajectory lists — prefer optimized, fall back to raw path
@@ -762,7 +763,7 @@ def run_rr_sim(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def main(cfg: dict) -> None:
     """Parse arguments, build the scene, and launch the simulator."""
     configure_logging()
     parser = argparse.ArgumentParser(
@@ -789,7 +790,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cfg = load_config("rr")
     scene = RRScene(cfg)
 
     pygame.init()
@@ -803,6 +803,7 @@ def main() -> None:
 
     run_rr_sim(
         scene,
+        cfg,
         fps=args.fps,
         record=args.record,
         record_duration=args.record_duration,
@@ -811,4 +812,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse as _argparse
+
+    import yaml as _yaml
+
+    _parser = _argparse.ArgumentParser()
+    _parser.add_argument("scenario", metavar="FILE")
+    _args, _rest = _parser.parse_known_args()
+    with open(_args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    import sys as _sys
+
+    _sys.argv = [_sys.argv[0], *_rest]
+    main(_cfg)

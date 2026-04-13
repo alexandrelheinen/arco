@@ -107,7 +107,6 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex3f,
 )
 
-from arco.tools.config import load_config
 from arco.tools.simulator.scenes.rrp import RRPScene
 from arco.tools.simulator.sim.loading import run_with_loading_screen
 from arco.tools.simulator.sim.video import VideoWriter
@@ -1234,7 +1233,7 @@ def run_race(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def main(cfg: dict) -> None:
     """Parse CLI arguments and launch the RRP 3-D OpenGL race simulation."""
     logging.basicConfig(
         level=logging.INFO,
@@ -1266,7 +1265,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cfg = load_config("rrp")
     scene = RRPScene(cfg)
     run_race(
         scene,
@@ -1278,4 +1276,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse as _argparse
+
+    import yaml as _yaml
+
+    _parser = _argparse.ArgumentParser()
+    _parser.add_argument("scenario", metavar="FILE")
+    _args, _rest = _parser.parse_known_args()
+    with open(_args.scenario) as _fh:
+        _cfg = _yaml.safe_load(_fh) or {}
+    import sys as _sys
+
+    _sys.argv = [_sys.argv[0], *_rest]
+    main(_cfg)
