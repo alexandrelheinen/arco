@@ -42,6 +42,8 @@ import pygame
 from logging_config import configure_logging
 from scenes.occ import OCCScene
 
+from arco.control import ActuatorArray
+from arco.control.rigid_body import CircleBody, SquareBody
 from config import load_config
 
 logger = logging.getLogger(__name__)
@@ -88,8 +90,6 @@ def _draw_body(
         scale: Pixels per metre.
         color: RGB fill color.
     """
-    from arco.control.rigid_body import CircleBody, SquareBody
-
     if isinstance(body, SquareBody):
         corners = body.corners()
         pts = [_world_to_screen((c[0], c[1]), origin, scale) for c in corners]
@@ -402,8 +402,6 @@ def main() -> None:
     )
 
     def _reset_bodies() -> tuple[object, object, int, int]:
-        from arco.control import ActuatorArray, CircleBody, SquareBody
-
         body_type = str(cfg.get("body", {}).get("type", "square"))
         mass = float(cfg.get("body", {}).get("mass", 5.0))
         act_cfg = cfg.get("actuator", {})
