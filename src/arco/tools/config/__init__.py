@@ -21,7 +21,8 @@ from typing import Any
 
 import yaml
 
-_CONFIG_DIR = os.path.dirname(__file__)
+DEFAULT_CONFIG_DIR = os.path.join(os.path.dirname(__file__))
+_CONFIG_DIR = os.getenv("ARCO_CONFIG_DIR", DEFAULT_CONFIG_DIR)
 
 # Search order: map/ first, then system/, then the legacy root directory.
 _SEARCH_DIRS = (

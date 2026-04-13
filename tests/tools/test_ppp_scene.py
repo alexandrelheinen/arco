@@ -8,7 +8,15 @@ import sys
 # Expose tools/simulator modules (scenes.ppp).
 sys.path.insert(
     0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "src", "arco", "tools", "simulator"),
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "src",
+        "arco",
+        "tools",
+        "simulator",
+    ),
 )
 
 from scenes.ppp import BOUNDS, BOXES, GOAL, START, is_wall

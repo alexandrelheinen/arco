@@ -94,7 +94,13 @@ cd arco
 pip install -e ".[dev]"
 ```
 
-Requires Python 3.10+
+The ARCO _config dir_ (directory containing the system configurations/YAML files) can be customized by setting the `ARCO_CONFIG_DIR` envionment variable.
+
+```sh
+export ARCO_CONFIG_DIR="<path_to_custom_root_dir>"
+```
+
+> ARCO Requires Python 3.10+
 
 ## Development
 
