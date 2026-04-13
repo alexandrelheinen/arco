@@ -177,8 +177,15 @@ def test_pyproject_includes_tool_config_package_data() -> None:
     with open(pyproject, encoding="utf-8") as fh:
         content = fh.read()
 
-    assert '[tool.setuptools.package-data]' in content
+    assert "[tool.setuptools.package-data]" in content
     assert '"arco.tools.config" = [' in content
     assert '"map/*.yml"' in content
     assert '"map/*.json"' in content
     assert '"system/*.yml"' in content
+
+
+def test_occ_config_uses_three_actuators() -> None:
+    """OCC scenario defaults to 3 actuators (minimum viable count)."""
+    _, cfg = _arcosim_load(_scenario_yml("occ"))
+    act_cfg = cfg.get("actuator", {})
+    assert int(act_cfg.get("count", 0)) == 3
