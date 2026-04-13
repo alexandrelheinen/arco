@@ -36,72 +36,67 @@ jobs:
           python tools/simulator/generate_chiptune.py \
             --output /tmp/sim_videos/racing_theme.wav
 
-      - name: Generate A* general view (full network camera)
+      - name: Generate A* simulation video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/astar.py \
+          xvfb-run -a arcosim tools/config/map/astar.yml \
             --fps 30 \
-            --record /tmp/sim_videos/astar.mp4 \
+            --record /tmp/sim_videos/arcosim_astar_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 60
 
       - name: Generate city race video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/city.py \
+          xvfb-run -a arcosim tools/config/map/city.yml \
             --fps 30 \
-            --record /tmp/sim_videos/city.mp4 \
+            --record /tmp/sim_videos/arcosim_city_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
 
       - name: Generate PPP warehouse video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/ppp.py \
+          xvfb-run -a arcosim tools/config/map/ppp.yml \
             --fps 30 \
-            --record /tmp/sim_videos/ppp.mp4 \
+            --record /tmp/sim_videos/arcosim_ppp_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
 
       - name: Generate RR arm video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/rr.py \
+          xvfb-run -a arcosim tools/config/map/rr.yml \
             --fps 30 \
-            --record /tmp/sim_videos/rr.mp4 \
+            --record /tmp/sim_videos/arcosim_rr_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
 
       - name: Generate vehicle benchmark video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a python tools/simulator/main/vehicle.py \
+          xvfb-run -a arcosim tools/config/map/vehicle.yml \
             --fps 30 \
-            --record /tmp/sim_videos/vehicle.mp4 \
+            --record /tmp/sim_videos/arcosim_vehicle_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
 
-        - name: Generate RRP SCARA arm video
-          env:
-            SDL_AUDIODRIVER: dummy
-          run: |
-            xvfb-run -a python tools/simulator/main/rrp.py \
-              --fps 30 \
-              --record /tmp/sim_videos/rrp.mp4 \
-              --record-duration 90
+      - name: Generate RRP SCARA arm video
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          xvfb-run -a arcosim tools/config/map/rrp.yml \
+            --fps 30 \
+            --record /tmp/sim_videos/arcosim_rrp_${{ github.event.release.tag_name }}.mp4 \
+            --record-duration 90
 
       - name: Mix racing chiptune into all videos
         run: |
           AUDIO=/tmp/sim_videos/racing_theme.wav
-          for VIDEO in \
-            astar \
-            city \
-            ppp \
-            rr \
-              vehicle \
-              rrp; do
-            SRC=/tmp/sim_videos/${VIDEO}.mp4
-            TMP=/tmp/sim_videos/${VIDEO}_audio.mp4
+          TAG="${{ github.event.release.tag_name }}"
+          for SCENARIO in astar city ppp rr vehicle rrp; do
+            SRC=/tmp/sim_videos/arcosim_${SCENARIO}_${TAG}.mp4
+            TMP=/tmp/sim_videos/arcosim_${SCENARIO}_${TAG}_audio.mp4
             ffmpeg -y \
               -i "$SRC" \
               -stream_loop -1 -i "$AUDIO" \
@@ -112,50 +107,13 @@ jobs:
             mv "$TMP" "$SRC"
           done
 
-      - name: Upload A* video to release
+      - name: Upload videos to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/astar.mp4 \
-            --clobber
-
-      - name: Upload city video to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/city.mp4 \
-            --clobber
-
-      - name: Upload PPP video to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/ppp.mp4 \
-            --clobber
-
-      - name: Upload RR video to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/rr.mp4 \
-            --clobber
-
-      - name: Upload vehicle benchmark video to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            /tmp/sim_videos/vehicle.mp4 \
-            --clobber
-
-        - name: Upload RRP SCARA video to release
-          env:
-            GH_TOKEN: ${{ github.token }}
-          run: |
-            gh release upload "${{ github.event.release.tag_name }}" \
-              /tmp/sim_videos/rrp.mp4 \
+          TAG="${{ github.event.release.tag_name }}"
+          for SCENARIO in astar city ppp rr vehicle rrp; do
+            gh release upload "${TAG}" \
+              /tmp/sim_videos/arcosim_${SCENARIO}_${TAG}.mp4 \
               --clobber
+          done

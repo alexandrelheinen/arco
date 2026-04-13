@@ -36,36 +36,46 @@ jobs:
       - name: Create output directory
         run: mkdir -p /tmp/generated_images
 
-      # Generate the 5 scenario example images
+      # Determine PR number or "dev" for branch builds
+      - name: Set image ref label
+        id: ref
+        run: |
+          if [ -n "${{ github.event.pull_request.number }}" ]; then
+            echo "label=pr${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "label=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Generate scenario example images via arcoex
       - name: Generate A* example
         run: |
-          MPLBACKEND=Agg python tools/examples/astar.py \
-            --save /tmp/generated_images/example_astar.png
+          MPLBACKEND=Agg arcoex tools/config/map/astar.yml \
+            --save /tmp/generated_images/arcoex_astar_${{ steps.ref.outputs.label }}.png
 
       - name: Generate PPP example
         run: |
-          MPLBACKEND=Agg python tools/examples/ppp.py \
-            --save /tmp/generated_images/example_ppp.png
+          MPLBACKEND=Agg arcoex tools/config/map/ppp.yml \
+            --save /tmp/generated_images/arcoex_ppp_${{ steps.ref.outputs.label }}.png
 
       - name: Generate RR example
         run: |
-          MPLBACKEND=Agg python tools/examples/rr.py \
-            --save /tmp/generated_images/example_rr.png
+          MPLBACKEND=Agg arcoex tools/config/map/rr.yml \
+            --save /tmp/generated_images/arcoex_rr_${{ steps.ref.outputs.label }}.png
 
       - name: Generate city example
         run: |
-          MPLBACKEND=Agg python tools/examples/city.py \
-            --save /tmp/generated_images/example_city.png
+          MPLBACKEND=Agg arcoex tools/config/map/city.yml \
+            --save /tmp/generated_images/arcoex_city_${{ steps.ref.outputs.label }}.png
 
       - name: Generate vehicle benchmark example
         run: |
-          MPLBACKEND=Agg python tools/examples/vehicle.py \
-            --save /tmp/generated_images/example_vehicle.png
+          MPLBACKEND=Agg arcoex tools/config/map/vehicle.yml \
+            --save /tmp/generated_images/arcoex_vehicle_${{ steps.ref.outputs.label }}.png
 
       - name: Generate RRP SCARA example
         run: |
-          MPLBACKEND=Agg python tools/examples/rrp.py \
-            --save /tmp/generated_images/example_rrp.png
+          MPLBACKEND=Agg arcoex tools/config/map/rrp.yml \
+            --save /tmp/generated_images/arcoex_rrp_${{ steps.ref.outputs.label }}.png
 
       # Generate pyreverse diagrams
       - name: Generate pyreverse class diagram
@@ -96,6 +106,7 @@ jobs:
           script: |
             const artifactUrl = '${{ steps.upload-artifact.outputs.artifact-url }}';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const ref = '${{ steps.ref.outputs.label }}';
             const body = [
               '## 📊 Generated Images',
               '',
@@ -105,12 +116,12 @@ jobs:
               '',
               '| Group | Image | Description |',
               '|-------|-------|-------------|',
-              '| Example | `example_astar.png` | A* graph scenario (2-D) |',
-              '| Example | `example_ppp.png` | PPP warehouse scenario (3-D) |',
-              '| Example | `example_rr.png` | RR arm scenario (2-D) |',
-              '| Example | `example_city.png` | City race scenario (2-D) |',
-              '| Example | `example_vehicle.png` | Vehicle benchmark scenario (2-D, RRT* vs SST) |',
-              '| Example | `example_rrp.png` | RRP SCARA arm scenario (3-D) |',
+              `| Example | \`arcoex_astar_${ref}.png\` | A* graph scenario (2-D) |`,
+              `| Example | \`arcoex_ppp_${ref}.png\` | PPP warehouse scenario (3-D) |`,
+              `| Example | \`arcoex_rr_${ref}.png\` | RR arm scenario (2-D) |`,
+              `| Example | \`arcoex_city_${ref}.png\` | City race scenario (2-D) |`,
+              `| Example | \`arcoex_vehicle_${ref}.png\` | Vehicle benchmark scenario (2-D, RRT* vs SST) |`,
+              `| Example | \`arcoex_rrp_${ref}.png\` | RRP SCARA arm scenario (3-D) |`,
               '| Pyreverse | `pyreverse_classes.png` | Class diagram showing inheritance and relationships |',
               '| Pyreverse | `pyreverse_packages.png` | Package structure and dependencies |',
               '',

@@ -30,6 +30,14 @@ pygame = [
     "PyOpenGL>=3.1.0",
 ]
 
+[project.scripts]
+arcosim = "tools.arcosim.__main__:main"
+arcoex  = "tools.arcoex.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tools*"]
+
 [tool.black]
 line-length = 79
 target-version = ["py312"]
