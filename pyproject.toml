@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "arco"
 version = "0.2.4"
@@ -34,6 +38,22 @@ pygame = [
 [project.scripts]
 arcosim = "arco.tools.arcosim.__main__:main"
 arcoex  = "arco.tools.arcoex.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"arco.tools.config" = [
+    "map/*.json",
+    "map/*.yml",
+    "system/*.yml",
+]
 
 [tool.black]
 line-length = 79

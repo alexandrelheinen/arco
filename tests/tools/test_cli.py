@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tomllib
 
 import pytest
 import yaml
@@ -169,3 +170,20 @@ def test_config_dir_contains_only_map_and_system() -> None:
             f"Unexpected entry in config/: {entry!r}. "
             "config/ must contain only map/, system/, and __init__.py."
         )
+
+
+def test_pyproject_includes_tool_config_package_data() -> None:
+    """Wheel metadata must include tool config YAML and JSON files."""
+    pyproject = os.path.join(_REPO, "pyproject.toml")
+    with open(pyproject, "rb") as fh:
+        data = tomllib.load(fh)
+
+    package_data = (
+        data.get("tool", {})
+        .get("setuptools", {})
+        .get("package-data", {})
+    )
+    assert "arco.tools.config" in package_data
+    assert "map/*.yml" in package_data["arco.tools.config"]
+    assert "map/*.json" in package_data["arco.tools.config"]
+    assert "system/*.yml" in package_data["arco.tools.config"]
