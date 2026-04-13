@@ -3,7 +3,7 @@ scenario: city
 # City race scenario (RRT* vs SST) on a triangular neighborhood mesh.
 
 planner:
-  step_size: 15.0
+  step_size: [15.0, 15.0]  # [m, m]
   goal_tolerance: 20.0
   collision_check_count: 3
   goal_bias: 0.05

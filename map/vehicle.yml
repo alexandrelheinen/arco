@@ -4,7 +4,7 @@ scenario: vehicle
 
 planner:
   bounds: [[0.0, 50.0], [0.0, 50.0]]
-  step_size: 1.0
+  step_size: [1.0, 1.0]  # [m, m]
   goal_tolerance: 2.1
   collision_check_count: 1
   goal_bias: 0.05

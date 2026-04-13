@@ -130,7 +130,7 @@ class SSTScene(SimScene):
             self._occ,
             bounds=bounds,
             max_sample_count=int(self._cfg["max_sample_count"]),
-            step_size=float(self._cfg["step_size"]),
+            step_size=self._cfg["step_size"],
             goal_tolerance=float(self._cfg["goal_tolerance"]),
             collision_check_count=int(self._cfg["collision_check_count"]),
             goal_bias=float(self._cfg["goal_bias"]),
