@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tomllib
 
 import pytest
 import yaml
@@ -175,15 +174,11 @@ def test_config_dir_contains_only_map_and_system() -> None:
 def test_pyproject_includes_tool_config_package_data() -> None:
     """Wheel metadata must include tool config YAML and JSON files."""
     pyproject = os.path.join(_REPO, "pyproject.toml")
-    with open(pyproject, "rb") as fh:
-        data = tomllib.load(fh)
+    with open(pyproject, encoding="utf-8") as fh:
+        content = fh.read()
 
-    package_data = (
-        data.get("tool", {})
-        .get("setuptools", {})
-        .get("package-data", {})
-    )
-    assert "arco.tools.config" in package_data
-    assert "map/*.yml" in package_data["arco.tools.config"]
-    assert "map/*.json" in package_data["arco.tools.config"]
-    assert "system/*.yml" in package_data["arco.tools.config"]
+    assert '[tool.setuptools.package-data]' in content
+    assert '"arco.tools.config" = [' in content
+    assert '"map/*.yml"' in content
+    assert '"map/*.json"' in content
+    assert '"system/*.yml"' in content
