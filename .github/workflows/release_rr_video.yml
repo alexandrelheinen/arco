@@ -41,7 +41,8 @@ jobs:
 
       - name: Generate RR arm simulation video
         run: |
-          cd tools/simulator
+          cd src/arco/tools/simulator
+          export SDL_AUDIODRIVER=dummy
           xvfb-run -a python main/rr.py \
             --record /tmp/rr.mp4 \
             --record-duration 90
@@ -50,4 +51,4 @@ jobs:
         run: |
           gh release upload "${{ github.ref_name }}" /tmp/rr.mp4 --clobber
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
