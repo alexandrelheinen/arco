@@ -36,7 +36,7 @@ from arco.planning.continuous import (
     TrajectoryOptimizer,
 )
 from arco.tools.config import load_config
-from arco.tools.simulator.logging_config import configure_logging
+from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.ppp import BOXES as _BOXES
 from arco.tools.simulator.scenes.ppp import GOAL as _GOAL
 from arco.tools.simulator.scenes.ppp import START as _START

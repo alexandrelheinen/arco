@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 from arco.mapping import ManhattanGrid
 from arco.planning.discrete.astar import AStarPlanner
 from arco.tools.config import load_config
-from arco.tools.simulator.logging_config import configure_logging
+from arco.tools.logging_config import configure_logging
 from arco.tools.viewer.grid import draw_grid
 
 logger = logging.getLogger(__name__)
