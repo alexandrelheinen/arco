@@ -1,22 +1,14 @@
-"""PurePursuitController: pure pursuit path tracking controller.
+"""PurePursuitController: pure pursuit path tracking controller."""
 
-.. deprecated::
-    Import from :mod:`arco.control.pure_pursuit` instead.
-"""
+from __future__ import annotations
 
-from arco.control.pure_pursuit import (
-    PurePursuitController,
-    _circle_segment_intersection,
-    _find_lookahead,
-    _wrap_angle,
-)
+import math
+from typing import Sequence
 
-__all__ = [
-    "PurePursuitController",
-    "_circle_segment_intersection",
-    "_find_lookahead",
-    "_wrap_angle",
-]
+from .base import Controller
+
+
+class PurePursuitController(Controller):
     """Pure pursuit controller for 2-D path tracking.
 
     Computes a turn-rate command that steers a unicycle vehicle toward a

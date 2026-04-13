@@ -1,21 +1,23 @@
-"""TrackingLoop: local control loop for route following with bounded dynamics.
+"""TrackingLoop: local control loop for route following with bounded dynamics."""
 
-.. deprecated::
-    Import from :mod:`arco.control.tracking` instead.
-"""
+from __future__ import annotations
 
-from arco.control.tracking import TrackingLoop
+from typing import TYPE_CHECKING, Any
 
-__all__ = ["TrackingLoop"]
+if TYPE_CHECKING:
+    from arco.guidance.vehicle import DubinsVehicle
+
+from .pure_pursuit import PurePursuitController
 
 
 class TrackingLoop:
     """Local tracking loop combining a vehicle model and a path controller.
 
-    Closes the feedback loop between a :class:`DubinsVehicle` kinematic model
-    and a :class:`PurePursuitController`.  Each call to :meth:`step` issues
-    pure pursuit commands to the vehicle and records cross-track error,
-    heading error, pose, speed, and turn rate for later analysis.
+    Closes the feedback loop between a :class:`~arco.guidance.vehicle.DubinsVehicle`
+    kinematic model and a :class:`PurePursuitController`.  Each call to
+    :meth:`step` issues pure pursuit commands to the vehicle and records
+    cross-track error, heading error, pose, speed, and turn rate for later
+    analysis.
 
     Attributes:
         vehicle: Kinematic vehicle model.

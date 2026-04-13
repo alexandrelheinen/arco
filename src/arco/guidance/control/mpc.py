@@ -1,32 +1,9 @@
-"""MPCController: model predictive controller."""
+"""MPCController: model predictive controller.
 
-from __future__ import annotations
+.. deprecated::
+    Import from :mod:`arco.control.mpc` instead.
+"""
 
-from .base import Controller
+from arco.control.mpc import MPCController
 
-
-class MPCController(Controller):
-    """Model Predictive Controller (stub)."""
-
-    def __init__(self, horizon: int = 10, dt: float = 0.1) -> None:
-        """Initialize MPCController.
-
-        Args:
-            horizon: Prediction horizon (number of steps).
-            dt: Time step duration in seconds.
-        """
-        self.horizon = horizon
-        self.dt = dt
-
-    def control(self, state: float, reference: float) -> float:
-        """Compute MPC control output (stub).
-
-        Args:
-            state: The current state value.
-            reference: The reference/target value.
-
-        Returns:
-            Control command as a float.
-        """
-        # Placeholder: would compute MPC output in practice
-        return 0.0
+__all__ = ["MPCController"]
