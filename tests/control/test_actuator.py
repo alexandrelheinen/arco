@@ -535,3 +535,129 @@ class TestConvergenceDegradation:
         assert late_residual < early_residual or late_residual < 0.5, (
             f"Slow actuators: early {early_residual:.4f}, late {late_residual:.4f}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Repulsive wrench
+# ---------------------------------------------------------------------------
+
+
+class TestRepulsiveWrench:
+    """Tests for ActuatorArray.repulsive_wrench (APF local safety)."""
+
+    @pytest.fixture()
+    def array3(self) -> ActuatorArray:
+        return ActuatorArray(actuator_count=3, standoff=0.05)
+
+    def test_zero_when_all_far(
+        self, array3: ActuatorArray, circle: CircleBody
+    ) -> None:
+        """Wrench is zero when every hazard is beyond d0."""
+        w = array3.repulsive_wrench(
+            circle,
+            lambda pos: (100.0, np.array([100.0, 0.0])),
+            np.empty((0, 2)),
+            k_rep=5.0,
+            d0=0.20,
+        )
+        np.testing.assert_array_almost_equal(w, [0.0, 0.0, 0.0])
+
+    def test_zero_at_influence_boundary(
+        self, array3: ActuatorArray, circle: CircleBody
+    ) -> None:
+        """Force magnitude is zero exactly at d = d0."""
+        d0 = 0.20
+
+        def fn(pos: np.ndarray) -> tuple[float, np.ndarray]:
+            return d0, pos + np.array([d0, 0.0])
+
+        w = array3.repulsive_wrench(
+            circle, fn, np.empty((0, 2)), k_rep=5.0, d0=d0
+        )
+        np.testing.assert_array_almost_equal(w, [0.0, 0.0, 0.0])
+
+    def test_nonzero_when_obstacle_close(
+        self, array3: ActuatorArray, circle: CircleBody
+    ) -> None:
+        """Wrench is nonzero when obstacle is within d0."""
+        w = array3.repulsive_wrench(
+            circle,
+            lambda pos: (0.05, pos + np.array([0.05, 0.0])),
+            np.empty((0, 2)),
+            k_rep=5.0,
+            d0=0.20,
+        )
+        assert np.linalg.norm(w) > 0.0
+
+    def test_formula_symmetric_obstacle_field(
+        self, array3: ActuatorArray, circle: CircleBody
+    ) -> None:
+        """Net force matches k*(d0-d)^2 * N for a uniform field."""
+        k_rep = 5.0
+        d0 = 0.20
+        d_close = 0.08  # well within influence radius
+
+        # Obstacle always at +x direction, d_close away from each actuator
+        def fn(pos: np.ndarray) -> tuple[float, np.ndarray]:
+            return d_close, pos + np.array([d_close, 0.0])
+
+        w = array3.repulsive_wrench(
+            circle, fn, np.empty((0, 2)), k_rep=k_rep, d0=d0
+        )
+        expected_fx = -3.0 * k_rep * (d0 - d_close) ** 2
+        assert w[0] == pytest.approx(expected_fx, rel=1e-6)
+        assert w[1] == pytest.approx(0.0, abs=1e-10)
+        assert w[2] == pytest.approx(0.0, abs=1e-10)
+
+    def test_direction_away_from_obstacle(
+        self, array3: ActuatorArray, circle: CircleBody
+    ) -> None:
+        """Repulsive force points away from the nearest obstacle."""
+        d0 = 0.20
+        k_rep = 5.0
+
+        # Obstacle always directly above (+y) each actuator
+        def fn_above(pos: np.ndarray) -> tuple[float, np.ndarray]:
+            return 0.05, pos + np.array([0.0, 0.05])
+
+        w = array3.repulsive_wrench(
+            circle, fn_above, np.empty((0, 2)), k_rep=k_rep, d0=d0
+        )
+        # Net -y force (away from above obstacle); torque cancels by symmetry
+        assert w[1] < 0.0
+        assert w[2] == pytest.approx(0.0, abs=1e-10)
+
+    def test_peer_positions_activate_repulsion(
+        self, array3: ActuatorArray, circle: CircleBody
+    ) -> None:
+        """A close peer position triggers repulsion when static obstacles are far."""
+        d0 = 0.20
+        k_rep = 5.0
+        far_fn = lambda pos: (100.0, np.array([100.0, 0.0]))  # noqa: E731
+
+        # With no peers → zero wrench
+        w_no_peer = array3.repulsive_wrench(
+            circle, far_fn, np.empty((0, 2)), k_rep=k_rep, d0=d0
+        )
+        np.testing.assert_array_almost_equal(w_no_peer, [0.0, 0.0, 0.0])
+
+        # Peer directly above each actuator at 0.05 m (< d0=0.20) → nonzero
+        positions = array3.actuator_positions(circle)
+        peers = positions + np.array([[0.0, 0.05]])
+        w_with_peer = array3.repulsive_wrench(
+            circle, far_fn, peers, k_rep=k_rep, d0=d0
+        )
+        assert np.linalg.norm(w_with_peer) > 0.0
+
+    def test_empty_other_positions_no_crash(
+        self, array3: ActuatorArray, circle: CircleBody
+    ) -> None:
+        """Passing np.empty((0, 2)) as other_positions must not raise."""
+        w = array3.repulsive_wrench(
+            circle,
+            lambda pos: (100.0, np.array([100.0, 0.0])),
+            np.empty((0, 2)),
+            k_rep=5.0,
+            d0=0.20,
+        )
+        assert w.shape == (3,)

@@ -42,10 +42,18 @@ planner:
   cspace_grid_n: 60
 
 control:
-  kp_pos: 5.0     # proportional gain position
-  kd_pos: 2.0     # derivative gain position
-  kp_psi: 3.0     # proportional gain heading
-  kd_psi: 1.5     # derivative gain heading
+  # Position PD — target: ωn ≈ 0.71 rad/s, ζ ≈ 0.59 → ~10 % overshoot.
+  # Design: kp = ωn² · m = 0.5 · 5, kd = 2 · ζ · ωn · m = 2 · 0.59 · 0.707 · 5.
+  # Peak body speed ≈ 0.28 m/s ≤ race_speed; actuators ride rigidly on the body.
+  kp_pos: 2.5
+  kd_pos: 4.2
+
+  # Heading PD — target: ωn ≈ 1.55 rad/s, ζ ≈ 0.85 → near-critical (< 1 % overshoot).
+  # Design: kp = ωn² · I = 2.4 · 0.208, kd = 2 · ζ · ωn · I = 2 · 0.85 · 1.55 · 0.208.
+  kp_psi: 0.50
+  kd_psi: 0.55
+
+  k_rep: 5.0      # APF repulsion stiffness [N/m²]; d0 = 4 × standoff
 
 simulator:
   dt: 0.02        # seconds

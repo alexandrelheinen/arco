@@ -255,7 +255,7 @@ class OCCScene:
             body_size = radius
         self._body = body
 
-        count = int(self._act_cfg.get("count", 4))
+        count = int(self._act_cfg.get("count", 3))
         standoff = float(self._act_cfg.get("standoff", 0.05))
         omega = float(self._act_cfg.get("omega", 10.0))
         zeta = float(self._act_cfg.get("zeta", 0.7))
