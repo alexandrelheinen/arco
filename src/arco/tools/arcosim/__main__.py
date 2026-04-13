@@ -43,6 +43,10 @@ _TOOLS_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #: Absolute path to the ``tools/simulator/`` directory (for scenes imports).
 _SIMULATOR_DIR: str = os.path.join(_TOOLS_DIR, "simulator")
 
+#: Absolute path to the ``tools/simulator/main/`` directory (for sibling
+#: imports such as ``from city import run_race`` inside ``vehicle.py``).
+_SIMULATOR_MAIN_DIR: str = os.path.join(_SIMULATOR_DIR, "main")
+
 #: Supported scenario names — must match modules in
 #: ``tools/simulator/main/``.
 SUPPORTED_SCENARIOS: frozenset[str] = frozenset(
@@ -56,13 +60,16 @@ SUPPORTED_SCENARIOS: frozenset[str] = frozenset(
 
 
 def _setup_import_paths() -> None:
-    """Prepend ``tools/`` and ``tools/simulator/`` to ``sys.path``.
+    """Prepend ``tools/``, ``tools/simulator/``, and ``tools/simulator/main/`` to ``sys.path``.
 
     This allows the simulator modules (which use relative-style imports such
     as ``import renderer_gl`` or ``from scenes.city import CityScene``) to
     locate their dependencies without needing to be installed as packages.
+    ``simulator/main/`` is also included so that sibling-module imports like
+    ``from city import run_race`` inside ``vehicle.py`` are resolved correctly
+    when the module is loaded via ``importlib`` rather than run as a script.
     """
-    for path in (_TOOLS_DIR, _SIMULATOR_DIR):
+    for path in (_TOOLS_DIR, _SIMULATOR_DIR, _SIMULATOR_MAIN_DIR):
         if path not in sys.path:
             sys.path.insert(0, path)
 
