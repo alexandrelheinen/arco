@@ -405,7 +405,7 @@ def main() -> None:
         body_type = str(cfg.get("body", {}).get("type", "square"))
         mass = float(cfg.get("body", {}).get("mass", 5.0))
         act_cfg = cfg.get("actuator", {})
-        count = int(act_cfg.get("count", 4))
+        count = int(act_cfg.get("count", 3))
         standoff = float(act_cfg.get("standoff", 0.05))
 
         if body_type == "square":

@@ -15,7 +15,7 @@ body:
   radius: 0.3           # metres (used for circle)
 
 actuator:
-  count: 4
+  count: 3
   standoff: 0.05        # metres beyond bounding_radius
 
 # 2-D Cartesian obstacles [x_min, y_min, x_max, y_max] in metres.
