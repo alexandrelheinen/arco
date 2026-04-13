@@ -37,61 +37,8 @@ jobs:
       - name: Install formatting tools
         run: pip install black isort pydocstyle
 
-      - name: Check black formatting
-        id: black
-        run: |
-          echo "Checking black formatting (line-length: 79)..."
-          python -m black --check --target-version py312 --line-length 79 src/
-        continue-on-error: true
-
-      - name: Check isort formatting
-        id: isort
-        run: |
-          echo "Checking isort formatting..."
-          python -m isort --check-only --line-length 79 src/
-        continue-on-error: true
-
-      - name: Check Google-style docstrings
-        id: pydocstyle
-        run: |
-          echo "Checking Google-style docstrings..."
-          python -m pydocstyle --convention=google --add-ignore=D100,D104,D205,D212,D402,D411 src/
-        continue-on-error: true
-
-      - name: Evaluate results
-        run: |
-          BLACK_EXIT=${{ steps.black.outcome }}
-          ISORT_EXIT=${{ steps.isort.outcome }}
-          PYDOCSTYLE_EXIT=${{ steps.pydocstyle.outcome }}
-
-          echo "=== Formatting Check Results ==="
-          echo "Black: $BLACK_EXIT"
-          echo "isort: $ISORT_EXIT"
-          echo "Pydocstyle: $PYDOCSTYLE_EXIT"
-          echo "================================"
-
-          # Black: fail if it fails, warn if it has concerns
-          if [ "$BLACK_EXIT" = "failure" ]; then
-            echo "❌ Black formatting check failed"
-            exit 1
-          elif [ "$BLACK_EXIT" = "success" ]; then
-            echo "✅ Black formatting is valid"
-          fi
-
-          # isort: must not raise anything
-          if [ "$ISORT_EXIT" = "failure" ]; then
-            echo "❌ isort formatting check failed"
-            exit 1
-          else
-            echo "✅ isort formatting is valid"
-          fi
-
-          # Pydocstyle: warning only for now
-          if [ "$PYDOCSTYLE_EXIT" = "failure" ]; then
-            echo "⚠️  Google-style docstring check has warnings (not blocking)"
-          else
-            echo "✅ Google-style docstrings are valid"
-          fi
+      - name: Run formatting checks
+        run: bash scripts/check_formatting.sh
 
   # -----------------------------------------------------------------------
   # Notify on broken main.
