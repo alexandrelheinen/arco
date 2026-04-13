@@ -1,6 +1,6 @@
 [project]
 name = "arco"
-version = "0.2.2"
+version = "0.2.4"
 description = "Autonomous Routing, Control, and Observation algorithms in Python"
 authors = [
     { name = "Alexandre Loeblein Heinen" }
