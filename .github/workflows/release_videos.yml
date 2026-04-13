@@ -33,14 +33,14 @@ jobs:
 
       - name: Generate racing chiptune (CC0)
         run: |
-          python tools/simulator/generate_chiptune.py \
+          python src/arco/tools/simulator/generate_chiptune.py \
             --output /tmp/sim_videos/racing_theme.wav
 
       - name: Generate A* simulation video
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a arcosim tools/config/map/astar.yml \
+          xvfb-run -a arcosim src/arco/tools/config/map/astar.yml \
             --fps 30 \
             --record /tmp/sim_videos/arcosim_astar_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 60
@@ -49,7 +49,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a arcosim tools/config/map/city.yml \
+          xvfb-run -a arcosim src/arco/tools/config/map/city.yml \
             --fps 30 \
             --record /tmp/sim_videos/arcosim_city_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
@@ -58,7 +58,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a arcosim tools/config/map/ppp.yml \
+          xvfb-run -a arcosim src/arco/tools/config/map/ppp.yml \
             --fps 30 \
             --record /tmp/sim_videos/arcosim_ppp_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
@@ -67,7 +67,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a arcosim tools/config/map/rr.yml \
+          xvfb-run -a arcosim src/arco/tools/config/map/rr.yml \
             --fps 30 \
             --record /tmp/sim_videos/arcosim_rr_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
@@ -76,7 +76,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a arcosim tools/config/map/vehicle.yml \
+          xvfb-run -a arcosim src/arco/tools/config/map/vehicle.yml \
             --fps 30 \
             --record /tmp/sim_videos/arcosim_vehicle_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90
@@ -85,7 +85,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: |
-          xvfb-run -a arcosim tools/config/map/rrp.yml \
+          xvfb-run -a arcosim src/arco/tools/config/map/rrp.yml \
             --fps 30 \
             --record /tmp/sim_videos/arcosim_rrp_${{ github.event.release.tag_name }}.mp4 \
             --record-duration 90

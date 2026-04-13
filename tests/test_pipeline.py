@@ -38,8 +38,11 @@ def _resolve_network_path() -> str:
     config_dir = os.path.join(
         os.path.dirname(__file__),
         "..",
+        "src",
+        "arco",
         "tools",
         "config",
+        "map",
     )
     for filename in ("city_network.json", "city.json"):
         path = os.path.join(config_dir, filename)

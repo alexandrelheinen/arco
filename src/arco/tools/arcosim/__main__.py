@@ -24,8 +24,8 @@ from typing import Any
 # Optional-dependency guard — checked before any further imports.
 # ---------------------------------------------------------------------------
 try:
-    import yaml
     import matplotlib  # noqa: F401  (presence check only)
+    import yaml
 except ImportError:
     print(
         "arcosim requires the 'tools' extra. "
@@ -35,8 +35,8 @@ except ImportError:
     sys.exit(1)
 
 try:
-    import pygame  # noqa: F401  (presence check only)
     import OpenGL  # noqa: F401  (presence check only)
+    import pygame  # noqa: F401  (presence check only)
 except ImportError:
     print(
         "arcosim requires the 'pygame' extra. "
@@ -209,7 +209,9 @@ def main() -> None:
 
     scenario, _ = _load_scenario(args.scenario_file)
     _setup_import_paths()
-    _dispatch(scenario, args.fps, args.record, args.record_duration, extra_argv)
+    _dispatch(
+        scenario, args.fps, args.record, args.record_duration, extra_argv
+    )
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ sys.path.insert(
 )
 sys.path.insert(
     0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "tools"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "src", "arco", "tools"),
 )
 
 from graph.generator import generate_graph
