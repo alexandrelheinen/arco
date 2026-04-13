@@ -36,7 +36,6 @@ import threading
 from typing import Any, Callable
 
 import pygame
-from arco.tools.simulator import renderer_gl
 from OpenGL.GL import (  # type: ignore[import-untyped]
     GL_BLEND,
     GL_COLOR_BUFFER_BIT,
@@ -52,6 +51,8 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glEnable,
     glShadeModel,
 )
+
+from arco.tools.simulator import renderer_gl
 
 try:
     import tqdm as _tqdm_module

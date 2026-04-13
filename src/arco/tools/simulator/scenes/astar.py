@@ -80,9 +80,8 @@ class AStarScene(SimScene):
         """
         _total = 2
         # Import here to avoid top-level side-effects.
-        from graph.generator import generate_graph
-
         from arco.planning.discrete import RouteRouter
+        from arco.tools.graph.generator import generate_graph
 
         if progress is not None:
             progress("Generating road network", 1, _total)
