@@ -19,9 +19,13 @@ planner:
   # SST needs more iterations than RRT* because witness cells prune the tree.
   # 80 000 gives SST the budget to explore the full city graph and converge.
   sst_max_sample_count: 80000  # [] maximum number of SST samples
-  # witness_radius in normalized units: 8/15 ≈ 0.53 steps — keeps the tree
-  # sparse (one representative per ~7.5 m radius cell) without blocking growth.
-  witness_radius: 8.0  # [] SST witness-cell half-width in normalized units
+  # witness_radius in normalized units: 0.5 → 7.5 m physical (half a road
+  # half-width).  One representative node per 7.5 m radius cell keeps the SST
+  # tree fine-grained enough to navigate narrow road corridors without losing
+  # the path.  Using 8.0 (= 120 m physical) was a unit-confusion bug: the
+  # code expects normalized units (physical / step_size) but the value was
+  # set as if it were meters, creating ~16 coarse cells that starved the tree.
+  witness_radius: 0.5  # [] SST witness-cell half-width in normalized units
 
 world:
   world_width: 1280.0  # [m] width of the world
