@@ -326,18 +326,27 @@ class TestStepActuators:
         for these parameters (eigenvalue ≈ 3.34 > 1). The forward-Euler
         ordering used here must keep the radii bounded after 50 steps.
         """
+        # 1.4 m: compression needed to generate ~140 N spring force at k_s=100
+        # This simulates the actuator chasing a far waypoint (56 m away at
+        # kp=2.5 → 140 N → ref = r_nom − 1.4 m).
+        large_offset_m = 1.4
+        # Maximum allowed absolute deviation from r_nom before we declare
+        # divergence.  Ten metres is orders of magnitude larger than any
+        # physically meaningful displacement for this geometry.
+        max_deviation_m = 10.0
+
         a = ActuatorArray(actuator_count=3, omega=10.0, zeta=0.7)
         a.init_radii(circle)
         r_nom = circle.bounding_radius + 0.05
         # Large reference offset (simulates chasing a far waypoint)
-        a._ref_radii = np.full(3, r_nom - 1.4)
+        a._ref_radii = np.full(3, r_nom - large_offset_m)
         dt = 0.1
         for _ in range(50):
             a.step_actuators(dt)
-        # Radii must not diverge; all values finite and within 10 m of r_nom
+        # Radii must not diverge; all values finite and within max_deviation_m
         assert np.all(np.isfinite(a.radii)), "Radii diverged (non-finite)"
         assert np.all(
-            np.abs(a.radii) < r_nom + 10.0
+            np.abs(a.radii) < r_nom + max_deviation_m
         ), f"Radii out of bounds: {a.radii}"
 
 
