@@ -333,6 +333,16 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="OCC 2-D piano movers simulator")
     p.add_argument("--record", metavar="PATH", help="Save video to PATH")
     p.add_argument(
+        "--fps",
+        type=int,
+        default=0,
+        metavar="FPS",
+        help=(
+            "Target frame rate in frames per second (default: derived from"
+            " simulation dt). When 0, the frame rate is set to 1/dt."
+        ),
+    )
+    p.add_argument(
         "--record-duration",
         type=float,
         default=30.0,
@@ -363,6 +373,7 @@ def main(cfg: dict) -> None:
     ctrl_cfg: dict = cfg.get("control", {})
     sim_cfg: dict = cfg.get("simulator", {})
     dt = float(sim_cfg.get("dt", 0.02))
+    fps = args.fps if args.fps > 0 else int(round(1.0 / dt))
 
     pygame.init()
     flags = pygame.DOUBLEBUF
@@ -485,7 +496,7 @@ def main(cfg: dict) -> None:
                 args.record,
                 args.width,
                 args.height,
-                int(1.0 / dt),
+                fps,
             )
             video_writer.open()
         except Exception as exc:
@@ -671,7 +682,7 @@ def main(cfg: dict) -> None:
             if frame_count >= record_frames:
                 running = False
 
-        clock.tick(int(1.0 / dt))
+        clock.tick(fps)
 
     if video_writer is not None:
         try:

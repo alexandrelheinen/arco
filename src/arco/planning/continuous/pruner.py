@@ -1,8 +1,9 @@
-"""TrajectoryPruner: greedy forward-scan node reduction for raw paths."""
+"""TrajectoryPruner: optimal minimum-waypoint node reduction for raw paths."""
 
 from __future__ import annotations
 
 import logging
+from collections import deque
 from typing import Callable, List, Optional
 
 import numpy as np
@@ -15,24 +16,20 @@ logger = logging.getLogger(__name__)
 class TrajectoryPruner:
     """Reduce the node count of a raw path before trajectory optimization.
 
-    The pruner applies a greedy forward-scan to skip intermediate nodes that
-    are topologically redundant — i.e., nodes that can be bypassed by a
-    direct, feasible connection.  The algorithm relies on the invariant that
-    consecutive nodes in the original path are always directly connectable
-    (guaranteed by the planner), so the pruned path is guaranteed to be
-    valid.
+    The pruner finds the *minimum-waypoint* subsequence of the original path
+    such that every consecutive pair of selected nodes can be connected by a
+    direct, feasible segment.  Unlike a greedy scan, this BFS-based algorithm
+    is provably optimal: the returned path uses the fewest possible nodes.
 
-    Algorithm (greedy forward scan):
+    The algorithm models path-node indices as vertices in a directed graph.
+    There is an edge from index ``i`` to index ``j > i`` whenever the direct
+    segment ``path[i] → path[j]`` passes the feasibility check.  A BFS from
+    index ``0`` to index ``n-1`` finds the shortest (fewest-hops) path through
+    this graph, which maps directly to the minimum-waypoint pruned path.
 
-    1. Start at anchor ``k = 0``.
-    2. Attempt a direct connection from node ``k`` to node ``k + 2``
-       (skipping ``k + 1``) using the *steer* callable.
-    3. If feasible, advance the lookahead: try ``k → k + 3``,
-       ``k → k + 4``, and so on.
-    4. When the connection fails (or the end is reached), record node
-       ``k + (lookahead - 1)`` in the pruned path, set it as the new
-       anchor, and restart from step 2.
-    5. The final node is always included.
+    The invariant that consecutive nodes in the original path are always
+    directly connectable (guaranteed by the planner) ensures the BFS will
+    always find a path.
 
     Args:
         occupancy: Occupancy map used for the default collision check.
@@ -75,10 +72,15 @@ class TrajectoryPruner:
         path: List[np.ndarray],
         steer: Optional[Callable[[np.ndarray, np.ndarray], bool]] = None,
     ) -> List[np.ndarray]:
-        """Return a pruned copy of *path* with redundant nodes removed.
+        """Return a pruned copy of *path* with the minimum number of nodes.
+
+        Uses a BFS over path indices to find the shortest (fewest-hops)
+        subsequence in which every consecutive pair of nodes is directly
+        connected by a feasible segment.  This guarantees an optimal
+        (minimum-waypoint) result, unlike a greedy scan.
 
         Args:
-            path: Ordered list of position arrays ``[start, …, goal]``.
+            path: Ordered list of position arrays ``[start, ..., goal]``.
                 Each element must be a numpy array of the same shape.
                 Empty paths and single-node paths are returned unchanged.
             steer: Optional callable ``(a, b) -> bool`` that returns
@@ -88,9 +90,10 @@ class TrajectoryPruner:
                 check is used.
 
         Returns:
-            A new list containing the pruned subset of *path* nodes.
-            The first and last nodes are always preserved.  The returned
-            path has a node count less than or equal to the input.
+            A new list containing the optimal pruned subset of *path*
+            nodes.  The first and last nodes are always preserved.  The
+            returned path has a node count less than or equal to the
+            input.
         """
         node_count = len(path)
         if node_count <= 2:  # nothing to prune
@@ -98,30 +101,49 @@ class TrajectoryPruner:
 
         feasible = steer if steer is not None else self._segment_free
 
-        pruned: List[np.ndarray] = [path[0]]
-        anchor = 0
+        # BFS over indices 0..node_count-1.
+        # prev[i] = the index from which BFS first reached i.
+        prev: list[int | None] = [None] * node_count
+        prev[0] = 0  # sentinel: root is its own predecessor
+        queue: deque[int] = deque([0])
+        goal = node_count - 1
 
-        while True:
-            # Try advancing the lookahead as far as possible.
-            lookahead = 2
-            while anchor + lookahead < node_count:
-                target_idx = anchor + lookahead
-                if feasible(path[anchor], path[target_idx]):
-                    lookahead += 1
-                else:
-                    break
-
-            # The last successfully reached index before the failure.
-            best_idx = anchor + lookahead - 1
-
-            if best_idx >= node_count - 1:
-                # Reached or passed the last node — we are done.
+        while queue:
+            current = queue.popleft()
+            if current == goal:
                 break
+            # Explore all forward neighbours — feasibility is not monotone
+            # in general (an obstacle may block a short jump but allow a
+            # longer one that goes around it), so every candidate must be
+            # checked to guarantee an optimal result.
+            for nxt in range(current + 1, node_count):
+                if prev[nxt] is not None:
+                    continue  # already visited
+                if feasible(path[current], path[nxt]):
+                    prev[nxt] = current
+                    queue.append(nxt)
+                    if nxt == goal:
+                        break
 
-            pruned.append(path[best_idx])
-            anchor = best_idx
+        # Reconstruct the path by tracing predecessors from goal to root.
+        indices: list[int] = []
+        idx = goal
+        while idx != 0:
+            indices.append(idx)
+            parent = prev[idx]
+            if parent is None:
+                # Fallback: BFS did not reach the goal (should not happen
+                # given the planner invariant).  Return the original path.
+                logger.warning(
+                    "TrajectoryPruner: BFS did not reach goal; "
+                    "returning original path."
+                )
+                return list(path)
+            idx = parent
+        indices.append(0)
+        indices.reverse()
 
-        pruned.append(path[-1])
+        pruned = [path[i] for i in indices]
 
         logger.debug(
             "TrajectoryPruner: %d -> %d nodes (%.0f %% reduction)",
