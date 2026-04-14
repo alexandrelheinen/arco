@@ -157,6 +157,31 @@ class RRTPlanner(ContinuousPlanner):
         rng = np.random.default_rng()
 
         for iteration in range(self.max_sample_count):
+            # --- Telemetry ------------------------------------------------
+            if iteration % TELEMETRY_WRITE_INTERVAL == 0:
+                write_telemetry(
+                    PlannerTelemetry(
+                        algorithm="RRT*",
+                        step_name="exploring",
+                        iteration=iteration,
+                        max_iterations=self.max_sample_count,
+                        best_dist_to_goal=_best_dist_to_goal,
+                        criteria=[
+                            StopCriterion(
+                                "iterations",
+                                float(iteration),
+                                float(self.max_sample_count),
+                                "<",
+                            ),
+                            StopCriterion(
+                                "dist_to_goal",
+                                _best_dist_to_goal,
+                                self.goal_tolerance,
+                                "≤",
+                            ),
+                        ],
+                    )
+                )
             # --- Sample ---------------------------------------------------
             if rng.random() < self.goal_bias:
                 x_rand = goal.copy()
@@ -217,6 +242,8 @@ class RRTPlanner(ContinuousPlanner):
             dist_to_goal = float(
                 np.linalg.norm((x_new - goal) / self.step_size)
             )
+            if dist_to_goal < _best_dist_to_goal:
+                _best_dist_to_goal = dist_to_goal
             if (
                 dist_to_goal <= self.goal_tolerance
                 and best_cost < best_goal_cost
@@ -291,10 +318,35 @@ class RRTPlanner(ContinuousPlanner):
 
         best_goal_node: Optional[int] = None
         best_goal_cost = math.inf
+        _best_dist_to_goal = math.inf
 
         rng = np.random.default_rng()
 
-        for _ in range(self.max_sample_count):
+        for _iter in range(self.max_sample_count):
+            if _iter % TELEMETRY_WRITE_INTERVAL == 0:
+                write_telemetry(
+                    PlannerTelemetry(
+                        algorithm="RRT*",
+                        step_name="exploring (tree)",
+                        iteration=_iter,
+                        max_iterations=self.max_sample_count,
+                        best_dist_to_goal=_best_dist_to_goal,
+                        criteria=[
+                            StopCriterion(
+                                "iterations",
+                                float(_iter),
+                                float(self.max_sample_count),
+                                "<",
+                            ),
+                            StopCriterion(
+                                "dist_to_goal",
+                                _best_dist_to_goal,
+                                self.goal_tolerance,
+                                "≤",
+                            ),
+                        ],
+                    )
+                )
             if rng.random() < self.goal_bias:
                 x_rand = goal.copy()
             else:
@@ -345,6 +397,8 @@ class RRTPlanner(ContinuousPlanner):
             dist_to_goal = float(
                 np.linalg.norm((x_new - goal) / self.step_size)
             )
+            if dist_to_goal < _best_dist_to_goal:
+                _best_dist_to_goal = dist_to_goal
             if (
                 dist_to_goal <= self.goal_tolerance
                 and best_cost < best_goal_cost
