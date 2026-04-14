@@ -148,7 +148,7 @@ class TrajectoryPruner:
                 # Fallback: BFS did not reach the pre-last node (should not
                 # happen given the planner invariant).  Return original path.
                 logger.warning(
-                    "TrajectoryPruner: BFS did not reach goal; "
+                    "TrajectoryPruner: BFS did not reach pre-last node; "
                     "returning original path."
                 )
                 return list(path)

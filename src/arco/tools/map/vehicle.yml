@@ -17,7 +17,7 @@ planner:
 world:
   random_seed: 7
   wall_gap_start_fraction: 0.45
-  wall_gap_end_fraction: 0.80
+  wall_gap_end_fraction: 0.80  # gap ≈ 17.5 m (35% of 50 m); effective ≈ 11.5 m with clearance=3.0
   wall_spacing: 1.5
   scatter_count: 40
   corner_margin: 5.0

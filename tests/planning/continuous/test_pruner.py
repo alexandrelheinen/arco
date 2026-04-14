@@ -104,7 +104,13 @@ def test_pruned_path_ends_at_same_node():
 
 
 def test_pruned_path_always_includes_prelast_node():
-    """path[-2] is always in the pruned result to preserve the final approach."""
+    """path[-2] must always appear in the pruned result.
+
+    The pre-last node (path[-2]) is the last tree node placed by the planner
+    within goal_tolerance of the goal.  Preserving it prevents the pruner from
+    replacing the final tree-to-goal segment with a direct shortcut that might
+    clip an obstacle.
+    """
     occ = _free_occupancy()
     pruner = TrajectoryPruner(occ)
     path = _straight_path(8)
@@ -250,6 +256,10 @@ def test_bfs_finds_optimal_solution_over_greedy():
         append path[5] → [path[0], path[1], path[3], path[4], path[5]] — 5 nodes.
 
     BFS (4 nodes) beats greedy (5 nodes).
+
+    Note: the (3, 5) edge in feasible_pairs is included for completeness but
+    is not exercised by the inner BFS — path[5] is always appended
+    unconditionally after the inner path is reconstructed.
     """
     occ = _free_occupancy()
     pruner = TrajectoryPruner(occ)
@@ -257,6 +267,8 @@ def test_bfs_finds_optimal_solution_over_greedy():
     path = [np.array([float(i), 0.0]) for i in range(6)]
 
     # feasible_pairs: only these edges are allowed (plus all consecutive).
+    # (3, 5) is defined but irrelevant: path[5] is the exact goal and is
+    # always appended unconditionally by the pruner, not reached via BFS.
     feasible_pairs = {
         (0, 1),
         (1, 2),
