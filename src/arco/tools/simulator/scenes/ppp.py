@@ -197,6 +197,7 @@ class PPPScene:
             RRTPlanner,
             SSTPlanner,
             TrajectoryOptimizer,
+            TrajectoryPruner,
         )
 
         _log = logging.getLogger(__name__)
@@ -301,6 +302,16 @@ class PPPScene:
         # --- Trajectory optimization (3-D) --------------------------------
         if progress is not None:
             progress("Optimizing trajectories", 5, _total)
+        pruner = TrajectoryPruner(
+            occ,
+            collision_check_count=int(
+                self._planner_cfg["collision_check_count"]
+            ),
+        )
+        if self._rrt_path is not None:
+            self._rrt_path = pruner.prune(self._rrt_path)
+        if self._sst_path is not None:
+            self._sst_path = pruner.prune(self._sst_path)
         opt = TrajectoryOptimizer(
             occ,
             cruise_speed=float(self._sim_cfg.get("race_speed", 2.0)),

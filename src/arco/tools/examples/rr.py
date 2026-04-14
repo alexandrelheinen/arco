@@ -41,6 +41,7 @@ from arco.planning.continuous import (
     RRTPlanner,
     SSTPlanner,
     TrajectoryOptimizer,
+    TrajectoryPruner,
 )
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.rr import (
@@ -243,6 +244,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     )
 
     # --- Trajectory optimization -----------------------------------------
+    pruner = TrajectoryPruner(
+        occ,
+        collision_check_count=int(planner_cfg["collision_check_count"]),
+    )
     optimizer = TrajectoryOptimizer(
         occ,
         cruise_speed=float(sim_cfg.get("race_speed", 1.0)),
@@ -260,6 +265,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ) -> tuple[list[np.ndarray] | None, float, float, str]:
         if path is None or len(path) < 2:
             return None, 0.0, 0.0, "no-path"
+        path = pruner.prune(path)
         try:
             result = optimizer.optimize(path)
             traj = list(result.states)

@@ -238,6 +238,7 @@ class OCCScene:
             RRTPlanner,
             SSTPlanner,
             TrajectoryOptimizer,
+            TrajectoryPruner,
         )
 
         _log = logging.getLogger(__name__)
@@ -407,6 +408,12 @@ class OCCScene:
         if progress is not None:
             progress("Optimizing trajectories", 4, _total)
 
+        pruner = TrajectoryPruner(
+            occ,
+            collision_check_count=int(
+                self._planner_cfg.get("collision_check_count", 5)
+            ),
+        )
         optimizer = TrajectoryOptimizer(
             occ,
             cruise_speed=float(self._sim_cfg.get("race_speed", 0.3)),
@@ -423,6 +430,7 @@ class OCCScene:
         ):
             if path is None or len(path) < 2:
                 continue
+            path = pruner.prune(path)
             try:
                 result = optimizer.optimize(path)
                 traj = list(result.states)
