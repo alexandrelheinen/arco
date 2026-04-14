@@ -11,6 +11,12 @@ import numpy as np
 from arco.mapping.occupancy import Occupancy
 
 from .base import ContinuousPlanner
+from .telemetry import (
+    TELEMETRY_WRITE_INTERVAL,
+    PlannerTelemetry,
+    StopCriterion,
+    write_telemetry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -195,9 +201,41 @@ class SSTPlanner(ContinuousPlanner):
 
         best_goal_node: Optional[int] = None
         best_goal_cost = math.inf
+        _best_dist_to_goal = math.inf
         rng = np.random.default_rng()
 
         for iteration in range(self.max_sample_count):
+            # --- Telemetry -----------------------------------------------
+            if iteration % TELEMETRY_WRITE_INTERVAL == 0:
+                write_telemetry(
+                    PlannerTelemetry(
+                        algorithm="SST",
+                        step_name="exploring",
+                        iteration=iteration,
+                        max_iterations=self.max_sample_count,
+                        best_dist_to_goal=_best_dist_to_goal,
+                        criteria=[
+                            StopCriterion(
+                                "iterations",
+                                float(iteration),
+                                float(self.max_sample_count),
+                                "<",
+                            ),
+                            StopCriterion(
+                                "dist_to_goal",
+                                _best_dist_to_goal,
+                                self.goal_tolerance,
+                                "≤",
+                            ),
+                            StopCriterion(
+                                "witness_cells",
+                                float(len(witnesses)),
+                                float(max(1, self.max_sample_count // 10)),
+                                "",
+                            ),
+                        ],
+                    )
+                )
             # --- Sample --------------------------------------------------
             if rng.random() < self.goal_bias:
                 x_rand = goal.copy()
@@ -254,6 +292,8 @@ class SSTPlanner(ContinuousPlanner):
             dist_to_goal = float(
                 np.linalg.norm((x_new - goal) / self.step_size)
             )
+            if dist_to_goal < _best_dist_to_goal:
+                _best_dist_to_goal = dist_to_goal
             if (
                 dist_to_goal <= self.goal_tolerance
                 and new_cost < best_goal_cost
