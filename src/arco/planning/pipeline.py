@@ -133,14 +133,16 @@ class PlanningPipeline:
 
     def __init__(
         self,
-        planner: "ContinuousPlanner",
+        planner: Optional["ContinuousPlanner"] = None,
         pruner: Optional["TrajectoryPruner"] = None,
         optimizer: Optional["TrajectoryOptimizer"] = None,
     ) -> None:
         """Initialize the pipeline with its stage objects.
 
         Args:
-            planner: Planner instance — must expose ``plan(start, goal)``.
+            planner: Optional planner instance — must expose
+                ``plan(start, goal)``.  Required when calling :meth:`run`;
+                may be ``None`` when only :meth:`run_from_path` is used.
             pruner: Optional pruner instance — must expose ``prune(path)``.
             optimizer: Optional optimizer — must expose ``optimize(path)``.
         """
@@ -185,6 +187,12 @@ class PlanningPipeline:
         )
         stage = 0
         result = PipelineResult()
+
+        if self.planner is None:
+            raise RuntimeError(
+                "PlanningPipeline.run() requires a planner. "
+                "Use run_from_path() when no planner is configured."
+            )
 
         # ---- Stage 1: Planning ----------------------------------------
         stage += 1
@@ -254,6 +262,102 @@ class PlanningPipeline:
             "PlanningPipeline: done — planner %.2fs, pruner %.2fs, "
             "optimizer %.2fs; trajectory %d pts, %.1fs.",
             result.planner_time,
+            result.pruner_time,
+            result.optimizer_time,
+            len(result.trajectory or []),
+            result.total_duration,
+        )
+        return result
+
+    def run_from_path(
+        self,
+        raw_path: list[np.ndarray],
+        progress: Optional[Callable[[str, int, int], None]] = None,
+    ) -> "PipelineResult":
+        """Run the pruner and optimizer stages on a pre-planned path.
+
+        Skips the planner stage entirely.  Useful when a scene has already
+        called its planner (e.g. to collect the search tree for
+        visualization) and only needs the pruner + optimizer stages from
+        the pipeline.
+
+        When *raw_path* is empty or ``None``, the result reflects a
+        ``'no_path'`` failure immediately.
+
+        Args:
+            raw_path: Pre-planned path as an ordered list of configuration
+                arrays.  Must contain at least two points.
+            progress: Optional callback ``(stage_name, stage_index, total)``
+                invoked at the start of each stage.
+
+        Returns:
+            :class:`PipelineResult` with pruner/optimizer outputs and
+            timing.  ``planner_status`` is set to ``'pre_planned'`` and
+            ``planner_time`` is ``0.0``.
+        """
+        result = PipelineResult()
+        result.planner_status = "pre_planned"
+
+        if raw_path is None or len(raw_path) < 2:
+            result.planner_status = "no_path"
+            return result
+
+        result.raw_path = list(raw_path)
+        active_path: list[np.ndarray] = list(raw_path)
+
+        total = (1 if self.pruner is not None else 0) + (
+            1 if self.optimizer is not None else 0
+        )
+        stage = 0
+
+        # ---- Stage: Pruning (optional) ----------------------------------
+        if self.pruner is not None:
+            stage += 1
+            if progress is not None:
+                progress("pruning", stage, total)
+            t0 = time.perf_counter()
+            pruned = self.pruner.prune(active_path)
+            result.pruner_time = time.perf_counter() - t0
+            result.pruned_path = pruned
+            active_path = pruned
+            logger.debug(
+                "PlanningPipeline.run_from_path: pruned %d → %d nodes.",
+                len(raw_path),
+                len(pruned),
+            )
+
+        # ---- Stage: Optimization (optional) -----------------------------
+        if self.optimizer is not None:
+            stage += 1
+            if progress is not None:
+                progress("optimization", stage, total)
+            t0 = time.perf_counter()
+            opt_result = self.optimizer.optimize(active_path)
+            result.optimizer_time = time.perf_counter() - t0
+            result.optimizer_success = bool(opt_result.optimizer_success)
+            result.optimizer_status = (
+                f"{opt_result.optimizer_status_code}: "
+                f"{opt_result.optimizer_status_text}"
+            )
+            if opt_result.states:
+                result.trajectory = list(opt_result.states)
+                result.durations = list(opt_result.durations)
+                result.total_duration = float(sum(opt_result.durations))
+            else:
+                result.trajectory = list(active_path)
+                n = max(len(active_path) - 1, 1)
+                result.durations = [1.0] * n
+                result.total_duration = float(n)
+        else:
+            result.trajectory = list(active_path)
+            n = max(len(active_path) - 1, 1)
+            result.durations = [1.0] * n
+            result.total_duration = float(n)
+            result.optimizer_status = "skipped"
+
+        logger.info(
+            "PlanningPipeline.run_from_path: pruner %.2fs, optimizer %.2fs;"
+            " trajectory %d pts, %.1fs.",
             result.pruner_time,
             result.optimizer_time,
             len(result.trajectory or []),

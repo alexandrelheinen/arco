@@ -299,9 +299,12 @@ class PPPScene:
             }
         )
 
-        # --- Trajectory optimization (3-D) --------------------------------
+        # --- Pruning + Trajectory optimization (via PlanningPipeline) -----
         if progress is not None:
             progress("Optimizing trajectories", 5, _total)
+
+        from arco.planning import PlanningPipeline
+
         pruner = TrajectoryPruner(
             occ,
             step_size=np.asarray(
@@ -311,10 +314,6 @@ class PPPScene:
                 self._planner_cfg["collision_check_count"]
             ),
         )
-        if self._rrt_path is not None:
-            self._rrt_path = pruner.prune(self._rrt_path)
-        if self._sst_path is not None:
-            self._sst_path = pruner.prune(self._sst_path)
         opt = TrajectoryOptimizer(
             occ,
             cruise_speed=float(self._sim_cfg.get("race_speed", 2.0)),
@@ -325,70 +324,28 @@ class PPPScene:
             sample_count=1,
             max_iter=50,
         )
-        if self._rrt_path is not None:
-            try:
-                res = opt.optimize(self._rrt_path)
-                self._rrt_traj = res.states
-                self._rrt_metrics.update(
-                    {
-                        "trajectory_arc_length": _polyline_length(res.states),
-                        "trajectory_duration": sum(res.durations),
-                        "path_status": (
-                            "found" if res.is_feasible else "stalled"
-                        ),
-                        "optimizer_status": (
-                            f"{res.optimizer_status_code}: "
-                            f"{res.optimizer_status_text}"
-                        ),
-                    }
-                )
-            except Exception:
-                _log.exception(
-                    "RRT* TrajectoryOptimizer failed; using raw path."
-                )
-                self._rrt_traj = list(self._rrt_path)
-                self._rrt_metrics.update(
-                    {
-                        "trajectory_arc_length": _polyline_length(
-                            self._rrt_traj
-                        ),
-                        "trajectory_duration": 0.0,
-                        "path_status": "stalled",
-                        "optimizer_status": "exception",
-                    }
-                )
-        if self._sst_path is not None:
-            try:
-                res = opt.optimize(self._sst_path)
-                self._sst_traj = res.states
-                self._sst_metrics.update(
-                    {
-                        "trajectory_arc_length": _polyline_length(res.states),
-                        "trajectory_duration": sum(res.durations),
-                        "path_status": (
-                            "found" if res.is_feasible else "stalled"
-                        ),
-                        "optimizer_status": (
-                            f"{res.optimizer_status_code}: "
-                            f"{res.optimizer_status_text}"
-                        ),
-                    }
-                )
-            except Exception:
-                _log.exception(
-                    "SST TrajectoryOptimizer failed; using raw path."
-                )
-                self._sst_traj = list(self._sst_path)
-                self._sst_metrics.update(
-                    {
-                        "trajectory_arc_length": _polyline_length(
-                            self._sst_traj
-                        ),
-                        "trajectory_duration": 0.0,
-                        "path_status": "stalled",
-                        "optimizer_status": "exception",
-                    }
-                )
+        pipeline = PlanningPipeline(pruner=pruner, optimizer=opt)
+
+        for path_attr, traj_attr, metrics_attr in (
+            ("_rrt_path", "_rrt_traj", "_rrt_metrics"),
+            ("_sst_path", "_sst_traj", "_sst_metrics"),
+        ):
+            path = getattr(self, path_attr)
+            if path is None or len(path) < 2:
+                continue
+            pr = pipeline.run_from_path(path)
+            pruned = pr.pruned_path if pr.pruned_path is not None else path
+            traj = pr.trajectory if pr.trajectory else list(pruned)
+            setattr(self, path_attr, pruned)
+            setattr(self, traj_attr, traj)
+            getattr(self, metrics_attr).update(
+                {
+                    "trajectory_arc_length": _polyline_length(traj),
+                    "trajectory_duration": pr.total_duration,
+                    "path_status": pr.planner_status,
+                    "optimizer_status": pr.optimizer_status,
+                }
+            )
 
     # ------------------------------------------------------------------
     # Properties
