@@ -12,8 +12,9 @@ class GuidanceFrame:
 
     Published to the shared in-memory bus once trajectory optimization
     has refined the raw plan into a time-parameterized trajectory.
-    Consumers (frontends such as arcoex or arcosim) subscribe to this
-    frame type and render or record the trajectory at their own pace.
+    Consumers subscribe to this frame type and render or record the
+    trajectory at their own pace.  ``arcoex`` renders a static
+    matplotlib figure; ``arcosim`` drives a pygame real-time simulation.
 
     Attributes:
         timestamp: Seconds since pipeline start, from
