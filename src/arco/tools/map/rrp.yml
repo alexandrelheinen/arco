@@ -61,13 +61,24 @@ environment:
   obstacle_clearance: 0.40  # [m] KDTree clearance in the blended C-space
 
 planner:
+  # step_size is a per-dimension vector [q1_rad, q2_rad, z_m].
+  # The planners (RRT*, SST) and the TrajectoryPruner normalise ALL their
+  # internal distances by dividing by step_size, so goal_tolerance and
+  # witness_radius below are in *normalised* step-size units.
+  #
+  # obstacle_clearance is the raw Euclidean clearance radius in the (q1, q2, z)
+  # C-space used by the KDTree (NOT normalised by step_size):
+  #   q1/q2 axes: 0.40 / 0.15 ≈ 2.7 normalised steps
+  #   z     axis: 0.40 / 0.10  = 4.0 normalised steps
+  # This gives ≈ 2.7–4 steps of clearance in all dimensions — consistent
+  # with the 2–3 step tolerance typical for this arm configuration.
   step_size: [0.15, 0.15, 0.10]  # [rad, rad, m] per-dimension planner step size
-  goal_tolerance: 0.25  # [] normalized distance threshold to consider goal reached
+  goal_tolerance: 0.25  # [normalised steps] goal-reach threshold
   collision_check_count: 3  # [] number of intermediate collision checks per step
   goal_bias: 0.10  # [] probability of sampling directly toward the goal
   rrt_max_sample_count: 40000  # [] maximum number of RRT* samples
   sst_max_sample_count: 50000  # [] maximum number of SST samples
-  witness_radius: 0.08  # [] normalized distance for SST witness cells
+  witness_radius: 0.08  # [normalised steps] SST witness-cell deduplication radius
 
   # Grid resolution for C-space sampling (n^3 points evaluated).
   cspace_grid_n: 80  # [] grid resolution for C-space sampling (n^3 points evaluated)

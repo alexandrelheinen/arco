@@ -10,15 +10,21 @@ scenario: vehicle
 # step_size units match the planner state: [m, m].
 
 planner:
+  # step_size is a per-dimension vector [x_m, y_m].
+  # goal_tolerance and witness_radius are in *normalised* step-size units
+  # (divided by step_size inside the planner).
+  # obstacle_clearance is the raw KDTree clearance in metres (NOT normalised);
+  # with step_size = [1.0, 1.0] this equals obstacle_clearance/1.0
+  # normalised steps (= 2 steps) in every dimension.
   bounds: [[0.0, 50.0], [0.0, 50.0]]  # [m] x and y axis bounds of the planning space
   step_size: [1.0, 1.0]  # [m, m] per-dimension planner step size
-  goal_tolerance: 2.1  # [m] distance threshold to consider goal reached
+  goal_tolerance: 2.1  # [normalised steps] goal-reach threshold
   collision_check_count: 1  # [] number of intermediate collision checks per step
   goal_bias: 0.05  # [] probability of sampling directly toward the goal
-  obstacle_clearance: 2.0  # [m] minimum clearance from obstacles
+  obstacle_clearance: 2.0  # [m] raw KDTree clearance (= 2 normalised steps; see note above)
   rrt_max_sample_count: 5000  # [] maximum number of RRT* samples
   sst_max_sample_count: 4000  # [] maximum number of SST samples
-  witness_radius: 0.8  # [m] SST witness cell radius
+  witness_radius: 0.8  # [normalised steps] SST witness-cell deduplication radius
   early_stop: true  # [] stop planning when first valid path is found
 
 world:

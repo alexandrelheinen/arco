@@ -36,14 +36,20 @@ environment:
     - [57.0, 14.0, 0.0, 58.0, 16.0, 2.8]
 
 planner:
+  # step_size is a per-dimension vector [x_m, y_m, z_m].
+  # goal_tolerance and witness_radius are in *normalised* step-size units
+  # (divided by step_size inside the planner).
+  # obstacle_clearance is the raw KDTree clearance in metres (NOT normalised);
+  # with step_size = [2.0, 2.0, 2.0] this equals obstacle_clearance/2.0
+  # normalised steps (= 1.0 step) in every dimension.
   step_size: [2.0, 2.0, 2.0]  # [m, m, m] per-dimension planner step size
-  goal_tolerance: 2.5  # [m] distance threshold to consider goal reached
+  goal_tolerance: 2.5  # [normalised steps] goal-reach threshold
   collision_check_count: 3  # [] number of intermediate collision checks per step
   goal_bias: 0.07  # [] probability of sampling directly toward the goal
-  obstacle_clearance: 2.0  # [m] minimum clearance from obstacles
+  obstacle_clearance: 2.0  # [m] raw KDTree clearance (= 1 normalised step; see note above)
   rrt_max_sample_count: 10000  # [] maximum number of RRT* samples
   sst_max_sample_count: 8000  # [] maximum number of SST samples
-  witness_radius: 0.7  # [m] SST witness cell radius
+  witness_radius: 0.7  # [normalised steps] SST witness-cell deduplication radius
 
 # ---------------------------------------------------------------------------
 # Simulation / visualisation parameters
