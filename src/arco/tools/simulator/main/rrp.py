@@ -816,28 +816,39 @@ def _path_pos(
 class RRPRaceRobot:
     """Simple P-controller tracking the planning path in joint space.
 
+    Each DOF is controlled with independent velocity and acceleration limits:
+    revolute joints (q1, q2) use angular units (rad/s, rad/s²) while the
+    prismatic joint (z) uses linear units (m/s, m/s²).
+
     Args:
         start: Initial joint config ``[q1, q2, z]``.
-        max_vel: Maximum joint-space speed (mixed rad + m/s).
-        max_acc: Maximum joint-space acceleration.
+        max_vel_ang: Maximum angular velocity for q1/q2 joints (rad/s).
+        max_vel_lin: Maximum linear velocity for z joint (m/s).
+        max_acc_ang: Maximum angular acceleration for q1/q2 joints (rad/s²).
+        max_acc_lin: Maximum linear acceleration for z joint (m/s²).
         proportional_gain: P-gain.
     """
 
     def __init__(
         self,
         start: np.ndarray,
-        max_vel: float = 2.0,
-        max_acc: float = 4.0,
+        max_vel_ang: float = 1.5,
+        max_vel_lin: float = 1.0,
+        max_acc_ang: float = 3.0,
+        max_acc_lin: float = 2.0,
         proportional_gain: float = 2.5,
     ) -> None:
         self.q: np.ndarray = start.astype(float).copy()
         self.vel: np.ndarray = np.zeros(3)
-        self._max_vel = max_vel
-        self._max_acc = max_acc
+        self._max_vel = np.array([max_vel_ang, max_vel_ang, max_vel_lin])
+        self._max_acc = np.array([max_acc_ang, max_acc_ang, max_acc_lin])
         self._k_p = proportional_gain
 
     def step(self, target: np.ndarray, dt: float) -> None:
-        """Advance one timestep toward *target*.
+        """Advance one timestep toward *target* with per-DOF limits.
+
+        Each component is clipped independently: angular limits apply to
+        q1/q2 and linear limits apply to z.
 
         Args:
             target: Carrot joint config ``[q1, q2, z]``.
@@ -846,10 +857,7 @@ class RRPRaceRobot:
         err = target - self.q
         desired_vel = np.clip(self._k_p * err, -self._max_vel, self._max_vel)
         dv = desired_vel - self.vel
-        dv_norm = float(np.linalg.norm(dv))
-        max_dv = self._max_acc * dt
-        if dv_norm > max_dv:
-            dv = dv * (max_dv / dv_norm)
+        dv = np.clip(dv, -self._max_acc * dt, self._max_acc * dt)
         self.vel = np.clip(self.vel + dv, -self._max_vel, self._max_vel)
         self.q = self.q + self.vel * dt
 
@@ -888,6 +896,10 @@ def run_race(
 
     sim_cfg = cfg.get("simulator", cfg)
     race_speed = float(sim_cfg.get("race_speed", 0.6))
+    max_ang_vel = float(sim_cfg.get("max_ang_vel", 1.5))
+    max_lin_vel = float(sim_cfg.get("max_lin_vel", 1.0))
+    max_ang_acc = float(sim_cfg.get("max_ang_acc", 3.0))
+    max_lin_acc = float(sim_cfg.get("max_lin_acc", 2.0))
 
     pygame.init()
     sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
@@ -927,8 +939,20 @@ def run_race(
     )
 
     hold_timer = 0.0
-    rrt_robot = RRPRaceRobot(scene.start_q.copy())
-    sst_robot = RRPRaceRobot(scene.start_q.copy())
+    rrt_robot = RRPRaceRobot(
+        scene.start_q.copy(),
+        max_vel_ang=max_ang_vel,
+        max_vel_lin=max_lin_vel,
+        max_acc_ang=max_ang_acc,
+        max_acc_lin=max_lin_acc,
+    )
+    sst_robot = RRPRaceRobot(
+        scene.start_q.copy(),
+        max_vel_ang=max_ang_vel,
+        max_vel_lin=max_lin_vel,
+        max_acc_ang=max_ang_acc,
+        max_acc_lin=max_lin_acc,
+    )
     rrt_carrot_dist = 0.0
     sst_carrot_dist = 0.0
     rrt_carrot = scene.start_q.copy()
@@ -964,8 +988,20 @@ def run_race(
                     elif event.key == pygame.K_r:
                         camera = Camera3D()
                         hold_timer = 0.0
-                        rrt_robot = RRPRaceRobot(scene.start_q.copy())
-                        sst_robot = RRPRaceRobot(scene.start_q.copy())
+                        rrt_robot = RRPRaceRobot(
+                            scene.start_q.copy(),
+                            max_vel_ang=max_ang_vel,
+                            max_vel_lin=max_lin_vel,
+                            max_acc_ang=max_ang_acc,
+                            max_acc_lin=max_lin_acc,
+                        )
+                        sst_robot = RRPRaceRobot(
+                            scene.start_q.copy(),
+                            max_vel_ang=max_ang_vel,
+                            max_vel_lin=max_lin_vel,
+                            max_acc_ang=max_ang_acc,
+                            max_acc_lin=max_lin_acc,
+                        )
                         rrt_carrot_dist = 0.0
                         sst_carrot_dist = 0.0
                         rrt_carrot = scene.start_q.copy()

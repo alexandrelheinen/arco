@@ -76,4 +76,8 @@ planner:
 # Simulator parameters
 # ---------------------------------------------------------------------------
 simulator:
-  race_speed: 0.6  # [m/s] speed for end-effector path following
+  race_speed: 0.6  # [rad/s or m/s] carrot advance speed along joint-space arc
+  max_ang_vel: 1.5  # [rad/s] maximum angular velocity for q1/q2 joints
+  max_lin_vel: 1.0  # [m/s] maximum linear velocity for z joint
+  max_ang_acc: 3.0  # [rad/s²] maximum angular acceleration for q1/q2 joints
+  max_lin_acc: 2.0  # [m/s²] maximum linear acceleration for z joint
