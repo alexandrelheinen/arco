@@ -266,7 +266,6 @@ class RRScene:
         from arco.planning.continuous import (
             RRTPlanner,
             SSTPlanner,
-            TrajectoryOptimizer,
         )
 
         _log = logging.getLogger(__name__)
@@ -386,10 +385,24 @@ class RRScene:
             sst_len,
         )
 
-        # --- Trajectory optimisation -----------------------------------
+        # --- Pruning + Trajectory optimisation (via PlanningPipeline) -----
         if progress is not None:
             progress("Optimizing trajectories", 4, _total)
 
+        from arco.planning import PlanningPipeline
+        from arco.planning.continuous import (
+            TrajectoryOptimizer,
+            TrajectoryPruner,
+        )
+
+        step_size = np.asarray(self._planner_cfg["step_size"], dtype=float)
+        pruner = TrajectoryPruner(
+            occ,
+            step_size=step_size,
+            collision_check_count=int(
+                self._planner_cfg["collision_check_count"]
+            ),
+        )
         optimizer = TrajectoryOptimizer(
             occ,
             cruise_speed=float(self._sim_cfg.get("race_speed", 1.0)),
@@ -400,6 +413,7 @@ class RRScene:
             sample_count=1,
             max_iter=200,
         )
+        pipeline = PlanningPipeline(pruner=pruner, optimizer=optimizer)
 
         for path, is_rrt in (
             (self._rrt_path, True),
@@ -407,32 +421,27 @@ class RRScene:
         ):
             if path is None or len(path) < 2:
                 continue
-            try:
-                result = optimizer.optimize(path)
-                traj = list(result.states)
-                traj_len = _polyline_length(traj)
-                dur = float(sum(result.durations)) if result.durations else 0.0
-                status = (
-                    f"{result.optimizer_status_code}:"
-                    f" {result.optimizer_status_text}"
-                )
-                _log.info(
-                    "%s trajectory optimized: cost=%.3f",
-                    "RRT*" if is_rrt else "SST",
-                    result.cost,
-                )
-            except Exception as exc:
-                _log.warning("Trajectory optimization failed: %s", exc)
-                traj = list(path)
-                traj_len = _polyline_length(traj)
-                dur = 0.0
-                status = "error"
+            pr = pipeline.run_from_path(path)
+            pruned = pr.pruned_path if pr.pruned_path is not None else path
+            traj = pr.trajectory if pr.trajectory else list(pruned)
+            traj_len = _polyline_length(traj)
+            dur = pr.total_duration
+            status = pr.optimizer_status
+            _log.info(
+                "%s trajectory: pruned %d→%d, optimized cost ok, dur=%.2fs",
+                "RRT*" if is_rrt else "SST",
+                len(path),
+                len(pruned),
+                dur,
+            )
             if is_rrt:
+                self._rrt_path = pruned
                 self._rrt_traj = traj
                 self._rrt_metrics["trajectory_arc_length"] = traj_len
                 self._rrt_metrics["trajectory_duration"] = dur
                 self._rrt_metrics["optimizer_status"] = status
             else:
+                self._sst_path = pruned
                 self._sst_traj = traj
                 self._sst_metrics["trajectory_arc_length"] = traj_len
                 self._sst_metrics["trajectory_duration"] = dur

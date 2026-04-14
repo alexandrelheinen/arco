@@ -408,6 +408,8 @@ class OCCScene:
         if progress is not None:
             progress("Optimizing trajectories", 4, _total)
 
+        from arco.planning import PlanningPipeline
+
         pruner = TrajectoryPruner(
             occ,
             step_size=np.asarray(
@@ -428,22 +430,22 @@ class OCCScene:
             sample_count=1,
             max_iter=200,
         )
+        pipeline = PlanningPipeline(pruner=pruner, optimizer=optimizer)
+
         for path, is_rrt in (
             (self._rrt_path, True),
             (self._sst_path, False),
         ):
             if path is None or len(path) < 2:
                 continue
-            path = pruner.prune(path)
-            try:
-                result = optimizer.optimize(path)
-                traj = list(result.states)
-            except Exception as exc:
-                _log.warning("Trajectory optimization failed: %s", exc)
-                traj = list(path)
+            pr = pipeline.run_from_path(path)
+            pruned = pr.pruned_path if pr.pruned_path is not None else path
+            traj = pr.trajectory if pr.trajectory else list(pruned)
             if is_rrt:
+                self._rrt_path = pruned
                 self._rrt_traj = traj
             else:
+                self._sst_path = pruned
                 self._sst_traj = traj
 
         if progress is not None:
