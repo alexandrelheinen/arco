@@ -276,7 +276,11 @@ class SSTPlanner(ContinuousPlanner):
             return active_nodes, active_parent, None
 
         path = self._extract_path(nodes, parent, best_goal_node)
-        path.append(goal.copy())
+        # Only append the exact goal when the direct segment is free.
+        # Large goal_tolerance values allow the last tree node to be far
+        # enough from the goal that the connecting segment crosses an obstacle.
+        if self._segment_free(nodes[best_goal_node], goal):
+            path.append(goal.copy())
         active_nodes, active_parent = self._build_active_output(
             nodes, parent, active
         )
