@@ -272,7 +272,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         try:
             result = optimizer.optimize(path)
             traj = list(result.states)
-            durs: list[float] = list(result.durations) if result.durations else []
+            durs: list[float] = (
+                list(result.durations) if result.durations else []
+            )
             dur = float(sum(durs)) if durs else 0.0
             status = (
                 f"{result.optimizer_status_code}:"
@@ -357,7 +359,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         ax_ws.fill(inner_x, inner_y, alpha=0.25, color="white")
     ax_ws.plot(outer_x, outer_y, color="steelblue", linewidth=0.8, alpha=0.5)
     if r_min > _INNER_RADIUS_THRESHOLD:
-        ax_ws.plot(inner_x, inner_y, color="steelblue", linewidth=0.8, alpha=0.5)
+        ax_ws.plot(
+            inner_x, inner_y, color="steelblue", linewidth=0.8, alpha=0.5
+        )
 
     first_obs = True
     for obs in obstacles:
@@ -367,31 +371,69 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         ax_ws.add_patch(patch)
         first_obs = False
 
-    _draw_arm(ax_ws, robot, float(start_q[0]), float(start_q[1]),
-              color=annotation_hex(), alpha=0.8, label="Start arm")
-    _draw_arm(ax_ws, robot, float(goal_q[0]), float(goal_q[1]),
-              color=annotation_hex(), alpha=0.5, label="Goal arm")
+    _draw_arm(
+        ax_ws,
+        robot,
+        float(start_q[0]),
+        float(start_q[1]),
+        color=annotation_hex(),
+        alpha=0.8,
+        label="Start arm",
+    )
+    _draw_arm(
+        ax_ws,
+        robot,
+        float(goal_q[0]),
+        float(goal_q[1]),
+        color=annotation_hex(),
+        alpha=0.5,
+        label="Goal arm",
+    )
 
     if rrt_cart is not None and len(rrt_cart) >= 2:
         arr = np.array(rrt_cart)
-        ax_ws.plot(arr[:, 0], arr[:, 1],
-                   color=layer_hex("rrt", "path"), linewidth=1.5, alpha=0.7,
-                   label="RRT* path")
+        ax_ws.plot(
+            arr[:, 0],
+            arr[:, 1],
+            color=layer_hex("rrt", "path"),
+            linewidth=1.5,
+            alpha=0.7,
+            label="RRT* path",
+        )
     if rrt_traj_cart is not None and len(rrt_traj_cart) >= 2:
         tarr = np.array(rrt_traj_cart)
-        ax_ws.plot(tarr[:, 0], tarr[:, 1], "o-",
-                   color=layer_hex("rrt", "trajectory"), linewidth=2.0,
-                   markersize=3, alpha=0.9, label="RRT* traj")
+        ax_ws.plot(
+            tarr[:, 0],
+            tarr[:, 1],
+            "o-",
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=2.0,
+            markersize=3,
+            alpha=0.9,
+            label="RRT* traj",
+        )
     if sst_cart is not None and len(sst_cart) >= 2:
         arr = np.array(sst_cart)
-        ax_ws.plot(arr[:, 0], arr[:, 1],
-                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.7,
-                   label="SST path")
+        ax_ws.plot(
+            arr[:, 0],
+            arr[:, 1],
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=0.7,
+            label="SST path",
+        )
     if sst_traj_cart is not None and len(sst_traj_cart) >= 2:
         tarr = np.array(sst_traj_cart)
-        ax_ws.plot(tarr[:, 0], tarr[:, 1], "o-",
-                   color=layer_hex("sst", "trajectory"), linewidth=2.0,
-                   markersize=3, alpha=0.9, label="SST traj")
+        ax_ws.plot(
+            tarr[:, 0],
+            tarr[:, 1],
+            "o-",
+            color=layer_hex("sst", "trajectory"),
+            linewidth=2.0,
+            markersize=3,
+            alpha=0.9,
+            label="SST traj",
+        )
 
     sx, sy = robot.forward_kinematics(float(start_q[0]), float(start_q[1]))
     gx, gy = robot.forward_kinematics(float(goal_q[0]), float(goal_q[1]))
@@ -414,53 +456,111 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         f"SST traj dur: {_format_clock(sst_traj_dur)} | {sst_opt_status}",
     ]
     ax_ws.text(
-        0.02, 0.98, "\n".join(metrics_lines),
-        transform=ax_ws.transAxes, va="top", ha="left", fontsize=7,
+        0.02,
+        0.98,
+        "\n".join(metrics_lines),
+        transform=ax_ws.transAxes,
+        va="top",
+        ha="left",
+        fontsize=7,
         color="black",
-        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.80,
-              "edgecolor": "none"},
+        bbox={
+            "boxstyle": "round,pad=0.3",
+            "facecolor": "white",
+            "alpha": 0.80,
+            "edgecolor": "none",
+        },
     )
 
     # ---- ax_cs: C-space (θ₁, θ₂) with velocity constraint disc ----------
     if collision_pts:
         cpts = np.array(collision_pts)
-        ax_cs.scatter(cpts[:, 0], cpts[:, 1], s=1, c=obstacle_hex(),
-                      alpha=0.3, label="C-space obstacle")
+        ax_cs.scatter(
+            cpts[:, 0],
+            cpts[:, 1],
+            s=1,
+            c=obstacle_hex(),
+            alpha=0.3,
+            label="C-space obstacle",
+        )
 
     if rrt_path is not None:
         arr = np.array(rrt_path)
-        ax_cs.plot(arr[:, 0], arr[:, 1],
-                   color=layer_hex("rrt", "path"), linewidth=1.5, alpha=0.8,
-                   label="RRT* path")
+        ax_cs.plot(
+            arr[:, 0],
+            arr[:, 1],
+            color=layer_hex("rrt", "path"),
+            linewidth=1.5,
+            alpha=0.8,
+            label="RRT* path",
+        )
     if rrt_traj is not None:
         tarr = np.array(rrt_traj)
-        ax_cs.plot(tarr[:, 0], tarr[:, 1], "o-",
-                   color=layer_hex("rrt", "trajectory"), linewidth=2.0,
-                   markersize=3, alpha=0.9, label="RRT* traj")
+        ax_cs.plot(
+            tarr[:, 0],
+            tarr[:, 1],
+            "o-",
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=2.0,
+            markersize=3,
+            alpha=0.9,
+            label="RRT* traj",
+        )
     if sst_path is not None:
         arr = np.array(sst_path)
-        ax_cs.plot(arr[:, 0], arr[:, 1],
-                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.8,
-                   label="SST path")
+        ax_cs.plot(
+            arr[:, 0],
+            arr[:, 1],
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=0.8,
+            label="SST path",
+        )
     if sst_traj is not None:
         tarr = np.array(sst_traj)
-        ax_cs.plot(tarr[:, 0], tarr[:, 1], "o-",
-                   color=layer_hex("sst", "trajectory"), linewidth=2.0,
-                   markersize=3, alpha=0.9, label="SST traj")
+        ax_cs.plot(
+            tarr[:, 0],
+            tarr[:, 1],
+            "o-",
+            color=layer_hex("sst", "trajectory"),
+            linewidth=2.0,
+            markersize=3,
+            alpha=0.9,
+            label="SST traj",
+        )
 
     # Velocity constraint disc (blue circle) around start and goal
     cruise_speed = float(sim_cfg.get("race_speed", 1.0))
     for center, marker in ((start_q, "s"), (goal_q, "x")):
         circ = mpatches.Circle(
-            (float(center[0]), float(center[1])), radius=cruise_speed,
-            linewidth=1.2, edgecolor="blue", facecolor="none", alpha=0.5,
+            (float(center[0]), float(center[1])),
+            radius=cruise_speed,
+            linewidth=1.2,
+            edgecolor="blue",
+            facecolor="none",
+            alpha=0.5,
             linestyle="--",
         )
         ax_cs.add_patch(circ)
-    ax_cs.plot(float(start_q[0]), float(start_q[1]), "s",
-               color=annotation_hex(), ms=10, zorder=9, label="Start")
-    ax_cs.plot(float(goal_q[0]), float(goal_q[1]), "x",
-               color=annotation_hex(), ms=8, mew=2, zorder=9, label="Goal")
+    ax_cs.plot(
+        float(start_q[0]),
+        float(start_q[1]),
+        "s",
+        color=annotation_hex(),
+        ms=10,
+        zorder=9,
+        label="Start",
+    )
+    ax_cs.plot(
+        float(goal_q[0]),
+        float(goal_q[1]),
+        "x",
+        color=annotation_hex(),
+        ms=8,
+        mew=2,
+        zorder=9,
+        label="Goal",
+    )
     ax_cs.set_xlim(*bounds[0])
     ax_cs.set_ylim(*bounds[1])
     ax_cs.set_xlabel("θ₁ (rad)")
@@ -476,19 +576,32 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_times, sst_V = _lyapunov_series(sst_traj, sst_durs, goal_arr)
 
     if len(rrt_times) > 0:
-        ax_lv.plot(rrt_times, rrt_V,
-                   color=layer_hex("rrt", "trajectory"), linewidth=1.8,
-                   label="RRT* V(t)")
+        ax_lv.plot(
+            rrt_times,
+            rrt_V,
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=1.8,
+            label="RRT* V(t)",
+        )
         window = (rrt_times[-1] - rrt_times[0]) / 10.0
-        ax_lv.axvspan(rrt_times[-1] - window, rrt_times[-1],
-                      alpha=0.10, color="gray")
+        ax_lv.axvspan(
+            rrt_times[-1] - window, rrt_times[-1], alpha=0.10, color="gray"
+        )
     if len(sst_times) > 0:
-        ax_lv.plot(sst_times, sst_V,
-                   color=layer_hex("sst", "trajectory"), linewidth=1.8,
-                   label="SST V(t)")
+        ax_lv.plot(
+            sst_times,
+            sst_V,
+            color=layer_hex("sst", "trajectory"),
+            linewidth=1.8,
+            label="SST V(t)",
+        )
         window = (sst_times[-1] - sst_times[0]) / 10.0
-        ax_lv.axvspan(sst_times[-1] - window, sst_times[-1],
-                      alpha=0.10, color="steelblue")
+        ax_lv.axvspan(
+            sst_times[-1] - window,
+            sst_times[-1],
+            alpha=0.10,
+            color="steelblue",
+        )
 
     ax_lv.axhline(0, color="gray", linewidth=0.8, linestyle=":")
     ax_lv.set_xlabel("Time (s)")
