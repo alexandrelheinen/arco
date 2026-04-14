@@ -34,15 +34,22 @@ class TrajectoryPruner:
 
     Args:
         occupancy: Occupancy map used for the default collision check.
-        collision_check_count: Number of intermediate points sampled
-            along each candidate segment when performing the built-in
-            collision check.  Higher values are more accurate but
-            slower.  Defaults to ``10``.
+        step_size: Per-dimension planner step size as an N-dimensional
+            array ``[L_0, L_1, ..., L_{N-1}]``.  Used to compute the
+            minimum number of collision-check samples along each pruned
+            segment as ``ceil(max_i(D[i] / L[i]))``, where ``D[i]`` is
+            the total variation of dimension *i* along the segment.
+            Must be strictly positive in every component.
+        collision_check_count: Minimum number of intermediate sample
+            points per segment used by the built-in collision check.
+            The actual count is the maximum of this value and the count
+            derived from *step_size*.  Defaults to ``10``.
     """
 
     def __init__(
         self,
         occupancy: Occupancy,
+        step_size: np.ndarray,
         collision_check_count: int = 10,
     ) -> None:
         """Initialize the TrajectoryPruner.
@@ -50,18 +57,37 @@ class TrajectoryPruner:
         Args:
             occupancy: Occupancy map for the default segment collision
                 check.
-            collision_check_count: Number of intermediate sample points
-                per segment used by the built-in collision check.
+            step_size: Per-dimension planner step size vector
+                ``[L_0, ..., L_{N-1}]``.  Must be a 1-D numpy array
+                (or array-like) with strictly positive components.
+                No scalar fallback is provided; every dimension must be
+                given explicitly.
+            collision_check_count: Minimum number of intermediate sample
+                points per segment used by the built-in collision check.
 
         Raises:
             ValueError: If *collision_check_count* is less than one.
+            ValueError: If *step_size* is not a non-empty 1-D array with
+                strictly positive elements.
         """
         if collision_check_count < 1:
             raise ValueError(
                 "collision_check_count must be at least 1; "
                 f"got {collision_check_count}."
             )
+        step_size_arr = np.asarray(step_size, dtype=float)
+        if step_size_arr.ndim != 1 or step_size_arr.size == 0:
+            raise ValueError(
+                "step_size must be a non-empty 1-D array; "
+                f"got shape {step_size_arr.shape}."
+            )
+        if np.any(step_size_arr <= 0):
+            raise ValueError(
+                "step_size elements must be strictly positive; "
+                f"got {step_size_arr}."
+            )
         self.occupancy = occupancy
+        self.step_size: np.ndarray = step_size_arr
         self.collision_check_count = collision_check_count
 
     # ------------------------------------------------------------------
@@ -161,11 +187,26 @@ class TrajectoryPruner:
     def _segment_free(self, a: np.ndarray, b: np.ndarray) -> bool:
         """Check whether the segment from *a* to *b* is collision-free.
 
-        Samples the segment at an **adaptive** density derived from the
-        occupancy clearance radius so that no two consecutive sample points
-        are further than ``clearance / 2`` apart.  This guarantees that
-        no obstacle region (a sphere of radius *clearance* around each
-        obstacle point) can slip undetected between samples.
+        Samples the segment at an adaptive density driven by two
+        complementary criteria, taking the stricter of the two:
+
+        **Step-size criterion** (primary):
+            ``n = ceil(max_i(D[i] / L[i]))`` where ``D[i] = |b[i] - a[i]|``
+            is the per-dimension total variation and ``L = self.step_size``.
+            This places at least one sample per planner step in every
+            dimension, so a pruned shortcut is checked at the same
+            resolution the planner used when it built the original path.
+            When ``D[i] = 0`` for a dimension, that dimension contributes
+            zero to the maximum and is safely ignored.
+
+        **Clearance criterion** (safety floor):
+            ``n_clear = ceil(2 * ‖b − a‖ / clearance) + 2`` ensures spacing
+            ≤ ``clearance / 2`` so that any obstacle sphere (radius
+            *clearance* in the raw occupancy space) along the segment is hit
+            by at least one sample.
+
+        The final sample count is ``max(n_step + 1, n_clear,
+        collision_check_count + 2, 2)``.
 
         For each sample the distance to the nearest obstacle is queried
         and compared against the clearance threshold — the
@@ -176,33 +217,33 @@ class TrajectoryPruner:
         efficiency.
 
         Args:
-            a: Segment start position.
-            b: Segment end position.
+            a: Segment start position (raw C-space units).
+            b: Segment end position (raw C-space units).
 
         Returns:
             ``True`` if every sampled point is at least *clearance* away
             from all obstacle points; ``False`` if any point violates the
             clearance constraint.
         """
-        # When the occupancy map does not expose a clearance attribute (e.g.
-        # a custom map that only implements is_occupied), clearance defaults
-        # to 0.0 and the adaptive density logic below is skipped; the pruner
-        # then falls back to the fixed collision_check_count sample count.
         clearance: float = getattr(self.occupancy, "clearance", 0.0)
+
+        # --- Step-size criterion (primary) --------------------------------
+        # D[i] / L[i] gives the number of planner steps spanned by this
+        # segment in dimension i.  When D[i] = 0 the ratio is 0 and does
+        # not contribute to the maximum.
+        D = np.abs(b - a)
+        ndim = min(D.size, self.step_size.size)
+        ratios = D[:ndim] / self.step_size[:ndim]
+        n_step = int(math.ceil(float(np.max(ratios)))) if np.any(ratios > 0) else 0
+
+        # --- Clearance criterion (safety floor) ---------------------------
         length = float(np.linalg.norm(b - a))
-
         if clearance > 0.0 and length > 0.0:
-            # We need spacing s ≤ clearance/2 so that any obstacle region
-            # (a ball of radius *clearance* around each obstacle point) that
-            # the segment passes through is detected by at least one sample.
-            # Number of intervals = ceil(length / (clearance/2))
-            #                     = ceil(2 * length / clearance),
-            # so n_points = intervals + 1 ≤ ceil(2*length/clearance) + 2.
-            min_samples = int(math.ceil(2.0 * length / clearance)) + 2
+            n_clear = int(math.ceil(2.0 * length / clearance)) + 2
         else:
-            min_samples = 0
+            n_clear = 0
 
-        n_samples = max(self.collision_check_count + 2, min_samples)
+        n_samples = max(n_step + 1, n_clear, self.collision_check_count + 2, 2)
 
         ts = np.linspace(0.0, 1.0, n_samples)
         pts = a + ts[:, np.newaxis] * (b - a)  # shape (n_samples, D)
