@@ -1,13 +1,15 @@
 """Vehicle benchmark (2-D) - RRT* vs SST in one matplotlib figure.
 
-This scenario compares both planners on the same scattered-obstacle map and
-shows four visualization layers for each planner:
+This scenario compares both planners on the same scattered-obstacle map.
 
-1. **Environment** — obstacle distance heatmap + obstacle points.
-2. **Planned path** — discrete waypoints from the planner (dim).
-3. **Predicted trajectory** — output of TrajectoryPruner + TrajectoryOptimizer.
-4. **Executed trajectory** — simulated vehicle following the predicted
-   trajectory via :class:`~arco.control.tracking.TrackingLoop` (dashed).
+Figure layout (3 subplots in a row)
+-------------------------------------
+* Left   — Combined workspace: both RRT* and SST paths/executed trajectories,
+  obstacle heatmap.
+* Middle — C-space (workspace = C-space for 2-D Dubins position): obstacle
+  heatmap with velocity reach circle (blue) around start and goal.
+* Right  — Lyapunov function V(t) = ‖(x,y)(t) − goal‖ for executed
+  trajectories with a sliding-window highlight of the last T/10 seconds.
 
 Usage
 -----
@@ -87,9 +89,9 @@ def _optimize(
     occ: KDTreeOccupancy,
     path: list[np.ndarray] | None,
     vehicle_cfg: dict,
-) -> tuple[list[np.ndarray] | None, float, str]:
+) -> tuple[list[np.ndarray] | None, float, str, list[float]]:
     if path is None or len(path) < 2:
-        return None, 0.0, "no-path"
+        return None, 0.0, "no-path", []
     pruner = TrajectoryPruner(occ)
     path = pruner.prune(path)
     try:
@@ -104,14 +106,16 @@ def _optimize(
             max_iter=200,
         )
         res = opt.optimize(path)
+        durs: list[float] = list(res.durations) if res.durations else []
         return (
             list(res.states),
-            float(sum(res.durations)),
+            float(sum(durs)),
             (f"{res.optimizer_status_code}: {res.optimizer_status_text}"),
+            durs,
         )
     except Exception:
         logger.exception("Trajectory optimization failed")
-        return None, 0.0, "exception"
+        return None, 0.0, "exception", []
 
 
 def _simulate_vehicle(
@@ -216,16 +220,47 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_nodes, _, sst_path = sst.get_tree(start.copy(), goal.copy())
     sst_time = time.perf_counter() - t0
 
-    rrt_traj, rrt_dur, rrt_opt = _optimize(occ, rrt_path, vehicle_cfg)
-    sst_traj, sst_dur, sst_opt = _optimize(occ, sst_path, vehicle_cfg)
+    rrt_traj, rrt_dur, rrt_opt, rrt_durs = _optimize(occ, rrt_path, vehicle_cfg)
+    sst_traj, sst_dur, sst_opt, sst_durs = _optimize(occ, sst_path, vehicle_cfg)
 
     logger.info("Simulating RRT* executed trajectory …")
     rrt_executed = _simulate_vehicle(rrt_traj or rrt_path, occ, vehicle_cfg)
     logger.info("Simulating SST executed trajectory …")
     sst_executed = _simulate_vehicle(sst_traj or sst_path, occ, vehicle_cfg)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6.5))
-    fig1, ax1 = draw_occupancy(
+    import matplotlib.patches as mpatches
+
+    def _lyapunov_series(
+        traj_states: list[tuple[float, float, float]] | None,
+        traj_durations: list[float] | None,
+        goal: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute cumulative time and V(t) = ||(x,y)(t) - goal|| for a trajectory.
+
+        Args:
+            traj_states: Sequence of (x, y, θ) executed poses.
+            traj_durations: Per-segment durations.
+            goal: 2-D goal position ``[gx, gy]``.
+
+        Returns:
+            Tuple of ``(times, V)`` arrays.  Both empty if input is too short.
+        """
+        if traj_states is None or len(traj_states) < 2:
+            return np.array([]), np.array([])
+        durs = traj_durations or [1.0] * (len(traj_states) - 1)
+        times = np.concatenate(
+            [[0.0], np.cumsum(durs[: len(traj_states) - 1])]
+        )
+        V = np.array(
+            [math.hypot(s[0] - float(goal[0]), s[1] - float(goal[1]))
+             for s in traj_states]
+        )
+        return times, V
+
+    fig, (ax_ws, ax_cs, ax_lv) = plt.subplots(1, 3, figsize=(18, 6))
+
+    # ---- ax_ws: Combined workspace with both planners' results -------------
+    fig_tmp, ax_ws = draw_occupancy(
         occ,
         bounds=bounds,
         path=rrt_path,
@@ -235,111 +270,119 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         goal=goal,
         draw_tree=False,
         path_alpha=(0.35 if rrt_traj is not None else 1.0),
-        title="Vehicle benchmark - RRT*",
-        ax=ax1,
+        title="Vehicle benchmark — Cartesian workspace",
+        ax=ax_ws,
     )
-    _ = fig1
+    _ = fig_tmp
+
+    # Overlay SST path
+    if sst_path is not None and len(sst_path) >= 2:
+        sarr = np.array(sst_path)
+        ax_ws.plot(sarr[:, 0], sarr[:, 1],
+                   color=layer_hex("sst", "path"), linewidth=1.5,
+                   alpha=(0.35 if sst_traj is not None else 0.9),
+                   label="SST path")
+
     if rrt_traj is not None and len(rrt_traj) >= 2:
         arr = np.array(rrt_traj)
-        ax1.plot(
-            arr[:, 0],
-            arr[:, 1],
-            "o-",
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.3,
-            markersize=3,
-            label="Predicted traj",
-        )
+        ax_ws.plot(arr[:, 0], arr[:, 1], "o-",
+                   color=layer_hex("rrt", "trajectory"), linewidth=2.3,
+                   markersize=3, label="RRT* traj")
     if len(rrt_executed) >= 2:
         ex = np.array(rrt_executed)
-        ax1.plot(
-            ex[:, 0],
-            ex[:, 1],
-            color=layer_hex("rrt", "vehicle"),
-            linewidth=1.8,
-            linestyle="--",
-            alpha=0.85,
-            label="Executed traj",
-        )
-    ax1.text(
-        0.02,
-        0.98,
-        "\n".join(
-            [
-                f"Steps/nodes: {max(0, (len(rrt_path) - 1) if rrt_path else 0)}/{len(rrt_nodes)}",
-                f"Planner: {rrt_time:.2f}s",
-                f"Path length: {_polyline_length(rrt_path):.1f} m",
-                f"Traj duration: {rrt_dur:.1f}s",
-                f"Optimizer: {rrt_opt}",
-            ]
-        ),
-        transform=ax1.transAxes,
-        va="top",
-        ha="left",
-        fontsize=8,
+        ax_ws.plot(ex[:, 0], ex[:, 1],
+                   color=layer_hex("rrt", "vehicle"), linewidth=1.8,
+                   linestyle="--", alpha=0.85, label="RRT* executed")
+    if sst_traj is not None and len(sst_traj) >= 2:
+        arr = np.array(sst_traj)
+        ax_ws.plot(arr[:, 0], arr[:, 1], "o-",
+                   color=layer_hex("sst", "trajectory"), linewidth=2.3,
+                   markersize=3, label="SST traj")
+    if len(sst_executed) >= 2:
+        ex = np.array(sst_executed)
+        ax_ws.plot(ex[:, 0], ex[:, 1],
+                   color=layer_hex("sst", "vehicle"), linewidth=1.8,
+                   linestyle="--", alpha=0.85, label="SST executed")
+
+    ax_ws.text(
+        0.02, 0.98,
+        "\n".join([
+            f"RRT* steps/nodes: {max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)}",
+            f"RRT* time: {rrt_time:.2f}s | len: {_polyline_length(rrt_path):.1f} m",
+            f"RRT* traj dur: {rrt_dur:.1f}s | {rrt_opt}",
+            f"SST steps/nodes: {max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)}",
+            f"SST time: {sst_time:.2f}s | len: {_polyline_length(sst_path):.1f} m",
+            f"SST traj dur: {sst_dur:.1f}s | {sst_opt}",
+        ]),
+        transform=ax_ws.transAxes, va="top", ha="left", fontsize=7,
         color="black",
         bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
     )
-    ax1.grid(True, alpha=0.3)
-    ax1.legend(loc="upper right", fontsize=7)
+    ax_ws.grid(True, alpha=0.3)
+    ax_ws.legend(loc="upper right", fontsize=7)
 
-    fig2, ax2 = draw_occupancy(
+    # ---- ax_cs: C-space = workspace (2-D position) with vel. reach circles --
+    fig_tmp2, ax_cs = draw_occupancy(
         occ,
         bounds=bounds,
-        path=sst_path,
+        path=rrt_path,
         tree_nodes=None,
         tree_parent=None,
         start=start,
         goal=goal,
         draw_tree=False,
-        path_alpha=(0.35 if sst_traj is not None else 1.0),
-        title="Vehicle benchmark - SST",
-        ax=ax2,
+        path_alpha=0.4,
+        title="C-space (x m, y m) — velocity constraints",
+        ax=ax_cs,
     )
-    _ = fig2
-    if sst_traj is not None and len(sst_traj) >= 2:
-        arr = np.array(sst_traj)
-        ax2.plot(
-            arr[:, 0],
-            arr[:, 1],
-            "o-",
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.3,
-            markersize=3,
-            label="Predicted traj",
-        )
-    if len(sst_executed) >= 2:
-        ex = np.array(sst_executed)
-        ax2.plot(
-            ex[:, 0],
-            ex[:, 1],
-            color=layer_hex("sst", "vehicle"),
-            linewidth=1.8,
+    _ = fig_tmp2
+
+    if sst_path is not None and len(sst_path) >= 2:
+        sarr = np.array(sst_path)
+        ax_cs.plot(sarr[:, 0], sarr[:, 1],
+                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.4)
+
+    dubins_cfg = vehicle_cfg.get("dubins", {})
+    cruise_speed = float(dubins_cfg.get("cruise_speed", 3.0))
+    for center in (start, goal):
+        circ = mpatches.Circle(
+            (float(center[0]), float(center[1])), radius=cruise_speed,
+            linewidth=1.2, edgecolor="blue", facecolor="none", alpha=0.6,
             linestyle="--",
-            alpha=0.85,
-            label="Executed traj",
         )
-    ax2.text(
-        0.02,
-        0.98,
-        "\n".join(
-            [
-                f"Steps/nodes: {max(0, (len(sst_path) - 1) if sst_path else 0)}/{len(sst_nodes)}",
-                f"Planner: {sst_time:.2f}s",
-                f"Path length: {_polyline_length(sst_path):.1f} m",
-                f"Traj duration: {sst_dur:.1f}s",
-                f"Optimizer: {sst_opt}",
-            ]
-        ),
-        transform=ax2.transAxes,
-        va="top",
-        ha="left",
-        fontsize=8,
-        color="black",
-        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
+        ax_cs.add_patch(circ)
+    ax_cs.grid(True, alpha=0.3)
+    ax_cs.legend(loc="upper right", fontsize=7)
+
+    # ---- ax_lv: Lyapunov V(t) = ‖(x,y)(t) − goal‖ -------------------------
+    rrt_exec_times, rrt_V = _lyapunov_series(
+        rrt_executed if rrt_executed else None, rrt_durs, goal
     )
-    ax2.grid(True, alpha=0.3)
-    ax2.legend(loc="upper right", fontsize=7)
+    sst_exec_times, sst_V = _lyapunov_series(
+        sst_executed if sst_executed else None, sst_durs, goal
+    )
+
+    if len(rrt_exec_times) > 0:
+        ax_lv.plot(rrt_exec_times, rrt_V,
+                   color=layer_hex("rrt", "trajectory"), linewidth=1.8,
+                   label="RRT* V(t)")
+        window = (rrt_exec_times[-1] - rrt_exec_times[0]) / 10.0
+        ax_lv.axvspan(rrt_exec_times[-1] - window, rrt_exec_times[-1],
+                      alpha=0.10, color="gray")
+    if len(sst_exec_times) > 0:
+        ax_lv.plot(sst_exec_times, sst_V,
+                   color=layer_hex("sst", "trajectory"), linewidth=1.8,
+                   label="SST V(t)")
+        window = (sst_exec_times[-1] - sst_exec_times[0]) / 10.0
+        ax_lv.axvspan(sst_exec_times[-1] - window, sst_exec_times[-1],
+                      alpha=0.10, color="steelblue")
+
+    ax_lv.axhline(0, color="gray", linewidth=0.8, linestyle=":")
+    ax_lv.set_xlabel("Time (s)")
+    ax_lv.set_ylabel("V(t) = ‖(x,y) − goal‖ (m)")
+    ax_lv.set_title("Lyapunov function")
+    ax_lv.legend(loc="upper right", fontsize=7)
+    ax_lv.grid(True, alpha=0.3)
 
     plt.tight_layout()
     if save_path is not None:
