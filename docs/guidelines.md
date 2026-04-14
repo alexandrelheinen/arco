@@ -338,3 +338,53 @@ flag was used locally, so the error only surfaced in CI.
 **The invariant to enforce:** after restructuring any shared config, zero
 files may reference a key path that no longer exists.  The import check
 above catches this at module-load time, before any simulation runs.
+
+
+## 13. Tests That Import Display-Only Modules
+
+Some simulator entry points (e.g. `ppp.py`, `rrp.py`, `rr.py`, `occ.py`)
+import `pygame` and/or `OpenGL` at module level.  These modules are **not**
+installed in the CI test-runner environment (which has no display libraries).
+
+### Rule
+
+Any test file that needs to import from a pygame/OpenGL simulator entry
+point **must** start with:
+
+```python
+pygame = pytest.importorskip("pygame")
+```
+
+placed **before** the import that triggers `pygame`.  This causes pytest to
+skip the entire test module with a clear message when pygame is unavailable,
+rather than crashing the collection phase with `ModuleNotFoundError`.
+
+### Root cause (2025-04 incident)
+
+`tests/tools/test_ppp_robot.py` and `tests/tools/test_rrp_race_robot.py`
+imported `PPPRobot` / `RRPRaceRobot` directly from the simulator main files.
+These files do `import pygame` at the top level.  The CI test runner (Python
+3.10, Ubuntu, headless) does not install pygame, so both test modules failed
+during **collection**, not during execution.  This caused the entire test
+suite to exit with error code 2 before any tests ran.
+
+
+## 14. Example Functions: Data-Series Dimensions
+
+When plotting multi-step simulations (e.g. Lyapunov functions, V(t)):
+
+- **time axis** and **value axis** must always have the same length.
+- If the simulation runs for `N` steps with a fixed `dt`, the time axis is
+  `np.arange(N) * dt` — *not* a cumulative sum of per-waypoint optimizer
+  durations (which has length equal to the number of waypoints, not steps).
+
+### Root cause (2025-04 incident)
+
+`vehicle.py`'s `_lyapunov_series` was called with `traj_durations = rrt_durs`
+(per-segment optimizer durations, length ≈ number of waypoints) and
+`traj_states = rrt_executed` (one entry per simulation step, length ≈
+several hundred).  This produced a shape mismatch at `ax.plot(times, V)`.
+
+**Fix**: derive the time axis inside `_lyapunov_series` as
+`np.arange(len(traj_states)) * dt`, where `dt` is the simulation step size.
+

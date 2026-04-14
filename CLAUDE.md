@@ -30,6 +30,11 @@ Before finishing a task, verify:
 - After restructuring any shared config file (`colors.yml`, etc.): audit every
   consumer and run a quick import check on all simulator entry points before
   pushing (see §12 of docs/guidelines.md).
+- **Tests importing display-only modules** (pygame/OpenGL mains): start with
+  `pygame = pytest.importorskip("pygame")` before the import. Failure to do so
+  crashes the entire CI test-collection phase on headless runners (§13).
+- **Simulation plot time axes**: derive from `np.arange(N) * dt` (N = steps),
+  never from per-waypoint optimizer durations (§14).
 - Relevant tests pass.
 - New public APIs are documented and typed.
 - File organization and imports comply with [docs/guidelines.md](docs/guidelines.md).
