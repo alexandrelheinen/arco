@@ -236,6 +236,7 @@ class RRPScene:
         self._planner_cfg = cfg.get("planner", cfg)
         self._sim_cfg = cfg.get("simulator", cfg)
         self._robot: Any = None
+        self._occ: Any = None
         self._obstacles: list[list[float]] = []
         self._start_q: np.ndarray = np.zeros(3)
         self._goal_q: np.ndarray = np.zeros(3)
