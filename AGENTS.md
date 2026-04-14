@@ -36,6 +36,14 @@ Follow [docs/guidelines.md](docs/guidelines.md) as the authoritative standard fo
   every consumer with `grep -rn 'load_config("colors")' src/` and run a quick
   import check on all simulator entry points before pushing (see §12 of
   docs/guidelines.md).
+- **Tests that import display-only modules** (pygame/OpenGL simulator mains
+  such as `ppp.py`, `rrp.py`) **must** begin with
+  `pygame = pytest.importorskip("pygame")` before the triggering import.
+  Omitting this causes the whole test-collection phase to fail with
+  `ModuleNotFoundError` on headless CI runners (see §13 of docs/guidelines.md).
+- **Simulation plot axes must be shape-consistent**: always derive the time
+  axis from `np.arange(N) * dt` where N = number of simulation steps — never
+  from per-waypoint optimizer durations (see §14 of docs/guidelines.md).
 
 An imperative order (do, implement, make, add...) is not only about writting the code. It must include all the V-cycle.
 
