@@ -10,6 +10,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from arco.mapping.occupancy import Occupancy
 
 from arco.control.pure_pursuit import PurePursuitController
 from arco.control.tracking import TrackingLoop
@@ -30,6 +34,8 @@ class VehicleConfig:
         max_acceleration: Maximum linear acceleration in m/s².
         max_turn_rate_dot: Maximum turn-rate derivative in rad/s².
         curvature_gain: Feed-forward curvature gain (0 = disabled).
+        repulsion_gain: Obstacle-repulsion turn-rate gain for the tracking
+            loop (rad/m).  ``0.0`` disables repulsion.
     """
 
     max_speed: float
@@ -41,6 +47,7 @@ class VehicleConfig:
     max_acceleration: float
     max_turn_rate_dot: float
     curvature_gain: float = field(default=0.0)
+    repulsion_gain: float = field(default=1.5)
 
 
 def initial_heading(path: list[tuple[float, float]]) -> float:
@@ -91,12 +98,17 @@ def find_lookahead(
 def build_vehicle_sim(
     waypoints: list[tuple[float, float]],
     cfg: VehicleConfig,
+    occupancy: Optional["Occupancy"] = None,
 ) -> tuple[DubinsVehicle, TrackingLoop]:
     """Create a Dubins vehicle and tracking loop initialized at waypoints[0].
 
     Args:
         waypoints: Ordered list of ``(x, y)`` path waypoints.
         cfg: Vehicle and controller configuration.
+        occupancy: Optional occupancy map.  When provided and
+            ``cfg.repulsion_gain > 0``, the tracking loop applies an
+            APF obstacle-repulsion correction at each step, steering
+            the vehicle away from nearby obstacles.
 
     Returns:
         Tuple of ``(vehicle, tracking_loop)``.
@@ -121,5 +133,7 @@ def build_vehicle_sim(
         controller,
         cruise_speed=cfg.cruise_speed,
         curvature_gain=cfg.curvature_gain,
+        occupancy=occupancy,
+        repulsion_gain=cfg.repulsion_gain,
     )
     return vehicle, loop
