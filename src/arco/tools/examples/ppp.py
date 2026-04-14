@@ -5,8 +5,16 @@ modelled as a box-shaped work volume (60 m × 20 m × 6 m) with ground-level
 box obstacles. Three width-crossing barriers increase difficulty: a tall
 barrier, a smaller one, then a split-half barrier with mixed heights.
 
-Only the chosen path is rendered — no exploration tree — to keep the 3-D
-view uncluttered.
+For PPP robots the C-space is the workspace (all joints are prismatic), so
+the C-space panel annotates the same 3-D volume with velocity constraints.
+
+Figure layout (3 subplots in a row)
+-------------------------------------
+* Left   — Combined 3-D workspace: both RRT* and SST paths/trajectories.
+* Middle — C-space (x m, y m, z m): obstacle boxes (red), both paths, velocity
+  constraint box (blue translucent) showing reach per timestep from start.
+* Right  — Lyapunov function V(t) = ‖q(t) − q_goal‖ for both trajectories
+  with a sliding-window highlight of the last T/10 seconds.
 
 Usage
 -----
@@ -226,12 +234,15 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_opt_status = "not-run"
     rrt_feasible = False
     sst_feasible = False
+    rrt_durs: list[float] = []
+    sst_durs: list[float] = []
     if rrt_path is not None:
         rrt_path = pruner.prune(rrt_path)
         try:
             res = opt.optimize(rrt_path)
             rrt_traj = res.states
-            rrt_traj_dur = sum(res.durations)
+            rrt_durs = list(res.durations) if res.durations else []
+            rrt_traj_dur = sum(rrt_durs)
             rrt_traj_len = _polyline_length(res.states)
             rrt_opt_status = (
                 f"{res.optimizer_status_code}: {res.optimizer_status_text}"
@@ -248,7 +259,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         try:
             res = opt.optimize(sst_path)
             sst_traj = res.states
-            sst_traj_dur = sum(res.durations)
+            sst_durs = list(res.durations) if res.durations else []
+            sst_traj_dur = sum(sst_durs)
             sst_traj_len = _polyline_length(res.states)
             sst_opt_status = (
                 f"{res.optimizer_status_code}: {res.optimizer_status_text}"
@@ -261,53 +273,38 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             )
             sst_opt_status = "exception"
 
-    # --- 3-D figure ---------------------------------------------------------
-    fig = plt.figure(figsize=(14, 7))
+    def _lyapunov_series(
+        traj_states: list[np.ndarray] | None,
+        traj_durations: list[float] | None,
+        goal: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute cumulative time and V(t) = ||state - goal|| for a trajectory.
 
-    specs = [
-        (
-            "RRT* — 3-D PPP warehouse",
-            rrt_path,
-            rrt_len,
-            layer_hex("rrt", "path"),
-            rrt_traj,
-            {
-                "steps": max(0, (len(rrt_path) - 1) if rrt_path else 0),
-                "nodes": len(rrt_nodes),
-                "planner_time": rrt_elapsed,
-                "path_len": rrt_len,
-                "traj_len": rrt_traj_len,
-                "traj_dur": rrt_traj_dur,
-                "path_status": (
-                    "found"
-                    if (rrt_path is not None and rrt_feasible)
-                    else "stalled"
-                ),
-                "opt_status": rrt_opt_status,
-            },
-        ),
-        (
-            "SST — 3-D PPP warehouse",
-            sst_path,
-            sst_len,
-            layer_hex("sst", "path"),
-            sst_traj,
-            {
-                "steps": max(0, (len(sst_path) - 1) if sst_path else 0),
-                "nodes": len(sst_nodes),
-                "planner_time": sst_elapsed,
-                "path_len": sst_len,
-                "traj_len": sst_traj_len,
-                "traj_dur": sst_traj_dur,
-                "path_status": (
-                    "found"
-                    if (sst_path is not None and sst_feasible)
-                    else "stalled"
-                ),
-                "opt_status": sst_opt_status,
-            },
-        ),
-    ]
+        Args:
+            traj_states: Sequence of joint-space states.
+            traj_durations: Per-segment durations (length = len(states) - 1).
+            goal: Goal state array.
+
+        Returns:
+            Tuple of ``(times, V)`` arrays.  Both empty if input is too short.
+        """
+        if traj_states is None or len(traj_states) < 2:
+            return np.array([]), np.array([])
+        durs = traj_durations or [1.0] * (len(traj_states) - 1)
+        times = np.concatenate(
+            [[0.0], np.cumsum(durs[: len(traj_states) - 1])]
+        )
+        V = np.array(
+            [float(np.linalg.norm(np.asarray(s) - goal)) for s in traj_states]
+        )
+        return times, V
+
+    # --- 3-D figure ---------------------------------------------------------
+    fig = plt.figure(figsize=(18, 6))
+    ax_ws = fig.add_subplot(1, 3, 1, projection="3d")
+    ax_cs = fig.add_subplot(1, 3, 2, projection="3d")
+    ax_lv = fig.add_subplot(1, 3, 3)
+
     x_lim = (
         float(env_cfg["bounds"][0][0]),
         float(env_cfg["bounds"][0][1]),
@@ -318,116 +315,133 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     )
     z_lim = (0.0, float(env_cfg["bounds"][2][1]))
 
-    for col, (title, path, length, color, traj, metrics) in enumerate(specs):
-        ax = fig.add_subplot(1, 2, col + 1, projection="3d")
-        planner_key = "rrt" if col == 0 else "sst"
+    # ---- ax_ws: Combined 3-D workspace -------------------------------------
+    for box in _BOXES:
+        _draw_box(ax_ws, *box, color=obstacle_hex(), alpha=0.45)
 
-        # Obstacle boxes — all use the unified obstacle color.
-        for box in _BOXES:
-            _draw_box(ax, *box, color=obstacle_hex(), alpha=0.45)
+    if rrt_path is not None and len(rrt_path) >= 2:
+        arr = np.array(rrt_path)
+        ax_ws.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
+                   color=layer_hex("rrt", "path"), linewidth=1.5, alpha=0.7,
+                   label="RRT* path")
+    if rrt_traj is not None and len(rrt_traj) >= 2:
+        tarr = np.array([[p[0], p[1], p[2]] for p in rrt_traj])
+        ax_ws.plot(tarr[:, 0], tarr[:, 1], tarr[:, 2], "o-",  # type: ignore[attr-defined]
+                   color=layer_hex("rrt", "trajectory"), linewidth=2.5,
+                   markersize=3, alpha=0.9, label="RRT* traj")
+    if sst_path is not None and len(sst_path) >= 2:
+        arr = np.array(sst_path)
+        ax_ws.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
+                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.7,
+                   label="SST path")
+    if sst_traj is not None and len(sst_traj) >= 2:
+        tarr = np.array([[p[0], p[1], p[2]] for p in sst_traj])
+        ax_ws.plot(tarr[:, 0], tarr[:, 1], tarr[:, 2], "o-",  # type: ignore[attr-defined]
+                   color=layer_hex("sst", "trajectory"), linewidth=2.5,
+                   markersize=3, alpha=0.9, label="SST traj")
 
-        # Solution path — dimmed when trajectory is drawn on top
-        if path is not None and len(path) >= 2:
-            arr = np.array(path)
-            path_alpha = 0.35 if traj is not None else 1.0
-            label = f"Path  {length:.1f} m | {len(path)} wpts"
-            ax.plot(  # type: ignore[attr-defined]
-                arr[:, 0],
-                arr[:, 1],
-                arr[:, 2],
-                color=color,
-                linewidth=1.5,
-                alpha=path_alpha,
-                zorder=5,
-                label=label,
-            )
+    ax_ws.scatter([_START[0]], [_START[1]], [_START[2]],  # type: ignore[attr-defined]
+                  color=annotation_hex(), s=80, zorder=6, label="Start")
+    ax_ws.scatter([_GOAL[0]], [_GOAL[1]], [_GOAL[2]],  # type: ignore[attr-defined]
+                  color=annotation_hex(), marker="x", linewidths=2,
+                  s=80, zorder=6, label="Goal")
 
-        # Optimized trajectory — bright highlight on top of path
-        if traj is not None and len(traj) >= 2:
-            tarr = np.array([[p[0], p[1], p[2]] for p in traj])
-            ax.plot(  # type: ignore[attr-defined]
-                tarr[:, 0],
-                tarr[:, 1],
-                tarr[:, 2],
-                "o-",
-                color=layer_hex(planner_key, "trajectory"),
-                linewidth=2.5,
-                markersize=3,
-                zorder=7,
-                label="Optimized trajectory",
-            )
+    ax_ws.set_xlim(*x_lim)  # type: ignore[attr-defined]
+    ax_ws.set_ylim(*y_lim)  # type: ignore[attr-defined]
+    ax_ws.set_zlim(*z_lim)  # type: ignore[attr-defined]
+    ax_ws.set_xlabel("X (m)")  # type: ignore[attr-defined]
+    ax_ws.set_ylabel("Y (m)")  # type: ignore[attr-defined]
+    ax_ws.set_zlabel("Z (m)")  # type: ignore[attr-defined]
+    ax_ws.set_title("PPP robot — 3-D workspace")  # type: ignore[attr-defined]
+    ax_ws.set_box_aspect(  # type: ignore[attr-defined]
+        [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
+    )
+    ax_ws.legend(loc="upper right", fontsize=8)  # type: ignore[attr-defined]
+    ax_ws.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
 
-        # Start and goal markers
-        ax.scatter(  # type: ignore[attr-defined]
-            [_START[0]],
-            [_START[1]],
-            [_START[2]],
-            color=annotation_hex(),
-            s=80,
-            zorder=6,
-            label="Start",
-        )
-        ax.scatter(  # type: ignore[attr-defined]
-            [_GOAL[0]],
-            [_GOAL[1]],
-            [_GOAL[2]],
-            color=annotation_hex(),
-            marker="x",
-            linewidths=2,
-            s=80,
-            zorder=6,
-            label="Goal",
-        )
+    metrics_lines = [
+        f"RRT* steps/nodes: {max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)}",
+        f"RRT* time: {_format_clock(rrt_elapsed)} | len: {int(round(rrt_len))} m",
+        f"RRT* traj dur: {_format_clock(rrt_traj_dur)} | {rrt_opt_status}",
+        f"SST steps/nodes: {max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)}",
+        f"SST time: {_format_clock(sst_elapsed)} | len: {int(round(sst_len))} m",
+        f"SST traj dur: {_format_clock(sst_traj_dur)} | {sst_opt_status}",
+    ]
+    ax_ws.text2D(  # type: ignore[attr-defined]
+        0.02, 0.98, "\n".join(metrics_lines),
+        transform=ax_ws.transAxes, va="top", ha="left", fontsize=7,
+        color="black",
+        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.80,
+              "edgecolor": "none"},
+    )
 
-        ax.set_xlim(*x_lim)  # type: ignore[attr-defined]
-        ax.set_ylim(*y_lim)  # type: ignore[attr-defined]
-        ax.set_zlim(*z_lim)  # type: ignore[attr-defined]
-        ax.set_xlabel("X (m)")  # type: ignore[attr-defined]
-        ax.set_ylabel("Y (m)")  # type: ignore[attr-defined]
-        ax.set_zlabel("Z (m)")  # type: ignore[attr-defined]
-        ax.set_title(title)  # type: ignore[attr-defined]
-        ax.set_box_aspect(  # type: ignore[attr-defined]
-            [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
-        )
-        ax.legend(loc="upper right", fontsize=8)  # type: ignore[attr-defined]
-        ax.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
-        metrics_lines = [
-            (
-                f"Planner steps / nodes: "
-                f"{metrics['steps']} / {metrics['nodes']}"
-            ),
-            f"Planner time: {_format_clock(float(metrics['planner_time']))}",
-            (
-                f"Planned path length: "
-                f"{int(round(float(metrics['path_len'])))} m"
-            ),
-            (
-                f"Trajectory arc length: "
-                f"{int(round(float(metrics['traj_len'])))} m"
-            ),
-            (
-                f"Trajectory duration: "
-                f"{_format_clock(float(metrics['traj_dur']))}"
-            ),
-            f"Path status: {metrics['path_status']}",
-            f"Optimizer status: {metrics['opt_status']}",
-        ]
-        ax.text2D(  # type: ignore[attr-defined]
-            0.02,
-            0.98,
-            "\n".join(metrics_lines),
-            transform=ax.transAxes,
-            va="top",
-            ha="left",
-            fontsize=7,
-            color="black",
-            bbox={
-                "boxstyle": "round,pad=0.3",
-                "facecolor": "white",
-                "alpha": 0.80,
-                "edgecolor": "none",
-            },
-        )
+    # ---- ax_cs: C-space = workspace for PPP, annotated with vel. constraints
+    for box in _BOXES:
+        _draw_box(ax_cs, *box, color=obstacle_hex(), alpha=0.25)
+
+    if rrt_path is not None and len(rrt_path) >= 2:
+        arr = np.array(rrt_path)
+        ax_cs.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
+                   color=layer_hex("rrt", "path"), linewidth=1.5, alpha=0.8,
+                   label="RRT* path")
+    if sst_path is not None and len(sst_path) >= 2:
+        arr = np.array(sst_path)
+        ax_cs.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
+                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.8,
+                   label="SST path")
+
+    # Velocity constraint box (blue translucent) — reach from start in 1 s
+    max_vel = float(sim_cfg.get("max_joint_vel", 3.0))
+    sx, sy, sz = float(_START[0]), float(_START[1]), float(_START[2])
+    _draw_box(ax_cs, sx - max_vel, sy - max_vel, sz - max_vel,
+              sx + max_vel, sy + max_vel, sz + max_vel,
+              color="blue", alpha=0.08)
+
+    ax_cs.scatter([_START[0]], [_START[1]], [_START[2]],  # type: ignore[attr-defined]
+                  color=annotation_hex(), s=80, zorder=6, label="Start")
+    ax_cs.scatter([_GOAL[0]], [_GOAL[1]], [_GOAL[2]],  # type: ignore[attr-defined]
+                  color=annotation_hex(), marker="x", linewidths=2,
+                  s=80, zorder=6, label="Goal")
+
+    ax_cs.set_xlim(*x_lim)  # type: ignore[attr-defined]
+    ax_cs.set_ylim(*y_lim)  # type: ignore[attr-defined]
+    ax_cs.set_zlim(*z_lim)  # type: ignore[attr-defined]
+    ax_cs.set_xlabel("X (m)")  # type: ignore[attr-defined]
+    ax_cs.set_ylabel("Y (m)")  # type: ignore[attr-defined]
+    ax_cs.set_zlabel("Z (m)")  # type: ignore[attr-defined]
+    ax_cs.set_title("C-space (x m, y m, z m)")  # type: ignore[attr-defined]
+    ax_cs.set_box_aspect(  # type: ignore[attr-defined]
+        [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
+    )
+    ax_cs.legend(loc="upper right", fontsize=8)  # type: ignore[attr-defined]
+    ax_cs.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
+
+    # ---- ax_lv: Lyapunov V(t) = ‖q(t) − q_goal‖ ---------------------------
+    goal_arr = np.asarray(_GOAL, dtype=float)
+    rrt_times, rrt_V = _lyapunov_series(rrt_traj, rrt_durs, goal_arr)
+    sst_times, sst_V = _lyapunov_series(sst_traj, sst_durs, goal_arr)
+
+    if len(rrt_times) > 0:
+        ax_lv.plot(rrt_times, rrt_V,
+                   color=layer_hex("rrt", "trajectory"), linewidth=1.8,
+                   label="RRT* V(t)")
+        window = (rrt_times[-1] - rrt_times[0]) / 10.0
+        ax_lv.axvspan(rrt_times[-1] - window, rrt_times[-1],
+                      alpha=0.10, color="gray")
+    if len(sst_times) > 0:
+        ax_lv.plot(sst_times, sst_V,
+                   color=layer_hex("sst", "trajectory"), linewidth=1.8,
+                   label="SST V(t)")
+        window = (sst_times[-1] - sst_times[0]) / 10.0
+        ax_lv.axvspan(sst_times[-1] - window, sst_times[-1],
+                      alpha=0.10, color="steelblue")
+
+    ax_lv.axhline(0, color="gray", linewidth=0.8, linestyle=":")
+    ax_lv.set_xlabel("Time (s)")
+    ax_lv.set_ylabel("V(t) = ‖q − goal‖ (m)")
+    ax_lv.set_title("Lyapunov function")
+    ax_lv.legend(loc="upper right", fontsize=7)
+    ax_lv.grid(True, alpha=0.3)
 
     plt.suptitle(
         "PPP robot — RRT* vs SST in 3-D warehouse",

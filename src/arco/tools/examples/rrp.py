@@ -8,9 +8,12 @@ freedom.
 
 Figure layout (3 subplots in a row)
 -------------------------------------
-* Left   — RRT* end-effector trace in 3-D Cartesian workspace
-* Middle — SST end-effector trace in 3-D Cartesian workspace
-* Right  — C-space (q1, q2, z) voxel-surface mesh of the collision volume
+* Left   — Combined 3-D Cartesian workspace: both RRT* and SST FK end-effector
+  traces, obstacles, start/goal markers.
+* Middle — C-space (q₁, q₂, z): collision volume mesh (red), both joint paths,
+  velocity constraint ellipsoid (blue wireframe) centered on start.
+* Right  — Lyapunov function V(t) = ‖q(t) − q_goal‖ for both trajectories
+  with a sliding-window highlight of the last T/10 seconds.
 
 Usage
 -----
@@ -441,12 +444,15 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_traj_len = 0.0
     rrt_opt_status = "not-run"
     sst_opt_status = "not-run"
+    rrt_durs: list[float] = []
+    sst_durs: list[float] = []
     if rrt_path is not None:
         rrt_path = pruner.prune(rrt_path)
         try:
             res = opt.optimize(rrt_path)
             rrt_traj = res.states
-            rrt_traj_dur = sum(res.durations)
+            rrt_durs = list(res.durations) if res.durations else []
+            rrt_traj_dur = sum(rrt_durs)
             rrt_traj_len = _polyline_length(res.states)
             rrt_opt_status = (
                 f"{res.optimizer_status_code}: {res.optimizer_status_text}"
@@ -459,7 +465,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         try:
             res = opt.optimize(sst_path)
             sst_traj = res.states
-            sst_traj_dur = sum(res.durations)
+            sst_durs = list(res.durations) if res.durations else []
+            sst_traj_dur = sum(sst_durs)
             sst_traj_len = _polyline_length(res.states)
             sst_opt_status = (
                 f"{res.optimizer_status_code}: {res.optimizer_status_text}"
@@ -481,197 +488,128 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         float(goal_q[0]), float(goal_q[1]), float(goal_q[2])
     )
 
+    def _lyapunov_series(
+        traj_states: list[np.ndarray] | None,
+        traj_durations: list[float] | None,
+        goal: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute cumulative time and V(t) = ||state - goal|| for a trajectory.
+
+        Args:
+            traj_states: Sequence of joint-space states.
+            traj_durations: Per-segment durations (length = len(states) - 1).
+            goal: Goal state array.
+
+        Returns:
+            Tuple of ``(times, V)`` arrays.  Both empty if input is too short.
+        """
+        if traj_states is None or len(traj_states) < 2:
+            return np.array([]), np.array([])
+        durs = traj_durations or [1.0] * (len(traj_states) - 1)
+        times = np.concatenate(
+            [[0.0], np.cumsum(durs[: len(traj_states) - 1])]
+        )
+        V = np.array(
+            [float(np.linalg.norm(np.asarray(s) - goal)) for s in traj_states]
+        )
+        return times, V
+
     # --- Figure -------------------------------------------------------------
     fig = plt.figure(figsize=(18, 6))
+    ax_ws = fig.add_subplot(1, 3, 1, projection="3d")
+    ax_cs = fig.add_subplot(1, 3, 2, projection="3d")
+    ax_lv = fig.add_subplot(1, 3, 3)
 
     x_lim = (float(env_cfg["bounds"][0][0]), float(env_cfg["bounds"][0][1]))
     y_lim = (float(env_cfg["bounds"][1][0]), float(env_cfg["bounds"][1][1]))
     z_lim = (float(env_cfg["bounds"][2][0]), float(env_cfg["bounds"][2][1]))
-
-    specs = [
-        (
-            "RRT* — 3-D RRP SCARA",
-            rrt_cart,
-            rrt_len,
-            layer_hex("rrt", "path"),
-            rrt_traj_cart,
-            {
-                "steps": max(0, (len(rrt_path) - 1) if rrt_path else 0),
-                "nodes": len(rrt_nodes),
-                "planner_time": rrt_elapsed,
-                "path_len": rrt_len,
-                "traj_len": rrt_traj_len,
-                "traj_dur": rrt_traj_dur,
-                "path_status": "found" if rrt_path is not None else "stalled",
-                "opt_status": rrt_opt_status,
-            },
-        ),
-        (
-            "SST — 3-D RRP SCARA",
-            sst_cart,
-            sst_len,
-            layer_hex("sst", "path"),
-            sst_traj_cart,
-            {
-                "steps": max(0, (len(sst_path) - 1) if sst_path else 0),
-                "nodes": len(sst_nodes),
-                "planner_time": sst_elapsed,
-                "path_len": sst_len,
-                "traj_len": sst_traj_len,
-                "traj_dur": sst_traj_dur,
-                "path_status": "found" if sst_path is not None else "stalled",
-                "opt_status": sst_opt_status,
-            },
-        ),
-    ]
-
-    for col, (title, cart, length, color, traj_cart, metrics) in enumerate(
-        specs
-    ):
-        ax = fig.add_subplot(1, 3, col + 1, projection="3d")
-        planner_key = "rrt" if col == 0 else "sst"
-
-        # Obstacles — use unified obstacle color.
-        for obs in obstacles:
-            _draw_box(ax, *obs, color=obstacle_hex(), alpha=0.40)
-
-        # Workspace annulus (ground reference)
-        _workspace_annulus(
-            ax,
-            robot.workspace_annulus()[0],
-            robot.workspace_radius(),
-            robot.z_min,
-            robot.z_max,
-        )
-
-        # Solution path (Cartesian EE trace)
-        if cart is not None and len(cart) >= 2:
-            arr = np.array(cart)
-            path_alpha = 0.35 if traj_cart is not None else 1.0
-            label = f"Path  {length:.2f} | {len(cart)} wpts"
-            ax.plot(  # type: ignore[attr-defined]
-                arr[:, 0],
-                arr[:, 1],
-                arr[:, 2],
-                color=color,
-                linewidth=1.5,
-                alpha=path_alpha,
-                zorder=5,
-                label=label,
-            )
-
-        # Optimized trajectory
-        if traj_cart is not None and len(traj_cart) >= 2:
-            tarr = np.array(traj_cart)
-            ax.plot(  # type: ignore[attr-defined]
-                tarr[:, 0],
-                tarr[:, 1],
-                tarr[:, 2],
-                "o-",
-                color=layer_hex(planner_key, "trajectory"),
-                linewidth=2.5,
-                markersize=3,
-                zorder=7,
-                label="Optimized trajectory",
-            )
-
-        # Start / goal markers
-        ax.scatter(  # type: ignore[attr-defined]
-            [start_cart[0]],
-            [start_cart[1]],
-            [start_cart[2]],
-            color=annotation_hex(),
-            s=80,
-            zorder=6,
-            label="Start",
-        )
-        ax.scatter(  # type: ignore[attr-defined]
-            [goal_cart[0]],
-            [goal_cart[1]],
-            [goal_cart[2]],
-            color=annotation_hex(),
-            marker="x",
-            linewidths=2,
-            s=80,
-            zorder=6,
-            label="Goal",
-        )
-
-        ax.set_xlim(*x_lim)  # type: ignore[attr-defined]
-        ax.set_ylim(*y_lim)  # type: ignore[attr-defined]
-        ax.set_zlim(*z_lim)  # type: ignore[attr-defined]
-        ax.set_xlabel("X (m)")  # type: ignore[attr-defined]
-        ax.set_ylabel("Y (m)")  # type: ignore[attr-defined]
-        ax.set_zlabel("Z (m)")  # type: ignore[attr-defined]
-        ax.set_title(title)  # type: ignore[attr-defined]
-        ax.set_box_aspect(  # type: ignore[attr-defined]
-            [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
-        )
-        ax.legend(loc="upper right", fontsize=7)  # type: ignore[attr-defined]
-        ax.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
-
-        metrics_lines = [
-            (
-                f"Planner steps / nodes: "
-                f"{metrics['steps']} / {metrics['nodes']}"
-            ),
-            f"Planner time: {_format_clock(float(metrics['planner_time']))}",
-            f"Planned path length: {float(metrics['path_len']):.2f} (rad+m)",
-            (
-                f"Trajectory arc length: "
-                f"{float(metrics['traj_len']):.2f} (rad+m)"
-            ),
-            (
-                f"Trajectory duration: "
-                f"{_format_clock(float(metrics['traj_dur']))}"
-            ),
-            f"Path status: {metrics['path_status']}",
-            f"Optimizer status: {metrics['opt_status']}",
-        ]
-        ax.text2D(  # type: ignore[attr-defined]
-            0.02,
-            0.98,
-            "\n".join(metrics_lines),
-            transform=ax.transAxes,
-            va="top",
-            ha="left",
-            fontsize=7,
-            color="black",
-            bbox={
-                "boxstyle": "round,pad=0.3",
-                "facecolor": "white",
-                "alpha": 0.80,
-                "edgecolor": "none",
-            },
-        )
-
-    # --- C-space 3-D panel (q1, q2, z) --------------------------------------
-    ax_c = fig.add_subplot(1, 3, 3, projection="3d")
     q_bnd = (-math.pi, math.pi)
     z_bnd = (robot.z_min, robot.z_max)
+
+    # ---- ax_ws: Combined 3-D Cartesian workspace ---------------------------
+    for obs in obstacles:
+        _draw_box(ax_ws, *obs, color=obstacle_hex(), alpha=0.40)
+    _workspace_annulus(
+        ax_ws,
+        robot.workspace_annulus()[0],
+        robot.workspace_radius(),
+        robot.z_min,
+        robot.z_max,
+    )
+
+    if rrt_cart is not None and len(rrt_cart) >= 2:
+        arr = np.array(rrt_cart)
+        ax_ws.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
+                   color=layer_hex("rrt", "path"), linewidth=1.5, alpha=0.7,
+                   label="RRT* path")
+    if rrt_traj_cart is not None and len(rrt_traj_cart) >= 2:
+        tarr = np.array(rrt_traj_cart)
+        ax_ws.plot(tarr[:, 0], tarr[:, 1], tarr[:, 2], "o-",  # type: ignore[attr-defined]
+                   color=layer_hex("rrt", "trajectory"), linewidth=2.5,
+                   markersize=3, alpha=0.9, label="RRT* traj")
+    if sst_cart is not None and len(sst_cart) >= 2:
+        arr = np.array(sst_cart)
+        ax_ws.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
+                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.7,
+                   label="SST path")
+    if sst_traj_cart is not None and len(sst_traj_cart) >= 2:
+        tarr = np.array(sst_traj_cart)
+        ax_ws.plot(tarr[:, 0], tarr[:, 1], tarr[:, 2], "o-",  # type: ignore[attr-defined]
+                   color=layer_hex("sst", "trajectory"), linewidth=2.5,
+                   markersize=3, alpha=0.9, label="SST traj")
+
+    ax_ws.scatter([start_cart[0]], [start_cart[1]], [start_cart[2]],  # type: ignore[attr-defined]
+                  color=annotation_hex(), s=80, zorder=6, label="Start")
+    ax_ws.scatter([goal_cart[0]], [goal_cart[1]], [goal_cart[2]],  # type: ignore[attr-defined]
+                  color=annotation_hex(), marker="x", linewidths=2,
+                  s=80, zorder=6, label="Goal")
+
+    ax_ws.set_xlim(*x_lim)  # type: ignore[attr-defined]
+    ax_ws.set_ylim(*y_lim)  # type: ignore[attr-defined]
+    ax_ws.set_zlim(*z_lim)  # type: ignore[attr-defined]
+    ax_ws.set_xlabel("X (m)")  # type: ignore[attr-defined]
+    ax_ws.set_ylabel("Y (m)")  # type: ignore[attr-defined]
+    ax_ws.set_zlabel("Z (m)")  # type: ignore[attr-defined]
+    ax_ws.set_title("RRP robot — Cartesian workspace")  # type: ignore[attr-defined]
+    ax_ws.set_box_aspect(  # type: ignore[attr-defined]
+        [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
+    )
+    ax_ws.legend(loc="upper right", fontsize=7)  # type: ignore[attr-defined]
+    ax_ws.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
+
+    metrics_lines = [
+        f"RRT* steps/nodes: {max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)}",
+        f"RRT* time: {_format_clock(rrt_elapsed)} | len: {rrt_len:.2f}",
+        f"RRT* traj dur: {_format_clock(rrt_traj_dur)} | {rrt_opt_status}",
+        f"SST steps/nodes: {max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)}",
+        f"SST time: {_format_clock(sst_elapsed)} | len: {sst_len:.2f}",
+        f"SST traj dur: {_format_clock(sst_traj_dur)} | {sst_opt_status}",
+    ]
+    ax_ws.text2D(  # type: ignore[attr-defined]
+        0.02, 0.98, "\n".join(metrics_lines),
+        transform=ax_ws.transAxes, va="top", ha="left", fontsize=7,
+        color="black",
+        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.80,
+              "edgecolor": "none"},
+    )
+
+    # ---- ax_cs: C-space (q₁, q₂, z) with collision mesh and constraint -----
     if collision_pts:
         tris = _build_cspace_mesh(
             collision_pts, q_bounds=q_bnd, z_bounds=z_bnd
         )
         if tris is not None and len(tris) > 0:
-            ax_c.add_collection3d(  # type: ignore[attr-defined]
+            ax_cs.add_collection3d(  # type: ignore[attr-defined]
                 Poly3DCollection(
-                    list(tris),
-                    alpha=0.25,
-                    facecolor=obstacle_hex(),
-                    edgecolor="none",
-                    linewidth=0,
+                    list(tris), alpha=0.25, facecolor=obstacle_hex(),
+                    edgecolor="none", linewidth=0,
                 )
             )
         else:
             cpts_arr = np.array(collision_pts)
-            ax_c.scatter(  # type: ignore[attr-defined]
-                cpts_arr[:, 0],
-                cpts_arr[:, 1],
-                cpts_arr[:, 2],
-                c=obstacle_hex(),
-                s=2,
-                alpha=0.30,
+            ax_cs.scatter(  # type: ignore[attr-defined]
+                cpts_arr[:, 0], cpts_arr[:, 1], cpts_arr[:, 2],
+                c=obstacle_hex(), s=2, alpha=0.30,
             )
 
     for path, lbl, color in (
@@ -680,51 +618,73 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ):
         if path is not None and len(path) >= 2:
             arr = np.array(path)
-            ax_c.plot(  # type: ignore[attr-defined]
-                arr[:, 0],
-                arr[:, 1],
-                arr[:, 2],
-                color=color,
-                linewidth=1.5,
-                alpha=0.85,
-                label=lbl,
-            )
+            ax_cs.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
+                       color=color, linewidth=1.5, alpha=0.85, label=lbl)
+    for traj, lbl, key in (
+        (rrt_traj, "RRT* traj", "rrt"),
+        (sst_traj, "SST traj", "sst"),
+    ):
+        if traj is not None and len(traj) >= 2:
+            tarr = np.array(traj)
+            ax_cs.plot(tarr[:, 0], tarr[:, 1], tarr[:, 2], "o-",  # type: ignore[attr-defined]
+                       color=layer_hex(key, "trajectory"), linewidth=2.0,
+                       markersize=3, alpha=0.9, label=lbl)
 
-    ax_c.scatter(  # type: ignore[attr-defined]
-        [float(start_q[0])],
-        [float(start_q[1])],
-        [float(start_q[2])],
-        color=annotation_hex(),
-        s=80,
-        zorder=6,
-        label="Start",
-    )
-    ax_c.scatter(  # type: ignore[attr-defined]
-        [float(goal_q[0])],
-        [float(goal_q[1])],
-        [float(goal_q[2])],
-        color=annotation_hex(),
-        marker="x",
-        linewidths=2,
-        s=80,
-        zorder=6,
-        label="Goal",
-    )
+    # Velocity constraint ellipsoid (blue wireframe) around start
+    max_ang_vel = float(sim_cfg.get("max_ang_vel", 1.5))
+    max_lin_vel = float(sim_cfg.get("max_lin_vel", 1.0))
+    u = np.linspace(0, 2 * math.pi, 24)
+    v = np.linspace(0, math.pi, 12)
+    ex = max_ang_vel * np.outer(np.cos(u), np.sin(v)) + float(start_q[0])
+    ey = max_ang_vel * np.outer(np.sin(u), np.sin(v)) + float(start_q[1])
+    ez = max_lin_vel * np.outer(np.ones_like(u), np.cos(v)) + float(start_q[2])
+    ax_cs.plot_wireframe(ex, ey, ez, color="blue", alpha=0.15, linewidth=0.5)  # type: ignore[attr-defined]
 
-    ax_c.set_xlabel("q\u2081 (rad)")  # type: ignore[attr-defined]
-    ax_c.set_ylabel("q\u2082 (rad)")  # type: ignore[attr-defined]
-    ax_c.set_zlabel("z (m)")  # type: ignore[attr-defined]
-    ax_c.set_title(  # type: ignore[attr-defined]
-        "C-space (q\u2081, q\u2082, z) \u2014 collision volume"
-    )
-    ax_c.set_xlim(-math.pi, math.pi)  # type: ignore[attr-defined]
-    ax_c.set_ylim(-math.pi, math.pi)  # type: ignore[attr-defined]
-    ax_c.set_zlim(*z_bnd)  # type: ignore[attr-defined]
-    ax_c.set_box_aspect(  # type: ignore[attr-defined]
+    ax_cs.scatter([float(start_q[0])], [float(start_q[1])], [float(start_q[2])],  # type: ignore[attr-defined]
+                  color=annotation_hex(), s=80, zorder=6, label="Start")
+    ax_cs.scatter([float(goal_q[0])], [float(goal_q[1])], [float(goal_q[2])],  # type: ignore[attr-defined]
+                  color=annotation_hex(), marker="x", linewidths=2,
+                  s=80, zorder=6, label="Goal")
+
+    ax_cs.set_xlabel("q₁ (rad)")  # type: ignore[attr-defined]
+    ax_cs.set_ylabel("q₂ (rad)")  # type: ignore[attr-defined]
+    ax_cs.set_zlabel("z (m)")  # type: ignore[attr-defined]
+    ax_cs.set_title("C-space (q₁, q₂, z)")  # type: ignore[attr-defined]
+    ax_cs.set_xlim(-math.pi, math.pi)  # type: ignore[attr-defined]
+    ax_cs.set_ylim(-math.pi, math.pi)  # type: ignore[attr-defined]
+    ax_cs.set_zlim(*z_bnd)  # type: ignore[attr-defined]
+    ax_cs.set_box_aspect(  # type: ignore[attr-defined]
         [2 * math.pi, 2 * math.pi, z_bnd[1] - z_bnd[0]]
     )
-    ax_c.view_init(elev=20, azim=-55)  # type: ignore[attr-defined]
-    ax_c.legend(loc="upper right", fontsize=7)  # type: ignore[attr-defined]
+    ax_cs.view_init(elev=20, azim=-55)  # type: ignore[attr-defined]
+    ax_cs.legend(loc="upper right", fontsize=7)  # type: ignore[attr-defined]
+
+    # ---- ax_lv: Lyapunov V(t) = ‖q(t) − q_goal‖ ---------------------------
+    goal_arr = np.asarray(goal_q)
+    rrt_times, rrt_V = _lyapunov_series(rrt_traj, rrt_durs, goal_arr)
+    sst_times, sst_V = _lyapunov_series(sst_traj, sst_durs, goal_arr)
+
+    if len(rrt_times) > 0:
+        ax_lv.plot(rrt_times, rrt_V,
+                   color=layer_hex("rrt", "trajectory"), linewidth=1.8,
+                   label="RRT* V(t)")
+        window = (rrt_times[-1] - rrt_times[0]) / 10.0
+        ax_lv.axvspan(rrt_times[-1] - window, rrt_times[-1],
+                      alpha=0.10, color="gray")
+    if len(sst_times) > 0:
+        ax_lv.plot(sst_times, sst_V,
+                   color=layer_hex("sst", "trajectory"), linewidth=1.8,
+                   label="SST V(t)")
+        window = (sst_times[-1] - sst_times[0]) / 10.0
+        ax_lv.axvspan(sst_times[-1] - window, sst_times[-1],
+                      alpha=0.10, color="steelblue")
+
+    ax_lv.axhline(0, color="gray", linewidth=0.8, linestyle=":")
+    ax_lv.set_xlabel("Time (s)")
+    ax_lv.set_ylabel("V(t) = ‖q − goal‖ (rad+m)")
+    ax_lv.set_title("Lyapunov function")
+    ax_lv.legend(loc="upper right", fontsize=7)
+    ax_lv.grid(True, alpha=0.3)
 
     plt.suptitle(
         "RRP robot (SCARA) — RRT* vs SST in 3-D cylindrical workspace",
