@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from arco.tools.simulator.main.rrp import RRPRaceRobot
+pygame = pytest.importorskip("pygame")  # skip whole module if no display libs
+
+from arco.tools.simulator.main.rrp import RRPRaceRobot  # noqa: E402
 
 
 def test_angular_velocity_capped() -> None:
