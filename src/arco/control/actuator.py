@@ -388,6 +388,16 @@ class ActuatorArray:
         which corresponds to a second-order plant plus PD gains
         ``k_p = Ω²``, ``k_d = 2ζΩ``.
 
+        Integration uses **forward (explicit) Euler**: position is updated
+        with the *current* velocity before the velocity is advanced with the
+        *current* acceleration.  The discrete-time state matrix is
+        ``A = [[1, dt], [−2Ω²·dt, 1−4ζΩ·dt]]`` with eigenvalues
+        ``|λ|² = 1 − 4ζΩ·dt + (4ζ²+2)Ω²·dt² − …`` which satisfies
+        ``|λ| < 1`` (stable) whenever ``4ζΩ·dt < 2`` and ``Ω²·dt² ≪ 1``.
+        The velocity-first ("symplectic") ordering gives a different matrix
+        whose spectral radius exceeds 1 for coarse time steps (e.g. Ω=10,
+        dt=0.1 gives |λ|≈3.3), causing unbounded divergence.
+
         If radial state has not been initialised this method only integrates
         the angular dynamics.
 
@@ -399,18 +409,19 @@ class ActuatorArray:
         a_coeff = 4.0 * zeta * omega
         b_coeff = 2.0 * omega * omega
 
-        # Angular dynamics
+        # Angular dynamics — position updated with OLD velocity first, then
+        # velocity updated with acceleration computed from the OLD state.
         err_angle = self._angles - self._ref_angles
         ang_acc = -a_coeff * self._angle_velocities - b_coeff * err_angle
-        self._angle_velocities += ang_acc * dt
         self._angles += self._angle_velocities * dt
+        self._angle_velocities += ang_acc * dt
 
-        # Radial dynamics (if initialised)
+        # Radial dynamics (if initialised) — same forward Euler ordering.
         if self._radii is not None and self._ref_radii is not None:
             err_radii = self._radii - self._ref_radii
             rad_acc = -a_coeff * self._radii_velocities - b_coeff * err_radii
-            self._radii_velocities += rad_acc * dt
             self._radii += self._radii_velocities * dt
+            self._radii_velocities += rad_acc * dt
 
     def spring_forces(self, body: RigidBody) -> np.ndarray:
         """Compute the actuator force vector from the spring contact model.

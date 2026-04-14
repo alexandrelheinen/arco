@@ -317,6 +317,29 @@ class TestStepActuators:
         array4.step_actuators(0.01)
         assert array4.radii is None
 
+    def test_stable_with_large_dt_and_high_omega(
+        self, circle: CircleBody
+    ) -> None:
+        """Radii must remain bounded with occ.yml params (Ω=10, dt=0.1).
+
+        The velocity-first integration order (symplectic Euler) is unstable
+        for these parameters (eigenvalue ≈ 3.34 > 1). The forward-Euler
+        ordering used here must keep the radii bounded after 50 steps.
+        """
+        a = ActuatorArray(actuator_count=3, omega=10.0, zeta=0.7)
+        a.init_radii(circle)
+        r_nom = circle.bounding_radius + 0.05
+        # Large reference offset (simulates chasing a far waypoint)
+        a._ref_radii = np.full(3, r_nom - 1.4)
+        dt = 0.1
+        for _ in range(50):
+            a.step_actuators(dt)
+        # Radii must not diverge; all values finite and within 10 m of r_nom
+        assert np.all(np.isfinite(a.radii)), "Radii diverged (non-finite)"
+        assert np.all(
+            np.abs(a.radii) < r_nom + 10.0
+        ), f"Radii out of bounds: {a.radii}"
+
 
 # ---------------------------------------------------------------------------
 # compute_ref_radii — spring inversion (Step 4)
