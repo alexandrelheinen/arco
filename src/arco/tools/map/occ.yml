@@ -35,16 +35,32 @@ environment:
 
 planner:
   # step_size is a per-dimension vector [x_m, y_m, psi_rad].
-  # All distances are measured in the normalized space (delta / step_size),
-  # so metric (metres) and angular (radians) axes are balanced correctly.
+  # The planners (RRT*, SST) and the TrajectoryPruner normalise ALL their
+  # internal distances by dividing by step_size, so goal_tolerance and
+  # witness_radius below are in *normalised* step-size units and scale
+  # correctly across the mixed metre/radian axes.
+  #
+  # cspace_clearance is the exception: it is the raw Euclidean clearance
+  # radius in the same (x, y, psi) coordinate space as the KDTree.
+  # Because the KDTree uses Euclidean distance in raw units, the effective
+  # clearance differs per axis:
+  #   x / y  axes: cspace_clearance / step_size[0,1] normalised steps
+  #   psi    axis: cspace_clearance / step_size[2]   normalised steps
+  # With step_size = [1.0, 1.0, 0.1] and cspace_clearance = 1.0:
+  #   x/y  : 1.0 / 1.0 = 1.0 normalised step  (≈ 1 m safety buffer)
+  #   psi  : 1.0 / 0.1 = 10  normalised steps  (conservative rotation margin)
+  # This larger buffer is intentional: after path pruning, the pruned
+  # shortcut may graze obstacle boundaries; the extra margin ensures the
+  # body stays safely clear even when the shortcut goes near a corner.
   step_size: [1.0, 1.0, 0.1]   # [m, m, rad] per-dimension planner step size
-  goal_tolerance: 2.0            # [] normalized distance threshold to consider goal reached (~1.5 steps)
-  cspace_clearance: 0.5          # [m/rad] world-unit C-space occupancy clearance radius
+  goal_tolerance: 2.0            # [normalised steps] goal-reach threshold (~2 step-norms)
+  cspace_clearance: 1.0          # [m/rad] raw C-space KDTree clearance (increased from 0.5
+                                 #   to maintain safe buffer after path pruning; see note above)
   collision_check_count: 5  # [] number of intermediate collision checks per step
   goal_bias: 0.10  # [] probability of sampling directly toward the goal
   rrt_max_sample_count: 30000  # [] maximum number of RRT* samples
   sst_max_sample_count: 40000  # [] maximum number of SST samples
-  witness_radius: 0.5            # [] normalized distance for SST witness cells
+  witness_radius: 0.5            # [normalised steps] SST witness-cell deduplication radius
   cspace_grid_n: 120  # [] grid resolution for C-space sampling (n^3 points evaluated)
 
 control:
