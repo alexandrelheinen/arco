@@ -393,11 +393,12 @@ class CityScene:
 
         if progress is not None:
             progress("Running SST", 4, _total)
+        sst_step_size = self._cfg.get("sst_step_size", self._cfg["step_size"])
         sst = SSTPlanner(
             self._occ,
             bounds=self._bounds,
             max_sample_count=int(self._cfg["sst_max_sample_count"]),
-            step_size=self._cfg["step_size"],
+            step_size=sst_step_size,
             goal_tolerance=float(self._cfg["goal_tolerance"]),
             collision_check_count=int(self._cfg["collision_check_count"]),
             goal_bias=float(self._cfg["goal_bias"]),

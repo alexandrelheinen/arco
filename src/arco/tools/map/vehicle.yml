@@ -8,7 +8,7 @@ planner:
   goal_tolerance: 2.1
   collision_check_count: 1
   goal_bias: 0.05
-  obstacle_clearance: 2.0
+  obstacle_clearance: 3.0
   rrt_max_sample_count: 5000
   sst_max_sample_count: 4000
   witness_radius: 0.8
@@ -16,8 +16,8 @@ planner:
 
 world:
   random_seed: 7
-  wall_gap_start_fraction: 0.60
-  wall_gap_end_fraction: 0.70
+  wall_gap_start_fraction: 0.45
+  wall_gap_end_fraction: 0.80
   wall_spacing: 1.5
   scatter_count: 40
   corner_margin: 5.0

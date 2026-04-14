@@ -103,6 +103,15 @@ def test_pruned_path_ends_at_same_node():
     assert np.allclose(result[-1], path[-1])
 
 
+def test_pruned_path_always_includes_prelast_node():
+    """path[-2] is always in the pruned result to preserve the final approach."""
+    occ = _free_occupancy()
+    pruner = TrajectoryPruner(occ)
+    path = _straight_path(8)
+    result = pruner.prune(path)
+    assert np.allclose(result[-2], path[-2])
+
+
 # ---------------------------------------------------------------------------
 # Node count invariant
 # ---------------------------------------------------------------------------
@@ -121,15 +130,22 @@ def test_pruned_node_count_le_original():
 # ---------------------------------------------------------------------------
 
 
-def test_straight_path_pruned_to_two_nodes():
-    """All intermediate nodes on a straight line in free space are skippable."""
+def test_straight_path_pruned_to_three_nodes():
+    """Intermediate nodes on a straight line are skipped but pre-last kept.
+
+    The pruner always preserves path[-2] (the pre-last node) to protect the
+    final approach segment from being replaced by a direct-to-goal shortcut
+    that might clip an obstacle.  On a 10-node collinear path the result is
+    therefore [start, path[-2], goal] — three nodes.
+    """
     occ = _free_occupancy()
     pruner = TrajectoryPruner(occ)
     path = _straight_path(10)  # 10 collinear nodes
     result = pruner.prune(path)
-    # Expect only start + goal since every direct connection is free.
-    assert len(result) == 2
+    # Expect start + pre-last + goal (3 nodes).
+    assert len(result) == 3
     assert np.allclose(result[0], path[0])
+    assert np.allclose(result[-2], path[-2])
     assert np.allclose(result[-1], path[-1])
 
 
@@ -206,55 +222,34 @@ def test_mixed_path_partial_reduction():
 def test_bfs_finds_optimal_solution_over_greedy():
     """BFS-based pruner finds the minimum-waypoint path.
 
-    Constructs a scenario where a greedy forward-scan from index 0 would
-    commit a sub-optimal intermediate node, but the BFS finds a shorter
-    subsequence.
+    Constructs a scenario where a greedy forward-scan would commit a
+    sub-optimal intermediate node, but the BFS finds a shorter subsequence.
 
-    Path indices: 0, 1, 2, 3, 4
-    Feasibility:
-        0->1: OK  (consecutive)
-        0->2: FAIL (blocked)
-        0->3: OK  (non-consecutive long jump that greedy misses)
-        0->4: FAIL
-        1->2: OK  (consecutive)
-        1->3: OK
-        1->4: OK
-        2->3: OK  (consecutive)
-        2->4: OK
-        3->4: OK  (consecutive)
-
-    Greedy (from anchor 0):
-        - try 0->2: FAIL → commit node 1, anchor=1
-        - try 1->3: OK, 1->4: OK → best=4, done
-        Greedy result: [0, 1, 4] → 3 nodes
-
-    Optimal BFS:
-        - From 0: 0->1 OK, 0->2 FAIL, 0->3 OK, 0->4 FAIL
-        - BFS level 1 reached: {1, 3}
-        - From 1: 1->2, 1->3, 1->4 reachable (3,4 new)
-        - From 3: 3->4 reachable (4 already)
-        - Shortest path to 4: 0->3->4 (2 hops) → [0, 3, 4] → 3 nodes (same)
-
-    Hmm, same length in this case. Let me think of a better example.
-
-    Path: 0, 1, 2, 3, 4, 5
+    Path: 0, 1, 2, 3, 4, 5  (indices)
     Feasibility (custom steer):
         consecutive always OK
         0->2: FAIL
         0->3: OK
         0->4: FAIL
         0->5: FAIL
-        3->5: OK
+        3->5: OK  (but 5 is path[-1] = exact goal, not in inner BFS)
 
-    Greedy from anchor 0:
-        - try 0->2: FAIL → commit 1, anchor=1
-        - try 1->3, 1->4, 1->5: FAIL at some point
-    Greedy result: 4+ nodes
+    The pruner runs BFS over the *inner* path 0..4 (path[-2] = index 4),
+    then appends path[5] unconditionally.
 
-    Optimal BFS:
-        - 0->3: OK, then 3->5: OK → [0, 3, 5] → 3 nodes
+    Inner BFS (indices 0..4):
+        From 0: 0->1 OK, 0->2 FAIL, 0->3 OK, 0->4 FAIL
+        From 1 (level-1): 1->2, 1->3, 1->4 → 2,3 already seen; 4 new
+        From 3 (level-1): 3->4 → already queued
+        Shortest path to inner goal (4): 0->3->4 (2 hops)
+    Append path[5] → result: [path[0], path[3], path[4], path[5]] — 4 nodes.
 
-    This is the canonical example where greedy is suboptimal.
+    Greedy (anchor 0):
+        try 0->2: FAIL → commit 1, anchor=1
+        try 1->3: OK, 1->4: OK → inner result [0, 1, 3, 4]
+        append path[5] → [path[0], path[1], path[3], path[4], path[5]] — 5 nodes.
+
+    BFS (4 nodes) beats greedy (5 nodes).
     """
     occ = _free_occupancy()
     pruner = TrajectoryPruner(occ)
@@ -282,12 +277,13 @@ def test_bfs_finds_optimal_solution_over_greedy():
 
     result = pruner.prune(path, steer=custom_steer)
 
-    # Optimal: [0, 3, 5] — 3 nodes (2 hops).
-    # Greedy would produce [0, 1, ...] because 0->2 fails.
-    assert len(result) == 3
+    # Optimal inner path: [0, 3, 4], then exact goal appended → 4 nodes.
+    # Greedy would produce [0, 1, 3, 4, 5] — 5 nodes.
+    assert len(result) == 4
     assert np.allclose(result[0], path[0])
     assert np.allclose(result[1], path[3])
-    assert np.allclose(result[2], path[5])
+    assert np.allclose(result[2], path[4])  # pre-last always included
+    assert np.allclose(result[3], path[5])  # exact goal always appended
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +292,7 @@ def test_bfs_finds_optimal_solution_over_greedy():
 
 
 def test_custom_steer_all_feasible():
-    """With a custom steer that always returns True, all nodes are dropped."""
+    """With all-feasible steer, only intermediate nodes (not pre-last) dropped."""
     occ = _free_occupancy()
     pruner = TrajectoryPruner(occ)
     path = _straight_path(8)
@@ -305,7 +301,11 @@ def test_custom_steer_all_feasible():
         return True
 
     result = pruner.prune(path, steer=always_true)
-    assert len(result) == 2
+    # Pre-last node (path[-2]) is always kept, so result is [start, path[-2], goal].
+    assert len(result) == 3
+    assert np.allclose(result[0], path[0])
+    assert np.allclose(result[-2], path[-2])
+    assert np.allclose(result[-1], path[-1])
 
 
 def test_custom_steer_none_feasible():

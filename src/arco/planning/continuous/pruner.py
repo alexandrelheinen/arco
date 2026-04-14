@@ -80,6 +80,13 @@ class TrajectoryPruner:
         connected by a feasible segment.  This guarantees an optimal
         (minimum-waypoint) result, unlike a greedy scan.
 
+        The BFS operates only over the *inner* path ``path[0] … path[-2]``
+        (the pre-last node).  ``path[-1]`` (the exact goal appended by the
+        planner) is **always** preserved as the final waypoint.  This
+        ensures that the direct approach segment from the last tree node to
+        the exact goal is never replaced by a longer, potentially
+        obstacle-clipping shortcut.
+
         Args:
             path: Ordered list of position arrays ``[start, ..., goal]``.
                 Each element must be a numpy array of the same shape.
@@ -92,9 +99,9 @@ class TrajectoryPruner:
 
         Returns:
             A new list containing the optimal pruned subset of *path*
-            nodes.  The first and last nodes are always preserved.  The
-            returned path has a node count less than or equal to the
-            input.
+            nodes.  The first, pre-last, and last nodes are always
+            preserved.  The returned path has a node count less than or
+            equal to the input.
         """
         node_count = len(path)
         if node_count <= 2:  # nothing to prune
@@ -102,12 +109,16 @@ class TrajectoryPruner:
 
         feasible = steer if steer is not None else self._segment_free
 
-        # BFS over indices 0..node_count-1.
-        # prev[i] = the index from which BFS first reached i.
-        prev: list[int | None] = [None] * node_count
+        # BFS over the *inner* path: indices 0..node_count-2.
+        # path[-1] (the exact goal appended by the planner) is always kept
+        # and appended after BFS so that the pre-last node (path[-2]) is
+        # never skipped in favour of a direct-to-goal shortcut that might
+        # bypass an important bend or clip an obstacle.
+        inner_count = node_count - 1  # number of inner nodes (path[0..-2])
+        prev: list[int | None] = [None] * inner_count
         prev[0] = 0  # sentinel: root is its own predecessor
         queue: deque[int] = deque([0])
-        goal = node_count - 1
+        goal = inner_count - 1  # target index within the inner slice
 
         while queue:
             current = queue.popleft()
@@ -117,7 +128,7 @@ class TrajectoryPruner:
             # in general (an obstacle may block a short jump but allow a
             # longer one that goes around it), so every candidate must be
             # checked to guarantee an optimal result.
-            for nxt in range(current + 1, node_count):
+            for nxt in range(current + 1, inner_count):
                 if prev[nxt] is not None:
                     continue  # already visited
                 if feasible(path[current], path[nxt]):
@@ -126,15 +137,16 @@ class TrajectoryPruner:
                     if nxt == goal:
                         break
 
-        # Reconstruct the path by tracing predecessors from goal to root.
+        # Reconstruct the inner path by tracing predecessors from the
+        # pre-last node back to the root.
         indices: list[int] = []
         idx = goal
         while idx != 0:
             indices.append(idx)
             parent = prev[idx]
             if parent is None:
-                # Fallback: BFS did not reach the goal (should not happen
-                # given the planner invariant).  Return the original path.
+                # Fallback: BFS did not reach the pre-last node (should not
+                # happen given the planner invariant).  Return original path.
                 logger.warning(
                     "TrajectoryPruner: BFS did not reach goal; "
                     "returning original path."
@@ -144,7 +156,9 @@ class TrajectoryPruner:
         indices.append(0)
         indices.reverse()
 
+        # Always append the exact goal (path[-1]) after the pre-last node.
         pruned = [path[i] for i in indices]
+        pruned.append(path[-1])
 
         logger.info(
             "TrajectoryPruner: %d -> %d nodes (%.0f %% reduction)",
