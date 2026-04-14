@@ -92,3 +92,4 @@ simulator:
   max_lin_vel: 1.0  # [m/s] maximum linear velocity for z joint
   max_ang_acc: 3.0  # [rad/s²] maximum angular acceleration for q1/q2 joints
   max_lin_acc: 2.0  # [m/s²] maximum linear acceleration for z joint
+  repulsion_gain: 0.0  # [1/s] APF obstacle repulsion gain (0 = disabled)

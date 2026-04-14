@@ -228,6 +228,7 @@ class RRScene:
         self._planner_cfg = cfg.get("planner", cfg)
         self._sim_cfg = cfg.get("simulator", cfg)
         self._robot: Any = None
+        self._occ: Any = None
         self._obstacles: list[list[float]] = []
         self._start_q: np.ndarray = np.zeros(2)
         self._goal_q: np.ndarray = np.zeros(2)
@@ -307,6 +308,7 @@ class RRScene:
             clearance=float(self._env_cfg["obstacle_clearance"]),
         )
         self._collision_pts = collision_pts
+        self._occ = occ
 
         # --- RRT* ------------------------------------------------------
         if progress is not None:
@@ -508,3 +510,8 @@ class RRScene:
     def sst_metrics(self) -> dict[str, Any]:
         """Planning metrics for SST."""
         return self._sst_metrics
+
+    @property
+    def occ(self) -> Any:
+        """C-space occupancy map (available after :meth:`build`)."""
+        return self._occ

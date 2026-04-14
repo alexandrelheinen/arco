@@ -361,6 +361,7 @@ class RRPScene:
             grid_n=grid_n,
         )
         self._collision_pts = collision_pts
+        self._occ = occ
 
         if progress is not None:
             progress("Running RRT*", 2, _total)
@@ -589,3 +590,8 @@ class RRPScene:
     def sst_metrics(self) -> dict[str, Any]:
         """Planning metrics for SST."""
         return self._sst_metrics
+
+    @property
+    def occ(self) -> Any:
+        """C-space occupancy map (available after :meth:`build`)."""
+        return self._occ
