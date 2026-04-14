@@ -52,6 +52,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glShadeModel,
 )
 
+from arco.planning.continuous.telemetry import PlannerTelemetry, read_telemetry
 from arco.tools.simulator import renderer_gl
 
 try:
@@ -73,6 +74,8 @@ _C_STEP: tuple[int, int, int] = (160, 180, 210)
 _C_BAR_EMPTY: tuple[int, int, int] = (35, 40, 55)
 _C_BAR_FILL: tuple[int, int, int] = (70, 150, 255)
 _C_PCT: tuple[int, int, int] = (140, 165, 200)
+_C_CRIT_OK: tuple[int, int, int] = (100, 220, 120)
+_C_CRIT_PENDING: tuple[int, int, int] = (230, 180, 60)
 
 # Animation: rotating spinner characters shown when step_index == 0.
 _SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -105,6 +108,7 @@ class ProgressReporter:
         self.step_name: str = "Initialising…"
         self.step_index: int = 0
         self.total_steps: int = 1
+        self.telemetry: PlannerTelemetry | None = None
         self._bar: Any = None  # tqdm.tqdm | None
         self._done: bool = False  # set to True only after build() finishes
 
@@ -225,7 +229,12 @@ def _make_loading_surface(
     surf.fill((0, 0, 0, 0))
 
     panel_w = min(520, max(sw - 80, 260))
-    panel_h = 170
+    # Expand panel height for telemetry rows (iteration line + criteria rows).
+    telemetry = reporter.telemetry
+    extra_rows = 0
+    if telemetry is not None:
+        extra_rows = 1 + len(telemetry.criteria)  # iter line + one per criterion
+    panel_h = 170 + extra_rows * 20
     px = (sw - panel_w) // 2
     py = (sh - panel_h) // 2
 
@@ -277,6 +286,30 @@ def _make_loading_surface(
     if reporter._title:
         lbl_surf = body_font.render(reporter._title, True, (80, 90, 110))
         panel.blit(lbl_surf, ((panel_w - lbl_surf.get_width()) // 2, 142))
+
+    # ── Planner telemetry (iteration + stop criteria) ─────────────────────
+    if telemetry is not None:
+        row_y = 162
+        iter_text = (
+            f"  {telemetry.algorithm}  iter {telemetry.iteration}"
+            f" / {telemetry.max_iterations}"
+            f"  dist {telemetry.best_dist_to_goal:.4g}"
+        )
+        iter_surf = body_font.render(iter_text, True, _C_PCT)
+        panel.blit(iter_surf, (8, row_y))
+        row_y += 20
+        for c in telemetry.criteria:
+            color = _C_CRIT_OK if c.satisfied() else _C_CRIT_PENDING
+            if c.condition:
+                crit_text = (
+                    f"  {c.name}: {c.current:.4g}"
+                    f"  {c.condition}  {c.threshold:.4g}"
+                )
+            else:
+                crit_text = f"  {c.name}: {c.current:.4g}"
+            crit_surf = body_font.render(crit_text, True, color)
+            panel.blit(crit_surf, (8, row_y))
+            row_y += 20
 
     surf.blit(panel, (px, py))
     return surf
@@ -386,6 +419,10 @@ def run_with_loading_screen(
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit(0)
+
+        # Poll planner telemetry file every 5 frames for live stop-criteria.
+        if tick % 5 == 0:
+            reporter.telemetry = read_telemetry()
 
         _render_loading(
             reporter, sw, sh, tick, bg_color, title_font, body_font
