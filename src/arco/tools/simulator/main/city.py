@@ -52,7 +52,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glShadeModel,
 )
 
-from arco.config import load_config
+from arco.config.palette import layer_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.scenes.sparse import CityScene
 from arco.tools.simulator.sim.loading import run_with_loading_screen
@@ -74,29 +74,23 @@ _HOLD_FRAMES = 60
 _POST_FINISH_SECS = 3.0
 
 # ---------------------------------------------------------------------------
-# Color constants — loaded from tools/config/colors.yml
+# Color constants — derived from the unified palette module.
+# All colors read from src/arco/config/colors.yml via palette.py; no
+# hardcoded hex values or direct load_config("colors") calls here.
 # ---------------------------------------------------------------------------
-_COLORS = load_config("colors")
+_C_RRT_VEH: tuple[int, int, int] = layer_rgb("rrt", "vehicle")
+_C_RRT_TRAJ: tuple[int, int, int] = layer_rgb("rrt", "trajectory")
+_C_RRT_HUD: tuple[int, int, int] = layer_rgb("rrt", "vehicle")
 
+_C_SST_VEH: tuple[int, int, int] = layer_rgb("sst", "vehicle")
+_C_SST_TRAJ: tuple[int, int, int] = layer_rgb("sst", "trajectory")
+_C_SST_HUD: tuple[int, int, int] = layer_rgb("sst", "vehicle")
 
-def _rgb(section: str, key: str) -> tuple[int, int, int]:
-    v = _COLORS[section][key]
-    return (int(v[0]), int(v[1]), int(v[2]))
-
-
-_C_RRT_VEH: tuple[int, int, int] = _rgb("rrt", "vehicle")
-_C_RRT_TRAJ: tuple[int, int, int] = _rgb("rrt", "trail")
-_C_RRT_HUD: tuple[int, int, int] = _rgb("rrt", "hud")
-
-_C_SST_VEH: tuple[int, int, int] = _rgb("sst", "vehicle")
-_C_SST_TRAJ: tuple[int, int, int] = _rgb("sst", "trail")
-_C_SST_HUD: tuple[int, int, int] = _rgb("sst", "hud")
-
-_C_HUD: tuple[int, int, int] = _rgb("hud", "text")
-_C_HUD_DIM: tuple[int, int, int] = _rgb("hud", "dim")
-_C_HUD_SHADOW: tuple[int, int, int] = _rgb("hud", "shadow")
-_C_WINNER: tuple[int, int, int] = _rgb("hud", "winner")
-_C_TIE: tuple[int, int, int] = _rgb("hud", "tie")
+_C_HUD: tuple[int, int, int] = ui_rgb("hud_text")
+_C_HUD_DIM: tuple[int, int, int] = ui_rgb("hud_dim")
+_C_HUD_SHADOW: tuple[int, int, int] = ui_rgb("hud_shadow")
+_C_WINNER: tuple[int, int, int] = ui_rgb("hud_winner")
+_C_TIE: tuple[int, int, int] = ui_rgb("hud_tie")
 
 # Vehicle body world dimensions
 _VEH_HALF_L = 1.5  # meters
