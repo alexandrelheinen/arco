@@ -1,7 +1,13 @@
 """Vehicle benchmark (2-D) - RRT* vs SST in one matplotlib figure.
 
 This scenario compares both planners on the same scattered-obstacle map and
-shows planned paths plus optimized trajectories.
+shows four visualization layers for each planner:
+
+1. **Environment** — obstacle distance heatmap + obstacle points.
+2. **Planned path** — discrete waypoints from the planner (dim).
+3. **Predicted trajectory** — output of TrajectoryPruner + TrajectoryOptimizer.
+4. **Executed trajectory** — simulated vehicle following the predicted
+   trajectory via :class:`~arco.control.tracking.TrackingLoop` (dashed).
 
 Usage
 -----
@@ -18,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import os
 import time
 
@@ -34,6 +41,7 @@ from arco.planning.continuous import (
     TrajectoryPruner,
 )
 from arco.tools.logging_config import configure_logging
+from arco.tools.simulator.sim.tracking import VehicleConfig, build_vehicle_sim
 from arco.tools.viewer.occupancy import draw_occupancy
 
 logger = logging.getLogger(__name__)
@@ -106,6 +114,55 @@ def _optimize(
         return None, 0.0, "exception"
 
 
+def _simulate_vehicle(
+    traj: list[np.ndarray] | None,
+    occ: KDTreeOccupancy,
+    vehicle_cfg: dict,
+    dt: float = 0.05,
+) -> list[tuple[float, float]]:
+    """Run a headless TrackingLoop and return the executed (x, y) positions.
+
+    Args:
+        traj: Optimised trajectory states (each at least (x, y, …)).
+        occ: Occupancy map for optional repulsion.
+        vehicle_cfg: ``vehicle`` sub-dict from the scenario YAML.
+        dt: Control time step in seconds.
+
+    Returns:
+        List of ``(x, y)`` poses.  Empty when *traj* is ``None`` or short.
+    """
+    if traj is None or len(traj) < 2:
+        return []
+    dubins = vehicle_cfg.get("dubins", {})
+    v_cfg = VehicleConfig(
+        max_speed=float(dubins.get("max_speed", 5.0)),
+        min_speed=0.0,
+        cruise_speed=float(dubins.get("cruise_speed", 3.0)),
+        lookahead_distance=float(dubins.get("lookahead", 4.0)),
+        goal_radius=float(dubins.get("goal_radius", 3.0)),
+        max_turn_rate=math.radians(float(dubins.get("max_turn_rate", 90.0))),
+        max_acceleration=float(dubins.get("max_accel", 4.9)),
+        max_turn_rate_dot=math.radians(
+            float(dubins.get("max_turn_rate_dot", 3600.0))
+        ),
+        curvature_gain=float(dubins.get("curvature_gain", 0.5)),
+    )
+    waypoints: list[tuple[float, float]] = [
+        (float(p[0]), float(p[1])) for p in traj
+    ]
+    _, loop = build_vehicle_sim(waypoints, v_cfg, occupancy=occ)
+    executed: list[tuple[float, float]] = [waypoints[0]]
+    max_steps = max(3000, len(waypoints) * 300)
+    gx, gy = waypoints[-1]
+    for _ in range(max_steps):
+        result = loop.step(waypoints, dt)
+        x, y, _ = result["pose"]
+        executed.append((x, y))
+        if math.hypot(x - gx, y - gy) < v_cfg.goal_radius:
+            break
+    return executed
+
+
 def main(cfg: dict, save_path: str | None = None) -> None:
     if save_path is not None:
         matplotlib.use("Agg")
@@ -155,6 +212,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     rrt_traj, rrt_dur, rrt_opt = _optimize(occ, rrt_path, vehicle_cfg)
     sst_traj, sst_dur, sst_opt = _optimize(occ, sst_path, vehicle_cfg)
+
+    logger.info("Simulating RRT* executed trajectory …")
+    rrt_executed = _simulate_vehicle(rrt_traj or rrt_path, occ, vehicle_cfg)
+    logger.info("Simulating SST executed trajectory …")
+    sst_executed = _simulate_vehicle(sst_traj or sst_path, occ, vehicle_cfg)
+
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6.5))
     fig1, ax1 = draw_occupancy(
         occ,
@@ -179,7 +242,18 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             color=layer_hex("rrt", "trajectory"),
             linewidth=2.3,
             markersize=3,
-            label="Optimized",
+            label="Predicted traj",
+        )
+    if len(rrt_executed) >= 2:
+        ex = np.array(rrt_executed)
+        ax1.plot(
+            ex[:, 0],
+            ex[:, 1],
+            color=layer_hex("rrt", "vehicle"),
+            linewidth=1.8,
+            linestyle="--",
+            alpha=0.85,
+            label="Executed traj",
         )
     ax1.text(
         0.02,
@@ -201,6 +275,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
     )
     ax1.grid(True, alpha=0.3)
+    ax1.legend(loc="upper right", fontsize=7)
 
     fig2, ax2 = draw_occupancy(
         occ,
@@ -225,7 +300,18 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             color=layer_hex("sst", "trajectory"),
             linewidth=2.3,
             markersize=3,
-            label="Optimized",
+            label="Predicted traj",
+        )
+    if len(sst_executed) >= 2:
+        ex = np.array(sst_executed)
+        ax2.plot(
+            ex[:, 0],
+            ex[:, 1],
+            color=layer_hex("sst", "vehicle"),
+            linewidth=1.8,
+            linestyle="--",
+            alpha=0.85,
+            label="Executed traj",
         )
     ax2.text(
         0.02,
@@ -247,6 +333,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
     )
     ax2.grid(True, alpha=0.3)
+    ax2.legend(loc="upper right", fontsize=7)
 
     plt.tight_layout()
     if save_path is not None:

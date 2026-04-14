@@ -2,13 +2,14 @@
 
 Visualises the planning results for the piano movers problem: a 2-D rigid
 body (square or circle) manipulated from pose A to pose B by N mobile
-actuators.
+actuators.  Each planner's output is pruned and trajectory-optimised;
+both the raw path and the optimised trajectory are overlaid.
 
 Figure layout (3 subplots in a row)
 -------------------------------------
-* Left   — C-space (x, y) slice with collision occupancy + RRT* path
-* Middle — C-space (x, ψ) slice with collision occupancy + RRT* path
-* Right  — Cartesian 2-D view with obstacles, start/goal poses, and paths
+* Left   — C-space (x, y) slice with collision occupancy + path + traj
+* Middle — C-space (x, ψ) slice with collision occupancy + path + traj
+* Right  — Cartesian 2-D view with obstacles, start/goal poses, paths + trajs
 
 Usage
 -----
@@ -33,7 +34,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.config.palette import annotation_hex, obstacle_hex
+from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.occ import OCCScene
 
@@ -77,6 +78,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     collision_pts = scene.collision_pts
     rrt_path = scene.rrt_path
     sst_path = scene.sst_path
+    rrt_traj = scene.rrt_traj  # pruned + optimized
+    sst_traj = scene.sst_traj  # pruned + optimized
     start_pose = scene.start_pose
     goal_pose = scene.goal_pose
     obstacles = scene.obstacles
@@ -103,17 +106,57 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     if rrt_path and len(rrt_path) >= 2:
         rxs = [p[0] for p in rrt_path]
         rys = [p[1] for p in rrt_path]
-        ax1.plot(rxs, rys, "b-", linewidth=2, label="RRT*")
+        path_a = 0.35 if rrt_traj else 1.0
+        ax1.plot(
+            rxs,
+            rys,
+            color=layer_hex("rrt", "path"),
+            linewidth=1.5,
+            alpha=path_a,
+            label="RRT* path",
+        )
     if sst_path and len(sst_path) >= 2:
         sxs = [p[0] for p in sst_path]
         sys_ = [p[1] for p in sst_path]
-        ax1.plot(sxs, sys_, "g--", linewidth=2, label="SST")
+        path_a = 0.35 if sst_traj else 1.0
+        ax1.plot(
+            sxs,
+            sys_,
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=path_a,
+            label="SST path",
+        )
+    if rrt_traj and len(rrt_traj) >= 2:
+        txs = [p[0] for p in rrt_traj]
+        tys = [p[1] for p in rrt_traj]
+        ax1.plot(
+            txs,
+            tys,
+            "o-",
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=2.0,
+            markersize=2,
+            label="RRT* traj",
+        )
+    if sst_traj and len(sst_traj) >= 2:
+        txs = [p[0] for p in sst_traj]
+        tys = [p[1] for p in sst_traj]
+        ax1.plot(
+            txs,
+            tys,
+            "o-",
+            color=layer_hex("sst", "trajectory"),
+            linewidth=2.0,
+            markersize=2,
+            label="SST traj",
+        )
     ax1.plot(
         start_pose[0],
         start_pose[1],
         "s",
         color=annotation_hex(),
-        markersize=10,
+        markersize=8,
         label="Start",
     )
     ax1.plot(
@@ -121,7 +164,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         goal_pose[1],
         "x",
         color=annotation_hex(),
-        markersize=12,
+        markersize=8,
+        mew=2,
         label="Goal",
     )
     ax1.set_xlim(x_range)
@@ -144,17 +188,57 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     if rrt_path and len(rrt_path) >= 2:
         rxs = [p[0] for p in rrt_path]
         rpsis = [p[2] for p in rrt_path]
-        ax2.plot(rxs, rpsis, "b-", linewidth=2, label="RRT*")
+        path_a = 0.35 if rrt_traj else 1.0
+        ax2.plot(
+            rxs,
+            rpsis,
+            color=layer_hex("rrt", "path"),
+            linewidth=1.5,
+            alpha=path_a,
+            label="RRT* path",
+        )
     if sst_path and len(sst_path) >= 2:
         sxs = [p[0] for p in sst_path]
         spsis = [p[2] for p in sst_path]
-        ax2.plot(sxs, spsis, "g--", linewidth=2, label="SST")
+        path_a = 0.35 if sst_traj else 1.0
+        ax2.plot(
+            sxs,
+            spsis,
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=path_a,
+            label="SST path",
+        )
+    if rrt_traj and len(rrt_traj) >= 2:
+        txs = [p[0] for p in rrt_traj]
+        tpsis = [p[2] for p in rrt_traj]
+        ax2.plot(
+            txs,
+            tpsis,
+            "o-",
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=2.0,
+            markersize=2,
+            label="RRT* traj",
+        )
+    if sst_traj and len(sst_traj) >= 2:
+        txs = [p[0] for p in sst_traj]
+        tpsis = [p[2] for p in sst_traj]
+        ax2.plot(
+            txs,
+            tpsis,
+            "o-",
+            color=layer_hex("sst", "trajectory"),
+            linewidth=2.0,
+            markersize=2,
+            label="SST traj",
+        )
     ax2.plot(
         start_pose[0],
         start_pose[2],
         "s",
         color=annotation_hex(),
-        markersize=10,
+        markersize=8,
         label="Start",
     )
     ax2.plot(
@@ -162,7 +246,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         goal_pose[2],
         "x",
         color=annotation_hex(),
-        markersize=12,
+        markersize=8,
+        mew=2,
         label="Goal",
     )
     ax2.set_xlim(x_range)
@@ -190,17 +275,57 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     if rrt_path and len(rrt_path) >= 2:
         rxs = [p[0] for p in rrt_path]
         rys = [p[1] for p in rrt_path]
-        ax3.plot(rxs, rys, "b-", linewidth=2, label="RRT*")
+        path_a = 0.35 if rrt_traj else 1.0
+        ax3.plot(
+            rxs,
+            rys,
+            color=layer_hex("rrt", "path"),
+            linewidth=1.5,
+            alpha=path_a,
+            label="RRT* path",
+        )
     if sst_path and len(sst_path) >= 2:
         sxs = [p[0] for p in sst_path]
         sys_ = [p[1] for p in sst_path]
-        ax3.plot(sxs, sys_, "g--", linewidth=2, label="SST")
+        path_a = 0.35 if sst_traj else 1.0
+        ax3.plot(
+            sxs,
+            sys_,
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=path_a,
+            label="SST path",
+        )
+    if rrt_traj and len(rrt_traj) >= 2:
+        txs = [p[0] for p in rrt_traj]
+        tys = [p[1] for p in rrt_traj]
+        ax3.plot(
+            txs,
+            tys,
+            "o-",
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=2.0,
+            markersize=2,
+            label="RRT* traj",
+        )
+    if sst_traj and len(sst_traj) >= 2:
+        txs = [p[0] for p in sst_traj]
+        tys = [p[1] for p in sst_traj]
+        ax3.plot(
+            txs,
+            tys,
+            "o-",
+            color=layer_hex("sst", "trajectory"),
+            linewidth=2.0,
+            markersize=2,
+            label="SST traj",
+        )
     ax3.plot(
         start_pose[0],
         start_pose[1],
         "s",
         color=annotation_hex(),
-        markersize=10,
+        markersize=8,
         label="Start",
     )
     ax3.plot(
@@ -208,7 +333,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         goal_pose[1],
         "x",
         color=annotation_hex(),
-        markersize=12,
+        markersize=8,
+        mew=2,
         label="Goal",
     )
     ax3.set_xlim(x_range)
