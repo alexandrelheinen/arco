@@ -10,6 +10,7 @@ from matplotlib.axes import Axes
 from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
 
+from arco.config.palette import annotation_hex, obstacle_hex
 from arco.mapping.grid.base import Grid
 
 
@@ -19,10 +20,10 @@ def draw_grid(
     *,
     cell_colors: Optional[Dict[Tuple[int, ...], str]] = None,
     free_color: str = "white",
-    obstacle_color: str = "dimgray",
+    obstacle_color: str = obstacle_hex(),
     path_color: str = "tomato",
-    start_color: str = "limegreen",
-    goal_color: str = "royalblue",
+    start_color: str = annotation_hex(),
+    goal_color: str = annotation_hex(),
     ax: Optional[Axes] = None,
     title: Optional[str] = None,
     figsize: Tuple[int, int] = (8, 8),

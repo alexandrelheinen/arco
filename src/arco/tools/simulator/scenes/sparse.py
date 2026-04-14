@@ -31,52 +31,49 @@ from typing import Any
 import numpy as np
 from scipy.spatial import Delaunay as _Delaunay
 
-from arco.config import load_config
+from arco.config.palette import (
+    annotation_rgb,
+    layer_rgb,
+    obstacle_rgb,
+    ui_rgb,
+)
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.sim.tracking import VehicleConfig
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Color palette — loaded from tools/config/colors.yml
+# Color palette — derived from arco.config.palette
 # ---------------------------------------------------------------------------
-_COLORS = load_config("colors")
-
-
-def _rgb(section: str, key: str) -> tuple[int, int, int]:
-    """Return an RGB tuple from the colors config.
-
-    Args:
-        section: Top-level key (e.g. ``"rrt"``).
-        key: Sub-key within that section (e.g. ``"edge"``).
-
-    Returns:
-        ``(R, G, B)`` tuple with values in ``[0, 255]``.
-    """
-    v = _COLORS[section][key]
-    return (int(v[0]), int(v[1]), int(v[2]))
-
-
-_C_BG: tuple[int, int, int] = _rgb("map", "background")
-_C_BUILDING: tuple[int, int, int] = _rgb("obstacle", "building")
-_C_ROAD_DOT: tuple[int, int, int] = _rgb("road", "dot")
+_C_BG: tuple[int, int, int] = ui_rgb("background")
+_C_BUILDING: tuple[int, int, int] = obstacle_rgb()
+_C_ROAD_DOT: tuple[int, int, int] = ui_rgb("road_dot")
 
 # RRT* — blue family
-_C_RRT_EDGE: tuple[int, int, int] = _rgb("rrt", "edge")
-_C_RRT_NODE: tuple[int, int, int] = _rgb("rrt", "node")
-_C_RRT_PATH: tuple[int, int, int] = _rgb("rrt", "path")
-_C_RRT_TRAJ: tuple[int, int, int] = _rgb("rrt", "trajectory")
+_C_RRT_EDGE: tuple[int, int, int] = layer_rgb("rrt", "tree")
+_C_RRT_NODE: tuple[int, int, int] = layer_rgb("rrt", "tree")
+_C_RRT_PATH: tuple[int, int, int] = layer_rgb("rrt", "path")
+_C_RRT_TRAJ: tuple[int, int, int] = layer_rgb("rrt", "trajectory")
+_C_RRT_PRUNED: tuple[int, int, int] = layer_rgb("rrt", "pruned")
+_C_RRT_VEHICLE: tuple[int, int, int] = layer_rgb("rrt", "vehicle")
 
 # SST — green family
-_C_SST_EDGE: tuple[int, int, int] = _rgb("sst", "edge")
-_C_SST_NODE: tuple[int, int, int] = _rgb("sst", "node")
-_C_SST_PATH: tuple[int, int, int] = _rgb("sst", "path")
-_C_SST_TRAJ: tuple[int, int, int] = _rgb("sst", "trajectory")
+_C_SST_EDGE: tuple[int, int, int] = layer_rgb("sst", "tree")
+_C_SST_NODE: tuple[int, int, int] = layer_rgb("sst", "tree")
+_C_SST_PATH: tuple[int, int, int] = layer_rgb("sst", "path")
+_C_SST_TRAJ: tuple[int, int, int] = layer_rgb("sst", "trajectory")
+_C_SST_PRUNED: tuple[int, int, int] = layer_rgb("sst", "pruned")
+_C_SST_VEHICLE: tuple[int, int, int] = layer_rgb("sst", "vehicle")
 
-_C_START: tuple[int, int, int] = _rgb("start", "color")
-_C_GOAL: tuple[int, int, int] = _rgb("goal", "color")
-_C_SDF_NEAR: tuple[int, int, int] = _rgb("road", "sdf_near")
-_C_BARRIER: tuple[int, int, int] = _rgb("barrier", "color")
+_C_START: tuple[int, int, int] = annotation_rgb(dark_bg=True)
+_C_GOAL: tuple[int, int, int] = annotation_rgb(dark_bg=True)
+_C_SDF_NEAR: tuple[int, int, int] = ui_rgb("road_sdf")
+_C_BARRIER: tuple[int, int, int] = ui_rgb("barrier")
+_C_HUD: tuple[int, int, int] = ui_rgb("hud_text")
+_C_HUD_DIM: tuple[int, int, int] = ui_rgb("hud_dim")
+_C_HUD_SHADOW: tuple[int, int, int] = ui_rgb("hud_shadow")
+_C_HUD_WINNER: tuple[int, int, int] = ui_rgb("hud_winner")
+_C_HUD_TIE: tuple[int, int, int] = ui_rgb("hud_tie")
 
 # Alpha for the raw reference paths when trajectories are drawn on top.
 _PATH_ALPHA = 0.3

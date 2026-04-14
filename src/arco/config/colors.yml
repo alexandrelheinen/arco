@@ -1,58 +1,44 @@
-# Color palette for the sparse neighborhood race simulator (RRT* vs SST).
+# Color palette for the ARCO visualization system.
 #
-# All values are [R, G, B] with each component in [0, 255].
+# This file defines the canonical color system used by both matplotlib
+# examples and pygame simulators.  Derived colors (tree alpha, path shade,
+# etc.) are computed programmatically from base colors in palette.py —
+# do NOT add hardcoded derived shades here.
 #
 # Structure
 # ---------
-# rrt / sst       - per-planner colors: edge, node, path, trajectory,
-#                   vehicle, trail (live vehicle path), hud
-# obstacle        - building obstacles
-# road            - road-dot markings, sdf_near shadow
-# barrier         - dead-end corner barriers
-# map             - background fill
-# start / goal    - start and goal markers
-# hud             - shared HUD chrome (text, dim text, shadow, winner, tie)
+# annotation    - default/dark_bg annotation colors (markers, text, arrows)
+# obstacle      - shared obstacle fill color (all scenarios)
+# methods       - per-algorithm base colors (rrt, sst, astar, dstar)
+# ui            - pygame-specific UI chrome colors (HUD, background, road)
 
-rrt:
-  edge:        [60, 120, 200]   # tree edges during planning phase
-  node:        [45,  95, 170]   # tree nodes during planning phase
-  path:        [90, 140, 230]   # raw planned path (shown dimmed under trajectory)
-  trajectory:  [28,  52, 110]   # optimized trajectory backdrop (racing phase)
-  vehicle:     [100, 160, 255]  # vehicle body and lookahead disc
-  trail:       [80, 125, 215]   # live vehicle trail drawn during race
-  hud:         [130, 190, 255]  # HUD text: planner label, time, status
-
-sst:
-  edge:        [40, 170,  85]   # tree edges during planning phase
-  node:        [35, 145,  65]   # tree nodes during planning phase
-  path:        [70, 195, 115]   # raw planned path (shown dimmed under trajectory)
-  trajectory:  [18,  80,  38]   # optimized trajectory backdrop (racing phase)
-  vehicle:     [60, 215, 110]   # vehicle body and lookahead disc
-  trail:       [50, 170,  90]   # live vehicle trail drawn during race
-  hud:         [80, 205, 120]   # HUD text: planner label, time, status
+annotation:
+  default: "#000000"    # [] black, used for markers, arrows, text on light bg
+  dark_bg: "#F0F0F0"    # [] near-white, used for markers/text on dark backgrounds
 
 obstacle:
-  building:    [145, 125, 100]  # city-block obstacle points (concrete facade)
+  fill: "#D97070"       # [] pastel red (~HSL 0°, 55%, 70%), shared by all obstacle types
+  border: null          # [] no separate border token; border uses annotation.default
 
-road:
-  dot:         [65,  60,  50]   # faded lane-marking dots
-  sdf_near:    [62,  50,  38]   # warm shadow near buildings in SDF heatmap
+methods:
+  rrt:
+    base: "#4477CC"     # [] blue-ish base color for RRT*
+  sst:
+    base: "#44AA66"     # [] green-ish base color for SST
+  astar:
+    base: "#7744BB"     # [] purple-ish base color for A*
+  dstar:
+    base: "#CC8822"     # [] yellow/ochre-ish base color for D*
 
-barrier:
-  color:       [200, 120,  40]  # amber dead-end corner barriers
-
-map:
-  background:  [22,  24,  30]   # dark asphalt background fill
-
-start:
-  color:       [60, 220,  90]   # start marker ring
-
-goal:
-  color:       [220,  80, 220]  # goal marker ring
-
-hud:
-  text:        [220, 220, 220]  # primary HUD text
-  dim:         [130, 130, 130]  # secondary / dimmed HUD text
-  shadow:      [40,  40,  50]   # text drop shadow
-  winner:      [255, 215,  50]  # winner banner
-  tie:         [200, 200,  80]  # tie banner
+# Pygame-specific UI colors (not part of the algorithm color system).
+# These are not affected by the unified color system requirements.
+ui:
+  background: [22, 24, 30]          # [] dark asphalt background fill (RGB 0-255)
+  road_dot: [65, 60, 50]            # [] faded lane-marking dots (RGB 0-255)
+  road_sdf: [62, 50, 38]            # [] warm shadow near buildings in SDF heatmap (RGB 0-255)
+  barrier: [200, 120, 40]           # [] amber dead-end corner barriers (RGB 0-255)
+  hud_text: [220, 220, 220]         # [] primary HUD text (RGB 0-255)
+  hud_dim: [130, 130, 130]          # [] secondary/dimmed HUD text (RGB 0-255)
+  hud_shadow: [40, 40, 50]          # [] text drop shadow (RGB 0-255)
+  hud_winner: [255, 215, 50]        # [] winner banner text (RGB 0-255)
+  hud_tie: [200, 200, 80]           # [] tie banner text (RGB 0-255)

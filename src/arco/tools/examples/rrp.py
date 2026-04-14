@@ -36,6 +36,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.kinematics import RRPRobot
 from arco.planning.continuous import (
     RRTPlanner,
@@ -492,7 +493,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             "RRT* — 3-D RRP SCARA",
             rrt_cart,
             rrt_len,
-            "royalblue",
+            layer_hex("rrt", "path"),
             rrt_traj_cart,
             {
                 "steps": max(0, (len(rrt_path) - 1) if rrt_path else 0),
@@ -509,7 +510,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             "SST — 3-D RRP SCARA",
             sst_cart,
             sst_len,
-            "mediumseagreen",
+            layer_hex("sst", "path"),
             sst_traj_cart,
             {
                 "steps": max(0, (len(sst_path) - 1) if sst_path else 0),
@@ -567,7 +568,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 tarr[:, 1],
                 tarr[:, 2],
                 "o-",
-                color="orangered",
+                color=layer_hex("rrt", "trajectory"),
                 linewidth=2.5,
                 markersize=3,
                 zorder=7,
@@ -579,7 +580,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             [start_cart[0]],
             [start_cart[1]],
             [start_cart[2]],
-            color="limegreen",
+            color=annotation_hex(),
             s=80,
             zorder=6,
             label="Start",
@@ -588,7 +589,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             [goal_cart[0]],
             [goal_cart[1]],
             [goal_cart[2]],
-            color="orangered",
+            color=annotation_hex(),
             marker="*",
             s=120,
             zorder=6,
@@ -673,8 +674,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             )
 
     for path, lbl, color in (
-        (rrt_path, "RRT* path", "royalblue"),
-        (sst_path, "SST path", "mediumseagreen"),
+        (rrt_path, "RRT* path", layer_hex("rrt", "path")),
+        (sst_path, "SST path", layer_hex("sst", "path")),
     ):
         if path is not None and len(path) >= 2:
             arr = np.array(path)
@@ -692,7 +693,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         [float(start_q[0])],
         [float(start_q[1])],
         [float(start_q[2])],
-        color="limegreen",
+        color=annotation_hex(),
         s=80,
         zorder=6,
         label="Start",
@@ -701,7 +702,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         [float(goal_q[0])],
         [float(goal_q[1])],
         [float(goal_q[2])],
-        color="orangered",
+        color=annotation_hex(),
         marker="*",
         s=120,
         zorder=6,
