@@ -159,9 +159,17 @@ def _draw_panel(
         f"Planner time: {metrics['planner_time']:.1f}s",
         f"Path length: {float(metrics['planned_path_length']):.1f} m",
         f"Traj length: {float(metrics['trajectory_arc_length']):.1f} m",
-        f"Executed length: {float(sum(math.hypot(executed[i+1][0]-executed[i][0], executed[i+1][1]-executed[i][1]) for i in range(len(executed)-1)) if len(executed) >= 2 else 0.0):.1f} m",
-        f"Status: {metrics['path_status']}",
     ]
+    if len(executed) >= 2:
+        exec_len = sum(
+            math.hypot(
+                executed[i + 1][0] - executed[i][0],
+                executed[i + 1][1] - executed[i][1],
+            )
+            for i in range(len(executed) - 1)
+        )
+        lines.append(f"Executed length: {exec_len:.1f} m")
+    lines.append(f"Status: {metrics['path_status']}")
     ax.text(
         0.02,
         0.98,
