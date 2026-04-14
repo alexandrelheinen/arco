@@ -20,13 +20,13 @@ mkdir -p "$OUT_DIR"
 echo "=== Simulator smoke tests (arcosim, headless) ==="
 
 SCENARIOS=(
-    "src/arco/tools/config/map/astar.yml"
-    "src/arco/tools/config/map/city.yml"
-    "src/arco/tools/config/map/rr.yml"
-    "src/arco/tools/config/map/vehicle.yml"
-    "src/arco/tools/config/map/ppp.yml"
-    "src/arco/tools/config/map/rrp.yml"
-    "src/arco/tools/config/map/occ.yml"
+    "src/arco/tools/map/astar.yml"
+    "src/arco/tools/map/city.yml"
+    "src/arco/tools/map/rr.yml"
+    "src/arco/tools/map/vehicle.yml"
+    "src/arco/tools/map/ppp.yml"
+    "src/arco/tools/map/rrp.yml"
+    "src/arco/tools/map/occ.yml"
 )
 
 FAILED=0
@@ -53,3 +53,4 @@ else
     echo "❌  $FAILED smoke test(s) FAILED"
     exit 1
 fi
+
