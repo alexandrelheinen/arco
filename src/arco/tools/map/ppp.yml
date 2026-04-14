@@ -81,3 +81,4 @@ simulator:
 # Lower values produce a slower, smoother approach with no overshoot;
 # higher values are faster but may oscillate near waypoints.
   proportional_gain: 1.5  # [1/s] proportional position-to-velocity gain
+  repulsion_gain: 0.0  # [1/s] APF obstacle repulsion gain (0 = disabled)

@@ -110,6 +110,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 from arco.tools.simulator.scenes.rrp import RRPScene
 from arco.tools.simulator.sim.loading import run_with_loading_screen
 from arco.tools.simulator.sim.video import VideoWriter
+from arco.control import JointSpaceTracker
 
 logger = logging.getLogger(__name__)
 
@@ -900,6 +901,7 @@ def run_race(
     max_lin_vel = float(sim_cfg.get("max_lin_vel", 1.0))
     max_ang_acc = float(sim_cfg.get("max_ang_acc", 3.0))
     max_lin_acc = float(sim_cfg.get("max_lin_acc", 2.0))
+    repulsion_gain = float(sim_cfg.get("repulsion_gain", 0.0))
 
     pygame.init()
     sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
@@ -939,20 +941,22 @@ def run_race(
     )
 
     hold_timer = 0.0
-    rrt_robot = RRPRaceRobot(
-        scene.start_q.copy(),
-        max_vel_ang=max_ang_vel,
-        max_vel_lin=max_lin_vel,
-        max_acc_ang=max_ang_acc,
-        max_acc_lin=max_lin_acc,
+    _max_vel_rrp = np.array([max_ang_vel, max_ang_vel, max_lin_vel])
+    _max_acc_rrp = np.array([max_ang_acc, max_ang_acc, max_lin_acc])
+    rrt_robot = JointSpaceTracker(
+        max_vel=_max_vel_rrp,
+        max_acc=_max_acc_rrp,
+        occupancy=scene.occ,
+        repulsion_gain=repulsion_gain,
     )
-    sst_robot = RRPRaceRobot(
-        scene.start_q.copy(),
-        max_vel_ang=max_ang_vel,
-        max_vel_lin=max_lin_vel,
-        max_acc_ang=max_ang_acc,
-        max_acc_lin=max_lin_acc,
+    rrt_robot.reset(scene.start_q)
+    sst_robot = JointSpaceTracker(
+        max_vel=_max_vel_rrp,
+        max_acc=_max_acc_rrp,
+        occupancy=scene.occ,
+        repulsion_gain=repulsion_gain,
     )
+    sst_robot.reset(scene.start_q)
     rrt_carrot_dist = 0.0
     sst_carrot_dist = 0.0
     rrt_carrot = scene.start_q.copy()
@@ -988,20 +992,8 @@ def run_race(
                     elif event.key == pygame.K_r:
                         camera = Camera3D()
                         hold_timer = 0.0
-                        rrt_robot = RRPRaceRobot(
-                            scene.start_q.copy(),
-                            max_vel_ang=max_ang_vel,
-                            max_vel_lin=max_lin_vel,
-                            max_acc_ang=max_ang_acc,
-                            max_acc_lin=max_lin_acc,
-                        )
-                        sst_robot = RRPRaceRobot(
-                            scene.start_q.copy(),
-                            max_vel_ang=max_ang_vel,
-                            max_vel_lin=max_lin_vel,
-                            max_acc_ang=max_ang_acc,
-                            max_acc_lin=max_lin_acc,
-                        )
+                        rrt_robot.reset(scene.start_q)
+                        sst_robot.reset(scene.start_q)
                         rrt_carrot_dist = 0.0
                         sst_carrot_dist = 0.0
                         rrt_carrot = scene.start_q.copy()

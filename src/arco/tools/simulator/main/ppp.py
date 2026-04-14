@@ -110,6 +110,7 @@ from arco.tools.simulator.scenes.ppp import PPPScene
 from arco.tools.simulator.scenes.ppp import is_wall as _is_wall_box
 from arco.tools.simulator.sim.loading import run_with_loading_screen
 from arco.tools.simulator.sim.video import VideoWriter
+from arco.control import JointSpaceTracker
 
 logger = logging.getLogger(__name__)
 
@@ -938,6 +939,7 @@ def run_race(
     max_carrot_lag = float(sim_cfg["max_carrot_lag"])
     goal_reach_dist = float(sim_cfg["goal_reach_dist"])
     proportional_gain = float(sim_cfg.get("proportional_gain", 2.0))
+    repulsion_gain = float(sim_cfg.get("repulsion_gain", 0.0))
 
     pygame.init()
     sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
@@ -976,12 +978,24 @@ def run_race(
 
     # Race state
     hold_timer = 0.0
-    rrt_robot = PPPRobot(
-        scene.start, max_joint_vel, max_joint_acc, proportional_gain
+    _max_vel_3d = np.full(3, max_joint_vel)
+    _max_acc_3d = np.full(3, max_joint_acc)
+    rrt_robot = JointSpaceTracker(
+        max_vel=_max_vel_3d,
+        max_acc=_max_acc_3d,
+        proportional_gain=proportional_gain,
+        occupancy=scene.occ,
+        repulsion_gain=repulsion_gain,
     )
-    sst_robot = PPPRobot(
-        scene.start, max_joint_vel, max_joint_acc, proportional_gain
+    rrt_robot.reset(scene.start)
+    sst_robot = JointSpaceTracker(
+        max_vel=_max_vel_3d,
+        max_acc=_max_acc_3d,
+        proportional_gain=proportional_gain,
+        occupancy=scene.occ,
+        repulsion_gain=repulsion_gain,
     )
+    sst_robot.reset(scene.start)
     rrt_carrot_dist = 0.0
     sst_carrot_dist = 0.0
     rrt_carrot = scene.start.copy()
@@ -1018,18 +1032,8 @@ def run_race(
                     elif event.key == pygame.K_r:
                         camera = Camera3D()
                         hold_timer = 0.0
-                        rrt_robot = PPPRobot(
-                            scene.start,
-                            max_joint_vel,
-                            max_joint_acc,
-                            proportional_gain,
-                        )
-                        sst_robot = PPPRobot(
-                            scene.start,
-                            max_joint_vel,
-                            max_joint_acc,
-                            proportional_gain,
-                        )
+                        rrt_robot.reset(scene.start)
+                        sst_robot.reset(scene.start)
                         rrt_carrot_dist = 0.0
                         sst_carrot_dist = 0.0
                         rrt_carrot = scene.start.copy()
@@ -1077,7 +1081,7 @@ def run_race(
                 elif phase == "race":
                     if rrt_nav and not rrt_done:
                         rrt_lag = float(
-                            np.linalg.norm(rrt_robot.pos - rrt_carrot)
+                            np.linalg.norm(rrt_robot.q - rrt_carrot)
                         )
                         if rrt_lag < max_carrot_lag:
                             rrt_carrot_dist = min(
@@ -1088,14 +1092,14 @@ def run_race(
                             rrt_nav, rrt_arcs, rrt_carrot_dist
                         )
                         rrt_robot.step(rrt_carrot, dt)
-                        rrt_trail.append(rrt_robot.pos.copy())
+                        rrt_trail.append(rrt_robot.q.copy())
                         rrt_done = (
-                            float(np.linalg.norm(rrt_robot.pos - scene.goal))
+                            float(np.linalg.norm(rrt_robot.q - scene.goal))
                             < goal_reach_dist
                         )
                     if sst_nav and not sst_done:
                         sst_lag = float(
-                            np.linalg.norm(sst_robot.pos - sst_carrot)
+                            np.linalg.norm(sst_robot.q - sst_carrot)
                         )
                         if sst_lag < max_carrot_lag:
                             sst_carrot_dist = min(
@@ -1106,9 +1110,9 @@ def run_race(
                             sst_nav, sst_arcs, sst_carrot_dist
                         )
                         sst_robot.step(sst_carrot, dt)
-                        sst_trail.append(sst_robot.pos.copy())
+                        sst_trail.append(sst_robot.q.copy())
                         sst_done = (
-                            float(np.linalg.norm(sst_robot.pos - scene.goal))
+                            float(np.linalg.norm(sst_robot.q - scene.goal))
                             < goal_reach_dist
                         )
                     if not winner:
@@ -1198,8 +1202,8 @@ def run_race(
                         _draw_lookahead_3d(rrt_carrot, *_C_LA_RRT)
                     if sst_path and not sst_done:
                         _draw_lookahead_3d(sst_carrot, *_C_LA_SST)
-                _draw_effector(rrt_robot.pos, *_C_RRT)
-                _draw_effector(sst_robot.pos, *_C_SST)
+                _draw_effector(rrt_robot.q, *_C_RRT)
+                _draw_effector(sst_robot.q, *_C_SST)
 
             # --- 2-D HUD overlay ----------------------------------------
             _blit_overlay(
