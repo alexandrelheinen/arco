@@ -47,6 +47,31 @@ Guidance is applied after planning:
 - Interpolation: conversion of discrete plans into smooth trajectories
 - Controllers: path tracking and control law generation
 
+## Pipeline
+
+The full ARCO processing pipeline runs as a sequence of independent steps
+(see [docs/PIPELINE.md](docs/PIPELINE.md)):
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   MAPPING    │     │   PLANNING   │     │ OPTIMIZATION │     │  SIMULATION  │
+│              │     │              │     │              │     │              │
+│ config.yml   │────▶│occupancy.json│────▶│  path.json   │────▶│trajectory    │
+│ obstacles    │     │ RRT* / SST   │     │ pruner +     │     │ renderer +   │
+│              │     │ C-space      │     │ optimizer    │     │ controller   │
+└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+       │                    │                    │                    │
+       ▼                    ▼                    ▼                    ▼
+ occupancy.json         path.json        trajectory.json     video / metrics
+
+              ◀──── telemetry side-channel (stop criteria, iter count) ────▶
+                     loading screen polls arco_planner_telemetry.json
+```
+
+> **IPC note**: telemetry currently uses a JSON temp-file
+> (`arco.planning.continuous.telemetry`).  A proper pub/sub middleware is
+> planned — see [docs/ROADMAP.md](docs/ROADMAP.md) §"IPC & Telemetry Middleware".
+
 ## Modules
 
 - **Mapping**: Spatial data structures (grids, graphs, occupancy) and obstacle-query interfaces
