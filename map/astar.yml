@@ -5,27 +5,27 @@ scenario: astar
 # - tools/simulator/main/astar.py (road-network tracking)
 
 grid:
-  physical_size: [50.0, 50.0]
-  cell_size: 1.0
-  obstacle_fraction: 0.28
+  physical_size: [50.0, 50.0]  # [m, m] physical dimensions of the grid
+  cell_size: 1.0  # [m] size of one grid cell
+  obstacle_fraction: 0.28  # [] fraction of cells that are obstacles
 
 graph:
-  seed: 42
-  type: ring
-  width: 50
-  height: 50
-  mean_edge_length: 7
-  hole_count: 3
-  hole_radius: 4
-  curvature: 0.1
+  seed: 42  # [] random seed for graph generation
+  type: ring  # [] graph topology type identifier
+  width: 50  # [] number of cells in the x direction
+  height: 50  # [] number of cells in the y direction
+  mean_edge_length: 7  # [cells] mean length of graph edges in cells
+  hole_count: 3  # [] number of obstacle holes
+  hole_radius: 4  # [cells] radius of each obstacle hole in cells
+  curvature: 0.1  # [] dimensionless curvature parameter for edge shapes
 
 vehicle:
   dubins:
-    cruise_speed: 1.0
-    lookahead: 0.5
-    max_speed: 5.0
-    max_turn_rate: 90.0
-    max_accel: 5.0
-    max_turn_rate_dot: 1000.0
-    goal_radius: 1.0
-    curvature_gain: 0.03
+    cruise_speed: 1.0  # [m/s] nominal cruising speed
+    lookahead: 0.5  # [m] lookahead distance for path tracking
+    max_speed: 5.0  # [m/s] maximum vehicle speed
+    max_turn_rate: 90.0  # [deg/s] maximum turn rate
+    max_accel: 5.0  # [m/s²] maximum linear acceleration
+    max_turn_rate_dot: 1000.0  # [deg/s²] maximum rate of change of turn rate
+    goal_radius: 1.0  # [m] radius around goal considered as reached
+    curvature_gain: 0.03  # [1/m] gain for curvature-based steering
