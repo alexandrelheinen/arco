@@ -31,67 +31,11 @@ jobs:
       - name: Create output directory
         run: mkdir -p /tmp/sim_videos
 
-      - name: Generate A* simulation video
-        env:
-          SDL_AUDIODRIVER: dummy
+      - name: Generate all simulation videos
         run: |
-          xvfb-run -a arcosim src/arco/tools/config/map/astar.yml \
-            --fps 30 \
-            --record /tmp/sim_videos/arcosim_astar_${{ github.event.release.tag_name }}.mp4 \
-            --record-duration 60
-
-      - name: Generate city race video
-        env:
-          SDL_AUDIODRIVER: dummy
-        run: |
-          xvfb-run -a arcosim src/arco/tools/config/map/city.yml \
-            --fps 30 \
-            --record /tmp/sim_videos/arcosim_city_${{ github.event.release.tag_name }}.mp4 \
-            --record-duration 90
-
-      - name: Generate PPP warehouse video
-        env:
-          SDL_AUDIODRIVER: dummy
-        run: |
-          xvfb-run -a arcosim src/arco/tools/config/map/ppp.yml \
-            --fps 30 \
-            --record /tmp/sim_videos/arcosim_ppp_${{ github.event.release.tag_name }}.mp4 \
-            --record-duration 90
-
-      - name: Generate RR arm video
-        env:
-          SDL_AUDIODRIVER: dummy
-        run: |
-          xvfb-run -a arcosim src/arco/tools/config/map/rr.yml \
-            --fps 30 \
-            --record /tmp/sim_videos/arcosim_rr_${{ github.event.release.tag_name }}.mp4 \
-            --record-duration 90
-
-      - name: Generate vehicle benchmark video
-        env:
-          SDL_AUDIODRIVER: dummy
-        run: |
-          xvfb-run -a arcosim src/arco/tools/config/map/vehicle.yml \
-            --fps 30 \
-            --record /tmp/sim_videos/arcosim_vehicle_${{ github.event.release.tag_name }}.mp4 \
-            --record-duration 90
-
-      - name: Generate RRP SCARA arm video
-        env:
-          SDL_AUDIODRIVER: dummy
-        run: |
-          xvfb-run -a arcosim src/arco/tools/config/map/rrp.yml \
-            --fps 30 \
-            --record /tmp/sim_videos/arcosim_rrp_${{ github.event.release.tag_name }}.mp4 \
-            --record-duration 90
-
-      - name: Generate OCC piano movers video
-        env:
-          SDL_AUDIODRIVER: dummy
-        run: |
-          xvfb-run -a arcosim src/arco/tools/config/map/occ.yml \
-            --record /tmp/sim_videos/arcosim_occ_${{ github.event.release.tag_name }}.mp4 \
-            --record-duration 60
+          bash scripts/generate_videos.sh \
+            --out-dir /tmp/sim_videos \
+            --duration 60
 
       - name: Upload videos to release
         env:
@@ -100,6 +44,6 @@ jobs:
           TAG="${{ github.event.release.tag_name }}"
           for SCENARIO in astar city ppp rr vehicle rrp occ; do
             gh release upload "${TAG}" \
-              /tmp/sim_videos/arcosim_${SCENARIO}_${TAG}.mp4 \
+              /tmp/sim_videos/arcosim_${SCENARIO}.mp4 \
               --clobber
           done

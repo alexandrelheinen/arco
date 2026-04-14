@@ -19,7 +19,7 @@ If there is any conflict between an ad hoc request and the guidelines, prioritiz
 
 ## Validation Checklist Before Finalizing
 
-**Run `bash scripts/post-commit.sh` as the first and last validation step.**
+**Run `bash scripts/pre_push.sh` as the first and last validation step.**
 This single script runs all required CI gates locally:
 
 | Script | Gate |
@@ -28,6 +28,7 @@ This single script runs all required CI gates locally:
 | `scripts/run_tests.sh` | pytest unit tests |
 | `scripts/run_examples.sh` | arcoex headless image generation |
 | `scripts/run_smoke_tests.sh` | arcosim headless recordings |
+| `scripts/generate_videos.sh` | arcosim full-length simulation videos |
 
 Additional checks:
 - Tests relevant to the change pass locally.
