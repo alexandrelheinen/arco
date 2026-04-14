@@ -379,10 +379,11 @@ def run_race(
         rrt_finished = False
         sst_finished = False
         race_time = 0.0
+        occ = getattr(scene, "_occ", None)
         if rrt_wps:
-            rrt_vehicle, rrt_loop = build_vehicle_sim(rrt_wps, cfg)
+            rrt_vehicle, rrt_loop = build_vehicle_sim(rrt_wps, cfg, occ)
         if sst_wps:
-            sst_vehicle, sst_loop = build_vehicle_sim(sst_wps, cfg)
+            sst_vehicle, sst_loop = build_vehicle_sim(sst_wps, cfg, occ)
         logger.info("Race started.")
 
     def _restart() -> None:
