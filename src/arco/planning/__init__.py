@@ -5,6 +5,7 @@ from .continuous import (
     RRTPlanner,
     SSTPlanner,
     TrajectoryOptimizer,
+    TrajectoryPruner,
     TrajectoryResult,
 )
 from .discrete import (
