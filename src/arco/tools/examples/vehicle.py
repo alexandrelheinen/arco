@@ -89,10 +89,11 @@ def _optimize(
     occ: KDTreeOccupancy,
     path: list[np.ndarray] | None,
     vehicle_cfg: dict,
+    step_size: np.ndarray,
 ) -> tuple[list[np.ndarray] | None, float, str, list[float]]:
     if path is None or len(path) < 2:
         return None, 0.0, "no-path", []
-    pruner = TrajectoryPruner(occ)
+    pruner = TrajectoryPruner(occ, step_size=step_size)
     path = pruner.prune(path)
     try:
         opt = TrajectoryOptimizer(
@@ -220,11 +221,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_nodes, _, sst_path = sst.get_tree(start.copy(), goal.copy())
     sst_time = time.perf_counter() - t0
 
+    _step_size = np.asarray(planner_cfg["step_size"], dtype=float)
     rrt_traj, rrt_dur, rrt_opt, rrt_durs = _optimize(
-        occ, rrt_path, vehicle_cfg
+        occ, rrt_path, vehicle_cfg, _step_size
     )
     sst_traj, sst_dur, sst_opt, sst_durs = _optimize(
-        occ, sst_path, vehicle_cfg
+        occ, sst_path, vehicle_cfg, _step_size
     )
 
     logger.info("Simulating RRT* executed trajectory …")

@@ -410,6 +410,10 @@ class OCCScene:
 
         pruner = TrajectoryPruner(
             occ,
+            step_size=np.asarray(
+                self._planner_cfg.get("step_size", [1.0, 1.0, 0.1]),
+                dtype=float,
+            ),
             collision_check_count=int(
                 self._planner_cfg.get("collision_check_count", 5)
             ),
