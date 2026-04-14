@@ -443,7 +443,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         sx, sy = robot.forward_kinematics(float(start_q[0]), float(start_q[1]))
         gx, gy = robot.forward_kinematics(float(goal_q[0]), float(goal_q[1]))
         ax.plot(sx, sy, "s", color=annotation_hex(), ms=8, zorder=9)
-        ax.plot(gx, gy, "x", color=annotation_hex(), ms=12, zorder=9)
+        ax.plot(gx, gy, "x", color=annotation_hex(), ms=8, mew=2, zorder=9)
 
         ax.set_aspect("equal")
         ax.set_xlabel("X (m)")
@@ -485,7 +485,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             cpts[:, 0],
             cpts[:, 1],
             s=1,
-            c="gray",
+            c=obstacle_hex(),
             alpha=0.3,
             label="C-space obstacle",
         )
@@ -551,7 +551,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         float(goal_q[1]),
         "x",
         color=annotation_hex(),
-        ms=14,
+        ms=8,
+        mew=2,
         zorder=9,
         label="Goal",
     )

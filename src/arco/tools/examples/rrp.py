@@ -529,11 +529,11 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         specs
     ):
         ax = fig.add_subplot(1, 3, col + 1, projection="3d")
+        planner_key = "rrt" if col == 0 else "sst"
 
-        # Obstacles
+        # Obstacles — use unified obstacle color.
         for obs in obstacles:
-            obs_color = "sienna" if (obs[3] - obs[0]) <= 0.8 else "steelblue"
-            _draw_box(ax, *obs, color=obs_color, alpha=0.40)
+            _draw_box(ax, *obs, color=obstacle_hex(), alpha=0.40)
 
         # Workspace annulus (ground reference)
         _workspace_annulus(
@@ -568,7 +568,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 tarr[:, 1],
                 tarr[:, 2],
                 "o-",
-                color=layer_hex("rrt", "trajectory"),
+                color=layer_hex(planner_key, "trajectory"),
                 linewidth=2.5,
                 markersize=3,
                 zorder=7,
@@ -590,8 +590,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             [goal_cart[1]],
             [goal_cart[2]],
             color=annotation_hex(),
-            marker="*",
-            s=120,
+            marker="x",
+            linewidths=2,
+            s=80,
             zorder=6,
             label="Goal",
         )
@@ -657,7 +658,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 Poly3DCollection(
                     list(tris),
                     alpha=0.25,
-                    facecolor="slategray",
+                    facecolor=obstacle_hex(),
                     edgecolor="none",
                     linewidth=0,
                 )
@@ -668,7 +669,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 cpts_arr[:, 0],
                 cpts_arr[:, 1],
                 cpts_arr[:, 2],
-                c="slategray",
+                c=obstacle_hex(),
                 s=2,
                 alpha=0.30,
             )
@@ -703,8 +704,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         [float(goal_q[1])],
         [float(goal_q[2])],
         color=annotation_hex(),
-        marker="*",
-        s=120,
+        marker="x",
+        linewidths=2,
+        s=80,
         zorder=6,
         label="Goal",
     )

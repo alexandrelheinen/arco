@@ -36,6 +36,7 @@ from arco.planning.continuous import (
     RRTPlanner,
     SSTPlanner,
     TrajectoryOptimizer,
+    TrajectoryPruner,
 )
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.ppp import BOXES as _BOXES
@@ -200,7 +201,11 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     else:
         logger.warning("SST: no path found.")
 
-    # --- Trajectory optimization (3-D) -------------------------------------
+    # --- Path pruning + trajectory optimization (3-D) ----------------------
+    pruner = TrajectoryPruner(
+        occ,
+        collision_check_count=int(planner_cfg["collision_check_count"]),
+    )
     opt = TrajectoryOptimizer(
         occ,
         cruise_speed=float(sim_cfg.get("race_speed", 2.0)),
@@ -222,6 +227,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     rrt_feasible = False
     sst_feasible = False
     if rrt_path is not None:
+        rrt_path = pruner.prune(rrt_path)
         try:
             res = opt.optimize(rrt_path)
             rrt_traj = res.states
@@ -238,6 +244,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             )
             rrt_opt_status = "exception"
     if sst_path is not None:
+        sst_path = pruner.prune(sst_path)
         try:
             res = opt.optimize(sst_path)
             sst_traj = res.states
@@ -313,15 +320,11 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     for col, (title, path, length, color, traj, metrics) in enumerate(specs):
         ax = fig.add_subplot(1, 2, col + 1, projection="3d")
+        planner_key = "rrt" if col == 0 else "sst"
 
-        # Obstacle boxes — wall is colored distinctly from scatter boxes.
+        # Obstacle boxes — all use the unified obstacle color.
         for box in _BOXES:
-            _draw_box(
-                ax,
-                *box,
-                color="sienna" if _is_wall(box) else "peru",
-                alpha=0.45,
-            )
+            _draw_box(ax, *box, color=obstacle_hex(), alpha=0.45)
 
         # Solution path — dimmed when trajectory is drawn on top
         if path is not None and len(path) >= 2:
@@ -347,7 +350,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 tarr[:, 1],
                 tarr[:, 2],
                 "o-",
-                color=layer_hex("rrt", "trajectory"),
+                color=layer_hex(planner_key, "trajectory"),
                 linewidth=2.5,
                 markersize=3,
                 zorder=7,
@@ -369,8 +372,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             [_GOAL[1]],
             [_GOAL[2]],
             color=annotation_hex(),
-            marker="*",
-            s=120,
+            marker="x",
+            linewidths=2,
+            s=80,
             zorder=6,
             label="Goal",
         )
