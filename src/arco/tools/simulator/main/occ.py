@@ -39,6 +39,7 @@ from arco.control.rigid_body import CircleBody, SquareBody
 from arco.mapping import KDTreeOccupancy
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.occ import OCCScene
+from arco.tools.simulator.sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
 
@@ -437,12 +438,8 @@ def main(cfg: dict) -> None:
             return list(path)
         return [start_pose, goal_pose]
 
-    rrt_waypoints = _make_waypoints(
-        scene.rrt_traj if scene.rrt_traj else scene.rrt_path
-    )
-    sst_waypoints = _make_waypoints(
-        scene.sst_traj if scene.sst_traj else scene.sst_path
-    )
+    rrt_waypoints = _make_waypoints(scene.rrt_path)
+    sst_waypoints = _make_waypoints(scene.sst_path)
 
     def _reset_bodies() -> tuple[object, object, int, int]:
         body_type = str(cfg.get("body", {}).get("type", "square"))
@@ -487,21 +484,10 @@ def main(cfg: dict) -> None:
 
     paused = False
     recording = args.record is not None
-    video_writer = None
+    video_writer: VideoWriter | None = None
     if recording:
-        try:
-            from sim.video import VideoWriter
-
-            video_writer = VideoWriter(
-                args.record,
-                args.width,
-                args.height,
-                fps,
-            )
-            video_writer.open()
-        except Exception as exc:
-            logger.warning("Cannot record video: %s", exc)
-            recording = False
+        video_writer = VideoWriter(args.record, args.width, args.height, fps)
+        video_writer.open()
 
     record_frames = int(args.record_duration / dt)
     frame_count = 0

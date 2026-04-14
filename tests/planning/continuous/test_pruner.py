@@ -376,3 +376,30 @@ def test_segment_free_through_obstacle():
     a = np.array([0.0, 0.0])
     b = np.array([5.0, 5.0])
     assert pruner._segment_free(a, b) is False
+
+
+def test_long_segment_detects_obstacle_with_adaptive_sampling():
+    """Adaptive density catches an obstacle that a fixed count would miss.
+
+    A fixed collision_check_count=2 places only 4 samples, each ~16.7 m
+    apart on a 50 m segment, entirely missing an obstacle at the 25 m
+    mark.  Adaptive sampling enforces spacing ≤ clearance/2, guaranteeing
+    the obstacle is detected.
+    """
+    # Obstacle exactly at the midpoint of the segment.
+    occ = KDTreeOccupancy([[25.0, 0.0]], clearance=0.5)
+    pruner = TrajectoryPruner(occ, collision_check_count=2)
+    a = np.array([0.0, 0.0])
+    b = np.array([50.0, 0.0])
+    # With adaptive sampling the obstacle is detected → segment is not free.
+    assert pruner._segment_free(a, b) is False
+
+
+def test_long_free_segment_returns_true():
+    """Long segment that avoids all obstacles is correctly classified free."""
+    # Obstacle is 25 m off the path (perpendicular), never within clearance.
+    occ = KDTreeOccupancy([[0.0, 25.0]], clearance=0.5)
+    pruner = TrajectoryPruner(occ, collision_check_count=2)
+    a = np.array([0.0, 0.0])
+    b = np.array([50.0, 0.0])
+    assert pruner._segment_free(a, b) is True

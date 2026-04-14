@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections import deque
 from typing import Callable, List, Optional
 
@@ -160,20 +161,59 @@ class TrajectoryPruner:
     def _segment_free(self, a: np.ndarray, b: np.ndarray) -> bool:
         """Check whether the segment from *a* to *b* is collision-free.
 
-        Samples ``collision_check_count + 2`` evenly spaced points along
-        the segment (including the endpoints) and tests each one against
-        the occupancy map.
+        Samples the segment at an **adaptive** density derived from the
+        occupancy clearance radius so that no two consecutive sample points
+        are further than ``clearance / 2`` apart.  This guarantees that
+        no obstacle region (a sphere of radius *clearance* around each
+        obstacle point) can slip undetected between samples.
+
+        For each sample the distance to the nearest obstacle is queried
+        and compared against the clearance threshold — the
+        *nearest + distance-thresholding* pattern mandated by the
+        :class:`~arco.mapping.KDTreeOccupancy` contract.  When
+        :meth:`~arco.mapping.KDTreeOccupancy.query_distances` is
+        available, all distances are fetched in a single batch call for
+        efficiency.
 
         Args:
             a: Segment start position.
             b: Segment end position.
 
         Returns:
-            ``True`` if every sampled point is free; ``False`` if any
-            point is occupied.
+            ``True`` if every sampled point is at least *clearance* away
+            from all obstacle points; ``False`` if any point violates the
+            clearance constraint.
         """
-        for t in np.linspace(0.0, 1.0, self.collision_check_count + 2):
-            pt = a + t * (b - a)
-            if self.occupancy.is_occupied(pt):
-                return False
-        return True
+        # When the occupancy map does not expose a clearance attribute (e.g.
+        # a custom map that only implements is_occupied), clearance defaults
+        # to 0.0 and the adaptive density logic below is skipped; the pruner
+        # then falls back to the fixed collision_check_count sample count.
+        clearance: float = getattr(self.occupancy, "clearance", 0.0)
+        length = float(np.linalg.norm(b - a))
+
+        if clearance > 0.0 and length > 0.0:
+            # We need spacing s ≤ clearance/2 so that any obstacle region
+            # (a ball of radius *clearance* around each obstacle point) that
+            # the segment passes through is detected by at least one sample.
+            # Number of intervals = ceil(length / (clearance/2))
+            #                     = ceil(2 * length / clearance),
+            # so n_points = intervals + 1 ≤ ceil(2*length/clearance) + 2.
+            min_samples = int(math.ceil(2.0 * length / clearance)) + 2
+        else:
+            min_samples = 0
+
+        n_samples = max(self.collision_check_count + 2, min_samples)
+
+        ts = np.linspace(0.0, 1.0, n_samples)
+        pts = a + ts[:, np.newaxis] * (b - a)  # shape (n_samples, D)
+
+        # Prefer the batch distance query for efficiency; the explicit
+        # comparison `distances >= clearance` is the canonical
+        # nearest + distance-thresholding check.
+        if clearance > 0.0 and hasattr(self.occupancy, "query_distances"):
+            distances = self.occupancy.query_distances(pts)
+            return bool(np.all(distances >= clearance))
+
+        # Fallback for occupancy maps that only expose is_occupied().
+        # is_occupied() also performs nearest + distance thresholding.
+        return all(not self.occupancy.is_occupied(pt) for pt in pts)
