@@ -3,14 +3,25 @@ scenario: city
 # City race scenario (RRT* vs SST) on a triangular neighborhood mesh.
 
 planner:
+  # step_size [m, m]: one RRT*/SST extension per dimension. Road half-width
+  # is 15 m so one step fills one road lane — right-sized for city corridors.
   step_size: [15.0, 15.0]  # [m, m] per-dimension planner step size
-  goal_tolerance: 20.0  # [m] distance threshold to consider goal reached
-  collision_check_count: 3  # [] number of intermediate collision checks per step
+  # goal_tolerance: normalized units (physical / step_size). 2.0 → 30 m
+  # physical. At ≤ 30 m from the goal the direct segment is short enough to
+  # remain collision-free through a road corridor (≥ step_size as required).
+  goal_tolerance: 2.0  # [] normalized goal-reach threshold (≥ 1.0 step)
+  # 8 intermediate points → spacing ≤ 15/8 ≈ 1.9 m < clearance/2 = 4 m,
+  # ensuring no obstacle (radius 8 m) slips between samples on a full step.
+  collision_check_count: 8  # [] collision samples per segment
   goal_bias: 0.05  # [] probability of sampling directly toward the goal
   obstacle_clearance: 8.0  # [m] minimum clearance from obstacles
   rrt_max_sample_count: 30000  # [] maximum number of RRT* samples
-  sst_max_sample_count: 50000  # [] maximum number of SST samples
-  witness_radius: 8.0  # [m] SST witness cell radius
+  # SST needs more iterations than RRT* because witness cells prune the tree.
+  # 80 000 gives SST the budget to explore the full city graph and converge.
+  sst_max_sample_count: 80000  # [] maximum number of SST samples
+  # witness_radius in normalized units: 8/15 ≈ 0.53 steps — keeps the tree
+  # sparse (one representative per ~7.5 m radius cell) without blocking growth.
+  witness_radius: 8.0  # [] SST witness-cell half-width in normalized units
 
 world:
   world_width: 1280.0  # [m] width of the world

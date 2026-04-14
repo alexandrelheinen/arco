@@ -228,7 +228,13 @@ class RRTPlanner(ContinuousPlanner):
             return None
 
         path = self._extract_path(nodes, parent, best_goal_node)
-        path.append(goal.copy())
+        # Only append the exact goal position when the direct segment is
+        # collision-free.  With large goal_tolerance values the last tree
+        # node may be far enough from the goal that the connecting segment
+        # crosses an obstacle — skipping this check is Bug 1 of the city
+        # scenario.
+        if self._segment_free(nodes[best_goal_node], goal):
+            path.append(goal.copy())
         logger.debug(
             "RRT*: path extracted, %d waypoints, cost=%.3f",
             len(path),
@@ -344,7 +350,11 @@ class RRTPlanner(ContinuousPlanner):
             return nodes, parent, None
 
         path = self._extract_path(nodes, parent, best_goal_node)
-        path.append(goal.copy())
+        # Only append the exact goal when the direct segment is free (same
+        # fix as in plan() — large goal_tolerance allows the last tree node
+        # to be far enough for the segment to cross an obstacle).
+        if self._segment_free(nodes[best_goal_node], goal):
+            path.append(goal.copy())
         return nodes, parent, path
 
     # ------------------------------------------------------------------
