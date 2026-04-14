@@ -24,6 +24,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+from arco.config.palette import (
+    LAYER_ALPHA,
+    annotation_hex,
+    layer_hex,
+    obstacle_hex,
+)
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.sparse import CityScene
 
@@ -56,7 +62,7 @@ def _draw_panel(
     if len(road) > 0:
         ax.scatter(road[:, 0], road[:, 1], s=2, c="#b8c4ce", alpha=0.6)
     if len(obs) > 0:
-        ax.scatter(obs[:, 0], obs[:, 1], s=3, c="#8c8c8c", alpha=0.55)
+        ax.scatter(obs[:, 0], obs[:, 1], s=3, c=obstacle_hex(), alpha=0.55)
 
     if path is not None and len(path) >= 2:
         arr = np.array(path)
@@ -67,8 +73,9 @@ def _draw_panel(
 
     sx, sy = scene._start  # noqa: SLF001
     gx, gy = scene._goal  # noqa: SLF001
-    ax.plot(sx, sy, "o", color="green", ms=8, label="Start")
-    ax.plot(gx, gy, "*", color="crimson", ms=12, label="Goal")
+    ann = annotation_hex()
+    ax.plot(sx, sy, "s", color=ann, ms=8, label="Start")
+    ax.plot(gx, gy, "x", color=ann, ms=12, label="Goal")
 
     ax.set_title(title)
     ax.set_xlabel("X (m)")
@@ -120,8 +127,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         "City race - RRT*",
         rrt_path,
         rrt_traj,
-        color="royalblue",
-        traj_color="cornflowerblue",
+        color=layer_hex("rrt", "path"),
+        traj_color=layer_hex("rrt", "trajectory"),
         metrics=scene.rrt_metrics,
     )
     _draw_panel(
@@ -130,8 +137,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         "City race - SST",
         sst_path,
         sst_traj,
-        color="seagreen",
-        traj_color="limegreen",
+        color=layer_hex("sst", "path"),
+        traj_color=layer_hex("sst", "trajectory"),
         metrics=scene.sst_metrics,
     )
 

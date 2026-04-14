@@ -36,6 +36,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
+from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.kinematics import RRRobot
 from arco.planning.continuous import (
     RRTPlanner,
@@ -307,7 +308,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             ymax - ymin,
             linewidth=1,
             edgecolor="red",
-            facecolor="tomato",
+            facecolor=obstacle_hex(),
             alpha=0.5,
             label="Obstacle",
         )
@@ -327,7 +328,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             rrt_cart,
             rrt_traj_cart,
             [_obs_patch(obs) for obs in obstacles],
-            "royalblue",
+            layer_hex("rrt", "path"),
             rrt_path,
             {
                 "steps": max(0, (len(rrt_path) - 1) if rrt_path else 0),
@@ -346,7 +347,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             sst_cart,
             sst_traj_cart,
             [_obs_patch(obs) for obs in obstacles],
-            "mediumseagreen",
+            layer_hex("sst", "path"),
             sst_path,
             {
                 "steps": max(0, (len(sst_path) - 1) if sst_path else 0),
@@ -395,7 +396,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             robot,
             float(start_q[0]),
             float(start_q[1]),
-            color="limegreen",
+            color=annotation_hex(),
             alpha=0.8,
             label="Start arm",
         )
@@ -404,7 +405,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             robot,
             float(goal_q[0]),
             float(goal_q[1]),
-            color="orangered",
+            color=annotation_hex(),
             alpha=0.8,
             label="Goal arm",
         )
@@ -430,7 +431,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 tarr[:, 0],
                 tarr[:, 1],
                 "o-",
-                color="orangered",
+                color=layer_hex("rrt", "trajectory"),
                 linewidth=2.0,
                 markersize=3,
                 zorder=7,
@@ -441,8 +442,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         # Start / goal end-effector markers
         sx, sy = robot.forward_kinematics(float(start_q[0]), float(start_q[1]))
         gx, gy = robot.forward_kinematics(float(goal_q[0]), float(goal_q[1]))
-        ax.plot(sx, sy, "o", color="limegreen", ms=8, zorder=9)
-        ax.plot(gx, gy, "*", color="orangered", ms=12, zorder=9)
+        ax.plot(sx, sy, "s", color=annotation_hex(), ms=8, zorder=9)
+        ax.plot(gx, gy, "x", color=annotation_hex(), ms=12, zorder=9)
 
         ax.set_aspect("equal")
         ax.set_xlabel("X (m)")
@@ -494,7 +495,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         ax_joint.plot(
             arr[:, 0],
             arr[:, 1],
-            color="royalblue",
+            color=layer_hex("rrt", "path"),
             linewidth=1.5,
             alpha=0.8,
             label="RRT* path",
@@ -505,7 +506,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             tarr[:, 0],
             tarr[:, 1],
             "o-",
-            color="cornflowerblue",
+            color=layer_hex("rrt", "trajectory"),
             linewidth=2.0,
             markersize=3,
             alpha=0.9,
@@ -517,7 +518,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         ax_joint.plot(
             arr[:, 0],
             arr[:, 1],
-            color="mediumseagreen",
+            color=layer_hex("sst", "path"),
             linewidth=1.5,
             alpha=0.8,
             label="SST path",
@@ -528,7 +529,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             tarr[:, 0],
             tarr[:, 1],
             "o-",
-            color="limegreen",
+            color=layer_hex("sst", "trajectory"),
             linewidth=2.0,
             markersize=3,
             alpha=0.9,
@@ -539,8 +540,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_joint.plot(
         float(start_q[0]),
         float(start_q[1]),
-        "o",
-        color="limegreen",
+        "s",
+        color=annotation_hex(),
         ms=10,
         zorder=9,
         label="Start",
@@ -548,8 +549,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_joint.plot(
         float(goal_q[0]),
         float(goal_q[1]),
-        "*",
-        color="orangered",
+        "x",
+        color=annotation_hex(),
         ms=14,
         zorder=9,
         label="Goal",

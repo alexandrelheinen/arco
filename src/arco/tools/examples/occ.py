@@ -33,6 +33,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
+from arco.config.palette import annotation_hex, obstacle_hex
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.occ import OCCScene
 
@@ -96,7 +97,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     if collision_pts:
         cxs = [p[0] for p in collision_pts]
         cys = [p[1] for p in collision_pts]
-        ax1.scatter(cxs, cys, s=2, c="salmon", alpha=0.3, label="Collision")
+        ax1.scatter(
+            cxs, cys, s=2, c=obstacle_hex(), alpha=0.3, label="Collision"
+        )
     if rrt_path and len(rrt_path) >= 2:
         rxs = [p[0] for p in rrt_path]
         rys = [p[1] for p in rrt_path]
@@ -105,8 +108,22 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         sxs = [p[0] for p in sst_path]
         sys_ = [p[1] for p in sst_path]
         ax1.plot(sxs, sys_, "g--", linewidth=2, label="SST")
-    ax1.plot(start_pose[0], start_pose[1], "go", markersize=10, label="Start")
-    ax1.plot(goal_pose[0], goal_pose[1], "r*", markersize=12, label="Goal")
+    ax1.plot(
+        start_pose[0],
+        start_pose[1],
+        "s",
+        color=annotation_hex(),
+        markersize=10,
+        label="Start",
+    )
+    ax1.plot(
+        goal_pose[0],
+        goal_pose[1],
+        "x",
+        color=annotation_hex(),
+        markersize=12,
+        label="Goal",
+    )
     ax1.set_xlim(x_range)
     ax1.set_ylim(y_range)
     ax1.legend(fontsize=8)
@@ -121,7 +138,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     if collision_pts:
         cxs = [p[0] for p in collision_pts]
         cpsis = [p[2] for p in collision_pts]
-        ax2.scatter(cxs, cpsis, s=2, c="salmon", alpha=0.3, label="Collision")
+        ax2.scatter(
+            cxs, cpsis, s=2, c=obstacle_hex(), alpha=0.3, label="Collision"
+        )
     if rrt_path and len(rrt_path) >= 2:
         rxs = [p[0] for p in rrt_path]
         rpsis = [p[2] for p in rrt_path]
@@ -130,8 +149,22 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         sxs = [p[0] for p in sst_path]
         spsis = [p[2] for p in sst_path]
         ax2.plot(sxs, spsis, "g--", linewidth=2, label="SST")
-    ax2.plot(start_pose[0], start_pose[2], "go", markersize=10, label="Start")
-    ax2.plot(goal_pose[0], goal_pose[2], "r*", markersize=12, label="Goal")
+    ax2.plot(
+        start_pose[0],
+        start_pose[2],
+        "s",
+        color=annotation_hex(),
+        markersize=10,
+        label="Start",
+    )
+    ax2.plot(
+        goal_pose[0],
+        goal_pose[2],
+        "x",
+        color=annotation_hex(),
+        markersize=12,
+        label="Goal",
+    )
     ax2.set_xlim(x_range)
     ax2.set_ylim([-math.pi, math.pi])
     ax2.legend(fontsize=8)
@@ -150,7 +183,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             ymax - ymin,
             linewidth=1,
             edgecolor="black",
-            facecolor="salmon",
+            facecolor=obstacle_hex(),
             alpha=0.7,
         )
         ax3.add_patch(rect)
@@ -162,8 +195,22 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         sxs = [p[0] for p in sst_path]
         sys_ = [p[1] for p in sst_path]
         ax3.plot(sxs, sys_, "g--", linewidth=2, label="SST")
-    ax3.plot(start_pose[0], start_pose[1], "go", markersize=10, label="Start")
-    ax3.plot(goal_pose[0], goal_pose[1], "r*", markersize=12, label="Goal")
+    ax3.plot(
+        start_pose[0],
+        start_pose[1],
+        "s",
+        color=annotation_hex(),
+        markersize=10,
+        label="Start",
+    )
+    ax3.plot(
+        goal_pose[0],
+        goal_pose[1],
+        "x",
+        color=annotation_hex(),
+        markersize=12,
+        label="Goal",
+    )
     ax3.set_xlim(x_range)
     ax3.set_ylim(y_range)
     ax3.legend(fontsize=8)

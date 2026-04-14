@@ -17,6 +17,7 @@ from typing import Any
 import numpy as np
 import pygame
 
+from arco.config.palette import annotation_rgb, layer_rgb, obstacle_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.sim.scene import SimScene
 from arco.tools.simulator.sim.tracking import VehicleConfig
@@ -24,24 +25,20 @@ from arco.tools.simulator.sim.tracking import VehicleConfig
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Color palette (SST-specific — teal tones for the exploration tree)
+# Color palette — derived from arco.config.palette
 # ---------------------------------------------------------------------------
-_C_BG: tuple[int, int, int] = (28, 28, 35)
-_C_OBSTACLE: tuple[int, int, int] = (160, 60, 60)
-_C_TREE_EDGE: tuple[int, int, int] = (60, 160, 140)
-_C_TREE_NODE: tuple[int, int, int] = (50, 140, 120)
-_C_PATH: tuple[int, int, int] = (230, 170, 30)  # raw path — kept dimmer
-_C_TRAJ: tuple[int, int, int] = (
-    255,
-    100,
-    50,
-)  # optimized trajectory — highlighted
-_C_START: tuple[int, int, int] = (60, 200, 90)
-_C_GOAL: tuple[int, int, int] = (220, 80, 220)
-_C_SDF_NEAR: tuple[int, int, int] = (80, 35, 35)
+_C_BG: tuple[int, int, int] = ui_rgb("background")
+_C_OBSTACLE: tuple[int, int, int] = obstacle_rgb()
+_C_TREE_EDGE: tuple[int, int, int] = layer_rgb("sst", "tree")
+_C_TREE_NODE: tuple[int, int, int] = layer_rgb("sst", "tree")
+_C_PATH: tuple[int, int, int] = layer_rgb("sst", "path")
+_C_TRAJ: tuple[int, int, int] = layer_rgb("sst", "trajectory")
+_C_START: tuple[int, int, int] = annotation_rgb(dark_bg=True)
+_C_GOAL: tuple[int, int, int] = annotation_rgb(dark_bg=True)
+_C_SDF_NEAR: tuple[int, int, int] = ui_rgb("road_sdf")
 
-_C_HUD = (220, 220, 220)
-_C_HUD_SHADOW = (40, 40, 50)
+_C_HUD = ui_rgb("hud_text")
+_C_HUD_SHADOW = ui_rgb("hud_shadow")
 
 # Alpha for the raw reference path when the trajectory is drawn on top.
 _PATH_ALPHA = 0.35

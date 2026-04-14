@@ -72,7 +72,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glViewport,
 )
 
-from arco.config import load_config
+from arco.config.palette import layer_rgb, ui_rgb
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.scenes.rr import RRScene
@@ -97,23 +97,16 @@ _INNER_RADIUS_THRESHOLD: float = 1e-6
 # Color helpers
 # ---------------------------------------------------------------------------
 
-_COLORS = load_config("colors")
-
-
-def _rgb(section: str, key: str) -> tuple[int, int, int]:
-    v = _COLORS[section][key]
-    return (int(v[0]), int(v[1]), int(v[2]))
-
 
 def _cf(t: tuple[int, int, int]) -> tuple[float, float, float]:
     return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
-_C_BG = _rgb("map", "background")
-_C_RRT_PATH = _rgb("rrt", "path")
-_C_RRT_TRAJ = _rgb("rrt", "trajectory")
-_C_SST_PATH = _rgb("sst", "path")
-_C_SST_TRAJ = _rgb("sst", "trajectory")
+_C_BG = ui_rgb("background")
+_C_RRT_PATH = layer_rgb("rrt", "path")
+_C_RRT_TRAJ = layer_rgb("rrt", "trajectory")
+_C_SST_PATH = layer_rgb("sst", "path")
+_C_SST_TRAJ = layer_rgb("sst", "trajectory")
 
 # ---------------------------------------------------------------------------
 # Geometry helpers

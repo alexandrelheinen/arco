@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 import pygame
 
+from arco.config.palette import annotation_rgb, layer_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.sim.scene import SimScene
 from arco.tools.simulator.sim.tracking import VehicleConfig
@@ -23,16 +24,16 @@ _ENDPOINT_OFFSET_M = 1.0
 _ACTIVATION_RADIUS = 12.0
 
 # Color palette (int tuples → _c() converts to float)
-_C_BG = (28, 28, 35)
+_C_BG = ui_rgb("background")
 _C_ROAD = (90, 90, 100)
-_C_ROAD_ROUTE = (220, 80, 60)
+_C_ROAD_ROUTE = layer_rgb("astar", "path")
 _C_NODE = (70, 100, 130)
-_C_NODE_START = (60, 200, 90)
-_C_NODE_GOAL = (60, 100, 220)
-_C_NODE_ROUTE = (200, 100, 80)
-_C_SMOOTH_PATH = (230, 140, 40)
-_C_HUD = (220, 220, 220)
-_C_HUD_SHADOW = (40, 40, 50)
+_C_NODE_START = annotation_rgb(dark_bg=True)
+_C_NODE_GOAL = annotation_rgb(dark_bg=True)
+_C_NODE_ROUTE = layer_rgb("astar", "path")
+_C_SMOOTH_PATH = layer_rgb("astar", "trajectory")
+_C_HUD = ui_rgb("hud_text")
+_C_HUD_SHADOW = ui_rgb("hud_shadow")
 
 
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:

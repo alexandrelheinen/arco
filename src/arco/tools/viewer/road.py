@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+from arco.config.palette import annotation_hex, layer_hex
 from arco.mapping.graph.road import RoadGraph
 
 
@@ -70,7 +71,13 @@ def draw_road_network(
         ys = [p[1] for p in pts]
         key = (min(node_a, node_b), max(node_a, node_b))
         if key in route_edge_set:
-            ax.plot(xs, ys, color="tomato", linewidth=2.5, zorder=3)
+            ax.plot(
+                xs,
+                ys,
+                color=layer_hex("astar", "path"),
+                linewidth=2.5,
+                zorder=3,
+            )
         else:
             ax.plot(xs, ys, color="silver", linewidth=1.2, zorder=2)
 
@@ -78,15 +85,15 @@ def draw_road_network(
     for node_id in graph.nodes:
         x, y = graph.position(node_id)
         if route and node_id == route[0]:
-            color = "limegreen"
+            color = annotation_hex()
             size = 120
             zorder = 6
         elif route and node_id == route[-1]:
-            color = "royalblue"
+            color = annotation_hex()
             size = 120
             zorder = 6
         elif route and node_id in set(route):
-            color = "tomato"
+            color = layer_hex("astar", "path")
             size = 80
             zorder = 5
         else:
@@ -157,13 +164,19 @@ def draw_road_network(
     # --- Legend ---
     legend_handles = [
         plt.Line2D([0], [0], color="silver", linewidth=1.5, label="Road"),
-        plt.Line2D([0], [0], color="tomato", linewidth=2.5, label="Route"),
+        plt.Line2D(
+            [0],
+            [0],
+            color=layer_hex("astar", "path"),
+            linewidth=2.5,
+            label="Route",
+        ),
         plt.Line2D(
             [0],
             [0],
             marker="o",
             color="w",
-            markerfacecolor="limegreen",
+            markerfacecolor=annotation_hex(),
             markersize=8,
             label="Start",
         ),
@@ -172,7 +185,7 @@ def draw_road_network(
             [0],
             marker="o",
             color="w",
-            markerfacecolor="royalblue",
+            markerfacecolor=annotation_hex(),
             markersize=8,
             label="Goal",
         ),

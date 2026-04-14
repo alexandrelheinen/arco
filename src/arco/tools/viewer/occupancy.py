@@ -9,6 +9,7 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+from arco.config.palette import annotation_hex, obstacle_hex
 from arco.mapping.kdtree import KDTreeOccupancy
 
 
@@ -23,13 +24,13 @@ def draw_occupancy(
     goal: Optional[np.ndarray] = None,
     resolution: int = 200,
     draw_tree: bool = False,
-    obstacle_color: str = "dimgray",
+    obstacle_color: str = obstacle_hex(),
     free_color: str = "white",
     path_color: str = "tomato",
     path_alpha: float = 1.0,
     tree_color: str = "lightblue",
-    start_color: str = "limegreen",
-    goal_color: str = "royalblue",
+    start_color: str = annotation_hex(),
+    goal_color: str = annotation_hex(),
     ax: Optional[Axes] = None,
     title: Optional[str] = None,
     figsize: Tuple[int, int] = (8, 8),
@@ -151,7 +152,7 @@ def draw_occupancy(
         ax.plot(
             start[0],
             start[1],
-            "o",
+            "s",
             color=start_color,
             markersize=10,
             zorder=5,
@@ -161,7 +162,7 @@ def draw_occupancy(
         ax.plot(
             goal[0],
             goal[1],
-            "*",
+            "x",
             color=goal_color,
             markersize=14,
             zorder=5,

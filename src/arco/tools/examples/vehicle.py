@@ -25,6 +25,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import (
     RRTPlanner,
@@ -175,7 +176,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             arr[:, 0],
             arr[:, 1],
             "o-",
-            color="orangered",
+            color=layer_hex("rrt", "trajectory"),
             linewidth=2.3,
             markersize=3,
             label="Optimized",
@@ -221,7 +222,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             arr[:, 0],
             arr[:, 1],
             "o-",
-            color="orangered",
+            color=layer_hex("sst", "trajectory"),
             linewidth=2.3,
             markersize=3,
             label="Optimized",

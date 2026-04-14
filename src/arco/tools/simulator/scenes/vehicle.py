@@ -8,19 +8,11 @@ from typing import Any
 
 import numpy as np
 
-from arco.config import load_config
+from arco.config.palette import annotation_rgb, layer_rgb, obstacle_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.sim.tracking import VehicleConfig
 
-_COLORS = load_config("colors")
-
-
-def _rgb(section: str, key: str) -> tuple[int, int, int]:
-    v = _COLORS[section][key]
-    return (int(v[0]), int(v[1]), int(v[2]))
-
-
-_C_BG: tuple[int, int, int] = _rgb("map", "background")
+_C_BG: tuple[int, int, int] = ui_rgb("background")
 
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import (
@@ -295,99 +287,150 @@ class VehicleScene:
         self, rrt_revealed: int, sst_revealed: int, racing: bool = False
     ) -> None:
         assert self._occ is not None
+        _ob = obstacle_rgb()
         renderer_gl.draw_obstacle_points(
-            self._occ.points, 0.55, 0.55, 0.55, point_size=5.0
+            self._occ.points,
+            _ob[0] / 255.0,
+            _ob[1] / 255.0,
+            _ob[2] / 255.0,
+            point_size=5.0,
         )
 
         if not racing:
+            _re = layer_rgb("rrt", "tree")
             renderer_gl.draw_tree(
                 self._rrt_nodes,
                 self._rrt_parent,
                 rrt_revealed,
-                0.25,
-                0.45,
-                0.85,
-                0.20,
-                0.35,
-                0.75,
+                _re[0] / 255.0,
+                _re[1] / 255.0,
+                _re[2] / 255.0,
+                _re[0] / 255.0,
+                _re[1] / 255.0,
+                _re[2] / 255.0,
             )
+            _se = layer_rgb("sst", "tree")
             renderer_gl.draw_tree(
                 self._sst_nodes,
                 self._sst_parent,
                 sst_revealed,
-                0.20,
-                0.60,
-                0.35,
-                0.15,
-                0.50,
-                0.30,
+                _se[0] / 255.0,
+                _se[1] / 255.0,
+                _se[2] / 255.0,
+                _se[0] / 255.0,
+                _se[1] / 255.0,
+                _se[2] / 255.0,
             )
 
+            _rp = layer_rgb("rrt", "path")
+            _rt = layer_rgb("rrt", "trajectory")
             if rrt_revealed >= self.rrt_total and self._rrt_path is not None:
                 renderer_gl.draw_path(
                     self._rrt_path,
-                    0.25,
-                    0.45,
-                    0.85,
+                    _rp[0] / 255.0,
+                    _rp[1] / 255.0,
+                    _rp[2] / 255.0,
                     width=1.6,
                     alpha=(0.35 if self._rrt_traj else 1.0),
                 )
                 if self._rrt_traj:
                     renderer_gl.draw_path(
-                        self._rrt_traj, 0.35, 0.55, 0.95, width=3.0
+                        self._rrt_traj,
+                        _rt[0] / 255.0,
+                        _rt[1] / 255.0,
+                        _rt[2] / 255.0,
+                        width=3.0,
                     )
+            _sp = layer_rgb("sst", "path")
+            _st = layer_rgb("sst", "trajectory")
             if sst_revealed >= self.sst_total and self._sst_path is not None:
                 renderer_gl.draw_path(
                     self._sst_path,
-                    0.20,
-                    0.60,
-                    0.35,
+                    _sp[0] / 255.0,
+                    _sp[1] / 255.0,
+                    _sp[2] / 255.0,
                     width=1.6,
                     alpha=(0.35 if self._sst_traj else 1.0),
                 )
                 if self._sst_traj:
                     renderer_gl.draw_path(
-                        self._sst_traj, 0.35, 0.80, 0.45, width=3.0
+                        self._sst_traj,
+                        _st[0] / 255.0,
+                        _st[1] / 255.0,
+                        _st[2] / 255.0,
+                        width=3.0,
                     )
         else:
+            _rt = layer_rgb("rrt", "trajectory")
+            _rp = layer_rgb("rrt", "path")
             if self._rrt_traj:
                 renderer_gl.draw_path(
-                    self._rrt_traj, 0.35, 0.55, 0.95, width=3.0
+                    self._rrt_traj,
+                    _rt[0] / 255.0,
+                    _rt[1] / 255.0,
+                    _rt[2] / 255.0,
+                    width=3.0,
                 )
             elif self._rrt_path is not None:
                 renderer_gl.draw_path(
-                    self._rrt_path, 0.25, 0.45, 0.85, width=2.0
+                    self._rrt_path,
+                    _rp[0] / 255.0,
+                    _rp[1] / 255.0,
+                    _rp[2] / 255.0,
+                    width=2.0,
                 )
+            _st = layer_rgb("sst", "trajectory")
+            _sp = layer_rgb("sst", "path")
             if self._sst_traj:
                 renderer_gl.draw_path(
-                    self._sst_traj, 0.35, 0.80, 0.45, width=3.0
+                    self._sst_traj,
+                    _st[0] / 255.0,
+                    _st[1] / 255.0,
+                    _st[2] / 255.0,
+                    width=3.0,
                 )
             elif self._sst_path is not None:
                 renderer_gl.draw_path(
-                    self._sst_path, 0.20, 0.60, 0.35, width=2.0
+                    self._sst_path,
+                    _sp[0] / 255.0,
+                    _sp[1] / 255.0,
+                    _sp[2] / 255.0,
+                    width=2.0,
                 )
 
+        _ann = annotation_rgb(dark_bg=True)
+        _bg = _C_BG
         renderer_gl.draw_ring(
             float(self._start[0]),
             float(self._start[1]),
             1.2,
             0.6,
-            0.1,
-            0.7,
-            0.2,
+            _ann[0] / 255.0,
+            _ann[1] / 255.0,
+            _ann[2] / 255.0,
         )
         renderer_gl.draw_disc(
-            float(self._start[0]), float(self._start[1]), 0.6, 0.97, 0.98, 0.99
+            float(self._start[0]),
+            float(self._start[1]),
+            0.6,
+            _bg[0] / 255.0,
+            _bg[1] / 255.0,
+            _bg[2] / 255.0,
         )
         renderer_gl.draw_ring(
             float(self._goal[0]),
             float(self._goal[1]),
             1.2,
             0.6,
-            0.85,
-            0.2,
-            0.3,
+            _ann[0] / 255.0,
+            _ann[1] / 255.0,
+            _ann[2] / 255.0,
         )
         renderer_gl.draw_disc(
-            float(self._goal[0]), float(self._goal[1]), 0.6, 0.97, 0.98, 0.99
+            float(self._goal[0]),
+            float(self._goal[1]),
+            0.6,
+            _bg[0] / 255.0,
+            _bg[1] / 255.0,
+            _bg[2] / 255.0,
         )

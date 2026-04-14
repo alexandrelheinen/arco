@@ -30,6 +30,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import (
     RRTPlanner,
@@ -261,7 +262,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             "RRT* — 3-D PPP warehouse",
             rrt_path,
             rrt_len,
-            "royalblue",
+            layer_hex("rrt", "path"),
             rrt_traj,
             {
                 "steps": max(0, (len(rrt_path) - 1) if rrt_path else 0),
@@ -282,7 +283,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             "SST — 3-D PPP warehouse",
             sst_path,
             sst_len,
-            "mediumseagreen",
+            layer_hex("sst", "path"),
             sst_traj,
             {
                 "steps": max(0, (len(sst_path) - 1) if sst_path else 0),
@@ -346,7 +347,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 tarr[:, 1],
                 tarr[:, 2],
                 "o-",
-                color="orangered",
+                color=layer_hex("rrt", "trajectory"),
                 linewidth=2.5,
                 markersize=3,
                 zorder=7,
@@ -358,7 +359,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             [_START[0]],
             [_START[1]],
             [_START[2]],
-            color="limegreen",
+            color=annotation_hex(),
             s=80,
             zorder=6,
             label="Start",
@@ -367,7 +368,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             [_GOAL[0]],
             [_GOAL[1]],
             [_GOAL[2]],
-            color="orangered",
+            color=annotation_hex(),
             marker="*",
             s=120,
             zorder=6,

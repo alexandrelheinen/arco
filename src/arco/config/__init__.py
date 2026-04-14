@@ -78,3 +78,42 @@ def load_map_config(name: str) -> dict[str, Any]:
         FileNotFoundError: If ``tools/map/<name>.yml`` does not exist.
     """
     return _load_yaml(os.path.join(_MAP_DIR, f"{name}.yml"))
+
+
+from arco.config.palette import (  # noqa: E402
+    LAYER_ALPHA,
+    annotation_hex,
+    annotation_rgb,
+    hex_to_float,
+    hex_to_rgb,
+    layer_float,
+    layer_hex,
+    layer_rgb,
+    method_base_float,
+    method_base_hex,
+    method_base_rgb,
+    obstacle_float,
+    obstacle_hex,
+    obstacle_rgb,
+    ui_rgb,
+)
+
+__all__ = [
+    "load_config",
+    "load_map_config",
+    "LAYER_ALPHA",
+    "annotation_hex",
+    "annotation_rgb",
+    "hex_to_float",
+    "hex_to_rgb",
+    "layer_float",
+    "layer_hex",
+    "layer_rgb",
+    "method_base_float",
+    "method_base_hex",
+    "method_base_rgb",
+    "obstacle_float",
+    "obstacle_hex",
+    "obstacle_rgb",
+    "ui_rgb",
+]
