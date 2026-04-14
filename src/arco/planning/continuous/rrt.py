@@ -11,6 +11,13 @@ import numpy as np
 from arco.mapping.occupancy import Occupancy
 
 from .base import ContinuousPlanner
+from .telemetry import (
+    DEFAULT_TELEMETRY_PATH,
+    TELEMETRY_WRITE_INTERVAL,
+    PlannerTelemetry,
+    StopCriterion,
+    write_telemetry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +152,7 @@ class RRTPlanner(ContinuousPlanner):
 
         best_goal_node: Optional[int] = None
         best_goal_cost = math.inf
+        _best_dist_to_goal = math.inf
 
         rng = np.random.default_rng()
 
