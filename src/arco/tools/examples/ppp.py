@@ -321,30 +321,73 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     if rrt_path is not None and len(rrt_path) >= 2:
         arr = np.array(rrt_path)
-        ax_ws.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
-                   color=layer_hex("rrt", "path"), linewidth=1.5, alpha=0.7,
-                   label="RRT* path")
+        ax_ws.plot(
+            arr[:, 0],
+            arr[:, 1],
+            arr[:, 2],  # type: ignore[attr-defined]
+            color=layer_hex("rrt", "path"),
+            linewidth=1.5,
+            alpha=0.7,
+            label="RRT* path",
+        )
     if rrt_traj is not None and len(rrt_traj) >= 2:
         tarr = np.array([[p[0], p[1], p[2]] for p in rrt_traj])
-        ax_ws.plot(tarr[:, 0], tarr[:, 1], tarr[:, 2], "o-",  # type: ignore[attr-defined]
-                   color=layer_hex("rrt", "trajectory"), linewidth=2.5,
-                   markersize=3, alpha=0.9, label="RRT* traj")
+        ax_ws.plot(
+            tarr[:, 0],
+            tarr[:, 1],
+            tarr[:, 2],
+            "o-",  # type: ignore[attr-defined]
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=2.5,
+            markersize=3,
+            alpha=0.9,
+            label="RRT* traj",
+        )
     if sst_path is not None and len(sst_path) >= 2:
         arr = np.array(sst_path)
-        ax_ws.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
-                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.7,
-                   label="SST path")
+        ax_ws.plot(
+            arr[:, 0],
+            arr[:, 1],
+            arr[:, 2],  # type: ignore[attr-defined]
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=0.7,
+            label="SST path",
+        )
     if sst_traj is not None and len(sst_traj) >= 2:
         tarr = np.array([[p[0], p[1], p[2]] for p in sst_traj])
-        ax_ws.plot(tarr[:, 0], tarr[:, 1], tarr[:, 2], "o-",  # type: ignore[attr-defined]
-                   color=layer_hex("sst", "trajectory"), linewidth=2.5,
-                   markersize=3, alpha=0.9, label="SST traj")
+        ax_ws.plot(
+            tarr[:, 0],
+            tarr[:, 1],
+            tarr[:, 2],
+            "o-",  # type: ignore[attr-defined]
+            color=layer_hex("sst", "trajectory"),
+            linewidth=2.5,
+            markersize=3,
+            alpha=0.9,
+            label="SST traj",
+        )
 
-    ax_ws.scatter([_START[0]], [_START[1]], [_START[2]],  # type: ignore[attr-defined]
-                  color=annotation_hex(), s=80, zorder=6, label="Start")
-    ax_ws.scatter([_GOAL[0]], [_GOAL[1]], [_GOAL[2]],  # type: ignore[attr-defined]
-                  color=annotation_hex(), marker="x", linewidths=2,
-                  s=80, zorder=6, label="Goal")
+    ax_ws.scatter(
+        [_START[0]],
+        [_START[1]],
+        [_START[2]],  # type: ignore[attr-defined]
+        color=annotation_hex(),
+        s=80,
+        zorder=6,
+        label="Start",
+    )
+    ax_ws.scatter(
+        [_GOAL[0]],
+        [_GOAL[1]],
+        [_GOAL[2]],  # type: ignore[attr-defined]
+        color=annotation_hex(),
+        marker="x",
+        linewidths=2,
+        s=80,
+        zorder=6,
+        label="Goal",
+    )
 
     ax_ws.set_xlim(*x_lim)  # type: ignore[attr-defined]
     ax_ws.set_ylim(*y_lim)  # type: ignore[attr-defined]
@@ -368,11 +411,20 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         f"SST traj dur: {_format_clock(sst_traj_dur)} | {sst_opt_status}",
     ]
     ax_ws.text2D(  # type: ignore[attr-defined]
-        0.02, 0.98, "\n".join(metrics_lines),
-        transform=ax_ws.transAxes, va="top", ha="left", fontsize=7,
+        0.02,
+        0.98,
+        "\n".join(metrics_lines),
+        transform=ax_ws.transAxes,
+        va="top",
+        ha="left",
+        fontsize=7,
         color="black",
-        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.80,
-              "edgecolor": "none"},
+        bbox={
+            "boxstyle": "round,pad=0.3",
+            "facecolor": "white",
+            "alpha": 0.80,
+            "edgecolor": "none",
+        },
     )
 
     # ---- ax_cs: C-space = workspace for PPP, annotated with vel. constraints
@@ -381,27 +433,62 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     if rrt_path is not None and len(rrt_path) >= 2:
         arr = np.array(rrt_path)
-        ax_cs.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
-                   color=layer_hex("rrt", "path"), linewidth=1.5, alpha=0.8,
-                   label="RRT* path")
+        ax_cs.plot(
+            arr[:, 0],
+            arr[:, 1],
+            arr[:, 2],  # type: ignore[attr-defined]
+            color=layer_hex("rrt", "path"),
+            linewidth=1.5,
+            alpha=0.8,
+            label="RRT* path",
+        )
     if sst_path is not None and len(sst_path) >= 2:
         arr = np.array(sst_path)
-        ax_cs.plot(arr[:, 0], arr[:, 1], arr[:, 2],  # type: ignore[attr-defined]
-                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.8,
-                   label="SST path")
+        ax_cs.plot(
+            arr[:, 0],
+            arr[:, 1],
+            arr[:, 2],  # type: ignore[attr-defined]
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=0.8,
+            label="SST path",
+        )
 
     # Velocity constraint box (blue translucent) — reach from start in 1 s
     max_vel = float(sim_cfg.get("max_joint_vel", 3.0))
     sx, sy, sz = float(_START[0]), float(_START[1]), float(_START[2])
-    _draw_box(ax_cs, sx - max_vel, sy - max_vel, sz - max_vel,
-              sx + max_vel, sy + max_vel, sz + max_vel,
-              color="blue", alpha=0.08)
+    _draw_box(
+        ax_cs,
+        sx - max_vel,
+        sy - max_vel,
+        sz - max_vel,
+        sx + max_vel,
+        sy + max_vel,
+        sz + max_vel,
+        color="blue",
+        alpha=0.08,
+    )
 
-    ax_cs.scatter([_START[0]], [_START[1]], [_START[2]],  # type: ignore[attr-defined]
-                  color=annotation_hex(), s=80, zorder=6, label="Start")
-    ax_cs.scatter([_GOAL[0]], [_GOAL[1]], [_GOAL[2]],  # type: ignore[attr-defined]
-                  color=annotation_hex(), marker="x", linewidths=2,
-                  s=80, zorder=6, label="Goal")
+    ax_cs.scatter(
+        [_START[0]],
+        [_START[1]],
+        [_START[2]],  # type: ignore[attr-defined]
+        color=annotation_hex(),
+        s=80,
+        zorder=6,
+        label="Start",
+    )
+    ax_cs.scatter(
+        [_GOAL[0]],
+        [_GOAL[1]],
+        [_GOAL[2]],  # type: ignore[attr-defined]
+        color=annotation_hex(),
+        marker="x",
+        linewidths=2,
+        s=80,
+        zorder=6,
+        label="Goal",
+    )
 
     ax_cs.set_xlim(*x_lim)  # type: ignore[attr-defined]
     ax_cs.set_ylim(*y_lim)  # type: ignore[attr-defined]
@@ -422,19 +509,32 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_times, sst_V = _lyapunov_series(sst_traj, sst_durs, goal_arr)
 
     if len(rrt_times) > 0:
-        ax_lv.plot(rrt_times, rrt_V,
-                   color=layer_hex("rrt", "trajectory"), linewidth=1.8,
-                   label="RRT* V(t)")
+        ax_lv.plot(
+            rrt_times,
+            rrt_V,
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=1.8,
+            label="RRT* V(t)",
+        )
         window = (rrt_times[-1] - rrt_times[0]) / 10.0
-        ax_lv.axvspan(rrt_times[-1] - window, rrt_times[-1],
-                      alpha=0.10, color="gray")
+        ax_lv.axvspan(
+            rrt_times[-1] - window, rrt_times[-1], alpha=0.10, color="gray"
+        )
     if len(sst_times) > 0:
-        ax_lv.plot(sst_times, sst_V,
-                   color=layer_hex("sst", "trajectory"), linewidth=1.8,
-                   label="SST V(t)")
+        ax_lv.plot(
+            sst_times,
+            sst_V,
+            color=layer_hex("sst", "trajectory"),
+            linewidth=1.8,
+            label="SST V(t)",
+        )
         window = (sst_times[-1] - sst_times[0]) / 10.0
-        ax_lv.axvspan(sst_times[-1] - window, sst_times[-1],
-                      alpha=0.10, color="steelblue")
+        ax_lv.axvspan(
+            sst_times[-1] - window,
+            sst_times[-1],
+            alpha=0.10,
+            color="steelblue",
+        )
 
     ax_lv.axhline(0, color="gray", linewidth=0.8, linestyle=":")
     ax_lv.set_xlabel("Time (s)")
