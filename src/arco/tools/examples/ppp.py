@@ -212,6 +212,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     # --- Path pruning + trajectory optimization (3-D) ----------------------
     pruner = TrajectoryPruner(
         occ,
+        step_size=np.asarray(planner_cfg["step_size"], dtype=float),
         collision_check_count=int(planner_cfg["collision_check_count"]),
     )
     opt = TrajectoryOptimizer(
