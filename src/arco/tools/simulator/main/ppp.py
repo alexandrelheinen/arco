@@ -852,9 +852,10 @@ class PPPRobot:
 
         Computes a proportional velocity command directed at *target*
         (``v = k_p * err``, clipped to ``max_vel``) and applies a
-        magnitude-based acceleration clamp so velocity changes are limited
-        to :attr:`_max_acc` * *dt* per step.  Because the commanded velocity
-        scales down as the robot nears the carrot, there is no overshoot.
+        per-axis acceleration clamp so each joint's velocity changes are
+        limited to :attr:`_max_acc` * *dt* per step independently.
+        Because the commanded velocity scales down as the robot nears the
+        carrot, there is no overshoot.
 
         Args:
             target: 3-D carrot position on the planned path.
@@ -864,12 +865,10 @@ class PPPRobot:
         # Proportional control: v_desired ∝ error → natural deceleration near
         # carrot, zero overshoot.  Clip each axis independently at max_vel.
         desired_vel = np.clip(self._k_p * err, -self._max_vel, self._max_vel)
-        # Magnitude-based acceleration limit: rate-limit the velocity change.
+        # Per-axis acceleration limit: each joint is rate-limited independently.
         dv = desired_vel - self.vel
-        dv_norm = float(np.linalg.norm(dv))
         max_dv = self._max_acc * dt
-        if dv_norm > max_dv:
-            dv = dv * (max_dv / dv_norm)
+        dv = np.clip(dv, -max_dv, max_dv)
         self.vel = np.clip(self.vel + dv, -self._max_vel, self._max_vel)
         self.pos = self.pos + self.vel * dt
 
