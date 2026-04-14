@@ -162,7 +162,7 @@ def layer_hex(method: str, layer: str) -> str:
     color is changed.
 
     Layer rules (referenced from the issue specification):
-      - ``"tree"``:       grayish tint — desaturate 55%, lighten 8%.
+      - ``"tree"``:       grayish tint — desaturate 30%, darken 5%.
       - ``"path"``:       slightly darker — darken 12%.
       - ``"pruned"``:     brighter/more saturated — lighten 5%, saturate 10%.
       - ``"trajectory"``: darker — darken 20%.
@@ -281,9 +281,9 @@ def _derive(base_hex: str, layer: str) -> str:
         ValueError: If *layer* is not recognized.
     """
     if layer == "tree":
-        # Grayish tint: desaturate strongly and lighten slightly.
+        # Grayish tint: desaturate 30%, darken 5% — keeps hue visible.
         return _adjust_hsl(
-            base_hex, lightness_delta=+0.08, saturation_delta=-0.55
+            base_hex, lightness_delta=-0.05, saturation_delta=-0.30
         )
     if layer == "path":
         # Slightly darker shade.
