@@ -13,6 +13,9 @@ pipeline.  It:
    subscriber support).
 6. Stops all nodes gracefully when :meth:`stop` is called.
 
+``arcoex`` (matplotlib static) and ``arcosim`` (pygame real-time) are
+both consumers of this bus and can be attached independently.
+
 Example::
 
     runner = PipelineRunner("config/map.yml")
@@ -21,7 +24,7 @@ Example::
     runner.register_node(guidance_node)
     runner.start()
 
-    # Frontend can be attached later:
+    # Frontend can be attached later (late-subscriber support):
     frontend = ArcoExFrontend()
     runner.attach_subscriber(frontend, GuidanceFrame)
 """
