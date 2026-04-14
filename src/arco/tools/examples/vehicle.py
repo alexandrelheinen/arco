@@ -119,8 +119,11 @@ def _simulate_vehicle(
     occ: KDTreeOccupancy,
     vehicle_cfg: dict,
     dt: float = 0.05,
-) -> list[tuple[float, float]]:
-    """Run a headless TrackingLoop and return the executed (x, y) positions.
+) -> list[tuple[float, float, float]]:
+    """Run a headless TrackingLoop and return the executed (x, y, θ) poses.
+
+    The full Dubins state is (x m, y m, θ rad): position from the planner
+    waypoints, heading θ from the TrackingLoop at each step.
 
     Args:
         traj: Optimised trajectory states (each at least (x, y, …)).
@@ -129,7 +132,7 @@ def _simulate_vehicle(
         dt: Control time step in seconds.
 
     Returns:
-        List of ``(x, y)`` poses.  Empty when *traj* is ``None`` or short.
+        List of ``(x, y, θ)`` poses.  Empty when *traj* is ``None`` or short.
     """
     if traj is None or len(traj) < 2:
         return []
@@ -151,13 +154,16 @@ def _simulate_vehicle(
         (float(p[0]), float(p[1])) for p in traj
     ]
     _, loop = build_vehicle_sim(waypoints, v_cfg, occupancy=occ)
-    executed: list[tuple[float, float]] = [waypoints[0]]
+    # Full Dubins state: (x m, y m, θ rad) — position from planner, heading from tracking.
+    executed: list[tuple[float, float, float]] = [
+        (waypoints[0][0], waypoints[0][1], 0.0)
+    ]
     max_steps = max(3000, len(waypoints) * 300)
     gx, gy = waypoints[-1]
     for _ in range(max_steps):
         result = loop.step(waypoints, dt)
-        x, y, _ = result["pose"]
-        executed.append((x, y))
+        x, y, theta = result["pose"]
+        executed.append((x, y, theta))
         if math.hypot(x - gx, y - gy) < v_cfg.goal_radius:
             break
     return executed

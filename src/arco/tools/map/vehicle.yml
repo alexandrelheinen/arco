@@ -2,6 +2,13 @@ scenario: vehicle
 
 # Vehicle benchmark scenario (2-D) with both RRT* and SST.
 
+# State space note
+# -----------------
+# The planner operates in the 2-D Cartesian projection (x m, y m).
+# The full Dubins state is (x m, y m, θ rad): heading θ is tracked by
+# TrackingLoop and is NOT part of the planner state space.
+# step_size units match the planner state: [m, m].
+
 planner:
   bounds: [[0.0, 50.0], [0.0, 50.0]]  # [m] x and y axis bounds of the planning space
   step_size: [1.0, 1.0]  # [m, m] per-dimension planner step size
