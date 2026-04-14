@@ -189,8 +189,8 @@ class VehicleScene:
                 weight_time=10.0,
                 weight_deviation=1.0,
                 weight_velocity=1.0,
-                weight_collision=5.0,
-                sample_count=2,
+                weight_collision=20.0,
+                sample_count=10,
                 max_iter=150,
             )
             res = opt.optimize(path)

@@ -97,9 +97,7 @@ class TrackingLoop:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _repulsion_turn_rate(
-        self, x: float, y: float, theta: float
-    ) -> float:
+    def _repulsion_turn_rate(self, x: float, y: float, theta: float) -> float:
         """Compute an APF obstacle-repulsion turn-rate correction.
 
         Returns an additive turn-rate (rad/s) that steers the vehicle away
@@ -129,7 +127,9 @@ class TrackingLoop:
         if self._occupancy is None or self.repulsion_gain <= 0.0:
             return 0.0
         clearance: float = getattr(self._occupancy, "clearance", 0.0)
-        if clearance <= 0.0 or not hasattr(self._occupancy, "nearest_obstacle"):
+        if clearance <= 0.0 or not hasattr(
+            self._occupancy, "nearest_obstacle"
+        ):
             return 0.0
 
         influence_radius = 2.0 * clearance
