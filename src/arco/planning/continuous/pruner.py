@@ -124,7 +124,7 @@ class TrajectoryPruner:
         pruned.append(path[-1])
 
         logger.debug(
-            "TrajectoryPruner: %d → %d nodes (%.0f %% reduction)",
+            "TrajectoryPruner: %d -> %d nodes (%.0f %% reduction)",
             node_count,
             len(pruned),
             100.0 * (1.0 - len(pruned) / node_count),
