@@ -2,7 +2,7 @@
 
 Provides a unified :class:`VehicleConfig` dataclass and factory helpers
 to build a :class:`~arco.guidance.vehicle.DubinsVehicle` with a
-:class:`~arco.guidance.control.tracking.TrackingLoop` from any ordered
+:class:`~arco.control.tracking.TrackingLoop` from any ordered
 list of (x, y) waypoints.
 """
 
@@ -11,8 +11,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from arco.guidance.control.pure_pursuit import PurePursuitController
-from arco.guidance.control.tracking import TrackingLoop
+from arco.control.pure_pursuit import PurePursuitController
+from arco.control.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 
 

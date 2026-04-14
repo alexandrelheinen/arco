@@ -19,10 +19,13 @@ Use [docs/guidelines.md](docs/guidelines.md) as the required coding and architec
 
 Before finishing a task, verify:
 
+- Run `bash scripts/pre_push.sh` — this single command runs all required
+  CI gates locally (formatting, tests, examples, smoke tests, videos).  Use
+  `--no-examples --no-smoke --no-videos` when headless display or ffmpeg are
+  unavailable.
 - Relevant tests pass.
 - New public APIs are documented and typed.
 - File organization and imports comply with [docs/guidelines.md](docs/guidelines.md).
-- An imperative order (do, implement, make, add...) is not only about writting the code. It must include all the V-cycle.
 
 ### Respect the V-cycle
 

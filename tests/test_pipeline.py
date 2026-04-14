@@ -18,8 +18,8 @@ import time
 import numpy as np
 import pytest
 
-from arco.guidance.control.pure_pursuit import PurePursuitController
-from arco.guidance.control.tracking import TrackingLoop
+from arco.control.pure_pursuit import PurePursuitController
+from arco.control.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 from arco.mapping.graph.loader import load_road_graph
 from arco.planning.discrete import RouteRouter

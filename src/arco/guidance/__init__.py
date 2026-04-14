@@ -14,13 +14,14 @@
 
 """Guidance module for path tracking and trajectory generation."""
 
-from .control import (
+from arco.control import (
     Controller,
     MPCController,
     PIDController,
     PurePursuitController,
     TrackingLoop,
 )
+
 from .interpolation import BSplineInterpolator, Interpolator
 from .primitive import DubinsPrimitive, ExplorationPrimitive
 from .vehicle import DubinsVehicle

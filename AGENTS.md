@@ -23,6 +23,10 @@ Follow [docs/guidelines.md](docs/guidelines.md) as the authoritative standard fo
 - When changing behavior, update tests in the mirrored tests structure.
 - When adding public APIs, include type annotations and Google-style docstrings.
 - Prefer project-local conventions over generic defaults.
+- **Run `bash scripts/pre_push.sh` before pushing.** This is the single
+  command that mirrors every required CI gate (formatting, tests, examples,
+  smoke tests, videos). Use `--no-examples --no-smoke --no-videos` when those
+  dependencies are unavailable (headless display, ffmpeg).
 
 An imperative order (do, implement, make, add...) is not only about writting the code. It must include all the V-cycle.
 

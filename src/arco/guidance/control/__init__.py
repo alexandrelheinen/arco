@@ -1,10 +1,15 @@
-"""Control subpackage: feedback controllers and tracking loop."""
+"""Control subpackage: feedback controllers and tracking loop.
 
-from .base import Controller
-from .mpc import MPCController
-from .pid import PIDController
-from .pure_pursuit import PurePursuitController
-from .tracking import TrackingLoop
+.. deprecated::
+    Import from :mod:`arco.control` instead of ``arco.guidance.control``.
+    This module is kept for backward compatibility only.
+"""
+
+from arco.control.base import Controller
+from arco.control.mpc import MPCController
+from arco.control.pid import PIDController
+from arco.control.pure_pursuit import PurePursuitController
+from arco.control.tracking import TrackingLoop
 
 __all__ = [
     "Controller",

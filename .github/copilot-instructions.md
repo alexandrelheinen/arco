@@ -19,11 +19,22 @@ If there is any conflict between an ad hoc request and the guidelines, prioritiz
 
 ## Validation Checklist Before Finalizing
 
+**Run `bash scripts/pre_push.sh` as the first and last validation step.**
+This single script runs all required CI gates locally:
+
+| Script | Gate |
+|--------|------|
+| `scripts/check_formatting.sh` | black + isort (blocking), pydocstyle (warning) |
+| `scripts/run_tests.sh` | pytest unit tests |
+| `scripts/run_examples.sh` | arcoex headless image generation |
+| `scripts/run_smoke_tests.sh` | arcosim headless recordings |
+| `scripts/generate_videos.sh` | arcosim full-length simulation videos |
+
+Additional checks:
 - Tests relevant to the change pass locally.
 - Public APIs have typing and docstrings.
 - File/module naming follows the package conventions.
 - Changes remain consistent with [docs/guidelines.md](../docs/guidelines.md).
-- An imperative order (do, implement, make, add...) is not only about writting the code. It must include all the V-cycle.
 
 ### Respect the V-cycle
 
