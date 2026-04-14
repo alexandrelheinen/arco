@@ -233,7 +233,9 @@ def _make_loading_surface(
     telemetry = reporter.telemetry
     extra_rows = 0
     if telemetry is not None:
-        extra_rows = 1 + len(telemetry.criteria)  # iter line + one per criterion
+        extra_rows = 1 + len(
+            telemetry.criteria
+        )  # iter line + one per criterion
     panel_h = 170 + extra_rows * 20
     px = (sw - panel_w) // 2
     py = (sh - panel_h) // 2
