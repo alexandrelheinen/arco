@@ -27,6 +27,7 @@ from arco.planning.continuous import (
     RRTPlanner,
     SSTPlanner,
     TrajectoryOptimizer,
+    TrajectoryPruner,
 )
 
 
@@ -176,6 +177,11 @@ class VehicleScene:
     ) -> tuple[list[np.ndarray], float, str]:
         if path is None or len(path) < 2 or self._occ is None:
             return [], 0.0, "no-path"
+        pruner = TrajectoryPruner(
+            self._occ,
+            collision_check_count=int(self._planner["collision_check_count"]),
+        )
+        path = pruner.prune(path)
         try:
             opt = TrajectoryOptimizer(
                 self._occ,

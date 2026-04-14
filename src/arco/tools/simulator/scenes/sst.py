@@ -108,7 +108,11 @@ class SSTScene(SimScene):
             RuntimeError: If planner configuration is missing required keys.
         """
         _total = 3
-        from arco.planning.continuous import SSTPlanner, TrajectoryOptimizer
+        from arco.planning.continuous import (
+            SSTPlanner,
+            TrajectoryOptimizer,
+            TrajectoryPruner,
+        )
 
         if progress is not None:
             progress("Building occupancy map", 1, _total)
@@ -145,6 +149,13 @@ class SSTScene(SimScene):
             if progress is not None:
                 progress("Optimizing trajectory", 3, _total)
             try:
+                pruner = TrajectoryPruner(
+                    self._occ,
+                    collision_check_count=int(
+                        self._cfg["collision_check_count"]
+                    ),
+                )
+                self._path = pruner.prune(self._path)
                 opt = TrajectoryOptimizer(
                     self._occ,
                     cruise_speed=_VEHICLE_CONFIG.cruise_speed,

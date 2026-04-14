@@ -41,6 +41,7 @@ from arco.planning.continuous import (
     RRTPlanner,
     SSTPlanner,
     TrajectoryOptimizer,
+    TrajectoryPruner,
 )
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.rrp import (
@@ -417,6 +418,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     )
 
     # --- Trajectory optimisation -------------------------------------------
+    pruner = TrajectoryPruner(
+        occ,
+        collision_check_count=int(planner_cfg["collision_check_count"]),
+    )
     opt = TrajectoryOptimizer(
         occ,
         cruise_speed=float(sim_cfg.get("race_speed", 0.6)),
@@ -436,6 +441,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     rrt_opt_status = "not-run"
     sst_opt_status = "not-run"
     if rrt_path is not None:
+        rrt_path = pruner.prune(rrt_path)
         try:
             res = opt.optimize(rrt_path)
             rrt_traj = res.states
@@ -448,6 +454,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             logger.exception("RRT* TrajectoryOptimizer failed; skipping.")
             rrt_opt_status = "exception"
     if sst_path is not None:
+        sst_path = pruner.prune(sst_path)
         try:
             res = opt.optimize(sst_path)
             sst_traj = res.states

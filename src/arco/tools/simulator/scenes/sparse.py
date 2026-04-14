@@ -343,6 +343,7 @@ class CityScene:
             RRTPlanner,
             SSTPlanner,
             TrajectoryOptimizer,
+            TrajectoryPruner,
         )
 
         if progress is not None:
@@ -430,6 +431,14 @@ class CityScene:
         if progress is not None:
             progress("Optimizing trajectories", 5, _total)
         cruise = self._vehicle_cfg.cruise_speed
+        pruner = TrajectoryPruner(
+            self._occ,
+            collision_check_count=int(self._cfg["collision_check_count"]),
+        )
+        if self._rrt_path is not None:
+            self._rrt_path = pruner.prune(self._rrt_path)
+        if self._sst_path is not None:
+            self._sst_path = pruner.prune(self._sst_path)
         opt = TrajectoryOptimizer(
             self._occ,
             cruise_speed=cruise,

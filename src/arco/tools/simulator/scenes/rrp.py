@@ -275,6 +275,7 @@ class RRPScene:
             RRTPlanner,
             SSTPlanner,
             TrajectoryOptimizer,
+            TrajectoryPruner,
         )
 
         _log = logging.getLogger(__name__)
@@ -438,6 +439,12 @@ class RRPScene:
         if progress is not None:
             progress("Optimizing trajectories", 4, _total)
 
+        pruner = TrajectoryPruner(
+            occ,
+            collision_check_count=int(
+                self._planner_cfg["collision_check_count"]
+            ),
+        )
         optimizer = TrajectoryOptimizer(
             occ,
             cruise_speed=float(self._sim_cfg.get("race_speed", 0.6)),
@@ -454,6 +461,7 @@ class RRPScene:
         ):
             if path is None or len(path) < 2:
                 continue
+            path = pruner.prune(path)
             try:
                 result = optimizer.optimize(path)
                 traj = list(result.states)

@@ -30,6 +30,7 @@ from arco.planning.continuous import (
     RRTPlanner,
     SSTPlanner,
     TrajectoryOptimizer,
+    TrajectoryPruner,
 )
 from arco.tools.logging_config import configure_logging
 from arco.tools.viewer.occupancy import draw_occupancy
@@ -80,6 +81,8 @@ def _optimize(
 ) -> tuple[list[np.ndarray] | None, float, str]:
     if path is None or len(path) < 2:
         return None, 0.0, "no-path"
+    pruner = TrajectoryPruner(occ)
+    path = pruner.prune(path)
     try:
         opt = TrajectoryOptimizer(
             occ,

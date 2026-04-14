@@ -145,7 +145,7 @@ class TrajectoryPruner:
 
         pruned = [path[i] for i in indices]
 
-        logger.debug(
+        logger.info(
             "TrajectoryPruner: %d -> %d nodes (%.0f %% reduction)",
             node_count,
             len(pruned),
