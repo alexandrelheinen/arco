@@ -220,8 +220,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_nodes, _, sst_path = sst.get_tree(start.copy(), goal.copy())
     sst_time = time.perf_counter() - t0
 
-    rrt_traj, rrt_dur, rrt_opt, rrt_durs = _optimize(occ, rrt_path, vehicle_cfg)
-    sst_traj, sst_dur, sst_opt, sst_durs = _optimize(occ, sst_path, vehicle_cfg)
+    rrt_traj, rrt_dur, rrt_opt, rrt_durs = _optimize(
+        occ, rrt_path, vehicle_cfg
+    )
+    sst_traj, sst_dur, sst_opt, sst_durs = _optimize(
+        occ, sst_path, vehicle_cfg
+    )
 
     logger.info("Simulating RRT* executed trajectory …")
     rrt_executed = _simulate_vehicle(rrt_traj or rrt_path, occ, vehicle_cfg)
@@ -232,28 +236,32 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     def _lyapunov_series(
         traj_states: list[tuple[float, float, float]] | None,
-        traj_durations: list[float] | None,
         goal: np.ndarray,
+        dt: float = 0.05,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Compute cumulative time and V(t) = ||(x,y)(t) - goal|| for a trajectory.
+        """Compute time axis and V(t) = ||(x,y)(t) − goal|| for a trajectory.
+
+        Uses the simulation step ``dt`` to produce a time axis aligned with
+        every simulation step in *traj_states*.
 
         Args:
-            traj_states: Sequence of (x, y, θ) executed poses.
-            traj_durations: Per-segment durations.
+            traj_states: Sequence of ``(x, y, θ)`` executed poses (one per
+                simulation step).
             goal: 2-D goal position ``[gx, gy]``.
+            dt: Simulation step size in seconds (must match the dt used in
+                :func:`_simulate_vehicle`).
 
         Returns:
             Tuple of ``(times, V)`` arrays.  Both empty if input is too short.
         """
         if traj_states is None or len(traj_states) < 2:
             return np.array([]), np.array([])
-        durs = traj_durations or [1.0] * (len(traj_states) - 1)
-        times = np.concatenate(
-            [[0.0], np.cumsum(durs[: len(traj_states) - 1])]
-        )
+        times = np.arange(len(traj_states), dtype=float) * dt
         V = np.array(
-            [math.hypot(s[0] - float(goal[0]), s[1] - float(goal[1]))
-             for s in traj_states]
+            [
+                math.hypot(s[0] - float(goal[0]), s[1] - float(goal[1]))
+                for s in traj_states
+            ]
         )
         return times, V
 
@@ -278,43 +286,77 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     # Overlay SST path
     if sst_path is not None and len(sst_path) >= 2:
         sarr = np.array(sst_path)
-        ax_ws.plot(sarr[:, 0], sarr[:, 1],
-                   color=layer_hex("sst", "path"), linewidth=1.5,
-                   alpha=(0.35 if sst_traj is not None else 0.9),
-                   label="SST path")
+        ax_ws.plot(
+            sarr[:, 0],
+            sarr[:, 1],
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=(0.35 if sst_traj is not None else 0.9),
+            label="SST path",
+        )
 
     if rrt_traj is not None and len(rrt_traj) >= 2:
         arr = np.array(rrt_traj)
-        ax_ws.plot(arr[:, 0], arr[:, 1], "o-",
-                   color=layer_hex("rrt", "trajectory"), linewidth=2.3,
-                   markersize=3, label="RRT* traj")
+        ax_ws.plot(
+            arr[:, 0],
+            arr[:, 1],
+            "o-",
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=2.3,
+            markersize=3,
+            label="RRT* traj",
+        )
     if len(rrt_executed) >= 2:
         ex = np.array(rrt_executed)
-        ax_ws.plot(ex[:, 0], ex[:, 1],
-                   color=layer_hex("rrt", "vehicle"), linewidth=1.8,
-                   linestyle="--", alpha=0.85, label="RRT* executed")
+        ax_ws.plot(
+            ex[:, 0],
+            ex[:, 1],
+            color=layer_hex("rrt", "vehicle"),
+            linewidth=1.8,
+            linestyle="--",
+            alpha=0.85,
+            label="RRT* executed",
+        )
     if sst_traj is not None and len(sst_traj) >= 2:
         arr = np.array(sst_traj)
-        ax_ws.plot(arr[:, 0], arr[:, 1], "o-",
-                   color=layer_hex("sst", "trajectory"), linewidth=2.3,
-                   markersize=3, label="SST traj")
+        ax_ws.plot(
+            arr[:, 0],
+            arr[:, 1],
+            "o-",
+            color=layer_hex("sst", "trajectory"),
+            linewidth=2.3,
+            markersize=3,
+            label="SST traj",
+        )
     if len(sst_executed) >= 2:
         ex = np.array(sst_executed)
-        ax_ws.plot(ex[:, 0], ex[:, 1],
-                   color=layer_hex("sst", "vehicle"), linewidth=1.8,
-                   linestyle="--", alpha=0.85, label="SST executed")
+        ax_ws.plot(
+            ex[:, 0],
+            ex[:, 1],
+            color=layer_hex("sst", "vehicle"),
+            linewidth=1.8,
+            linestyle="--",
+            alpha=0.85,
+            label="SST executed",
+        )
 
     ax_ws.text(
-        0.02, 0.98,
-        "\n".join([
-            f"RRT* steps/nodes: {max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)}",
-            f"RRT* time: {rrt_time:.2f}s | len: {_polyline_length(rrt_path):.1f} m",
-            f"RRT* traj dur: {rrt_dur:.1f}s | {rrt_opt}",
-            f"SST steps/nodes: {max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)}",
-            f"SST time: {sst_time:.2f}s | len: {_polyline_length(sst_path):.1f} m",
-            f"SST traj dur: {sst_dur:.1f}s | {sst_opt}",
-        ]),
-        transform=ax_ws.transAxes, va="top", ha="left", fontsize=7,
+        0.02,
+        0.98,
+        "\n".join(
+            [
+                f"RRT* steps/nodes: {max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)}",
+                f"RRT* time: {rrt_time:.2f}s | len: {_polyline_length(rrt_path):.1f} m",
+                f"RRT* traj dur: {rrt_dur:.1f}s | {rrt_opt}",
+                f"SST steps/nodes: {max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)}",
+                f"SST time: {sst_time:.2f}s | len: {_polyline_length(sst_path):.1f} m",
+                f"SST traj dur: {sst_dur:.1f}s | {sst_opt}",
+            ]
+        ),
+        transform=ax_ws.transAxes,
+        va="top",
+        ha="left",
+        fontsize=7,
         color="black",
         bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
     )
@@ -339,15 +381,24 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     if sst_path is not None and len(sst_path) >= 2:
         sarr = np.array(sst_path)
-        ax_cs.plot(sarr[:, 0], sarr[:, 1],
-                   color=layer_hex("sst", "path"), linewidth=1.5, alpha=0.4)
+        ax_cs.plot(
+            sarr[:, 0],
+            sarr[:, 1],
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=0.4,
+        )
 
     dubins_cfg = vehicle_cfg.get("dubins", {})
     cruise_speed = float(dubins_cfg.get("cruise_speed", 3.0))
     for center in (start, goal):
         circ = mpatches.Circle(
-            (float(center[0]), float(center[1])), radius=cruise_speed,
-            linewidth=1.2, edgecolor="blue", facecolor="none", alpha=0.6,
+            (float(center[0]), float(center[1])),
+            radius=cruise_speed,
+            linewidth=1.2,
+            edgecolor="blue",
+            facecolor="none",
+            alpha=0.6,
             linestyle="--",
         )
         ax_cs.add_patch(circ)
@@ -356,26 +407,42 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     # ---- ax_lv: Lyapunov V(t) = ‖(x,y)(t) − goal‖ -------------------------
     rrt_exec_times, rrt_V = _lyapunov_series(
-        rrt_executed if rrt_executed else None, rrt_durs, goal
+        rrt_executed if rrt_executed else None, goal
     )
     sst_exec_times, sst_V = _lyapunov_series(
-        sst_executed if sst_executed else None, sst_durs, goal
+        sst_executed if sst_executed else None, goal
     )
 
     if len(rrt_exec_times) > 0:
-        ax_lv.plot(rrt_exec_times, rrt_V,
-                   color=layer_hex("rrt", "trajectory"), linewidth=1.8,
-                   label="RRT* V(t)")
+        ax_lv.plot(
+            rrt_exec_times,
+            rrt_V,
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=1.8,
+            label="RRT* V(t)",
+        )
         window = (rrt_exec_times[-1] - rrt_exec_times[0]) / 10.0
-        ax_lv.axvspan(rrt_exec_times[-1] - window, rrt_exec_times[-1],
-                      alpha=0.10, color="gray")
+        ax_lv.axvspan(
+            rrt_exec_times[-1] - window,
+            rrt_exec_times[-1],
+            alpha=0.10,
+            color="gray",
+        )
     if len(sst_exec_times) > 0:
-        ax_lv.plot(sst_exec_times, sst_V,
-                   color=layer_hex("sst", "trajectory"), linewidth=1.8,
-                   label="SST V(t)")
+        ax_lv.plot(
+            sst_exec_times,
+            sst_V,
+            color=layer_hex("sst", "trajectory"),
+            linewidth=1.8,
+            label="SST V(t)",
+        )
         window = (sst_exec_times[-1] - sst_exec_times[0]) / 10.0
-        ax_lv.axvspan(sst_exec_times[-1] - window, sst_exec_times[-1],
-                      alpha=0.10, color="steelblue")
+        ax_lv.axvspan(
+            sst_exec_times[-1] - window,
+            sst_exec_times[-1],
+            alpha=0.10,
+            color="steelblue",
+        )
 
     ax_lv.axhline(0, color="gray", linewidth=0.8, linestyle=":")
     ax_lv.set_xlabel("Time (s)")
