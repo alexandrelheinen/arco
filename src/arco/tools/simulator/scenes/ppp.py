@@ -158,6 +158,7 @@ class PPPScene:
         self._cfg = cfg
         self._planner_cfg = cfg.get("planner", cfg)
         self._sim_cfg = cfg.get("simulator", cfg)
+        self._occ: Any = None
         self._rrt_nodes: list[np.ndarray] = []
         self._sst_nodes: list[np.ndarray] = []
         self._rrt_path: list[np.ndarray] | None = None
@@ -223,6 +224,7 @@ class PPPScene:
             all_pts,
             clearance=float(self._planner_cfg["obstacle_clearance"]),
         )
+        self._occ = occ
 
         if progress is not None:
             progress("Running RRT*", 3, _total)
@@ -350,6 +352,11 @@ class PPPScene:
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
+
+    @property
+    def occ(self) -> Any:
+        """C-space occupancy map (available after :meth:`build`)."""
+        return self._occ
 
     @property
     def title(self) -> str:
