@@ -26,10 +26,10 @@ scenario: rrp
 # Scenario: arm moves from lower-rear to upper-front of the cylinder.
 
 robot:
-  l1: 1.0
-  l2: 0.8
-  z_min: 0.0
-  z_max: 4.0
+  l1: 1.0  # [m] length of the first revolute link
+  l2: 0.8  # [m] length of the second revolute link
+  z_min: 0.0  # [m] minimum prismatic joint height
+  z_max: 4.0  # [m] maximum prismatic joint height
 
 # 3-D obstacles, format: [x_min, y_min, z_min, x_max, y_max, z_max] in metres.
 #
@@ -40,7 +40,7 @@ robot:
 # most of the XY annulus but deliberately leaves a radial gap at one side so
 # the arm can escape by adjusting z and maneuvering around.
 environment:
-  obstacles:
+  obstacles:  # [] list of 3-D obstacles [x_min, y_min, z_min, x_max, y_max, z_max] in metres
     # --- Pillar A: right-quadrant column ---
     - [0.55, -1.25, 0.0, 0.95, -0.95, 4.0]
     # --- Pillar B: left-quadrant column ---
@@ -51,29 +51,29 @@ environment:
     - [0.0, -3.0, 0.0, 0.2, -0.5, 1.0]
 
   # IK target positions [x, y, z] for start and goal.
-  start_position: [-1.5, 0.0, 0.2]
-  goal_position:  [1.4,  0.0, 0.2]
+  start_position: [-1.5, 0.0, 0.2]  # [m, m, m] end-effector Cartesian start position
+  goal_position:  [1.4,  0.0, 0.2]  # [m, m, m] end-effector Cartesian goal position
 
   # Joint-space bounds: (q1_min, q1_max), (q2_min, q2_max), (z_min, z_max).
-  bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159], [0.0, 4.0]]
+  bounds: [[-3.14159, 3.14159], [-3.14159, 3.14159], [0.0, 4.0]]  # [rad, rad, m] joint-space and prismatic bounds
 
   # KDTree clearance (radians / metres in the blended C-space).
-  obstacle_clearance: 0.40
+  obstacle_clearance: 0.40  # [m] KDTree clearance in the blended C-space
 
 planner:
-  step_size: [0.15, 0.15, 0.10]  # [rad, rad, m]
-  goal_tolerance: 0.25
-  collision_check_count: 3
-  goal_bias: 0.10
-  rrt_max_sample_count: 40000
-  sst_max_sample_count: 50000
-  witness_radius: 0.08
+  step_size: [0.15, 0.15, 0.10]  # [rad, rad, m] per-dimension planner step size
+  goal_tolerance: 0.25  # [] normalized distance threshold to consider goal reached
+  collision_check_count: 3  # [] number of intermediate collision checks per step
+  goal_bias: 0.10  # [] probability of sampling directly toward the goal
+  rrt_max_sample_count: 40000  # [] maximum number of RRT* samples
+  sst_max_sample_count: 50000  # [] maximum number of SST samples
+  witness_radius: 0.08  # [] normalized distance for SST witness cells
 
   # Grid resolution for C-space sampling (n^3 points evaluated).
-  cspace_grid_n: 80
+  cspace_grid_n: 80  # [] grid resolution for C-space sampling (n^3 points evaluated)
 
 # ---------------------------------------------------------------------------
 # Simulator parameters
 # ---------------------------------------------------------------------------
 simulator:
-  race_speed: 0.6  # [m/s] for the end-effector
+  race_speed: 0.6  # [m/s] speed for end-effector path following
