@@ -238,8 +238,8 @@ _C_BOX_EDGE = (0.31, 0.23, 0.13)
 _C_GRID = (0.15, 0.17, 0.22)
 _C_RRT = (0.05, 0.05, 0.25)  # raw RRT* path — dark blue
 _C_SST = (0.05, 0.22, 0.08)  # raw SST path — dark green
-_C_TRAJ_RRT = (0.70, 0.70, 1.00)  # optimized RRT* trajectory — bright blue
-_C_TRAJ_SST = (0.40, 0.88, 0.50)  # optimized SST trajectory — bright green
+_C_TRAJ_RRT: tuple[float, float, float] = (0.38, 0.52, 0.88)  # medium blue
+_C_TRAJ_SST: tuple[float, float, float] = (0.18, 0.68, 0.38)  # medium green
 _C_START = (0.22, 0.86, 0.33)
 _C_GOAL = (0.86, 0.30, 0.86)
 
