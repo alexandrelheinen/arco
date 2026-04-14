@@ -338,3 +338,154 @@ def test_vehicle_returns_to_path_when_far_off_track() -> None:
         "expected < 10 m).  The lookahead likely fell back to path[-1] while "
         "the vehicle was far off-track."
     )
+
+
+# ---------------------------------------------------------------------------
+# Obstacle repulsion tests
+# ---------------------------------------------------------------------------
+
+
+class _NearObstacleOccupancy:
+    """Minimal occupancy stub: single obstacle at a fixed position."""
+
+    def __init__(
+        self,
+        obs_x: float,
+        obs_y: float,
+        clearance: float,
+    ) -> None:
+        self.clearance = clearance
+        self._obs = (obs_x, obs_y)
+
+    def nearest_obstacle(
+        self, point: "np.ndarray"  # noqa: F821
+    ) -> "tuple[float, np.ndarray]":  # noqa: F821
+        import numpy as np
+
+        obs = np.array(self._obs)
+        dist = float(np.linalg.norm(np.asarray(point) - obs))
+        return dist, obs
+
+
+def _make_repulsion_loop(
+    obs_x: float,
+    obs_y: float,
+    clearance: float = 2.0,
+    repulsion_gain: float = 1.5,
+) -> "tuple[DubinsVehicle, TrackingLoop]":
+    """Create a TrackingLoop with a single obstacle for repulsion tests."""
+    occ = _NearObstacleOccupancy(obs_x, obs_y, clearance)
+    vehicle = DubinsVehicle(
+        x=0.0,
+        y=0.0,
+        heading=0.0,
+        max_speed=5.0,
+        min_speed=0.0,
+        max_turn_rate=4.0,
+        max_acceleration=10.0,
+        max_turn_rate_dot=10.0,
+    )
+    ctrl = PurePursuitController(lookahead_distance=2.0)
+    loop = TrackingLoop(
+        vehicle,
+        ctrl,
+        cruise_speed=1.0,
+        occupancy=occ,
+        repulsion_gain=repulsion_gain,
+    )
+    return vehicle, loop
+
+
+def test_repulsion_zero_outside_influence_radius() -> None:
+    """No repulsion when obstacle is far beyond 2 × clearance."""
+    _, loop = _make_repulsion_loop(obs_x=100.0, obs_y=0.0, clearance=2.0)
+    # Vehicle is at (0,0), obstacle at (100,0) — distance 100 >> 4 m influence
+    r = loop._repulsion_turn_rate(0.0, 0.0, 0.0)
+    assert r == 0.0
+
+
+def test_repulsion_nonzero_inside_influence_radius() -> None:
+    """Repulsion is non-zero when obstacle is within 2 × clearance."""
+    _, loop = _make_repulsion_loop(obs_x=1.5, obs_y=0.0, clearance=2.0)
+    # Vehicle at (0,0), obstacle at (1.5,0) — distance 1.5 < 4 m influence
+    r = loop._repulsion_turn_rate(0.0, 0.0, 0.0)
+    assert r != 0.0
+
+
+def test_repulsion_direction_obstacle_left() -> None:
+    """Obstacle to the left → negative turn rate (steer right)."""
+    # Vehicle at (0,0) heading east (θ=0). Obstacle at (1.0, 1.0) — to the left.
+    _, loop = _make_repulsion_loop(obs_x=1.0, obs_y=1.0, clearance=4.0)
+    r = loop._repulsion_turn_rate(0.0, 0.0, 0.0)
+    assert r < 0.0, f"Expected negative (turn right), got {r}"
+
+
+def test_repulsion_direction_obstacle_right() -> None:
+    """Obstacle to the right → positive turn rate (steer left)."""
+    # Vehicle at (0,0) heading east (θ=0). Obstacle at (1.0, -1.0) — to the right.
+    _, loop = _make_repulsion_loop(obs_x=1.0, obs_y=-1.0, clearance=4.0)
+    r = loop._repulsion_turn_rate(0.0, 0.0, 0.0)
+    assert r > 0.0, f"Expected positive (turn left), got {r}"
+
+
+def test_repulsion_zero_when_gain_zero() -> None:
+    """Repulsion is zero when repulsion_gain=0 regardless of proximity."""
+    occ = _NearObstacleOccupancy(0.5, 0.0, clearance=2.0)
+    vehicle = DubinsVehicle(
+        x=0.0, y=0.0, heading=0.0,
+        max_speed=5.0, min_speed=0.0,
+        max_turn_rate=4.0, max_acceleration=10.0, max_turn_rate_dot=10.0,
+    )
+    loop = TrackingLoop(
+        vehicle,
+        PurePursuitController(lookahead_distance=2.0),
+        cruise_speed=1.0,
+        occupancy=occ,
+        repulsion_gain=0.0,
+    )
+    assert loop._repulsion_turn_rate(0.0, 0.0, 0.0) == 0.0
+
+
+def test_repulsion_zero_when_no_occupancy() -> None:
+    """Repulsion is zero when no occupancy map is set."""
+    loop = _make_loop()
+    assert loop._repulsion_turn_rate(0.0, 0.0, 0.0) == 0.0
+
+
+def test_step_includes_repulsion_key() -> None:
+    """Step metrics include repulsion_turn_rate key."""
+    _, loop = _make_repulsion_loop(obs_x=100.0, obs_y=0.0, clearance=2.0)
+    metrics = loop.step(STRAIGHT_PATH, dt=0.1)
+    assert "repulsion_turn_rate" in metrics
+
+
+def test_step_repulsion_influences_turn_rate() -> None:
+    """Repulsion modifies the effective turn rate when obstacle is nearby."""
+    # Two loops: one with repulsion toward a nearby obstacle, one without.
+    occ = _NearObstacleOccupancy(0.3, 0.5, clearance=2.0)
+    vehicle_rep = DubinsVehicle(
+        x=0.0, y=0.0, heading=0.0,
+        max_speed=5.0, min_speed=0.0,
+        max_turn_rate=4.0, max_acceleration=10.0, max_turn_rate_dot=10.0,
+    )
+    vehicle_no = DubinsVehicle(
+        x=0.0, y=0.0, heading=0.0,
+        max_speed=5.0, min_speed=0.0,
+        max_turn_rate=4.0, max_acceleration=10.0, max_turn_rate_dot=10.0,
+    )
+    loop_rep = TrackingLoop(
+        vehicle_rep,
+        PurePursuitController(lookahead_distance=2.0),
+        cruise_speed=1.0,
+        occupancy=occ,
+        repulsion_gain=2.0,
+    )
+    loop_no = TrackingLoop(
+        vehicle_no,
+        PurePursuitController(lookahead_distance=2.0),
+        cruise_speed=1.0,
+    )
+    m_rep = loop_rep.step(STRAIGHT_PATH, dt=0.1)
+    m_no = loop_no.step(STRAIGHT_PATH, dt=0.1)
+    # The poses should differ after one step (repulsion changed the turn rate)
+    assert m_rep["pose"] != m_no["pose"]
