@@ -235,39 +235,106 @@ Common corrections:
 
 ## 11. Pre-flight Checklist
 
-Before finishing **any** implementation task, all of the following must pass
-locally. This applies to both human contributors and AI agents.
+Before pushing **any** branch or merging a pull request, run the single master
+validation script:
 
 ```bash
-# 1. Unit tests — all green
-python -m pytest tests/
+# Full validation (requires xvfb + ffmpeg for smoke tests and videos)
+bash scripts/pre_push.sh
 
-# 2. Code formatting — zero issues
-python -m black --check src/ tools/
-
-# 3. Import ordering — zero issues
-python -m isort --check-only src/ tools/
-
-# 4. Examples — each script must complete without error
-MPLBACKEND=Agg python tools/examples/astar_grid_obstacle.py --save /tmp/astar_grid.png
-MPLBACKEND=Agg python tools/examples/astar_manhattan.py     --save /tmp/astar_manh.png
-MPLBACKEND=Agg python tools/examples/astar_graph.py         --save /tmp/astar_graph.png
-MPLBACKEND=Agg python tools/examples/astar_pipeline.py      --save /tmp/astar_pipeline.png
-MPLBACKEND=Agg python tools/examples/rrt_planning.py        --save /tmp/rrt.png
-MPLBACKEND=Agg python tools/examples/sst_planning.py        --save /tmp/sst.png
-MPLBACKEND=Agg python tools/examples/ppp_planning.py        --save /tmp/ppp.png
-MPLBACKEND=Agg python tools/examples/trajectory_optimization.py --save /tmp/traj.png
-MPLBACKEND=Agg python tools/examples/route_planning.py      --save /tmp/route.png
-
-# 5. Simulator smoke tests — each must record 5 s without error
-#    (requires a real or virtual X display; use DISPLAY=:0 locally or
-#     xvfb-run -a in CI)
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/astar.py  --fps 30 --record /tmp/smoke_astar.mp4  --record-duration 5
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/rrt.py    --fps 30 --record /tmp/smoke_rrt.mp4    --record-duration 5
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/sst.py    --fps 30 --record /tmp/smoke_sst.mp4    --record-duration 5
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/sparse.py --fps 30 --record /tmp/smoke_sparse.mp4 --record-duration 5
-SDL_AUDIODRIVER=dummy DISPLAY=:0 python tools/simulator/main/ppp.py    --fps 30 --record /tmp/smoke_ppp.mp4    --record-duration 5
+# When a headless display or ffmpeg is unavailable locally:
+bash scripts/pre_push.sh --no-smoke --no-videos
 ```
 
-All GitHub workflow checks (push **and** release) must also pass before
-opening or merging a pull request.
+`scripts/pre_push.sh` runs **all five CI gates** in the same order as the
+GitHub workflows:
+
+| Gate | Script | What it checks |
+|------|--------|----------------|
+| 1 | `scripts/check_formatting.sh` | `black` + `isort` (blocking), `pydocstyle` (warning) |
+| 2 | `scripts/run_tests.sh` | `pytest` unit tests |
+| 3 | `scripts/run_examples.sh` | `arcoex` headless image generation for every scenario |
+| 4 | `scripts/run_smoke_tests.sh` | `arcosim` short headless recording for every simulator |
+| 5 | `scripts/generate_videos.sh` | `arcosim` full-length simulation videos |
+
+> **⚠️ Do not use `--no-smoke` as a routine shortcut.**  
+> The smoke tests are the only local gate that imports and executes every
+> simulator module.  Skipping them is how import-time errors in simulator
+> files (e.g. a broken `load_config` call after restructuring `colors.yml`)
+> escape the local validation loop and fail in CI.
+>
+> Only skip smoke tests when the environment genuinely cannot run pygame
+> (e.g. a headless container with no virtual framebuffer).  In that case,
+> add a note in the PR description explaining why gate 4 was not verified
+> locally.
+
+All GitHub workflow checks (push **and** release) must pass before a pull
+request is merged.  If a workflow fails, investigate with GitHub MCP tools
+before concluding the session.
+
+---
+
+## 12. Shared Configuration Files — Consumer Audit Rule
+
+Whenever a **shared configuration file** (any file under `src/arco/config/`,
+including `colors.yml`, `astar.yml`, etc.) is **restructured** (keys renamed,
+sections added/removed), you **must** audit every consumer before pushing.
+
+### Procedure
+
+1. **Identify all consumers** of the file being changed:
+
+   ```bash
+   # For colors.yml — find every file that reads it, directly or indirectly
+   grep -rn 'load_config("colors")\|from arco.config.palette' src/ tests/ \
+       | grep -v "\.pyc"
+   ```
+
+   > For other config files replace `"colors"` with the filename being
+   > modified.
+
+2. **Verify each consumer** is compatible with the new structure.  A consumer
+   is compatible when **all key paths it accesses exist** in the new file.  If
+   any consumer still references a deleted or renamed key, update it now.
+
+3. **Confirm with a quick import check** after updating:
+
+   ```bash
+   python -c "
+   import importlib, sys
+   modules = [
+       'arco.config.palette',
+       'arco.tools.simulator.main.city',
+       'arco.tools.simulator.main.vehicle',
+       'arco.tools.simulator.main.rr',
+       'arco.tools.simulator.scenes.sparse',
+       'arco.tools.simulator.scenes.rrt',
+       'arco.tools.simulator.scenes.sst',
+       'arco.tools.simulator.scenes.astar',
+   ]
+   for m in modules:
+       importlib.import_module(m)
+       print('OK', m)
+   "
+   ```
+
+4. Run the **full pre-flight checklist** including smoke tests (gate 4) to
+   confirm that no module-level `KeyError` or `ImportError` has been
+   introduced.
+
+### Why this rule exists
+
+During the "Glow up" refactor (PR #…), the `colors.yml` schema was
+restructured from a flat `rrt: {vehicle: …}` layout to a
+`methods: {rrt: {base: …}}` layout, and a new `palette.py` module was
+introduced.  The migration updated most renderers but missed
+`src/arco/tools/simulator/main/city.py`, which still called
+`_rgb("rrt", "vehicle")` against the new schema.
+
+The unit tests did not catch this because `city.py` is a simulator entry
+point that is only exercised by the smoke tests (gate 4).  The `--no-smoke`
+flag was used locally, so the error only surfaced in CI.
+
+**The invariant to enforce:** after restructuring any shared config, zero
+files may reference a key path that no longer exists.  The import check
+above catches this at module-load time, before any simulation runs.

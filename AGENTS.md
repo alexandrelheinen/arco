@@ -25,8 +25,17 @@ Follow [docs/guidelines.md](docs/guidelines.md) as the authoritative standard fo
 - Prefer project-local conventions over generic defaults.
 - **Run `bash scripts/pre_push.sh` before pushing.** This is the single
   command that mirrors every required CI gate (formatting, tests, examples,
-  smoke tests, videos). Use `--no-examples --no-smoke --no-videos` when those
-  dependencies are unavailable (headless display, ffmpeg).
+  smoke tests, videos). Use `--no-examples --no-smoke --no-videos` **only**
+  when the environment genuinely cannot run pygame (no virtual framebuffer or
+  no ffmpeg). **Do not skip `--no-smoke` as a routine shortcut** — smoke tests
+  are the only local gate that imports every simulator module at startup, and
+  skipping them allows import-time `KeyError` / `ImportError` regressions to
+  escape into CI (see §12 of docs/guidelines.md).
+  When skipping, state the reason explicitly in the PR description.
+- **After restructuring any shared config file** (`colors.yml`, etc.): audit
+  every consumer with `grep -rn 'load_config("colors")' src/` and run a quick
+  import check on all simulator entry points before pushing (see §12 of
+  docs/guidelines.md).
 
 An imperative order (do, implement, make, add...) is not only about writting the code. It must include all the V-cycle.
 
