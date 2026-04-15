@@ -163,6 +163,8 @@ class PPPScene:
         self._sst_nodes: list[np.ndarray] = []
         self._rrt_path: list[np.ndarray] | None = None
         self._sst_path: list[np.ndarray] | None = None
+        self._rrt_raw_path: list[np.ndarray] | None = None
+        self._sst_raw_path: list[np.ndarray] | None = None
         self._rrt_traj: list[np.ndarray] = []
         self._sst_traj: list[np.ndarray] = []
         self._rrt_metrics: dict[str, Any] = {
@@ -326,6 +328,10 @@ class PPPScene:
         )
         pipeline = PlanningPipeline(pruner=pruner, optimizer=opt)
 
+        # Snapshot raw paths before pruning overwrites them.
+        self._rrt_raw_path = list(self._rrt_path) if self._rrt_path else None
+        self._sst_raw_path = list(self._sst_path) if self._sst_path else None
+
         for path_attr, traj_attr, metrics_attr in (
             ("_rrt_path", "_rrt_traj", "_rrt_metrics"),
             ("_sst_path", "_sst_traj", "_sst_metrics"),
@@ -384,13 +390,23 @@ class PPPScene:
         return BOUNDS
 
     @property
+    def rrt_raw_path(self) -> list[np.ndarray] | None:
+        """Raw (pre-pruning) RRT* path, or ``None``."""
+        return self._rrt_raw_path
+
+    @property
+    def sst_raw_path(self) -> list[np.ndarray] | None:
+        """Raw (pre-pruning) SST path, or ``None``."""
+        return self._sst_raw_path
+
+    @property
     def rrt_path(self) -> list[np.ndarray] | None:
-        """RRT* solution path, or ``None`` if planning failed."""
+        """Pruned RRT* path (trajectory anchors), or ``None``."""
         return self._rrt_path
 
     @property
     def sst_path(self) -> list[np.ndarray] | None:
-        """SST solution path, or ``None`` if planning failed."""
+        """Pruned SST path (trajectory anchors), or ``None``."""
         return self._sst_path
 
     @property

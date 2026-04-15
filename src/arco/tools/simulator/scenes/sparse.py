@@ -294,6 +294,7 @@ class CityScene:
         self._rrt_nodes: list[Any] = []
         self._rrt_parent: dict[int, int | None] = {}
         self._rrt_path: list[Any] | None = None
+        self._rrt_raw_path: list[Any] | None = None
         self._rrt_traj_states: list[Any] = []
         self._rrt_metrics: dict[str, Any] = {
             "steps": 0,
@@ -310,6 +311,7 @@ class CityScene:
         self._sst_nodes: list[Any] = []
         self._sst_parent: dict[int, int | None] = {}
         self._sst_path: list[Any] | None = None
+        self._sst_raw_path: list[Any] | None = None
         self._sst_traj_states: list[Any] = []
         self._sst_metrics: dict[str, Any] = dict(self._rrt_metrics)
 
@@ -448,6 +450,10 @@ class CityScene:
         )
         pipeline = PlanningPipeline(pruner=pruner, optimizer=opt)
 
+        # Snapshot raw paths before pruning overwrites them.
+        self._rrt_raw_path = list(self._rrt_path) if self._rrt_path else None
+        self._sst_raw_path = list(self._sst_path) if self._sst_path else None
+
         for path_attr, traj_attr, metrics_attr in (
             ("_rrt_path", "_rrt_traj_states", "_rrt_metrics"),
             ("_sst_path", "_sst_traj_states", "_sst_metrics"),
@@ -524,6 +530,16 @@ class CityScene:
         if pts is None:
             return []
         return [(float(p[0]), float(p[1])) for p in pts]
+
+    @property
+    def rrt_raw_path(self) -> list[Any] | None:
+        """Raw (pre-pruning) RRT* path, or ``None``."""
+        return self._rrt_raw_path
+
+    @property
+    def sst_raw_path(self) -> list[Any] | None:
+        """Raw (pre-pruning) SST path, or ``None``."""
+        return self._sst_raw_path
 
     @property
     def road_dots(self) -> list[tuple[float, float]]:
@@ -605,11 +621,19 @@ class CityScene:
             )
             if rrt_revealed >= self.rrt_total and self._rrt_path is not None:
                 rrt_path_alpha = _PATH_ALPHA if self._rrt_traj_states else 1.0
-                renderer_gl.draw_path(
+                # Raw path (pre-pruning) as dim thin line.
+                if self._rrt_raw_path:
+                    renderer_gl.draw_path(
+                        self._rrt_raw_path,
+                        *_c(_C_RRT_PATH),
+                        width=1.0,
+                        alpha=rrt_path_alpha * 0.5,
+                    )
+                # Pruned waypoints as accent squares (nodes only).
+                renderer_gl.draw_waypoints(
                     self._rrt_path,
-                    *_c(_C_RRT_PATH),
-                    width=1.5 if self._rrt_traj_states else 2.5,
-                    alpha=rrt_path_alpha,
+                    *_c(_C_RRT_PRUNED),
+                    half=3.5,
                 )
                 if self._rrt_traj_states:
                     renderer_gl.draw_path(
@@ -625,11 +649,19 @@ class CityScene:
             )
             if sst_revealed >= self.sst_total and self._sst_path is not None:
                 sst_path_alpha = _PATH_ALPHA if self._sst_traj_states else 1.0
-                renderer_gl.draw_path(
+                # Raw path (pre-pruning) as dim thin line.
+                if self._sst_raw_path:
+                    renderer_gl.draw_path(
+                        self._sst_raw_path,
+                        *_c(_C_SST_PATH),
+                        width=1.0,
+                        alpha=sst_path_alpha * 0.5,
+                    )
+                # Pruned waypoints as accent squares (nodes only).
+                renderer_gl.draw_waypoints(
                     self._sst_path,
-                    *_c(_C_SST_PATH),
-                    width=1.5 if self._sst_traj_states else 2.5,
-                    alpha=sst_path_alpha,
+                    *_c(_C_SST_PRUNED),
+                    half=3.5,
                 )
                 if self._sst_traj_states:
                     renderer_gl.draw_path(
@@ -648,18 +680,35 @@ class CityScene:
                 renderer_gl.draw_path(
                     self._rrt_traj_states, *_c(_C_RRT_TRAJ), width=3.0
                 )
-            elif self._rrt_path is not None:
-                renderer_gl.draw_path(
-                    self._rrt_path, *_c(_C_RRT_PATH), width=2.5
-                )
+            else:
+                # No trajectory yet — show raw + pruned nodes.
+                if self._rrt_raw_path:
+                    renderer_gl.draw_path(
+                        self._rrt_raw_path,
+                        *_c(_C_RRT_PATH),
+                        width=1.0,
+                        alpha=0.4,
+                    )
+                if self._rrt_path is not None:
+                    renderer_gl.draw_waypoints(
+                        self._rrt_path, *_c(_C_RRT_PRUNED), half=3.5
+                    )
             if self._sst_traj_states:
                 renderer_gl.draw_path(
                     self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
                 )
-            elif self._sst_path is not None:
-                renderer_gl.draw_path(
-                    self._sst_path, *_c(_C_SST_PATH), width=2.5
-                )
+            else:
+                if self._sst_raw_path:
+                    renderer_gl.draw_path(
+                        self._sst_raw_path,
+                        *_c(_C_SST_PATH),
+                        width=1.0,
+                        alpha=0.4,
+                    )
+                if self._sst_path is not None:
+                    renderer_gl.draw_waypoints(
+                        self._sst_path, *_c(_C_SST_PRUNED), half=3.5
+                    )
 
         # Start/goal markers — always visible.
         sx, sy = float(self._start[0]), float(self._start[1])

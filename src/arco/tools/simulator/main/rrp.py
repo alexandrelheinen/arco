@@ -212,7 +212,9 @@ _C_SLAB = (0.42, 0.55, 0.62)
 _C_SLAB_EDGE = (0.22, 0.32, 0.38)
 _C_GRID = (0.15, 0.17, 0.22)
 _C_RRT = (0.05, 0.05, 0.25)
+_C_RRT_PRUNED: tuple[float, float, float] = (0.55, 0.72, 1.00)  # accent blue
 _C_SST = (0.05, 0.22, 0.08)
+_C_SST_PRUNED: tuple[float, float, float] = (0.45, 1.00, 0.60)  # accent green
 _C_TRAJ_RRT: tuple[float, float, float] = (0.38, 0.52, 0.88)  # medium blue
 _C_TRAJ_SST: tuple[float, float, float] = (0.18, 0.68, 0.38)  # medium green
 _C_TRAIL_RRT = (0.60, 0.80, 1.00)
@@ -596,6 +598,38 @@ def _draw_path_3d(
     glEnable(GL_LIGHTING)
 
 
+def _draw_waypoints_fk(
+    path: list[np.ndarray], robot: object, r: float, g: float, b: float
+) -> None:
+    """Draw pruned-path nodes as accent squares via FK transform.
+
+    Each joint-space waypoint is mapped to Cartesian via FK, then drawn as a
+    small flat XY-plane square — no connecting edges.
+
+    Args:
+        path: Ordered list of ``[q1, q2, z]`` joint-space arrays.
+        robot: :class:`~arco.kinematics.RRPRobot` instance.
+        r, g, b: Marker colour in [0, 1].
+    """
+    if not path:
+        return
+    h = 0.18
+    glDisable(GL_LIGHTING)
+    glColor3f(r, g, b)
+    glBegin(GL_QUADS)
+    for pt in path:
+        fk = robot.forward_kinematics(  # type: ignore[attr-defined]
+            float(pt[0]), float(pt[1]), float(pt[2])
+        )
+        x, y, z = float(fk[0]), float(fk[1]), float(fk[2])
+        glVertex3f(x - h, y - h, z)
+        glVertex3f(x + h, y - h, z)
+        glVertex3f(x + h, y + h, z)
+        glVertex3f(x - h, y + h, z)
+    glEnd()
+    glEnable(GL_LIGHTING)
+
+
 def _draw_lookahead_3d(pos: np.ndarray, r: float, g: float, b: float) -> None:
     """Draw a small glowing lookahead marker at *pos*.
 
@@ -925,8 +959,10 @@ def run_race(
 
     camera = Camera3D()
     robot = scene.robot
-    rrt_path = scene.rrt_path
-    sst_path = scene.sst_path
+    rrt_path = scene.rrt_path  # pruned waypoints
+    sst_path = scene.sst_path  # pruned waypoints
+    rrt_raw_path = scene.rrt_raw_path  # dense pre-pruning path
+    sst_raw_path = scene.sst_raw_path
     rrt_nav = scene.rrt_traj if scene.rrt_traj else rrt_path
     sst_nav = scene.sst_traj if scene.sst_traj else sst_path
     obstacles = scene.obstacles
@@ -1121,12 +1157,16 @@ def run_race(
                 _draw_box_edges(*obs, *ec)
 
             # Planned paths (joint-space → Cartesian via FK)
+            if rrt_raw_path:
+                _draw_path_3d(rrt_raw_path, robot, *_C_RRT)
             if rrt_path:
-                _draw_path_3d(rrt_path, robot, *_C_RRT)
+                _draw_waypoints_fk(rrt_path, robot, *_C_RRT_PRUNED)
             if scene.rrt_traj:
                 _draw_path_3d(scene.rrt_traj, robot, *_C_TRAJ_RRT)
+            if sst_raw_path:
+                _draw_path_3d(sst_raw_path, robot, *_C_SST)
             if sst_path:
-                _draw_path_3d(sst_path, robot, *_C_SST)
+                _draw_waypoints_fk(sst_path, robot, *_C_SST_PRUNED)
             if scene.sst_traj:
                 _draw_path_3d(scene.sst_traj, robot, *_C_TRAJ_SST)
 

@@ -238,7 +238,9 @@ _C_BOX = (0.56, 0.41, 0.23)
 _C_BOX_EDGE = (0.31, 0.23, 0.13)
 _C_GRID = (0.15, 0.17, 0.22)
 _C_RRT = (0.05, 0.05, 0.25)  # raw RRT* path — dark blue
+_C_RRT_PRUNED: tuple[float, float, float] = (0.55, 0.72, 1.00)  # accent blue
 _C_SST = (0.05, 0.22, 0.08)  # raw SST path — dark green
+_C_SST_PRUNED: tuple[float, float, float] = (0.45, 1.00, 0.60)  # accent green
 _C_TRAJ_RRT: tuple[float, float, float] = (0.38, 0.52, 0.88)  # medium blue
 _C_TRAJ_SST: tuple[float, float, float] = (0.18, 0.68, 0.38)  # medium green
 _C_START = (0.22, 0.86, 0.33)
@@ -508,6 +510,37 @@ def _draw_path(path: list[np.ndarray], r: float, g: float, b: float) -> None:
         glVertex3f(float(pt[0]), float(pt[1]), float(pt[2]))
     glEnd()
     glLineWidth(1.0)
+    glEnable(GL_LIGHTING)
+
+
+def _draw_waypoints_3d(
+    path: list[np.ndarray], r: float, g: float, b: float
+) -> None:
+    """Draw pruned-path nodes as small flat squares (GL_QUADS, z-plane).
+
+    Only the node positions are drawn — no connecting lines.  Each square
+    lies in the XY plane at the waypoint's Z elevation, making them visible
+    from any oblique viewing angle.
+
+    Args:
+        path: Ordered list of 3-D waypoints.
+        r: Red channel in [0, 1].
+        g: Green channel in [0, 1].
+        b: Blue channel in [0, 1].
+    """
+    if not path:
+        return
+    h = 0.18
+    glDisable(GL_LIGHTING)
+    glColor3f(r, g, b)
+    glBegin(GL_QUADS)
+    for pt in path:
+        x, y, z = float(pt[0]), float(pt[1]), float(pt[2])
+        glVertex3f(x - h, y - h, z)
+        glVertex3f(x + h, y - h, z)
+        glVertex3f(x + h, y + h, z)
+        glVertex3f(x - h, y + h, z)
+    glEnd()
     glEnable(GL_LIGHTING)
 
 
@@ -963,8 +996,10 @@ def run_race(
     hint_surf = _hint_surface(font)
 
     camera = Camera3D()
-    rrt_path = scene.rrt_path
-    sst_path = scene.sst_path
+    rrt_path = scene.rrt_path  # pruned waypoints
+    sst_path = scene.sst_path  # pruned waypoints
+    rrt_raw_path = scene.rrt_raw_path  # dense pre-pruning path
+    sst_raw_path = scene.sst_raw_path
     # Use optimized trajectory (if available) as the carrot path so the
     # robot follows the time-optimal route; fall back to raw plan.
     rrt_nav = scene.rrt_traj if scene.rrt_traj else rrt_path
@@ -1143,13 +1178,18 @@ def run_race(
                 _draw_box(*box, *fc)
                 _draw_box_edges(*box, *ec)
 
+            if rrt_raw_path:
+                # Raw path (dense, pre-pruning) — dim polyline.
+                _draw_path(rrt_raw_path, *_C_RRT)
             if rrt_path:
-                # Raw plan — dimmed so the optimized trajectory stands out.
-                _draw_path(rrt_path, *_C_RRT)
+                # Pruned waypoints — accent squares (nodes only, no edges).
+                _draw_waypoints_3d(rrt_path, *_C_RRT_PRUNED)
             if scene.rrt_traj:
                 _draw_path(scene.rrt_traj, *_C_TRAJ_RRT)
+            if sst_raw_path:
+                _draw_path(sst_raw_path, *_C_SST)
             if sst_path:
-                _draw_path(sst_path, *_C_SST)
+                _draw_waypoints_3d(sst_path, *_C_SST_PRUNED)
             if scene.sst_traj:
                 _draw_path(scene.sst_traj, *_C_TRAJ_SST)
 
