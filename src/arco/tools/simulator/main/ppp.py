@@ -105,12 +105,12 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex3f,
 )
 
+from arco.control import JointSpaceTracker
 from arco.tools.simulator.scenes.ppp import BOUNDS as _SCENE_BOUNDS
 from arco.tools.simulator.scenes.ppp import PPPScene
 from arco.tools.simulator.scenes.ppp import is_wall as _is_wall_box
 from arco.tools.simulator.sim.loading import run_with_loading_screen
 from arco.tools.simulator.sim.video import VideoWriter
-from arco.control import JointSpaceTracker
 
 logger = logging.getLogger(__name__)
 
