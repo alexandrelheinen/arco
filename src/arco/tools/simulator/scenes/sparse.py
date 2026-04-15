@@ -309,24 +309,33 @@ def _world_to_grid_index(
     return (row, col)
 
 
-def _coerce_astar_cell_size(step_size: Any) -> float:
-    """Return scalar A* grid cell size from planner step_size.
+def _coerce_astar_cell_size(
+    step_size: Any, cell_size: float | None = None
+) -> float:
+    """Return scalar A* grid cell size.
 
-    The city configuration stores ``step_size`` as ``[sx, sy]`` for
-    continuous planners. A* uses a scalar Manhattan cell size and assumes
-    isotropic cells. If two values are provided, the first is used.
+    When ``cell_size`` is provided explicitly (e.g. from the ``astar_cell_size``
+    key in ``city.yml``) it is returned directly.  Otherwise the cell size
+    defaults to ``step_size / 5``: the road half-width equals one step, and
+    a factor of 5 (1 centre cell + 2-σ margin on each side) gives A* enough
+    resolution to navigate through road corridors without forcing it to go
+    around the city perimeter.
 
     Args:
-        step_size: Planner ``step_size`` value.
+        step_size: Planner ``step_size`` value (scalar or ``[sx, sy]``).
+        cell_size: Optional explicit grid cell size in metres.  When
+            ``None`` the value is derived from ``step_size``.
 
     Returns:
-        Positive scalar cell size in meters.
+        Positive scalar cell size in metres.
     """
+    if cell_size is not None:
+        return float(cell_size)
     if isinstance(step_size, (list, tuple, np.ndarray)):
         if len(step_size) == 0:
             raise ValueError("step_size sequence must not be empty")
-        return float(step_size[0])
-    return float(step_size)
+        return float(step_size[0]) / 5.0
+    return float(step_size) / 5.0
 
 
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
@@ -526,7 +535,9 @@ class CityScene:
 
         x_min, x_max = self._bounds[0]
         y_min, y_max = self._bounds[1]
-        cell_size = _coerce_astar_cell_size(self._cfg["step_size"])
+        cell_size = _coerce_astar_cell_size(
+            self._cfg["step_size"], self._cfg.get("astar_cell_size")
+        )
         grid = ManhattanGrid(
             physical_size=[y_max - y_min, x_max - x_min],
             cell_size=cell_size,
