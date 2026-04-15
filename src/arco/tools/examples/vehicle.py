@@ -354,6 +354,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         draw_tree=False, draw_obstacles=False, draw_start_goal=False
     ).render(ax_ws, sst_snap)
     ax_ws.grid(True, alpha=0.3)
+    ax_ws.legend(loc="upper right", fontsize=7)
 
     # ---- ax_cs: C-space = workspace for 2-D Dubins -------------------------
     FrameRenderer(draw_tree=False, draw_obstacles=False).render(
@@ -378,6 +379,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         )
         ax_cs.add_patch(circ)
     ax_cs.grid(True, alpha=0.3)
+    ax_cs.legend(loc="upper right", fontsize=7)
 
     # ---- Bottom: metrics ---------------------------------------------------
     StandardLayout.write_metrics(
