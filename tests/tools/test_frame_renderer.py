@@ -307,10 +307,9 @@ def test_pruned_path_renders_as_square_markers() -> None:
         draw_pruned_path=True,
     )
     renderer.render(ax, snap)
-    # No connecting lines — only scatter collections for the glow layers.
+    # No connecting lines — only a single scatter collection of squares.
     assert len(ax.lines) == 0
-    # 3 halo layers + 1 labelled legend scatter = at least 4 collections.
-    assert len(ax.collections) >= 4
+    assert len(ax.collections) == 1
     plt.close(fig)
 
 
