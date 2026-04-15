@@ -13,6 +13,11 @@ planner:
   sst_max_sample_count: 4000  # [] maximum number of SST samples
   witness_radius: 0.8  # [m] SST witness cell radius
   early_stop: true  # [] stop planning when first valid path is found
+  # Path pruning is a performance optimisation with a safety trade-off: it
+  # produces a smoother but riskier path by shortcutting intermediate
+  # waypoints.  To remain collision-free after pruning, all safety margins
+  # must be increased.  Disabled by default.
+  enable_pruning: false  # [] enable trajectory pruning (smooths path but requires larger safety margins)
 
 world:
   random_seed: 7  # [] random seed for world generation

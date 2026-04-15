@@ -309,12 +309,19 @@ class PPPScene:
 
         from arco.planning import PlanningPipeline
 
-        pruner = TrajectoryPruner(
-            occ,
-            step_size=np.asarray(self._planner_cfg["step_size"], dtype=float),
-            collision_check_count=int(
-                self._planner_cfg["collision_check_count"]
-            ),
+        _enable_pruning = bool(self._planner_cfg.get("enable_pruning", False))
+        pruner = (
+            TrajectoryPruner(
+                occ,
+                step_size=np.asarray(
+                    self._planner_cfg["step_size"], dtype=float
+                ),
+                collision_check_count=int(
+                    self._planner_cfg["collision_check_count"]
+                ),
+            )
+            if _enable_pruning
+            else None
         )
         opt = TrajectoryOptimizer(
             occ,

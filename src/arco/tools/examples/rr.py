@@ -313,10 +313,15 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_len = polyline_length(sst_path)
 
     # --- Trajectory optimisation --------------------------------------------
-    pruner = TrajectoryPruner(
-        occ,
-        step_size=np.asarray(planner_cfg["step_size"], dtype=float),
-        collision_check_count=int(planner_cfg["collision_check_count"]),
+    _enable_pruning = bool(planner_cfg.get("enable_pruning", False))
+    pruner = (
+        TrajectoryPruner(
+            occ,
+            step_size=np.asarray(planner_cfg["step_size"], dtype=float),
+            collision_check_count=int(planner_cfg["collision_check_count"]),
+        )
+        if _enable_pruning
+        else None
     )
     optimizer = TrajectoryOptimizer(
         occ,
@@ -334,7 +339,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ) -> tuple[list[np.ndarray] | None, float, str]:
         if path is None or len(path) < 2:
             return None, 0.0, "no-path"
-        path = pruner.prune(path)
+        path = pruner.prune(path) if pruner is not None else list(path)
         try:
             result = optimizer.optimize(path)
             traj = list(result.states)

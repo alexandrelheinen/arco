@@ -62,6 +62,11 @@ planner:
   sst_max_sample_count: 40000  # [] maximum number of SST samples
   witness_radius: 0.5            # [normalised steps] SST witness-cell deduplication radius
   cspace_grid_n: 120  # [] grid resolution for C-space sampling (n^3 points evaluated)
+  # Path pruning is a performance optimisation with a safety trade-off: it
+  # produces a smoother but riskier path by shortcutting intermediate
+  # waypoints.  To remain collision-free after pruning, all safety margins
+  # must be increased.  Disabled by default.
+  enable_pruning: false  # [] enable trajectory pruning (smooths path but requires larger safety margins)
 
 control:
   # Position PD — target: ωn ≈ 0.71 rad/s, ζ ≈ 0.59 → ~10 % overshoot.

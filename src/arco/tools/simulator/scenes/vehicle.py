@@ -169,12 +169,17 @@ class VehicleScene:
     ) -> tuple[list[np.ndarray], float, str]:
         if path is None or len(path) < 2 or self._occ is None:
             return [], 0.0, "no-path"
-        pruner = TrajectoryPruner(
-            self._occ,
-            step_size=np.asarray(self._planner["step_size"], dtype=float),
-            collision_check_count=int(self._planner["collision_check_count"]),
-        )
-        path = pruner.prune(path)
+        if bool(self._planner.get("enable_pruning", False)):
+            pruner = TrajectoryPruner(
+                self._occ,
+                step_size=np.asarray(self._planner["step_size"], dtype=float),
+                collision_check_count=int(
+                    self._planner["collision_check_count"]
+                ),
+            )
+            path = pruner.prune(path)
+        else:
+            path = list(path)
         try:
             opt = TrajectoryOptimizer(
                 self._occ,

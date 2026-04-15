@@ -412,15 +412,20 @@ class OCCScene:
 
         from arco.planning import PlanningPipeline
 
-        pruner = TrajectoryPruner(
-            occ,
-            step_size=np.asarray(
-                self._planner_cfg.get("step_size", [1.0, 1.0, 0.1]),
-                dtype=float,
-            ),
-            collision_check_count=int(
-                self._planner_cfg.get("collision_check_count", 5)
-            ),
+        _enable_pruning = bool(self._planner_cfg.get("enable_pruning", False))
+        pruner = (
+            TrajectoryPruner(
+                occ,
+                step_size=np.asarray(
+                    self._planner_cfg.get("step_size", [1.0, 1.0, 0.1]),
+                    dtype=float,
+                ),
+                collision_check_count=int(
+                    self._planner_cfg.get("collision_check_count", 5)
+                ),
+            )
+            if _enable_pruning
+            else None
         )
         optimizer = TrajectoryOptimizer(
             occ,

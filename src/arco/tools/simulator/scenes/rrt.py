@@ -146,13 +146,16 @@ class RRTScene(SimScene):
             if progress is not None:
                 progress("Optimizing trajectory", 3, _total)
             try:
-                pruner = TrajectoryPruner(
-                    self._occ,
-                    collision_check_count=int(
-                        self._cfg["collision_check_count"]
-                    ),
-                )
-                self._path = pruner.prune(self._path)
+                if bool(self._cfg.get("enable_pruning", False)):
+                    pruner = TrajectoryPruner(
+                        self._occ,
+                        collision_check_count=int(
+                            self._cfg["collision_check_count"]
+                        ),
+                    )
+                    self._path = pruner.prune(self._path)
+                else:
+                    self._path = list(self._path)
                 opt = TrajectoryOptimizer(
                     self._occ,
                     cruise_speed=_VEHICLE_CONFIG.cruise_speed,

@@ -15,7 +15,6 @@ from arco.planning.continuous.telemetry import (
     write_telemetry,
 )
 
-
 # ---------------------------------------------------------------------------
 # StopCriterion.satisfied()
 # ---------------------------------------------------------------------------

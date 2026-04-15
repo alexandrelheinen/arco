@@ -447,10 +447,15 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_len = polyline_length(sst_path)
 
     # --- Trajectory optimisation -------------------------------------------
-    pruner = TrajectoryPruner(
-        occ,
-        step_size=np.asarray(planner_cfg["step_size"], dtype=float),
-        collision_check_count=int(planner_cfg["collision_check_count"]),
+    _enable_pruning = bool(planner_cfg.get("enable_pruning", False))
+    pruner = (
+        TrajectoryPruner(
+            occ,
+            step_size=np.asarray(planner_cfg["step_size"], dtype=float),
+            collision_check_count=int(planner_cfg["collision_check_count"]),
+        )
+        if _enable_pruning
+        else None
     )
     opt = TrajectoryOptimizer(
         occ,
@@ -482,7 +487,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         pass  # parsed below, kept for structure
 
     if rrt_path is not None:
-        rrt_path = pruner.prune(rrt_path)
+        rrt_path = (
+            pruner.prune(rrt_path) if pruner is not None else list(rrt_path)
+        )
         try:
             res = opt.optimize(rrt_path)
             rrt_traj = res.states
@@ -494,7 +501,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             logger.exception("RRT* TrajectoryOptimizer failed; skipping.")
             rrt_opt_status = "exception"
     if sst_path is not None:
-        sst_path = pruner.prune(sst_path)
+        sst_path = (
+            pruner.prune(sst_path) if pruner is not None else list(sst_path)
+        )
         try:
             res = opt.optimize(sst_path)
             sst_traj = res.states

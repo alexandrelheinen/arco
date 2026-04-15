@@ -14,7 +14,6 @@ from arco.middleware.types import GuidanceFrame, MappingFrame, PlanFrame
 from arco.pipeline.node import PipelineNode
 from arco.pipeline.runner import PipelineRunner
 
-
 # ---------------------------------------------------------------------------
 # Helper nodes and subscribers
 # ---------------------------------------------------------------------------

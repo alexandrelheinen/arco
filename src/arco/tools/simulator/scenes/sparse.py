@@ -433,10 +433,15 @@ class CityScene:
         from arco.planning import PlanningPipeline
 
         cruise = self._vehicle_cfg.cruise_speed
-        pruner = TrajectoryPruner(
-            self._occ,
-            step_size=np.asarray(self._cfg["step_size"], dtype=float),
-            collision_check_count=int(self._cfg["collision_check_count"]),
+        _enable_pruning = bool(self._cfg.get("enable_pruning", False))
+        pruner = (
+            TrajectoryPruner(
+                self._occ,
+                step_size=np.asarray(self._cfg["step_size"], dtype=float),
+                collision_check_count=int(self._cfg["collision_check_count"]),
+            )
+            if _enable_pruning
+            else None
         )
         opt = TrajectoryOptimizer(
             self._occ,

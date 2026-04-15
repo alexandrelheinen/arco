@@ -11,7 +11,6 @@ import pytest
 from arco.middleware.bus import InMemoryBus
 from arco.middleware.types import GuidanceFrame, MappingFrame, PlanFrame
 
-
 # ---------------------------------------------------------------------------
 # Basic publish / subscribe
 # ---------------------------------------------------------------------------

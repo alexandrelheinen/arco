@@ -82,6 +82,11 @@ planner:
 
   # Grid resolution for C-space sampling (n^3 points evaluated).
   cspace_grid_n: 80  # [] grid resolution for C-space sampling (n^3 points evaluated)
+  # Path pruning is a performance optimisation with a safety trade-off: it
+  # produces a smoother but riskier path by shortcutting intermediate
+  # waypoints.  To remain collision-free after pruning, all safety margins
+  # must be increased.  Disabled by default.
+  enable_pruning: false  # [] enable trajectory pruning (smooths path but requires larger safety margins)
 
 # ---------------------------------------------------------------------------
 # Simulator parameters
