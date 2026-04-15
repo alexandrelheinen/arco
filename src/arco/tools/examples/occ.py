@@ -5,11 +5,14 @@ body (square or circle) manipulated from pose A to pose B by N mobile
 actuators.  Each planner's output is pruned and trajectory-optimised;
 both the raw path and the optimised trajectory are overlaid.
 
-Figure layout (3 subplots in a row)
--------------------------------------
-* Left   — C-space (x, y) slice with collision occupancy + path + traj
-* Middle — C-space (x, ψ) slice with collision occupancy + path + traj
-* Right  — Cartesian 2-D view with obstacles, start/goal poses, paths + trajs
+Figure layout (standard two-frame)
+------------------------------------
+* Top-left  — Workspace: Cartesian 2-D view with rectangular obstacles,
+  start/goal poses, both planners' paths and trajectories.
+* Top-right — C-space (x m, y m): collision projection with both planners'
+  joint paths/trajectories.  The (x, ψ) slice is dropped in favour of
+  showing the single most informative 2-D C-space projection.
+* Bottom    — Metrics: per-planner information and optimiser status.
 
 Usage
 -----
@@ -26,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import math
 import time
 
 import matplotlib
@@ -37,22 +39,10 @@ import numpy as np
 from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.occ import OCCScene
+from arco.tools.viewer.layout import StandardLayout
+from arco.tools.viewer.utils import format_clock
 
 logger = logging.getLogger(__name__)
-
-
-def _format_clock(seconds: float) -> str:
-    """Format seconds as ``MMminSSs``.
-
-    Args:
-        seconds: Duration in seconds.
-
-    Returns:
-        Formatted string.
-    """
-    rounded = int(round(seconds))
-    mins, secs = divmod(rounded, 60)
-    return f"{mins:02d}min{secs:02d}s"
 
 
 def main(cfg: dict, save_path: str | None = None) -> None:
@@ -73,193 +63,24 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     scene = OCCScene(cfg)
     scene.build()
     elapsed = time.perf_counter() - t_start
-    logger.info("Scene built in %s", _format_clock(elapsed))
+    logger.info("Scene built in %s", format_clock(elapsed))
 
     collision_pts = scene.collision_pts
     rrt_path = scene.rrt_path
     sst_path = scene.sst_path
-    rrt_traj = scene.rrt_traj  # pruned + optimized
-    sst_traj = scene.sst_traj  # pruned + optimized
+    rrt_traj = scene.rrt_traj
+    sst_traj = scene.sst_traj
     start_pose = scene.start_pose
     goal_pose = scene.goal_pose
     obstacles = scene.obstacles
     x_range = [float(v) for v in env_cfg.get("x_range", [-4, 4])]
     y_range = [float(v) for v in env_cfg.get("y_range", [-3, 3])]
 
-    # ---------------------------------------------------------------------------
-    # Figure
-    # ---------------------------------------------------------------------------
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    fig.suptitle("OCC — Object-centric control (piano movers)", fontsize=14)
+    fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
+        title="OCC — Object-centric control (piano movers)"
+    )
 
-    # -- Subplot 1: C-space (x, y) projection --
-    ax1 = axes[0]
-    ax1.set_title("C-space: (x, y) projection")
-    ax1.set_xlabel("x (m)")
-    ax1.set_ylabel("y (m)")
-    if collision_pts:
-        cxs = [p[0] for p in collision_pts]
-        cys = [p[1] for p in collision_pts]
-        ax1.scatter(
-            cxs, cys, s=2, c=obstacle_hex(), alpha=0.3, label="Collision"
-        )
-    if rrt_path and len(rrt_path) >= 2:
-        rxs = [p[0] for p in rrt_path]
-        rys = [p[1] for p in rrt_path]
-        path_a = 0.35 if rrt_traj else 1.0
-        ax1.plot(
-            rxs,
-            rys,
-            color=layer_hex("rrt", "path"),
-            linewidth=1.5,
-            alpha=path_a,
-            label="RRT* path",
-        )
-    if sst_path and len(sst_path) >= 2:
-        sxs = [p[0] for p in sst_path]
-        sys_ = [p[1] for p in sst_path]
-        path_a = 0.35 if sst_traj else 1.0
-        ax1.plot(
-            sxs,
-            sys_,
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=path_a,
-            label="SST path",
-        )
-    if rrt_traj and len(rrt_traj) >= 2:
-        txs = [p[0] for p in rrt_traj]
-        tys = [p[1] for p in rrt_traj]
-        ax1.plot(
-            txs,
-            tys,
-            "o-",
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.0,
-            markersize=2,
-            label="RRT* traj",
-        )
-    if sst_traj and len(sst_traj) >= 2:
-        txs = [p[0] for p in sst_traj]
-        tys = [p[1] for p in sst_traj]
-        ax1.plot(
-            txs,
-            tys,
-            "o-",
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.0,
-            markersize=2,
-            label="SST traj",
-        )
-    ax1.plot(
-        start_pose[0],
-        start_pose[1],
-        "s",
-        color=annotation_hex(),
-        markersize=8,
-        label="Start",
-    )
-    ax1.plot(
-        goal_pose[0],
-        goal_pose[1],
-        "x",
-        color=annotation_hex(),
-        markersize=8,
-        mew=2,
-        label="Goal",
-    )
-    ax1.set_xlim(x_range)
-    ax1.set_ylim(y_range)
-    ax1.legend(fontsize=8)
-    ax1.set_aspect("equal")
-    ax1.grid(True, alpha=0.3)
-
-    # -- Subplot 2: C-space (x, psi) projection --
-    ax2 = axes[1]
-    ax2.set_title("C-space: (x, ψ) projection")
-    ax2.set_xlabel("x (m)")
-    ax2.set_ylabel("ψ (rad)")
-    if collision_pts:
-        cxs = [p[0] for p in collision_pts]
-        cpsis = [p[2] for p in collision_pts]
-        ax2.scatter(
-            cxs, cpsis, s=2, c=obstacle_hex(), alpha=0.3, label="Collision"
-        )
-    if rrt_path and len(rrt_path) >= 2:
-        rxs = [p[0] for p in rrt_path]
-        rpsis = [p[2] for p in rrt_path]
-        path_a = 0.35 if rrt_traj else 1.0
-        ax2.plot(
-            rxs,
-            rpsis,
-            color=layer_hex("rrt", "path"),
-            linewidth=1.5,
-            alpha=path_a,
-            label="RRT* path",
-        )
-    if sst_path and len(sst_path) >= 2:
-        sxs = [p[0] for p in sst_path]
-        spsis = [p[2] for p in sst_path]
-        path_a = 0.35 if sst_traj else 1.0
-        ax2.plot(
-            sxs,
-            spsis,
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=path_a,
-            label="SST path",
-        )
-    if rrt_traj and len(rrt_traj) >= 2:
-        txs = [p[0] for p in rrt_traj]
-        tpsis = [p[2] for p in rrt_traj]
-        ax2.plot(
-            txs,
-            tpsis,
-            "o-",
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.0,
-            markersize=2,
-            label="RRT* traj",
-        )
-    if sst_traj and len(sst_traj) >= 2:
-        txs = [p[0] for p in sst_traj]
-        tpsis = [p[2] for p in sst_traj]
-        ax2.plot(
-            txs,
-            tpsis,
-            "o-",
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.0,
-            markersize=2,
-            label="SST traj",
-        )
-    ax2.plot(
-        start_pose[0],
-        start_pose[2],
-        "s",
-        color=annotation_hex(),
-        markersize=8,
-        label="Start",
-    )
-    ax2.plot(
-        goal_pose[0],
-        goal_pose[2],
-        "x",
-        color=annotation_hex(),
-        markersize=8,
-        mew=2,
-        label="Goal",
-    )
-    ax2.set_xlim(x_range)
-    ax2.set_ylim([-math.pi, math.pi])
-    ax2.legend(fontsize=8)
-    ax2.grid(True, alpha=0.3)
-
-    # -- Subplot 3: Cartesian 2-D view --
-    ax3 = axes[2]
-    ax3.set_title("Cartesian 2-D view")
-    ax3.set_xlabel("x (m)")
-    ax3.set_ylabel("y (m)")
+    # ---- ax_ws: Cartesian 2-D workspace ------------------------------------
     for obs in obstacles:
         xmin, ymin, xmax, ymax = obs
         rect = patches.Rectangle(
@@ -271,12 +92,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             facecolor=obstacle_hex(),
             alpha=0.7,
         )
-        ax3.add_patch(rect)
+        ax_ws.add_patch(rect)
     if rrt_path and len(rrt_path) >= 2:
         rxs = [p[0] for p in rrt_path]
         rys = [p[1] for p in rrt_path]
         path_a = 0.35 if rrt_traj else 1.0
-        ax3.plot(
+        ax_ws.plot(
             rxs,
             rys,
             color=layer_hex("rrt", "path"),
@@ -288,7 +109,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         sxs = [p[0] for p in sst_path]
         sys_ = [p[1] for p in sst_path]
         path_a = 0.35 if sst_traj else 1.0
-        ax3.plot(
+        ax_ws.plot(
             sxs,
             sys_,
             color=layer_hex("sst", "path"),
@@ -299,7 +120,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     if rrt_traj and len(rrt_traj) >= 2:
         txs = [p[0] for p in rrt_traj]
         tys = [p[1] for p in rrt_traj]
-        ax3.plot(
+        ax_ws.plot(
             txs,
             tys,
             "o-",
@@ -311,7 +132,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     if sst_traj and len(sst_traj) >= 2:
         txs = [p[0] for p in sst_traj]
         tys = [p[1] for p in sst_traj]
-        ax3.plot(
+        ax_ws.plot(
             txs,
             tys,
             "o-",
@@ -320,7 +141,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             markersize=2,
             label="SST traj",
         )
-    ax3.plot(
+    ax_ws.plot(
         start_pose[0],
         start_pose[1],
         "s",
@@ -328,7 +149,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         markersize=8,
         label="Start",
     )
-    ax3.plot(
+    ax_ws.plot(
         goal_pose[0],
         goal_pose[1],
         "x",
@@ -337,11 +158,113 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         mew=2,
         label="Goal",
     )
-    ax3.set_xlim(x_range)
-    ax3.set_ylim(y_range)
-    ax3.legend(fontsize=8)
-    ax3.set_aspect("equal")
-    ax3.grid(True, alpha=0.3)
+    ax_ws.set_xlim(x_range)
+    ax_ws.set_ylim(y_range)
+    ax_ws.set_title("Workspace (Cartesian x–y)")
+    ax_ws.set_xlabel("x (m)")
+    ax_ws.set_ylabel("y (m)")
+    ax_ws.legend(fontsize=8)
+    ax_ws.set_aspect("equal")
+    ax_ws.grid(True, alpha=0.3)
+
+    # ---- ax_cs: C-space (x, y) projection ---------------------------------
+    if collision_pts:
+        cxs = [p[0] for p in collision_pts]
+        cys = [p[1] for p in collision_pts]
+        ax_cs.scatter(
+            cxs, cys, s=2, c=obstacle_hex(), alpha=0.3, label="Collision"
+        )
+    if rrt_path and len(rrt_path) >= 2:
+        rxs = [p[0] for p in rrt_path]
+        rys = [p[1] for p in rrt_path]
+        path_a = 0.35 if rrt_traj else 1.0
+        ax_cs.plot(
+            rxs,
+            rys,
+            color=layer_hex("rrt", "path"),
+            linewidth=1.5,
+            alpha=path_a,
+            label="RRT* path",
+        )
+    if sst_path and len(sst_path) >= 2:
+        sxs = [p[0] for p in sst_path]
+        sys_ = [p[1] for p in sst_path]
+        path_a = 0.35 if sst_traj else 1.0
+        ax_cs.plot(
+            sxs,
+            sys_,
+            color=layer_hex("sst", "path"),
+            linewidth=1.5,
+            alpha=path_a,
+            label="SST path",
+        )
+    if rrt_traj and len(rrt_traj) >= 2:
+        txs = [p[0] for p in rrt_traj]
+        tys = [p[1] for p in rrt_traj]
+        ax_cs.plot(
+            txs,
+            tys,
+            "o-",
+            color=layer_hex("rrt", "trajectory"),
+            linewidth=2.0,
+            markersize=2,
+            label="RRT* traj",
+        )
+    if sst_traj and len(sst_traj) >= 2:
+        txs = [p[0] for p in sst_traj]
+        tys = [p[1] for p in sst_traj]
+        ax_cs.plot(
+            txs,
+            tys,
+            "o-",
+            color=layer_hex("sst", "trajectory"),
+            linewidth=2.0,
+            markersize=2,
+            label="SST traj",
+        )
+    ax_cs.plot(
+        start_pose[0],
+        start_pose[1],
+        "s",
+        color=annotation_hex(),
+        markersize=8,
+        label="Start",
+    )
+    ax_cs.plot(
+        goal_pose[0],
+        goal_pose[1],
+        "x",
+        color=annotation_hex(),
+        markersize=8,
+        mew=2,
+        label="Goal",
+    )
+    ax_cs.set_xlim(x_range)
+    ax_cs.set_ylim(y_range)
+    ax_cs.set_title("C-space: (x, y) projection")
+    ax_cs.set_xlabel("x (m)")
+    ax_cs.set_ylabel("y (m)")
+    ax_cs.legend(fontsize=8)
+    ax_cs.set_aspect("equal")
+    ax_cs.grid(True, alpha=0.3)
+
+    # ---- Bottom: metrics ---------------------------------------------------
+    rrt_pts = len(rrt_path) if rrt_path else 0
+    sst_pts = len(sst_path) if sst_path else 0
+    rrt_traj_pts = len(rrt_traj) if rrt_traj else 0
+    sst_traj_pts = len(sst_traj) if sst_traj else 0
+    StandardLayout.write_metrics(
+        ax_bottom,
+        [
+            f"Build time: {format_clock(elapsed)} | "
+            f"Collision samples: {len(collision_pts)}",
+            f"RRT*  path waypoints: {rrt_pts} | "
+            f"traj waypoints: {rrt_traj_pts}",
+            f"SST   path waypoints: {sst_pts} | "
+            f"traj waypoints: {sst_traj_pts}",
+        ],
+        columns=1,
+    )
 
     plt.tight_layout()
 

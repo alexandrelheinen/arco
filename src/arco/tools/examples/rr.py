@@ -1,19 +1,18 @@
 """2-D RR robot arm planning — RRT* vs SST in joint space.
 
-Runs RRT* and SST planners side-by-side for a two-link planar arm
-navigating from a start to a goal configuration while avoiding a
-rectangular obstacle.  Planning is done in joint space (theta1, theta2);
-resulting paths are converted to Cartesian space via forward kinematics
-for visualization.
+Runs RRT* and SST planners for a two-link planar arm navigating from a
+start to a goal configuration while avoiding a rectangular obstacle.
+Planning is done in joint space (theta1, theta2); results are converted
+to Cartesian space via forward kinematics for workspace rendering.
 
-Figure layout (3 subplots in a row)
+Figure layout (standard two-frame)
 ------------------------------------
-* Left   — Combined Cartesian workspace: both RRT* and SST end-effector
-  traces, obstacles, robot at start/goal.
-* Middle — Joint C-space (θ₁, θ₂): collision configs (red scatter), both
+* Top-left  — Workspace: both RRT* and SST end-effector traces, obstacles,
+  robot at start/goal, annotated with both planners' results overlaid.
+* Top-right — C-space (θ₁, θ₂): collision configs (red scatter), both
   joint paths/trajectories, velocity constraint disc (blue circle).
-* Right  — Lyapunov function V(t) = ‖q(t) − q_goal‖ for both trajectories
-  with a sliding-window highlight of the last T/10 seconds.
+* Bottom    — Metrics: per-planner step counts, planning times, path and
+  trajectory lengths.
 
 Usage
 -----
@@ -51,36 +50,17 @@ from arco.tools.simulator.scenes.rr import (
     build_cspace_occupancy,
     pick_collision_free_ik,
 )
+from arco.tools.viewer.layout import StandardLayout
+from arco.tools.viewer.utils import format_clock, polyline_length
 
 logger = logging.getLogger(__name__)
 
 # Minimum annulus inner radius below which the inner-hole outline is skipped.
 _INNER_RADIUS_THRESHOLD: float = 1e-6
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _format_clock(seconds: float) -> str:
-    """Format seconds as ``MMminSSs`` rounded to whole seconds."""
-    rounded = int(round(seconds))
-    mins, secs = divmod(rounded, 60)
-    return f"{mins:02d}min{secs:02d}s"
-
-
-def _polyline_length(path: list[np.ndarray] | None) -> float:
-    """Return total Euclidean arc length for a waypoint sequence."""
-    if path is None or len(path) < 2:
-        return 0.0
-    return sum(
-        float(np.linalg.norm(path[i + 1] - path[i]))
-        for i in range(len(path) - 1)
-    )
-
 
 # ---------------------------------------------------------------------------
-# Visualization helpers
+# Drawing helpers
 # ---------------------------------------------------------------------------
 
 
@@ -131,7 +111,7 @@ def _fk_path(
 
 
 # ---------------------------------------------------------------------------
-# Main planning function
+# Main
 # ---------------------------------------------------------------------------
 
 
@@ -139,6 +119,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     """Run the RR planning example and display or save the figure.
 
     Args:
+        cfg: Scenario configuration dictionary (loaded from ``rr.yml``).
         save_path: Optional path to save the output image.  When ``None``
             an interactive matplotlib window is opened instead.
     """
@@ -164,14 +145,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     planner_cfg = cfg.get("planner", cfg)
     sim_cfg = cfg.get("simulator", cfg)
 
-    # --- Setup -----------------------------------------------------------
     robot = RRRobot(l1=float(robot_cfg["l1"]), l2=float(robot_cfg["l2"]))
     obstacles: list[list[float]] = [
         [float(v) for v in obs] for obs in env_cfg["obstacles"]
     ]
     bounds = [tuple(b) for b in env_cfg["bounds"]]
     clearance = float(env_cfg["obstacle_clearance"])
-
     start_position = [float(v) for v in env_cfg["start_position"]]
     goal_position = [float(v) for v in env_cfg["goal_position"]]
 
@@ -185,13 +164,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     logger.info("Start joint config: (%.3f, %.3f)", start_q[0], start_q[1])
     logger.info("Goal  joint config: (%.3f, %.3f)", goal_q[0], goal_q[1])
 
-    # --- Occupancy map ---------------------------------------------------
     logger.info("Building C-space occupancy map …")
     occ, collision_pts = build_cspace_occupancy(
         robot, obstacles, bounds, clearance
     )
 
-    # --- RRT* ------------------------------------------------------------
+    # --- RRT* ---------------------------------------------------------------
     rrt = RRTPlanner(
         occ,
         bounds=bounds,
@@ -211,14 +189,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     )
     rrt_feasible = rrt_path is not None
     rrt_nodes: list = list(getattr(rrt, "_nodes", []))
-    rrt_len = _polyline_length(rrt_path)
-    logger.info(
-        "RRT*: %d waypoints, length=%.3f rad",
-        len(rrt_path) if rrt_path else 0,
-        rrt_len,
-    )
+    rrt_len = polyline_length(rrt_path)
 
-    # --- SST -------------------------------------------------------------
+    # --- SST ----------------------------------------------------------------
     sst = SSTPlanner(
         occ,
         bounds=bounds,
@@ -239,14 +212,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     )
     sst_feasible = sst_path is not None
     sst_nodes: list = list(getattr(sst, "_nodes", []))
-    sst_len = _polyline_length(sst_path)
-    logger.info(
-        "SST: %d waypoints, length=%.3f rad",
-        len(sst_path) if sst_path else 0,
-        sst_len,
-    )
+    sst_len = polyline_length(sst_path)
 
-    # --- Trajectory optimization -----------------------------------------
+    # --- Trajectory optimisation --------------------------------------------
     pruner = TrajectoryPruner(
         occ,
         step_size=np.asarray(planner_cfg["step_size"], dtype=float),
@@ -264,11 +232,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     )
 
     def _optimize(
-        path: list[np.ndarray] | None,
-        label: str,
-    ) -> tuple[list[np.ndarray] | None, float, float, str, list[float]]:
+        path: list[np.ndarray] | None, label: str
+    ) -> tuple[list[np.ndarray] | None, float, str]:
         if path is None or len(path) < 2:
-            return None, 0.0, 0.0, "no-path", []
+            return None, 0.0, "no-path"
         path = pruner.prune(path)
         try:
             result = optimizer.optimize(path)
@@ -276,7 +243,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             durs: list[float] = (
                 list(result.durations) if result.durations else []
             )
-            dur = float(sum(durs)) if durs else 0.0
+            dur = float(sum(durs))
             status = (
                 f"{result.optimizer_status_code}:"
                 f" {result.optimizer_status_text}"
@@ -287,19 +254,14 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         except Exception as exc:
             logger.warning("%s optimization failed: %s", label, exc)
             traj = list(path)
-            durs = []
             dur = 0.0
             status = "error"
-        return traj, _polyline_length(traj), dur, status, durs
+        return traj, dur, status
 
-    rrt_traj, rrt_traj_len, rrt_traj_dur, rrt_opt_status, rrt_durs = _optimize(
-        rrt_path, "RRT*"
-    )
-    sst_traj, sst_traj_len, sst_traj_dur, sst_opt_status, sst_durs = _optimize(
-        sst_path, "SST"
-    )
+    rrt_traj, rrt_traj_dur, rrt_opt_status = _optimize(rrt_path, "RRT*")
+    sst_traj, sst_traj_dur, sst_opt_status = _optimize(sst_path, "SST")
 
-    # --- Workspace geometry ----------------------------------------------
+    # --- Workspace geometry -------------------------------------------------
     r_min, r_max = robot.workspace_annulus()
     theta_range = np.linspace(0, 2 * math.pi, 200)
     outer_x = r_max * np.cos(theta_range)
@@ -325,36 +287,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     rrt_traj_cart = _fk_path(robot, rrt_traj)
     sst_traj_cart = _fk_path(robot, sst_traj)
 
-    def _lyapunov_series(
-        traj_states: list[np.ndarray] | None,
-        traj_durations: list[float] | None,
-        goal: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Compute cumulative time and V(t) = ||state - goal|| for a trajectory.
+    # --- Figure -------------------------------------------------------------
+    fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
+        title="RR robot (2-D) — RRT* vs SST in joint space"
+    )
 
-        Args:
-            traj_states: Sequence of joint-space states.
-            traj_durations: Per-segment durations (length = len(states) - 1).
-            goal: Goal state array.
-
-        Returns:
-            Tuple of ``(times, V)`` arrays.  Both empty if input is too short.
-        """
-        if traj_states is None or len(traj_states) < 2:
-            return np.array([]), np.array([])
-        durs = traj_durations or [1.0] * (len(traj_states) - 1)
-        times = np.concatenate(
-            [[0.0], np.cumsum(durs[: len(traj_states) - 1])]
-        )
-        V = np.array(
-            [float(np.linalg.norm(np.asarray(s) - goal)) for s in traj_states]
-        )
-        return times, V
-
-    # --- Figure ----------------------------------------------------------
-    fig, (ax_ws, ax_cs, ax_lv) = plt.subplots(1, 3, figsize=(18, 6))
-
-    # ---- ax_ws: Combined Cartesian workspace ----------------------------
+    # ---- ax_ws: Combined Cartesian workspace --------------------------------
     ax_ws.fill(outer_x, outer_y, alpha=0.07, color="steelblue")
     if r_min > _INNER_RADIUS_THRESHOLD:
         ax_ws.fill(inner_x, inner_y, alpha=0.25, color="white")
@@ -398,7 +336,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             arr[:, 1],
             color=layer_hex("rrt", "path"),
             linewidth=1.5,
-            alpha=0.7,
+            alpha=(0.35 if rrt_traj_cart else 1.0),
             label="RRT* path",
         )
     if rrt_traj_cart is not None and len(rrt_traj_cart) >= 2:
@@ -420,7 +358,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             arr[:, 1],
             color=layer_hex("sst", "path"),
             linewidth=1.5,
-            alpha=0.7,
+            alpha=(0.35 if sst_traj_cart else 1.0),
             label="SST path",
         )
     if sst_traj_cart is not None and len(sst_traj_cart) >= 2:
@@ -444,36 +382,11 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_ws.set_aspect("equal")
     ax_ws.set_xlabel("X (m)")
     ax_ws.set_ylabel("Y (m)")
-    ax_ws.set_title("RR robot — Cartesian workspace")
+    ax_ws.set_title("Workspace (Cartesian)")
     ax_ws.legend(loc="upper left", fontsize=7)
     ax_ws.grid(True, alpha=0.3)
 
-    metrics_lines = [
-        f"RRT* steps/nodes: {max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)}",
-        f"RRT* time: {_format_clock(rrt_elapsed)} | len: {rrt_len:.2f} rad",
-        f"RRT* traj dur: {_format_clock(rrt_traj_dur)} | {rrt_opt_status}",
-        f"SST steps/nodes: {max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)}",
-        f"SST time: {_format_clock(sst_elapsed)} | len: {sst_len:.2f} rad",
-        f"SST traj dur: {_format_clock(sst_traj_dur)} | {sst_opt_status}",
-    ]
-    ax_ws.text(
-        0.02,
-        0.98,
-        "\n".join(metrics_lines),
-        transform=ax_ws.transAxes,
-        va="top",
-        ha="left",
-        fontsize=7,
-        color="black",
-        bbox={
-            "boxstyle": "round,pad=0.3",
-            "facecolor": "white",
-            "alpha": 0.80,
-            "edgecolor": "none",
-        },
-    )
-
-    # ---- ax_cs: C-space (θ₁, θ₂) with velocity constraint disc ----------
+    # ---- ax_cs: C-space (θ₁, θ₂) with velocity constraint disc ------------
     if collision_pts:
         cpts = np.array(collision_pts)
         ax_cs.scatter(
@@ -484,7 +397,6 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             alpha=0.3,
             label="C-space obstacle",
         )
-
     if rrt_path is not None:
         arr = np.array(rrt_path)
         ax_cs.plot(
@@ -530,9 +442,8 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             label="SST traj",
         )
 
-    # Velocity constraint disc (blue circle) around start and goal
     cruise_speed = float(sim_cfg.get("race_speed", 1.0))
-    for center, marker in ((start_q, "s"), (goal_q, "x")):
+    for center in (start_q, goal_q):
         circ = mpatches.Circle(
             (float(center[0]), float(center[1])),
             radius=cruise_speed,
@@ -571,50 +482,30 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_cs.grid(True, alpha=0.3)
     ax_cs.set_aspect("equal")
 
-    # ---- ax_lv: Lyapunov function V(t) = ‖q(t) − goal_q‖ ---------------
-    goal_arr = np.asarray(goal_q)
-    rrt_times, rrt_V = _lyapunov_series(rrt_traj, rrt_durs, goal_arr)
-    sst_times, sst_V = _lyapunov_series(sst_traj, sst_durs, goal_arr)
-
-    if len(rrt_times) > 0:
-        ax_lv.plot(
-            rrt_times,
-            rrt_V,
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=1.8,
-            label="RRT* V(t)",
-        )
-        window = (rrt_times[-1] - rrt_times[0]) / 10.0
-        ax_lv.axvspan(
-            rrt_times[-1] - window, rrt_times[-1], alpha=0.10, color="gray"
-        )
-    if len(sst_times) > 0:
-        ax_lv.plot(
-            sst_times,
-            sst_V,
-            color=layer_hex("sst", "trajectory"),
-            linewidth=1.8,
-            label="SST V(t)",
-        )
-        window = (sst_times[-1] - sst_times[0]) / 10.0
-        ax_lv.axvspan(
-            sst_times[-1] - window,
-            sst_times[-1],
-            alpha=0.10,
-            color="steelblue",
-        )
-
-    ax_lv.axhline(0, color="gray", linewidth=0.8, linestyle=":")
-    ax_lv.set_xlabel("Time (s)")
-    ax_lv.set_ylabel("V(t) = ‖q − goal‖ (rad)")
-    ax_lv.set_title("Lyapunov function")
-    ax_lv.legend(loc="upper right", fontsize=7)
-    ax_lv.grid(True, alpha=0.3)
+    # ---- Bottom: metrics ---------------------------------------------------
+    StandardLayout.write_metrics(
+        ax_bottom,
+        [
+            f"RRT*  steps/nodes: "
+            f"{max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)} | "
+            f"time: {format_clock(rrt_elapsed)} | "
+            f"path: {rrt_len:.2f} rad | "
+            f"traj: {format_clock(rrt_traj_dur)} | {rrt_opt_status}",
+            f"SST   steps/nodes: "
+            f"{max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)} | "
+            f"time: {format_clock(sst_elapsed)} | "
+            f"path: {sst_len:.2f} rad | "
+            f"traj: {format_clock(sst_traj_dur)} | {sst_opt_status}",
+        ],
+    )
 
     plt.tight_layout()
 
     if save_path is not None:
-        plt.savefig(save_path, dpi=120, bbox_inches="tight")
+        import os
+
+        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("Saved RR planning example to %s", save_path)
     else:
         plt.show()
@@ -623,6 +514,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 if __name__ == "__main__":
     import yaml as _yaml
 
+    configure_logging()
     parser = argparse.ArgumentParser(
         description="RR robot arm planning example"
     )
