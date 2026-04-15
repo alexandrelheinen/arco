@@ -118,106 +118,45 @@ def _format_clock(seconds: float) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _make_text_surface(
+def _make_side_panel(
     font: pygame.font.Font,
-    lines: list[str],
-    color: tuple[int, int, int],
+    sections: list[tuple[list[str], tuple[int, int, int]]],
 ) -> pygame.Surface:
-    """Build a small SRCALPHA surface with the given text lines.
+    """Build a single vertical side-panel surface with colour-coded sections.
+
+    All planner info is stacked vertically so the panel never overlaps
+    the simulation columns.  Adjacent sections are separated by a blank line.
 
     Args:
         font: Pygame monospace font.
-        lines: Lines to render top-to-bottom.
-        color: RGB text color.
+        sections: Ordered list of ``(lines, color)`` pairs.  Each pair
+            renders its lines in *color*; a blank spacer row is inserted
+            between consecutive sections.
 
     Returns:
         Transparent SRCALPHA pygame surface.
     """
-    line_h = font.get_linesize() + 2
-    panel_h = len(lines) * line_h + 8
-    panel_w = max((font.size(ln)[0] for ln in lines), default=10) + 20
+    lh = font.get_linesize() + 2
+    entries: list[tuple[str, tuple[int, int, int] | None]] = []
+    for i, (lines, color) in enumerate(sections):
+        for line in lines:
+            entries.append((line, color))
+        if i < len(sections) - 1:
+            entries.append(("", None))
+
+    panel_w = max((font.size(t)[0] for t, _ in entries if t), default=100) + 24
+    panel_h = len(entries) * lh + 10
     surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-    surf.fill((10, 10, 20, 180))
-    y = 4
-    for line in lines:
-        shadow = font.render(line, True, _C_HUD_SHADOW)
-        surf.blit(shadow, (11, y + 1))
-        rendered = font.render(line, True, color)
-        surf.blit(rendered, (10, y))
-        y += line_h
+    surf.fill((10, 14, 24, 185))
+    y = 5
+    for text, color in entries:
+        if not text or color is None:
+            y += lh
+            continue
+        surf.blit(font.render(text, True, _C_HUD_SHADOW), (11, y + 1))
+        surf.blit(font.render(text, True, color), (10, y))
+        y += lh
     return surf
-
-
-def _blit_left(
-    font: pygame.font.Font,
-    lines: list[str],
-    color: tuple[int, int, int],
-    sw: int,
-    sh: int,
-    x: int = 10,
-    y: int = 10,
-) -> None:
-    """Render left-aligned shadowed text lines starting at (x, y).
-
-    Args:
-        font: Pygame font.
-        lines: Text lines to render top-to-bottom.
-        color: RGB text color.
-        sw: Screen width in pixels.
-        sh: Screen height in pixels.
-        x: Left x pixel position.
-        y: Starting y pixel position.
-    """
-    surf = _make_text_surface(font, lines, color)
-    renderer_gl.blit_overlay(surf, x, y, sw, sh)
-
-
-def _blit_right(
-    font: pygame.font.Font,
-    lines: list[str],
-    color: tuple[int, int, int],
-    sw: int,
-    sh: int,
-    x_margin: int = 10,
-    y: int = 10,
-) -> None:
-    """Render right-aligned shadowed text lines.
-
-    Args:
-        font: Pygame font.
-        lines: Text lines to render top-to-bottom.
-        color: RGB text color.
-        sw: Screen width in pixels.
-        sh: Screen height in pixels.
-        x_margin: Gap between text right edge and screen right edge.
-        y: Starting y pixel position.
-    """
-    surf = _make_text_surface(font, lines, color)
-    x = sw - x_margin - surf.get_width()
-    renderer_gl.blit_overlay(surf, x, y, sw, sh)
-
-
-def _blit_mid(
-    font: pygame.font.Font,
-    lines: list[str],
-    color: tuple[int, int, int],
-    sw: int,
-    sh: int,
-    y: int = 10,
-) -> None:
-    """Render centered shadowed text lines near the top area.
-
-    Args:
-        font: Pygame font.
-        lines: Text lines to render top-to-bottom.
-        color: RGB text color.
-        sw: Screen width in pixels.
-        sh: Screen height in pixels.
-        y: Starting y pixel position.
-    """
-    surf = _make_text_surface(font, lines, color)
-    x = (sw - surf.get_width()) // 2
-    renderer_gl.blit_overlay(surf, x, y, sw, sh)
 
 
 def _blit_center(
@@ -238,7 +177,7 @@ def _blit_center(
         sh: Screen height in pixels.
         y: Vertical pixel position.
     """
-    surf = _make_text_surface(font, [line], color)
+    surf = _make_side_panel(font, [([line], color)])
     x = (sw - surf.get_width()) // 2
     renderer_gl.blit_overlay(surf, x, y, sw, sh)
 
@@ -819,9 +758,10 @@ def _draw_planning_hud(
     sw: int,
     sh: int,
 ) -> None:
-    """Draw the planning-phase HUD with per-planner progress.
+    """Draw the planning-phase HUD as a single left-side vertical panel.
 
-    RRT* info is shown top-left; A* info top-center; SST info top-right.
+    All three planners are listed top-to-bottom in one panel so no text
+    overlaps the simulation columns.
 
     Args:
         font: Pygame font.
@@ -843,43 +783,49 @@ def _draw_planning_hud(
     ) -> list[str]:
         return [
             name,
-            f"Reveal nodes: {revealed}/{total}",
+            f"  Reveal nodes: {revealed}/{total}",
             (
-                "Planner steps / nodes: "
+                "  Planner steps / nodes: "
                 f"{int(metrics['steps'])} / {int(metrics['nodes'])}"
             ),
             (
-                "Planner time: "
+                "  Planner time: "
                 f"{_format_clock(float(metrics['planner_time']))}"
             ),
             (
-                "Planned path length: "
+                "  Planned path length: "
                 f"{int(round(float(metrics['planned_path_length'])))} m"
             ),
             (
-                "Trajectory arc length: "
+                "  Trajectory arc length: "
                 f"{int(round(float(metrics['trajectory_arc_length'])))} m"
             ),
             (
-                "Predicted duration: "
+                "  Predicted duration: "
                 f"{_format_clock(float(metrics['trajectory_duration']))}"
             ),
-            f"Path status: {metrics['path_status']}",
-            f"Optimizer status: {metrics['optimizer_status']}",
+            f"  Path status: {metrics['path_status']}",
+            f"  Optimizer status: {metrics['optimizer_status']}",
         ]
 
-    rrt_lines = [
-        *_planner_lines("RRT*", rrt_revealed, rrt_total, rrt_metrics),
-    ]
-    sst_lines = [
-        *_planner_lines("SST", sst_revealed, sst_total, sst_metrics),
-    ]
-    astar_lines = [
-        *_planner_lines("A*", astar_total, astar_total, astar_metrics),
-    ]
-    _blit_left(font, rrt_lines, _C_RRT_HUD, sw, sh)
-    _blit_mid(font, astar_lines, _C_ASTAR_HUD, sw, sh)
-    _blit_right(font, sst_lines, _C_SST_HUD, sw, sh)
+    panel = _make_side_panel(
+        font,
+        [
+            (
+                _planner_lines("RRT*", rrt_revealed, rrt_total, rrt_metrics),
+                _C_RRT_HUD,
+            ),
+            (
+                _planner_lines("A*", astar_total, astar_total, astar_metrics),
+                _C_ASTAR_HUD,
+            ),
+            (
+                _planner_lines("SST", sst_revealed, sst_total, sst_metrics),
+                _C_SST_HUD,
+            ),
+        ],
+    )
+    renderer_gl.blit_overlay(panel, 8, 8, sw, sh)
 
     both_ready = rrt_revealed >= rrt_total and sst_revealed >= sst_total
     center_line = (
@@ -905,7 +851,7 @@ def _draw_race_hud(
     sw: int,
     sh: int,
 ) -> None:
-    """Draw the racing-phase HUD showing per-vehicle status and race timer.
+    """Draw the racing-phase HUD as a single left-side vertical panel.
 
     Args:
         font: Pygame font.
@@ -920,108 +866,63 @@ def _draw_race_hud(
         sw: Screen width in pixels.
         sh: Screen height in pixels.
     """
-    if rrt_finish is None:
-        rrt_status = f"t = {race_time:.1f} s"
-    else:
-        rrt_status = f"GOAL  in {rrt_finish:.1f} s"
+    rrt_status = (
+        f"  GOAL  in {rrt_finish:.1f} s"
+        if rrt_finish is not None
+        else f"  t = {race_time:.1f} s"
+    )
+    sst_status = (
+        f"  GOAL  in {sst_finish:.1f} s"
+        if sst_finish is not None
+        else f"  t = {race_time:.1f} s"
+    )
+    astar_status = (
+        f"  GOAL  in {astar_finish:.1f} s"
+        if astar_finish is not None
+        else f"  t = {race_time:.1f} s"
+    )
 
-    if sst_finish is None:
-        sst_status = f"t = {race_time:.1f} s"
-    else:
-        sst_status = f"GOAL  in {sst_finish:.1f} s"
+    def _vehicle_lines(name: str, status: str, metrics: dict) -> list[str]:
+        return [
+            name,
+            status,
+            (
+                "  Planner steps / nodes: "
+                f"{int(metrics['steps'])} / {int(metrics['nodes'])}"
+            ),
+            (
+                "  Planner time: "
+                f"{_format_clock(float(metrics['planner_time']))}"
+            ),
+            (
+                "  Planned path length: "
+                f"{int(round(float(metrics['planned_path_length'])))} m"
+            ),
+            (
+                "  Trajectory arc length: "
+                f"{int(round(float(metrics['trajectory_arc_length'])))} m"
+            ),
+            (
+                "  Predicted duration: "
+                f"{_format_clock(float(metrics['trajectory_duration']))}"
+            ),
+            f"  Path status: {metrics['path_status']}",
+            f"  Optimizer status: {metrics['optimizer_status']}",
+        ]
 
-    if astar_finish is None:
-        astar_status = f"t = {race_time:.1f} s"
-    else:
-        astar_status = f"GOAL  in {astar_finish:.1f} s"
+    panel = _make_side_panel(
+        font,
+        [
+            (_vehicle_lines("RRT*", rrt_status, rrt_metrics), _C_RRT_HUD),
+            (_vehicle_lines("A*", astar_status, astar_metrics), _C_ASTAR_HUD),
+            (_vehicle_lines("SST", sst_status, sst_metrics), _C_SST_HUD),
+        ],
+    )
+    renderer_gl.blit_overlay(panel, 8, 8, sw, sh)
 
-    rrt_lines = [
-        "RRT*",
-        rrt_status,
-        (
-            "Planner steps / nodes: "
-            f"{int(rrt_metrics['steps'])} / {int(rrt_metrics['nodes'])}"
-        ),
-        (
-            "Planner time: "
-            f"{_format_clock(float(rrt_metrics['planner_time']))}"
-        ),
-        (
-            "Planned path length: "
-            f"{int(round(float(rrt_metrics['planned_path_length'])))} m"
-        ),
-        (
-            "Trajectory arc length: "
-            f"{int(round(float(rrt_metrics['trajectory_arc_length'])))} m"
-        ),
-        (
-            "Predicted duration: "
-            f"{_format_clock(float(rrt_metrics['trajectory_duration']))}"
-        ),
-        f"Path status: {rrt_metrics['path_status']}",
-        f"Optimizer status: {rrt_metrics['optimizer_status']}",
-    ]
-    sst_lines = [
-        "SST",
-        sst_status,
-        (
-            "Planner steps / nodes: "
-            f"{int(sst_metrics['steps'])} / {int(sst_metrics['nodes'])}"
-        ),
-        (
-            "Planner time: "
-            f"{_format_clock(float(sst_metrics['planner_time']))}"
-        ),
-        (
-            "Planned path length: "
-            f"{int(round(float(sst_metrics['planned_path_length'])))} m"
-        ),
-        (
-            "Trajectory arc length: "
-            f"{int(round(float(sst_metrics['trajectory_arc_length'])))} m"
-        ),
-        (
-            "Predicted duration: "
-            f"{_format_clock(float(sst_metrics['trajectory_duration']))}"
-        ),
-        f"Path status: {sst_metrics['path_status']}",
-        f"Optimizer status: {sst_metrics['optimizer_status']}",
-    ]
-
-    astar_lines = [
-        "A*",
-        astar_status,
-        (
-            "Planner steps / nodes: "
-            f"{int(astar_metrics['steps'])} / {int(astar_metrics['nodes'])}"
-        ),
-        (
-            "Planner time: "
-            f"{_format_clock(float(astar_metrics['planner_time']))}"
-        ),
-        (
-            "Planned path length: "
-            f"{int(round(float(astar_metrics['planned_path_length'])))} m"
-        ),
-        (
-            "Trajectory arc length: "
-            f"{int(round(float(astar_metrics['trajectory_arc_length'])))} m"
-        ),
-        (
-            "Predicted duration: "
-            f"{_format_clock(float(astar_metrics['trajectory_duration']))}"
-        ),
-        f"Path status: {astar_metrics['path_status']}",
-        f"Optimizer status: {astar_metrics['optimizer_status']}",
-    ]
-
-    _blit_left(font, rrt_lines, _C_RRT_HUD, sw, sh)
-    _blit_mid(font, astar_lines, _C_ASTAR_HUD, sw, sh)
-    _blit_right(font, sst_lines, _C_SST_HUD, sw, sh)
-
-    center = f"Race  {race_time:.1f} s"
-    if paused:
-        center = "[ PAUSED — press SPACE ]"
+    center = (
+        "[ PAUSED — press SPACE ]" if paused else f"Race  {race_time:.1f} s"
+    )
     _blit_center(font, center, _C_HUD, sw, sh, 10)
 
 
