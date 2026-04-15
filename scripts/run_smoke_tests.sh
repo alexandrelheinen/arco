@@ -13,7 +13,16 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-DURATION=5
+DURATION=3
+
+# Parse --duration <seconds> override
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --duration) DURATION="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
 OUT_DIR="/tmp/arco_smoke"
 mkdir -p "$OUT_DIR"
 
