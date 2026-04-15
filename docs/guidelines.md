@@ -388,3 +388,56 @@ several hundred).  This produced a shape mismatch at `ax.plot(times, V)`.
 **Fix**: derive the time axis inside `_lyapunov_series` as
 `np.arange(len(traj_states)) * dt`, where `dt` is the simulation step size.
 
+
+## 15. Adding a Required Constructor Parameter — All Call-Sites Rule
+
+When a constructor parameter is changed from optional to **required** (i.e. it
+gains no default value), every call site in the entire codebase — including
+simulator `scenes/`, standalone `examples/`, tests, and any other consumer —
+**must** be updated in the same commit.
+
+### Root cause (2026-04 incident)
+
+`TrajectoryPruner.__init__()` gained a mandatory `step_size` parameter.
+Five of seven call sites were updated.  Two were missed:
+
+| File | Impact |
+|---|---|
+| `tools/simulator/scenes/vehicle.py` | smoke test `vehicle` crashed at runtime |
+| `tools/examples/rr.py` | `arcoex rr` example crashed |
+
+Both escaped because:
+
+1. **No unit test exercised those call paths** — the pruner's `_optimize()` path
+   in `vehicle.py` is only reached during a full simulation run, not in the
+   unit-test suite.
+2. **`scripts/pre_push.sh` was not run locally before pushing** — smoke tests
+   (which _do_ exercise `vehicle.py`) would have caught the crash.
+
+### Prevention rule
+
+> After changing any constructor or public-method signature, run:
+> ```bash
+> grep -rn "ClassName(" src/ tests/
+> ```
+> and verify *every* hit is updated.  Then run `scripts/pre_push.sh` (or at
+> minimum `scripts/run_smoke_tests.sh`) to confirm no runtime crashes survive.
+
+This check is **mandatory** before any commit that touches a public API.
+
+
+## 16. pyreverse — Module Name Conflicts with `__init__` Re-exports
+
+`pyreverse` (pylint ≤ 3.x) crashes with `KeyError: 'arco.X.module'` when a
+package's `__init__.py` contains a `from .module import …` statement **and**
+the module name is not pre-registered in pyreverse's internal `module_info`
+table.  This tends to occur for top-level modules (not sub-packages) added to
+packages that use `__init__.py` as a re-export hub.
+
+### Prevention rule
+
+Whenever a new **module file** (not a sub-package) is added to a package whose
+`__init__.py` re-exports it, add `--ignore=<filename>.py` to both `pyreverse`
+invocations in `.github/workflows/generate_images.yml`.  Alternatively,
+restructure the new module as a sub-package (a folder with its own
+`__init__.py`) so pyreverse handles it like a package, not a module.

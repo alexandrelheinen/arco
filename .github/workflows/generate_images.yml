@@ -51,15 +51,20 @@ jobs:
         run: bash scripts/run_examples.sh /tmp/generated_images
 
       # Generate pyreverse diagrams
+      # --ignore=pipeline.py avoids a pyreverse KeyError triggered by modules
+      # that are re-exported from a parent __init__.py but also appear as a
+      # direct "from .pipeline import …" dependency inside that __init__.
       - name: Generate pyreverse class diagram
         run: |
           pyreverse --verbose -f PUB_ONLY --colorized -o png -k --no-standalone \
+            --ignore=pipeline.py \
             -p classes ./src/arco/
           mv classes_classes.png /tmp/generated_images/pyreverse_classes.png
 
       - name: Generate pyreverse package diagram
         run: |
           pyreverse --verbose -f PUB_ONLY --colorized -o png -k --no-standalone \
+            --ignore=pipeline.py \
             -p packages ./src/arco/
           mv packages_packages.png /tmp/generated_images/pyreverse_packages.png
 

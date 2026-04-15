@@ -171,6 +171,7 @@ class VehicleScene:
             return [], 0.0, "no-path"
         pruner = TrajectoryPruner(
             self._occ,
+            step_size=np.asarray(self._planner["step_size"], dtype=float),
             collision_check_count=int(self._planner["collision_check_count"]),
         )
         path = pruner.prune(path)
