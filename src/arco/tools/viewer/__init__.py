@@ -1,5 +1,6 @@
 """Visualization helpers for ARCO mapping and planning structures."""
 
+from .frame_renderer import FrameRenderer, LayerStyle
 from .graph import draw_graph
 from .grid import draw_grid
 from .layout import StandardLayout
@@ -12,6 +13,8 @@ __all__ = [
     "draw_grid",
     "draw_road_network",
     "format_clock",
+    "FrameRenderer",
+    "LayerStyle",
     "polyline_length",
     "SceneSnapshot",
     "StandardLayout",
