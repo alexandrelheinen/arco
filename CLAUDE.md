@@ -20,13 +20,11 @@ Use [docs/guidelines.md](docs/guidelines.md) as the required coding and architec
 Before finishing a task, verify:
 
 - Run `bash scripts/pre_push.sh` — this single command runs all required
-  CI gates locally (formatting, tests, examples, smoke tests, videos).  Use
-  `--no-examples --no-smoke --no-videos` **only** when the environment
-  genuinely cannot run pygame (no virtual framebuffer or no ffmpeg). **Do not
-  skip `--no-smoke` as a routine shortcut** — smoke tests are the only local
-  gate that imports every simulator module at startup, catching import-time
-  `KeyError` / `ImportError` regressions that unit tests miss (see §12 of
-  docs/guidelines.md). State the reason in the PR when skipping.
+  CI gates locally (formatting, tests, examples, smoke tests, videos).
+  All gates are mandatory — nothing may be skipped. Smoke tests are the only
+  local gate that imports every simulator module at startup, catching
+  import-time `KeyError` / `ImportError` regressions that unit tests miss
+  (see §12 of docs/guidelines.md).
 - After restructuring any shared config file (`colors.yml`, etc.): audit every
   consumer and run a quick import check on all simulator entry points before
   pushing (see §12 of docs/guidelines.md).

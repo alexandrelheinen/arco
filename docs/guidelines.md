@@ -241,13 +241,10 @@ validation script:
 ```bash
 # Full validation (requires xvfb + ffmpeg for smoke tests and videos)
 bash scripts/pre_push.sh
-
-# When a headless display or ffmpeg is unavailable locally:
-bash scripts/pre_push.sh --no-smoke --no-videos
 ```
 
 `scripts/pre_push.sh` runs **all five CI gates** in the same order as the
-GitHub workflows:
+GitHub workflows.  All gates are mandatory — none may be skipped:
 
 | Gate | Script | What it checks |
 |------|--------|----------------|
@@ -257,16 +254,11 @@ GitHub workflows:
 | 4 | `scripts/run_smoke_tests.sh` | `arcosim` short headless recording for every simulator |
 | 5 | `scripts/generate_videos.sh` | `arcosim` full-length simulation videos |
 
-> **⚠️ Do not use `--no-smoke` as a routine shortcut.**  
+> **⚠️ Do not skip any gate.**  
 > The smoke tests are the only local gate that imports and executes every
 > simulator module.  Skipping them is how import-time errors in simulator
 > files (e.g. a broken `load_config` call after restructuring `colors.yml`)
 > escape the local validation loop and fail in CI.
->
-> Only skip smoke tests when the environment genuinely cannot run pygame
-> (e.g. a headless container with no virtual framebuffer).  In that case,
-> add a note in the PR description explaining why gate 4 was not verified
-> locally.
 
 All GitHub workflow checks (push **and** release) must pass before a pull
 request is merged.  If a workflow fails, investigate with GitHub MCP tools
@@ -332,8 +324,8 @@ introduced.  The migration updated most renderers but missed
 `_rgb("rrt", "vehicle")` against the new schema.
 
 The unit tests did not catch this because `city.py` is a simulator entry
-point that is only exercised by the smoke tests (gate 4).  The `--no-smoke`
-flag was used locally, so the error only surfaced in CI.
+point that is only exercised by the smoke tests (gate 4).  The smoke tests
+were skipped locally, so the error only surfaced in CI.
 
 **The invariant to enforce:** after restructuring any shared config, zero
 files may reference a key path that no longer exists.  The import check
