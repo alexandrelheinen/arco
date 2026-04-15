@@ -144,18 +144,11 @@ class FrameRenderer:
                 layer_key="found_path",
             )
         if self.draw_pruned_path and snapshot.pruned_path:
-            style = self.styles.get("pruned_path", LayerStyle())
-            if style.visible:
-                pts = np.array(snapshot.pruned_path)
-                self._scatter(
-                    ax,
-                    pts,
-                    color=style.color or layer_hex(planner, "path"),
-                    s=style.markersize or 20,
-                    alpha=style.alpha or 0.75,
-                    zorder=4,
-                    label="Pruned path",
-                )
+            self._render_pruned_landmarks(
+                ax,
+                snapshot.pruned_path,
+                planner=planner,
+            )
         if self.draw_trajectory and snapshot.adjusted_trajectory:
             self._render_polyline(
                 ax,
@@ -381,6 +374,75 @@ class FrameRenderer:
                 zorder=6,
                 label="Goal",
             )
+
+    def _render_pruned_landmarks(
+        self,
+        ax: Axes,
+        pruned_path: list[list[float]],
+        *,
+        planner: str,
+    ) -> None:
+        """Render pruned-path nodes as glowing squares.
+
+        Only the **nodes** (not edges) of the pruned path are shown, as they
+        are the anchors that define the final trajectory segments.  A three-
+        layer halo (outer glow → mid ring → bright core) is drawn so the
+        landmarks stand out against the exploration tree.
+
+        Args:
+            ax: Target axes.
+            pruned_path: Pruned waypoint states (nodes only).
+            planner: Planner key for palette lookup.
+        """
+        style = self.styles.get("pruned_path", LayerStyle())
+        if not style.visible:
+            return
+        pts = np.array(pruned_path, dtype=float)
+        if pts.ndim != 2 or pts.shape[0] == 0:
+            return
+        color = style.color or layer_hex(planner, "path")
+        base_s = style.markersize or 60
+        # Three concentric square scatter calls create the glow effect:
+        #   1. large halo   — very transparent outer bloom
+        #   2. medium ring  — semi-transparent mid layer
+        #   3. bright core  — opaque inner square
+        glow_layers = [
+            (base_s * 8, 0.12),
+            (base_s * 3, 0.30),
+            (base_s,     0.90),
+        ]
+        dim = pts.shape[1]
+        for s_val, alpha_val in glow_layers:
+            kw: dict[str, Any] = {
+                "c": color,
+                "s": s_val,
+                "alpha": alpha_val,
+                "marker": "s",
+                "linewidths": 0,
+                "zorder": 4,
+            }
+            if self.is_3d and dim >= 3:
+                ax.scatter(  # type: ignore[attr-defined]
+                    pts[:, 0], pts[:, 1], pts[:, 2], **kw
+                )
+            else:
+                ax.scatter(pts[:, 0], pts[:, 1], **kw)
+        # Add a single artist for the legend entry (labelled on the core).
+        label_kw: dict[str, Any] = {
+            "c": color,
+            "s": base_s,
+            "alpha": 0.90,
+            "marker": "s",
+            "linewidths": 0,
+            "zorder": 4,
+            "label": "Pruned waypoints",
+        }
+        if self.is_3d and dim >= 3:
+            ax.scatter(  # type: ignore[attr-defined]
+                pts[0:1, 0], pts[0:1, 1], pts[0:1, 2], **label_kw
+            )
+        else:
+            ax.scatter(pts[0:1, 0], pts[0:1, 1], **label_kw)
 
     def _scatter(
         self,

@@ -283,3 +283,54 @@ def test_frame_renderer_importable_from_viewer() -> None:
 
     assert FR is FrameRenderer
     assert LS is LayerStyle
+
+
+# ---------------------------------------------------------------------------
+# FrameRenderer — pruned-path glow squares
+# ---------------------------------------------------------------------------
+
+
+def test_pruned_path_renders_as_square_markers() -> None:
+    """Pruned landmarks must be scatter collections (squares, no lines)."""
+    fig, ax = plt.subplots()
+    snap = SceneSnapshot(
+        planner="rrt",
+        pruned_path=[[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]],
+    )
+    renderer = FrameRenderer(
+        draw_obstacles=False,
+        draw_tree=False,
+        draw_found_path=False,
+        draw_trajectory=False,
+        draw_executed=False,
+        draw_start_goal=False,
+        draw_pruned_path=True,
+    )
+    renderer.render(ax, snap)
+    # No connecting lines — only scatter collections for the glow layers.
+    assert len(ax.lines) == 0
+    # 3 halo layers + 1 labelled legend scatter = at least 4 collections.
+    assert len(ax.collections) >= 4
+    plt.close(fig)
+
+
+def test_pruned_path_visible_false_skips_glow() -> None:
+    fig, ax = plt.subplots()
+    snap = SceneSnapshot(
+        planner="rrt",
+        pruned_path=[[0.0, 0.0], [1.0, 1.0]],
+    )
+    renderer = FrameRenderer(
+        draw_obstacles=False,
+        draw_tree=False,
+        draw_found_path=False,
+        draw_trajectory=False,
+        draw_executed=False,
+        draw_start_goal=False,
+        draw_pruned_path=True,
+        styles={"pruned_path": LayerStyle(visible=False)},
+    )
+    renderer.render(ax, snap)
+    assert len(ax.lines) == 0
+    assert len(ax.collections) == 0
+    plt.close(fig)
