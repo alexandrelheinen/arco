@@ -432,9 +432,14 @@ def test_repulsion_zero_when_gain_zero() -> None:
     """Repulsion is zero when repulsion_gain=0 regardless of proximity."""
     occ = _NearObstacleOccupancy(0.5, 0.0, clearance=2.0)
     vehicle = DubinsVehicle(
-        x=0.0, y=0.0, heading=0.0,
-        max_speed=5.0, min_speed=0.0,
-        max_turn_rate=4.0, max_acceleration=10.0, max_turn_rate_dot=10.0,
+        x=0.0,
+        y=0.0,
+        heading=0.0,
+        max_speed=5.0,
+        min_speed=0.0,
+        max_turn_rate=4.0,
+        max_acceleration=10.0,
+        max_turn_rate_dot=10.0,
     )
     loop = TrackingLoop(
         vehicle,
@@ -464,14 +469,24 @@ def test_step_repulsion_influences_turn_rate() -> None:
     # Two loops: one with repulsion toward a nearby obstacle, one without.
     occ = _NearObstacleOccupancy(0.3, 0.5, clearance=2.0)
     vehicle_rep = DubinsVehicle(
-        x=0.0, y=0.0, heading=0.0,
-        max_speed=5.0, min_speed=0.0,
-        max_turn_rate=4.0, max_acceleration=10.0, max_turn_rate_dot=10.0,
+        x=0.0,
+        y=0.0,
+        heading=0.0,
+        max_speed=5.0,
+        min_speed=0.0,
+        max_turn_rate=4.0,
+        max_acceleration=10.0,
+        max_turn_rate_dot=10.0,
     )
     vehicle_no = DubinsVehicle(
-        x=0.0, y=0.0, heading=0.0,
-        max_speed=5.0, min_speed=0.0,
-        max_turn_rate=4.0, max_acceleration=10.0, max_turn_rate_dot=10.0,
+        x=0.0,
+        y=0.0,
+        heading=0.0,
+        max_speed=5.0,
+        min_speed=0.0,
+        max_turn_rate=4.0,
+        max_acceleration=10.0,
+        max_turn_rate_dot=10.0,
     )
     loop_rep = TrackingLoop(
         vehicle_rep,

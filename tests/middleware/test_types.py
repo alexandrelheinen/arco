@@ -6,7 +6,6 @@ import time
 
 from arco.middleware.types import GuidanceFrame, MappingFrame, PlanFrame
 
-
 # ---------------------------------------------------------------------------
 # MappingFrame
 # ---------------------------------------------------------------------------
