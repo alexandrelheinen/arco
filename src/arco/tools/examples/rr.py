@@ -468,6 +468,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_ws.set_xlabel("X (m)")
     ax_ws.set_ylabel("Y (m)")
     ax_ws.set_title("Workspace (Cartesian)")
+    ax_ws.legend(loc="upper left", fontsize=7)
     ax_ws.grid(True, alpha=0.3)
 
     # ---- ax_cs: C-space (θ₁, θ₂) with velocity constraint disc ------------
@@ -493,6 +494,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_cs.set_xlabel("θ₁ (rad)")
     ax_cs.set_ylabel("θ₂ (rad)")
     ax_cs.set_title("C-space (θ₁, θ₂)")
+    ax_cs.legend(loc="upper right", fontsize=7)
     ax_cs.grid(True, alpha=0.3)
     ax_cs.set_aspect("equal")
 

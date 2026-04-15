@@ -147,6 +147,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_cs.set_xlabel("Column")
     ax_cs.set_ylabel("Row")
     ax_cs.set_aspect("equal", adjustable="box")
+    ax_cs.legend(loc="upper right", fontsize=8)
 
     # ---- Bottom: metrics ---------------------------------------------------
     status = f"Path found: {path_len} steps" if path else "No path found"

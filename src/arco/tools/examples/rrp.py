@@ -583,6 +583,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_ws.set_box_aspect(  # type: ignore[attr-defined]
         [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
     )
+    ax_ws.legend(loc="upper right", fontsize=7)  # type: ignore[attr-defined]
     ax_ws.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
 
     # ---- ax_cs: C-space (q₁, q₂, z) with collision mesh -------------------
@@ -640,6 +641,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         [2 * math.pi, 2 * math.pi, z_bnd[1] - z_bnd[0]]
     )
     ax_cs.view_init(elev=20, azim=-55)  # type: ignore[attr-defined]
+    ax_cs.legend(loc="upper right", fontsize=7)  # type: ignore[attr-defined]
 
     # ---- Bottom: metrics ---------------------------------------------------
     StandardLayout.write_metrics(
