@@ -5,9 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def parent_dict_to_list(
-    parent: dict[int, int | None], n: int
-) -> list[int]:
+def parent_dict_to_list(parent: dict[int, int | None], n: int) -> list[int]:
     """Convert a planner parent dict to a parallel index list.
 
     Args:

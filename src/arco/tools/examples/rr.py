@@ -381,15 +381,29 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         )
 
     rrt_cs_snap = _build_rr_cs_snapshot(
-        "rrt", collision_pts, start_q, goal_q, rrt_path, rrt_traj,
+        "rrt",
+        collision_pts,
+        start_q,
+        goal_q,
+        rrt_path,
+        rrt_traj,
         include_obstacles=True,
     )
     sst_cs_snap = _build_rr_cs_snapshot(
-        "sst", collision_pts, start_q, goal_q, sst_path, sst_traj,
+        "sst",
+        collision_pts,
+        start_q,
+        goal_q,
+        sst_path,
+        sst_traj,
         include_obstacles=False,
     )
-    rrt_ws_snap = _build_rr_ws_snapshot("rrt", robot, start_q, goal_q, rrt_path, rrt_traj)
-    sst_ws_snap = _build_rr_ws_snapshot("sst", robot, start_q, goal_q, sst_path, sst_traj)
+    rrt_ws_snap = _build_rr_ws_snapshot(
+        "rrt", robot, start_q, goal_q, rrt_path, rrt_traj
+    )
+    sst_ws_snap = _build_rr_ws_snapshot(
+        "sst", robot, start_q, goal_q, sst_path, sst_traj
+    )
 
     rrt_cart = _fk_path(robot, rrt_path)
     sst_cart = _fk_path(robot, sst_path)
@@ -438,7 +452,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         label="Goal arm",
     )
 
-    FrameRenderer(draw_tree=False, draw_obstacles=False).render(ax_ws, rrt_ws_snap)
+    FrameRenderer(draw_tree=False, draw_obstacles=False).render(
+        ax_ws, rrt_ws_snap
+    )
     FrameRenderer(
         draw_tree=False, draw_obstacles=False, draw_start_goal=False
     ).render(ax_ws, sst_ws_snap)

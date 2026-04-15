@@ -95,9 +95,7 @@ def _build_vehicle_snapshot(
         obstacles=obs,
         tree_nodes=[[float(v) for v in nd] for nd in nodes] if nodes else [],
         tree_parent=parent_dict_to_list(parent_dict, n) if n > 0 else [],
-        found_path=(
-            [[float(v) for v in p] for p in path] if path else None
-        ),
+        found_path=([[float(v) for v in p] for p in path] if path else None),
         adjusted_trajectory=(
             [[float(v) for v in p] for p in traj] if traj else None
         ),
@@ -314,13 +312,27 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_executed = _simulate_vehicle(sst_traj or sst_path, occ, vehicle_cfg)
 
     rrt_snap = _build_vehicle_snapshot(
-        "rrt", occ, start, goal,
-        rrt_nodes, rrt_parent_dict, rrt_path, rrt_traj, rrt_executed,
+        "rrt",
+        occ,
+        start,
+        goal,
+        rrt_nodes,
+        rrt_parent_dict,
+        rrt_path,
+        rrt_traj,
+        rrt_executed,
         include_obstacles=True,
     )
     sst_snap = _build_vehicle_snapshot(
-        "sst", occ, start, goal,
-        sst_nodes, sst_parent_dict, sst_path, sst_traj, sst_executed,
+        "sst",
+        occ,
+        start,
+        goal,
+        sst_nodes,
+        sst_parent_dict,
+        sst_path,
+        sst_traj,
+        sst_executed,
         include_obstacles=False,
     )
 
@@ -337,7 +349,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_ws.legend(loc="upper right", fontsize=7)
 
     # ---- ax_cs: C-space = workspace for 2-D Dubins -------------------------
-    FrameRenderer(draw_tree=False, draw_obstacles=False).render(ax_cs, rrt_snap)
+    FrameRenderer(draw_tree=False, draw_obstacles=False).render(
+        ax_cs, rrt_snap
+    )
     FrameRenderer(
         draw_tree=False, draw_obstacles=False, draw_start_goal=False
     ).render(ax_cs, sst_snap)
