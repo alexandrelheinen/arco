@@ -33,7 +33,6 @@ import argparse
 import logging
 import math
 import os
-from typing import Any
 
 import pygame
 from OpenGL.GL import (  # type: ignore[import-untyped]
@@ -54,6 +53,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 
 from arco.config.palette import layer_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
+from arco.tools.simulator.scenes import RaceScene
 from arco.tools.simulator.scenes.sparse import CityScene
 from arco.tools.simulator.sim.loading import run_with_loading_screen
 from arco.tools.simulator.sim.tracking import (
@@ -215,7 +215,7 @@ def _draw_winner_banner(
 
 
 def run_race(
-    scene: Any,
+    scene: RaceScene,
     *,
     fps: int = 30,
     dt: float = 0.1,
@@ -290,13 +290,26 @@ def run_race(
     cfg = scene.vehicle_config
     rrt_wps = scene.rrt_waypoints
     sst_wps = scene.sst_waypoints
-    astar_wps = scene.astar_waypoints
+    # A* is optional — VehicleScene only has RRT* and SST.
+    astar_wps: list[tuple[float, float]] = getattr(
+        scene, "astar_waypoints", []
+    )
     rrt_total = scene.rrt_total
     sst_total = scene.sst_total
-    astar_total = scene.astar_total
+    astar_total: int = getattr(scene, "astar_total", 0)
     rrt_metrics = scene.rrt_metrics
     sst_metrics = scene.sst_metrics
-    astar_metrics = scene.astar_metrics
+    _empty_metrics: dict = {
+        "steps": 0,
+        "nodes": 0,
+        "planner_time": 0.0,
+        "planned_path_length": 0.0,
+        "trajectory_arc_length": 0.0,
+        "trajectory_duration": 0.0,
+        "path_status": "n/a",
+        "optimizer_status": "n/a",
+    }
+    astar_metrics: dict = getattr(scene, "astar_metrics", _empty_metrics)
 
     # Pacing: reveal both trees in parallel, finishing together at ~half-time.
     half_frames = (
