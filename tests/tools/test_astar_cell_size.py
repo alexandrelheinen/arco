@@ -3,7 +3,7 @@
 Verifies that:
 - ``_coerce_astar_cell_size`` defaults to ``step_size / 5`` when no explicit
   cell size is given.
-- An explicit ``cell_size`` override is honoured (e.g. from ``astar_cell_size``
+- An explicit ``cell_size`` override is honored (e.g. from ``astar_cell_size``
   in ``city.yml``).
 - Both scalar and list/tuple/ndarray ``step_size`` inputs are handled.
 - The ``city.yml`` planner section has an ``astar_cell_size`` key equal to
@@ -18,6 +18,8 @@ import sys
 import numpy as np
 import pytest
 import yaml
+
+pygame = pytest.importorskip("pygame")
 
 _REPO = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
