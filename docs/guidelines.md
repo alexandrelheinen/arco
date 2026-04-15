@@ -235,8 +235,16 @@ Common corrections:
 
 ## 11. Pre-flight Checklist
 
-Before pushing **any** branch or merging a pull request, run the single master
-validation script:
+Install the git pre-push hook once per clone to block pushes that fail
+formatting or unit tests:
+
+```bash
+bash scripts/install_hooks.sh
+```
+
+The hook (`hooks/pre-push`) runs gates 1 and 2 automatically on every
+`git push`.  Before pushing **any** branch, also run the full validation
+script to catch simulator-level issues:
 
 ```bash
 # Full validation (requires xvfb + ffmpeg for smoke tests and videos)
@@ -257,8 +265,7 @@ GitHub workflows.  All gates are mandatory — none may be skipped:
 > **⚠️ Do not skip any gate.**  
 > The smoke tests are the only local gate that imports and executes every
 > simulator module.  Skipping them is how import-time errors in simulator
-> files (e.g. a broken `load_config` call after restructuring `colors.yml`)
-> escape the local validation loop and fail in CI.
+> files escape the local validation loop and fail in CI.
 
 All GitHub workflow checks (push **and** release) must pass before a pull
 request is merged.  If a workflow fails, investigate with GitHub MCP tools
