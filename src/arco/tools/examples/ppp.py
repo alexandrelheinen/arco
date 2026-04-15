@@ -38,7 +38,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.config.palette import obstacle_hex
+from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import (
     RRTPlanner,
