@@ -31,6 +31,12 @@ planner:
   # waypoints.  To remain collision-free after pruning, all safety margins
   # must be increased.  Disabled by default.
   enable_pruning: false  # [] enable trajectory pruning (smooths path but requires larger safety margins)
+  # astar_cell_size [m]: grid cell size for the A* occupancy grid.  Smaller
+  # cells give A* the resolution to thread through road corridors instead of
+  # being forced around the city perimeter.  The road half-width is one
+  # step_size (15 m); dividing by 5 (1 centre cell + 2-σ margin on each
+  # side) is a principled balance between resolution and planning time.
+  astar_cell_size: 3.0  # [m] A* grid cell size (default: step_size / 5)
 
 world:
   world_width: 1280.0  # [m] width of the world
