@@ -750,7 +750,7 @@ def _status_surface(
                 f"{float(metrics['trajectory_arc_length']):.2f} rad+m"
             ),
             (
-                "  Trajectory duration: "
+                "  Predicted duration: "
                 f"{_format_clock(float(metrics['trajectory_duration']))}"
             ),
             f"  Path status: {metrics['path_status']}",

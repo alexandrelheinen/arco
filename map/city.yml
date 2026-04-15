@@ -19,6 +19,11 @@ planner:
   # SST needs more iterations than RRT* because witness cells prune the tree.
   # 80 000 gives SST the budget to explore the full city graph and converge.
   sst_max_sample_count: 80000  # [] maximum number of SST samples
+  # The A* planner should generate a 2D Euclidean grid that covers the entire
+  # generated world, and whose cell size is equal to the step_size.
+  # Here, the "obstacle_sampling_spacing" is irrelevant because the A*
+  # planner uses its own grid-based (discrete) representation of the world.
+  astar_max_sample_count: 80000  # [] maximum number of A* samples
   # witness_radius in normalized units: 0.5 → 7.5 m physical (half a road
   # half-width).  One representative node per 7.5 m radius cell keeps the SST
   # tree fine-grained enough to navigate narrow road corridors without losing

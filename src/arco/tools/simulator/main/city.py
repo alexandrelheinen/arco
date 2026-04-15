@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-"""RRT* vs SST race on a cul-de-sac obstacle map.
+"""RRT* vs SST vs A* race on a cul-de-sac obstacle map.
 
-Both planners compete on the same sparse environment featuring a U-shaped
+Three planners compete on the same sparse environment featuring a U-shaped
 concave obstacle that blocks the direct path to the goal.  Their exploration
-trees are revealed simultaneously.  Once both paths are drawn, both vehicles
+trees are revealed simultaneously.  Once all paths are drawn, all vehicles
 launch at the same instant — the first one to reach the goal wins.
 
 The simulation stops 3 seconds after the second vehicle arrives.
@@ -85,6 +85,10 @@ _C_RRT_HUD: tuple[int, int, int] = layer_rgb("rrt", "vehicle")
 _C_SST_VEH: tuple[int, int, int] = layer_rgb("sst", "vehicle")
 _C_SST_TRAJ: tuple[int, int, int] = layer_rgb("sst", "trajectory")
 _C_SST_HUD: tuple[int, int, int] = layer_rgb("sst", "vehicle")
+
+_C_ASTAR_VEH: tuple[int, int, int] = layer_rgb("astar", "vehicle")
+_C_ASTAR_TRAJ: tuple[int, int, int] = layer_rgb("astar", "trajectory")
+_C_ASTAR_HUD: tuple[int, int, int] = layer_rgb("astar", "vehicle")
 
 _C_HUD: tuple[int, int, int] = ui_rgb("hud_text")
 _C_HUD_DIM: tuple[int, int, int] = ui_rgb("hud_dim")
@@ -193,6 +197,29 @@ def _blit_right(
     renderer_gl.blit_overlay(surf, x, y, sw, sh)
 
 
+def _blit_mid(
+    font: pygame.font.Font,
+    lines: list[str],
+    color: tuple[int, int, int],
+    sw: int,
+    sh: int,
+    y: int = 10,
+) -> None:
+    """Render centered shadowed text lines near the top area.
+
+    Args:
+        font: Pygame font.
+        lines: Text lines to render top-to-bottom.
+        color: RGB text color.
+        sw: Screen width in pixels.
+        sh: Screen height in pixels.
+        y: Starting y pixel position.
+    """
+    surf = _make_text_surface(font, lines, color)
+    x = (sw - surf.get_width()) // 2
+    renderer_gl.blit_overlay(surf, x, y, sw, sh)
+
+
 def _blit_center(
     font: pygame.font.Font,
     line: str,
@@ -256,14 +283,14 @@ def run_race(
     record: str = "",
     record_duration: float = 90.0,
 ) -> None:
-    """Run the dual-vehicle cul-de-sac race.
+    """Run the three-vehicle cul-de-sac race.
 
     Phase 1 — **planning reveal**: both exploration trees grow on screen
     simultaneously.  The race does not start until both trees are fully drawn.
 
-    Phase 2 — **racing**: both vehicles follow their respective planned paths
+    Phase 2 — **racing**: all vehicles follow their respective planned paths
     from a shared start.  The first to arrive is declared the winner.  The
-    simulation continues for :data:`_POST_FINISH_SECS` after the second
+    simulation continues for :data:`_POST_FINISH_SECS` after the last
     vehicle reaches the goal, then exits.
 
     Args:
@@ -324,10 +351,13 @@ def run_race(
     cfg = scene.vehicle_config
     rrt_wps = scene.rrt_waypoints
     sst_wps = scene.sst_waypoints
+    astar_wps = scene.astar_waypoints
     rrt_total = scene.rrt_total
     sst_total = scene.sst_total
+    astar_total = scene.astar_total
     rrt_metrics = scene.rrt_metrics
     sst_metrics = scene.sst_metrics
+    astar_metrics = scene.astar_metrics
 
     # Pacing: reveal both trees in parallel, finishing together at ~half-time.
     half_frames = (
@@ -351,14 +381,19 @@ def run_race(
 
     rrt_vehicle = None
     sst_vehicle = None
+    astar_vehicle = None
     rrt_loop = None
     sst_loop = None
+    astar_loop = None
     rrt_traj: list[tuple[float, float, float]] = []
     sst_traj: list[tuple[float, float, float]] = []
+    astar_traj: list[tuple[float, float, float]] = []
     rrt_finished = False
     sst_finished = False
+    astar_finished = False
     rrt_finish_time: float | None = None
     sst_finish_time: float | None = None
+    astar_finish_time: float | None = None
     last_finish_time: float | None = None
     race_time = 0.0
 
@@ -367,22 +402,28 @@ def run_race(
     def _start_racing() -> None:
         nonlocal rrt_vehicle, rrt_loop, rrt_traj
         nonlocal sst_vehicle, sst_loop, sst_traj
-        nonlocal rrt_finished, sst_finished, race_time
+        nonlocal astar_vehicle, astar_loop, astar_traj
+        nonlocal rrt_finished, sst_finished, astar_finished, race_time
         rrt_traj = []
         sst_traj = []
+        astar_traj = []
         rrt_finished = False
         sst_finished = False
+        astar_finished = False
         race_time = 0.0
         occ = getattr(scene, "_occ", None)
         if rrt_wps:
             rrt_vehicle, rrt_loop = build_vehicle_sim(rrt_wps, cfg, occ)
         if sst_wps:
             sst_vehicle, sst_loop = build_vehicle_sim(sst_wps, cfg, occ)
+        if astar_wps:
+            astar_vehicle, astar_loop = build_vehicle_sim(astar_wps, cfg, occ)
         logger.info("Race started.")
 
     def _restart() -> None:
         nonlocal phase, rrt_revealed, sst_revealed, hold
-        nonlocal rrt_finish_time, sst_finish_time, last_finish_time, paused
+        nonlocal rrt_finish_time, sst_finish_time, astar_finish_time
+        nonlocal last_finish_time, paused
         nonlocal _bg_stage_idx
         phase = "background"
         rrt_revealed = 0
@@ -391,6 +432,7 @@ def run_race(
         _bg_stage_idx = 0
         rrt_finish_time = None
         sst_finish_time = None
+        astar_finish_time = None
         last_finish_time = None
         scene._sdf_tex_id = None  # Force SDF rebake on next draw
         paused = False
@@ -508,15 +550,41 @@ def run_race(
                                     "SST reached goal at t=%.2f s", race_time
                                 )
 
-                    if (
+                    if astar_vehicle is not None and astar_loop is not None:
+                        if not astar_finished:
+                            astar_loop.step(astar_wps, dt=dt)
+                            astar_traj.append(astar_vehicle.pose)
+                            gx, gy = astar_wps[-1]
+                            if (
+                                math.hypot(
+                                    astar_vehicle.x - gx,
+                                    astar_vehicle.y - gy,
+                                )
+                                < cfg.goal_radius
+                            ):
+                                astar_finished = True
+                                astar_finish_time = race_time
+                                logger.info(
+                                    "A* reached goal at t=%.2f s", race_time
+                                )
+
+                    all_finished = (
                         rrt_finished
                         and sst_finished
-                        and last_finish_time is None
-                    ):
-                        last_finish_time = max(
-                            float(rrt_finish_time),
-                            float(sst_finish_time),
-                        )
+                        and (astar_finished or not astar_wps)
+                    )
+                    if all_finished and last_finish_time is None:
+                        finish_times = [
+                            t
+                            for t in (
+                                rrt_finish_time,
+                                sst_finish_time,
+                                astar_finish_time if astar_wps else None,
+                            )
+                            if t is not None
+                        ]
+                        if finish_times:
+                            last_finish_time = max(finish_times)
 
                     if (
                         last_finish_time is not None
@@ -552,6 +620,8 @@ def run_race(
                     sst_revealed,
                     sst_total,
                     sst_metrics,
+                    astar_total,
+                    astar_metrics,
                     paused,
                     sw,
                     sh,
@@ -568,6 +638,12 @@ def run_race(
                     renderer_gl.draw_path(
                         [(p[0], p[1]) for p in sst_traj],
                         *_c(_C_SST_TRAJ),
+                        width=1.5,
+                    )
+                if len(astar_traj) >= 2:
+                    renderer_gl.draw_path(
+                        [(p[0], p[1]) for p in astar_traj],
+                        *_c(_C_ASTAR_TRAJ),
                         width=1.5,
                     )
 
@@ -591,6 +667,16 @@ def run_race(
                     renderer_gl.draw_disc(
                         la[0], la[1], _LOOKAHEAD_DISC_R, *_c(_C_SST_VEH)
                     )
+                if astar_vehicle is not None and not astar_finished:
+                    la = find_lookahead(
+                        astar_vehicle.x,
+                        astar_vehicle.y,
+                        astar_wps,
+                        cfg.lookahead_distance,
+                    )
+                    renderer_gl.draw_disc(
+                        la[0], la[1], _LOOKAHEAD_DISC_R, *_c(_C_ASTAR_VEH)
+                    )
 
                 if rrt_vehicle is not None:
                     renderer_gl.draw_oriented_rect(
@@ -610,46 +696,77 @@ def run_race(
                         sst_vehicle.heading,
                         *_c(_C_SST_VEH),
                     )
+                if astar_vehicle is not None:
+                    renderer_gl.draw_oriented_rect(
+                        astar_vehicle.x,
+                        astar_vehicle.y,
+                        _VEH_HALF_L,
+                        _VEH_HALF_W,
+                        astar_vehicle.heading,
+                        *_c(_C_ASTAR_VEH),
+                    )
 
                 _draw_race_hud(
                     font,
                     race_time,
                     rrt_finish_time,
                     sst_finish_time,
+                    astar_finish_time,
                     rrt_metrics,
                     sst_metrics,
+                    astar_metrics,
                     paused,
                     sw,
                     sh,
                 )
 
-                if rrt_finished or sst_finished:
-                    both = rrt_finished and sst_finished
-                    if both:
-                        diff = abs(
-                            (rrt_finish_time or 0.0) - (sst_finish_time or 0.0)
-                        )
-                        if diff < 0.15:
+                if rrt_finished or sst_finished or astar_finished:
+                    active = [
+                        ("RRT*", rrt_finish_time, _C_RRT_HUD),
+                        ("SST", sst_finish_time, _C_SST_HUD),
+                    ]
+                    if astar_wps:
+                        active.append(("A*", astar_finish_time, _C_ASTAR_HUD))
+
+                    finished = [item for item in active if item[1] is not None]
+                    all_done = len(finished) == len(active)
+                    if all_done and len(finished) >= 2:
+                        times = [
+                            float(t) for _, t, _ in finished if t is not None
+                        ]
+                        if max(times) - min(times) < 0.15:
                             _draw_winner_banner(
                                 big_font, "IT'S A TIE!", _C_TIE, sw, sh
                             )
-                        elif (rrt_finish_time or math.inf) < (
-                            sst_finish_time or math.inf
-                        ):
-                            _draw_winner_banner(
-                                big_font, "RRT*  WINS!", _C_RRT_HUD, sw, sh
-                            )
                         else:
-                            _draw_winner_banner(
-                                big_font, "SST  WINS!", _C_SST_HUD, sw, sh
+                            winner = min(
+                                finished,
+                                key=lambda x: (
+                                    float(x[1])
+                                    if x[1] is not None
+                                    else math.inf
+                                ),
                             )
-                    elif rrt_finished:
-                        _draw_winner_banner(
-                            big_font, "RRT*  LEADS!", _C_RRT_HUD, sw, sh
+                            _draw_winner_banner(
+                                big_font,
+                                f"{winner[0]}  WINS!",
+                                winner[2],
+                                sw,
+                                sh,
+                            )
+                    elif finished:
+                        leader = min(
+                            finished,
+                            key=lambda x: (
+                                float(x[1]) if x[1] is not None else math.inf
+                            ),
                         )
-                    else:
                         _draw_winner_banner(
-                            big_font, "SST  LEADS!", _C_SST_HUD, sw, sh
+                            big_font,
+                            f"{leader[0]}  LEADS!",
+                            leader[2],
+                            sw,
+                            sh,
                         )
 
             if phase == "done" and not recording:
@@ -696,13 +813,15 @@ def _draw_planning_hud(
     sst_revealed: int,
     sst_total: int,
     sst_metrics: dict,
+    astar_total: int,
+    astar_metrics: dict,
     paused: bool,
     sw: int,
     sh: int,
 ) -> None:
     """Draw the planning-phase HUD with per-planner progress.
 
-    RRT* info is shown top-left; SST info is shown top-right.
+    RRT* info is shown top-left; A* info top-center; SST info top-right.
 
     Args:
         font: Pygame font.
@@ -712,6 +831,8 @@ def _draw_planning_hud(
         sst_revealed: Nodes revealed so far for SST.
         sst_total: Total SST nodes.
         sst_metrics: SST metrics dictionary.
+        astar_total: Total A* waypoints.
+        astar_metrics: A* metrics dictionary.
         paused: Whether simulation is paused.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
@@ -740,7 +861,7 @@ def _draw_planning_hud(
                 f"{int(round(float(metrics['trajectory_arc_length'])))} m"
             ),
             (
-                "Trajectory duration: "
+                "Predicted duration: "
                 f"{_format_clock(float(metrics['trajectory_duration']))}"
             ),
             f"Path status: {metrics['path_status']}",
@@ -753,7 +874,11 @@ def _draw_planning_hud(
     sst_lines = [
         *_planner_lines("SST", sst_revealed, sst_total, sst_metrics),
     ]
+    astar_lines = [
+        *_planner_lines("A*", astar_total, astar_total, astar_metrics),
+    ]
     _blit_left(font, rrt_lines, _C_RRT_HUD, sw, sh)
+    _blit_mid(font, astar_lines, _C_ASTAR_HUD, sw, sh)
     _blit_right(font, sst_lines, _C_SST_HUD, sw, sh)
 
     both_ready = rrt_revealed >= rrt_total and sst_revealed >= sst_total
@@ -761,7 +886,7 @@ def _draw_planning_hud(
         "[ PAUSED — press SPACE ]"
         if paused
         else (
-            "Both paths ready — launching race…" if both_ready else "Planning…"
+            "All paths ready — launching race…" if both_ready else "Planning…"
         )
     )
     _blit_center(font, center_line, _C_HUD, sw, sh, sh - 34)
@@ -772,8 +897,10 @@ def _draw_race_hud(
     race_time: float,
     rrt_finish: float | None,
     sst_finish: float | None,
+    astar_finish: float | None,
     rrt_metrics: dict,
     sst_metrics: dict,
+    astar_metrics: dict,
     paused: bool,
     sw: int,
     sh: int,
@@ -787,6 +914,8 @@ def _draw_race_hud(
         sst_finish: Simulation time at which SST vehicle finished, or None.
         rrt_metrics: RRT* metrics dictionary.
         sst_metrics: SST metrics dictionary.
+        astar_finish: Simulation time at which A* vehicle finished, or None.
+        astar_metrics: A* metrics dictionary.
         paused: Whether the simulation is paused.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
@@ -800,6 +929,11 @@ def _draw_race_hud(
         sst_status = f"t = {race_time:.1f} s"
     else:
         sst_status = f"GOAL  in {sst_finish:.1f} s"
+
+    if astar_finish is None:
+        astar_status = f"t = {race_time:.1f} s"
+    else:
+        astar_status = f"GOAL  in {astar_finish:.1f} s"
 
     rrt_lines = [
         "RRT*",
@@ -821,7 +955,7 @@ def _draw_race_hud(
             f"{int(round(float(rrt_metrics['trajectory_arc_length'])))} m"
         ),
         (
-            "Trajectory duration: "
+            "Predicted duration: "
             f"{_format_clock(float(rrt_metrics['trajectory_duration']))}"
         ),
         f"Path status: {rrt_metrics['path_status']}",
@@ -847,14 +981,42 @@ def _draw_race_hud(
             f"{int(round(float(sst_metrics['trajectory_arc_length'])))} m"
         ),
         (
-            "Trajectory duration: "
+            "Predicted duration: "
             f"{_format_clock(float(sst_metrics['trajectory_duration']))}"
         ),
         f"Path status: {sst_metrics['path_status']}",
         f"Optimizer status: {sst_metrics['optimizer_status']}",
     ]
 
+    astar_lines = [
+        "A*",
+        astar_status,
+        (
+            "Planner steps / nodes: "
+            f"{int(astar_metrics['steps'])} / {int(astar_metrics['nodes'])}"
+        ),
+        (
+            "Planner time: "
+            f"{_format_clock(float(astar_metrics['planner_time']))}"
+        ),
+        (
+            "Planned path length: "
+            f"{int(round(float(astar_metrics['planned_path_length'])))} m"
+        ),
+        (
+            "Trajectory arc length: "
+            f"{int(round(float(astar_metrics['trajectory_arc_length'])))} m"
+        ),
+        (
+            "Predicted duration: "
+            f"{_format_clock(float(astar_metrics['trajectory_duration']))}"
+        ),
+        f"Path status: {astar_metrics['path_status']}",
+        f"Optimizer status: {astar_metrics['optimizer_status']}",
+    ]
+
     _blit_left(font, rrt_lines, _C_RRT_HUD, sw, sh)
+    _blit_mid(font, astar_lines, _C_ASTAR_HUD, sw, sh)
     _blit_right(font, sst_lines, _C_SST_HUD, sw, sh)
 
     center = f"Race  {race_time:.1f} s"

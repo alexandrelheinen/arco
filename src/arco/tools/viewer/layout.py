@@ -2,16 +2,16 @@
 
 Every ARCO example and simulation uses the same canonical layout:
 
-* **Top-left** — Workspace axes: the physical environment (Cartesian space).
-* **Top-right** — C-space axes: configuration space representation.
-* **Bottom** — Full-width text region: legends, metrics, and status text.
+* **Left** (1/4) — Data panel: metrics, legend text, and status.
+* **Top-right** (3/4) — Workspace axes: the physical environment (Cartesian space).
+* **Bottom-right** (3/4) — C-space axes: configuration space representation.
 
 Example
 -------
->>> fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create("My scenario")
+>>> fig, ax_ws, ax_cs, ax_data = StandardLayout.create("My scenario")
 >>> ax_ws.plot(...)
 >>> ax_cs.scatter(...)
->>> StandardLayout.write_metrics(ax_bottom, ["RRT*: 120 nodes", "Time: 3.2 s"])
+>>> StandardLayout.write_metrics(ax_data, ["RRT*: 120 nodes", "Time: 3.2 s"])
 """
 
 from __future__ import annotations
@@ -27,27 +27,28 @@ from matplotlib.figure import Figure
 class StandardLayout:
     """Factory for the canonical ARCO two-frame figure layout.
 
-    Creates a :class:`~matplotlib.figure.Figure` pre-configured with three
-    regions:
+    Creates a :class:`~matplotlib.figure.Figure` with:
 
-    * **Top-left** (``ax_ws``) — Workspace subplot.
-    * **Top-right** (``ax_cs``) — C-space subplot.
-    * **Bottom** (``ax_bottom``) — Text-only metrics strip.
+    * **Left** (``ax_bottom``, 1/4 width) — Data panel: metrics and text.
+    * **Top-right** (``ax_ws``, 3/4 width) — Workspace subplot.
+    * **Bottom-right** (``ax_cs``, 3/4 width) — C-space subplot.
 
-    Both top frames may optionally use a 3-D projection when the scenario
+    Both plot frames may optionally use a 3-D projection when the scenario
     requires 3-D axes (e.g. PPP, RRP robots).
 
     Class Attributes:
         FIGSIZE: Default figure width × height in inches ``(14, 9)``.
-        HEIGHT_RATIOS: Row height ratios ``[top, bottom]`` = ``[3, 1]``.
-        HSPACE: Vertical spacing between rows.
-        WSPACE: Horizontal spacing between columns.
+        WIDTH_RATIOS: Column width ratios ``[left, right]`` = ``[1, 3]``.
+        HEIGHT_RATIOS_RIGHT: Row height ratios for right column ``[top, bottom]`` = ``[3, 1]``.
+        HSPACE: Vertical spacing between rows in right column.
+        WSPACE: Horizontal spacing between left and right columns.
     """
 
     FIGSIZE: tuple[int, int] = (14, 9)
-    HEIGHT_RATIOS: list[float] = [3.0, 1.0]
+    WIDTH_RATIOS: list[float] = [1.0, 3.0]
+    HEIGHT_RATIOS_RIGHT: list[float] = [3.0, 1.0]
     HSPACE: float = 0.35
-    WSPACE: float = 0.30
+    WSPACE: float = 0.15
 
     @classmethod
     def create(
@@ -58,6 +59,8 @@ class StandardLayout:
         figsize: tuple[int, int] | None = None,
     ) -> tuple[Figure, Axes, Axes, Axes]:
         """Create the standard layout figure.
+
+        Layout: left column (1/4) for data panel, right (3/4) for plots stacked.
 
         Args:
             title: Optional ``suptitle`` string displayed above both frames.
@@ -72,34 +75,47 @@ class StandardLayout:
             A four-tuple ``(fig, ax_ws, ax_cs, ax_bottom)`` where
 
             * *fig* is the :class:`~matplotlib.figure.Figure`.
-            * *ax_ws* is the top-left workspace
-              :class:`~matplotlib.axes.Axes`.
-            * *ax_cs* is the top-right C-space
-              :class:`~matplotlib.axes.Axes`.
-            * *ax_bottom* is the bottom text
+            * *ax_ws* is the workspace
+              :class:`~matplotlib.axes.Axes` (top-right).
+            * *ax_cs* is the C-space
+              :class:`~matplotlib.axes.Axes` (bottom-right).
+            * *ax_bottom* is the left data panel
               :class:`~matplotlib.axes.Axes` (axis decorations disabled).
         """
         size = figsize or cls.FIGSIZE
         fig = plt.figure(figsize=size)
         fig.patch.set_facecolor("white")
 
-        gs = gridspec.GridSpec(
-            2,
+        # Outer layout: left data panel (1/4), right plot area (3/4)
+        gs_outer = gridspec.GridSpec(
+            1,
             2,
             figure=fig,
-            height_ratios=cls.HEIGHT_RATIOS,
-            hspace=cls.HSPACE,
+            width_ratios=cls.WIDTH_RATIOS,
             wspace=cls.WSPACE,
+        )
+
+        # Left column: data panel (ax_bottom)
+        ax_bottom: Axes = fig.add_subplot(gs_outer[0, 0])
+        ax_bottom.set_axis_off()
+        # Optional: add a subtle background to the data panel
+        ax_bottom.patch.set_facecolor("#f9f9f9")
+        ax_bottom.patch.set_visible(True)
+
+        # Right column: nested grid for workspace (top) and C-space (bottom)
+        gs_right = gridspec.GridSpecFromSubplotSpec(
+            2,
+            1,
+            subplot_spec=gs_outer[0, 1],
+            height_ratios=cls.HEIGHT_RATIOS_RIGHT,
+            hspace=cls.HSPACE,
         )
 
         ws_kw: dict[str, Any] = {"projection": "3d"} if ws_3d else {}
         cs_kw: dict[str, Any] = {"projection": "3d"} if cs_3d else {}
 
-        ax_ws: Axes = fig.add_subplot(gs[0, 0], **ws_kw)
-        ax_cs: Axes = fig.add_subplot(gs[0, 1], **cs_kw)
-        ax_bottom: Axes = fig.add_subplot(gs[1, :])
-
-        ax_bottom.set_axis_off()
+        ax_ws: Axes = fig.add_subplot(gs_right[0], **ws_kw)
+        ax_cs: Axes = fig.add_subplot(gs_right[1], **cs_kw)
 
         if title:
             fig.suptitle(title, fontsize=13, fontweight="bold")

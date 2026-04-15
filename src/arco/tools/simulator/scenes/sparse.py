@@ -1,4 +1,4 @@
-"""City-neighborhood dual-planner (RRT* vs SST) race scene.
+"""City-neighborhood three-planner (RRT* vs SST vs A*) race scene.
 
 :class:`CityScene` builds a 2-D obstacle environment on a 1280 × 720 m
 procedural triangular road network.  A jittered hexagonal lattice is
@@ -14,6 +14,11 @@ After the exploration trees are fully revealed, the raw planned paths are
 shown dimmed and the optimized trajectories (produced by
 :class:`~arco.planning.continuous.TrajectoryOptimizer`) are overlaid as
 bright highlights.  The vehicles track the optimized trajectories.
+
+RRT* and SST run directly in continuous space. A* runs on a 2-D Manhattan
+grid derived from the same world bounds where each grid cell center is mapped
+to world coordinates as ``p = (i + 0.5) * L`` along each axis, with ``L`` set
+to planner ``step_size``.
 
 All layout parameters (world size, mesh geometry, road width, obstacle
 sampling) are loaded from ``tools/config/city.yml`` under ``world``;
@@ -64,6 +69,12 @@ _C_SST_PATH: tuple[int, int, int] = layer_rgb("sst", "path")
 _C_SST_TRAJ: tuple[int, int, int] = layer_rgb("sst", "trajectory")
 _C_SST_PRUNED: tuple[int, int, int] = layer_rgb("sst", "pruned")
 _C_SST_VEHICLE: tuple[int, int, int] = layer_rgb("sst", "vehicle")
+
+# A* — purple family
+_C_ASTAR_PATH: tuple[int, int, int] = layer_rgb("astar", "path")
+_C_ASTAR_TRAJ: tuple[int, int, int] = layer_rgb("astar", "trajectory")
+_C_ASTAR_PRUNED: tuple[int, int, int] = layer_rgb("astar", "pruned")
+_C_ASTAR_VEHICLE: tuple[int, int, int] = layer_rgb("astar", "vehicle")
 
 _C_START: tuple[int, int, int] = annotation_rgb(dark_bg=True)
 _C_GOAL: tuple[int, int, int] = annotation_rgb(dark_bg=True)
@@ -243,14 +254,89 @@ def _make_vehicle_config(obs_cfg: dict[str, Any]) -> VehicleConfig:
     )
 
 
+def _grid_index_to_world_center(
+    idx: tuple[int, int],
+    *,
+    x_min: float,
+    y_min: float,
+    cell_size: float,
+) -> tuple[float, float]:
+    """Map a 2-D grid index to world coordinates at cell center.
+
+    Uses the cell-center convention required by the city benchmark:
+    ``p = (i + 0.5) * L``.
+
+    Args:
+        idx: Grid index as ``(row, col)``.
+        x_min: World lower bound for x.
+        y_min: World lower bound for y.
+        cell_size: Grid spacing ``L``.
+
+    Returns:
+        World-space center point ``(x, y)``.
+    """
+    row, col = idx
+    x = x_min + (float(col) + 0.5) * cell_size
+    y = y_min + (float(row) + 0.5) * cell_size
+    return (x, y)
+
+
+def _world_to_grid_index(
+    point: np.ndarray,
+    *,
+    x_min: float,
+    y_min: float,
+    cell_size: float,
+    shape: tuple[int, int],
+) -> tuple[int, int]:
+    """Map a world-space point to the nearest containing grid cell index.
+
+    Args:
+        point: World-space point ``[x, y]``.
+        x_min: World lower bound for x.
+        y_min: World lower bound for y.
+        cell_size: Grid spacing ``L``.
+        shape: Grid shape as ``(rows, cols)``.
+
+    Returns:
+        Clamped grid index ``(row, col)``.
+    """
+    rows, cols = shape
+    col = int(math.floor((float(point[0]) - x_min) / cell_size))
+    row = int(math.floor((float(point[1]) - y_min) / cell_size))
+    col = int(np.clip(col, 0, cols - 1))
+    row = int(np.clip(row, 0, rows - 1))
+    return (row, col)
+
+
+def _coerce_astar_cell_size(step_size: Any) -> float:
+    """Return scalar A* grid cell size from planner step_size.
+
+    The city configuration stores ``step_size`` as ``[sx, sy]`` for
+    continuous planners. A* uses a scalar Manhattan cell size and assumes
+    isotropic cells. If two values are provided, the first is used.
+
+    Args:
+        step_size: Planner ``step_size`` value.
+
+    Returns:
+        Positive scalar cell size in meters.
+    """
+    if isinstance(step_size, (list, tuple, np.ndarray)):
+        if len(step_size) == 0:
+            raise ValueError("step_size sequence must not be empty")
+        return float(step_size[0])
+    return float(step_size)
+
+
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
     return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
 class CityScene:
-    """Dual-planner race scene on a procedural triangular neighborhood.
+    """Three-planner race scene on a procedural triangular neighborhood.
 
-    Runs RRT* and SST on the same 1280 × 720 m obstacle map generated from a
+    Runs RRT*, SST, and A* on the same 1280 × 720 m obstacle map generated from a
     jittered hexagonal lattice triangulated with scipy Delaunay.  Every
     surviving edge becomes a 30 m wide road; the interior of each triangular
     city block is filled with KDTree obstacle points.  Start and goal are
@@ -315,6 +401,12 @@ class CityScene:
         self._sst_traj_states: list[Any] = []
         self._sst_metrics: dict[str, Any] = dict(self._rrt_metrics)
 
+        # A* planner output (grid-space planning, world-space path points)
+        self._astar_path: list[Any] | None = None
+        self._astar_raw_path: list[Any] | None = None
+        self._astar_traj_states: list[Any] = []
+        self._astar_metrics: dict[str, Any] = dict(self._rrt_metrics)
+
     # ------------------------------------------------------------------
     # Build
     # ------------------------------------------------------------------
@@ -326,7 +418,7 @@ class CityScene:
             progress: Optional callable ``(step_name, step_index, total_steps)``
                 invoked at each build milestone for loading-screen feedback.
         """
-        _total = 5
+        _total = 6
 
         def _polyline_length(path: list[Any] | None) -> float:
             if path is None or len(path) < 2:
@@ -338,12 +430,14 @@ class CityScene:
                 for i in range(len(path) - 1)
             )
 
+        from arco.mapping import ManhattanGrid
         from arco.planning.continuous import (
             RRTPlanner,
             SSTPlanner,
             TrajectoryOptimizer,
             TrajectoryPruner,
         )
+        from arco.planning.discrete.astar import AStarPlanner
 
         if progress is not None:
             progress("Generating triangular mesh", 1, _total)
@@ -428,7 +522,86 @@ class CityScene:
 
         # --- Trajectory optimization (scaled for the large world) --------
         if progress is not None:
-            progress("Optimizing trajectories", 5, _total)
+            progress("Running A*", 5, _total)
+
+        x_min, x_max = self._bounds[0]
+        y_min, y_max = self._bounds[1]
+        cell_size = _coerce_astar_cell_size(self._cfg["step_size"])
+        grid = ManhattanGrid(
+            physical_size=[y_max - y_min, x_max - x_min],
+            cell_size=cell_size,
+        )
+        rows, cols = grid.shape
+        for row in range(rows):
+            for col in range(cols):
+                x, y = _grid_index_to_world_center(
+                    (row, col),
+                    x_min=x_min,
+                    y_min=y_min,
+                    cell_size=cell_size,
+                )
+                if self._occ.is_occupied(np.array([x, y], dtype=float)):
+                    grid.set_occupied((row, col))
+
+        astar_start = _world_to_grid_index(
+            self._start,
+            x_min=x_min,
+            y_min=y_min,
+            cell_size=cell_size,
+            shape=grid.shape,
+        )
+        astar_goal = _world_to_grid_index(
+            self._goal,
+            x_min=x_min,
+            y_min=y_min,
+            cell_size=cell_size,
+            shape=grid.shape,
+        )
+        grid.set_free(astar_start)
+        grid.set_free(astar_goal)
+
+        astar = AStarPlanner(grid)
+        astar_t0 = time.perf_counter()
+        astar_idx_path = astar.plan(astar_start, astar_goal)
+        astar_elapsed = time.perf_counter() - astar_t0
+
+        if astar_idx_path is None:
+            self._astar_path = None
+        else:
+            self._astar_path = [
+                np.array(
+                    _grid_index_to_world_center(
+                        idx,
+                        x_min=x_min,
+                        y_min=y_min,
+                        cell_size=cell_size,
+                    ),
+                    dtype=float,
+                )
+                for idx in astar_idx_path
+            ]
+        self._astar_metrics.update(
+            {
+                "steps": max(
+                    0,
+                    (
+                        (len(self._astar_path) - 1)
+                        if self._astar_path is not None
+                        else 0
+                    ),
+                ),
+                "nodes": len(astar_idx_path) if astar_idx_path else 0,
+                "planner_time": astar_elapsed,
+                "planned_path_length": _polyline_length(self._astar_path),
+                "path_status": (
+                    "found" if self._astar_path is not None else "stalled"
+                ),
+            }
+        )
+
+        # --- Trajectory optimization (scaled for the large world) --------
+        if progress is not None:
+            progress("Optimizing trajectories", 6, _total)
 
         from arco.planning import PlanningPipeline
 
@@ -458,10 +631,14 @@ class CityScene:
         # Snapshot raw paths before pruning overwrites them.
         self._rrt_raw_path = list(self._rrt_path) if self._rrt_path else None
         self._sst_raw_path = list(self._sst_path) if self._sst_path else None
+        self._astar_raw_path = (
+            list(self._astar_path) if self._astar_path else None
+        )
 
         for path_attr, traj_attr, metrics_attr in (
             ("_rrt_path", "_rrt_traj_states", "_rrt_metrics"),
             ("_sst_path", "_sst_traj_states", "_sst_metrics"),
+            ("_astar_path", "_astar_traj_states", "_astar_metrics"),
         ):
             path = getattr(self, path_attr)
             if path is None or len(path) < 2:
@@ -487,7 +664,7 @@ class CityScene:
     @property
     def title(self) -> str:
         """Window caption."""
-        return "RRT* vs SST — neighborhood race"
+        return "RRT* vs SST vs A* — neighborhood race"
 
     @property
     def bg_color(self) -> tuple[int, int, int]:
@@ -517,6 +694,13 @@ class CityScene:
         return len(self._sst_nodes)
 
     @property
+    def astar_total(self) -> int:
+        """Total number of A* planned waypoints."""
+        if self._astar_path is None:
+            return 0
+        return len(self._astar_path)
+
+    @property
     def rrt_waypoints(self) -> list[tuple[float, float]]:
         """Optimized RRT* trajectory as ``(x, y)`` tuples, or empty list."""
         pts = (
@@ -537,6 +721,18 @@ class CityScene:
         return [(float(p[0]), float(p[1])) for p in pts]
 
     @property
+    def astar_waypoints(self) -> list[tuple[float, float]]:
+        """Optimized A* trajectory as ``(x, y)`` tuples, or empty list."""
+        pts = (
+            self._astar_traj_states
+            if self._astar_traj_states
+            else self._astar_path
+        )
+        if pts is None:
+            return []
+        return [(float(p[0]), float(p[1])) for p in pts]
+
+    @property
     def rrt_raw_path(self) -> list[Any] | None:
         """Raw (pre-pruning) RRT* path, or ``None``."""
         return self._rrt_raw_path
@@ -545,6 +741,11 @@ class CityScene:
     def sst_raw_path(self) -> list[Any] | None:
         """Raw (pre-pruning) SST path, or ``None``."""
         return self._sst_raw_path
+
+    @property
+    def astar_raw_path(self) -> list[Any] | None:
+        """Raw (pre-pruning) A* path, or ``None``."""
+        return self._astar_raw_path
 
     @property
     def road_dots(self) -> list[tuple[float, float]]:
@@ -560,6 +761,11 @@ class CityScene:
     def sst_metrics(self) -> dict[str, Any]:
         """SST planning and trajectory metrics for HUD display."""
         return dict(self._sst_metrics)
+
+    @property
+    def astar_metrics(self) -> dict[str, Any]:
+        """A* planning and trajectory metrics for HUD display."""
+        return dict(self._astar_metrics)
 
     # ------------------------------------------------------------------
     # Drawing
@@ -672,6 +878,30 @@ class CityScene:
                     renderer_gl.draw_path(
                         self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
                     )
+
+            # A* has no exploration tree in this scene; render path directly.
+            if self._astar_path is not None:
+                astar_path_alpha = (
+                    _PATH_ALPHA if self._astar_traj_states else 1.0
+                )
+                if self._astar_raw_path:
+                    renderer_gl.draw_path(
+                        self._astar_raw_path,
+                        *_c(_C_ASTAR_PATH),
+                        width=1.0,
+                        alpha=astar_path_alpha * 0.5,
+                    )
+                renderer_gl.draw_waypoints(
+                    self._astar_path,
+                    *_c(_C_ASTAR_PRUNED),
+                    half=3.5,
+                )
+                if self._astar_traj_states:
+                    renderer_gl.draw_path(
+                        self._astar_traj_states,
+                        *_c(_C_ASTAR_TRAJ),
+                        width=3.0,
+                    )
         else:
             # Racing: full backdrop (road dots + buildings) so the obstacle
             # field stays visible, then the adjusted trajectories.
@@ -713,6 +943,23 @@ class CityScene:
                 if self._sst_path is not None:
                     renderer_gl.draw_waypoints(
                         self._sst_path, *_c(_C_SST_PRUNED), half=3.5
+                    )
+
+            if self._astar_traj_states:
+                renderer_gl.draw_path(
+                    self._astar_traj_states, *_c(_C_ASTAR_TRAJ), width=3.0
+                )
+            else:
+                if self._astar_raw_path:
+                    renderer_gl.draw_path(
+                        self._astar_raw_path,
+                        *_c(_C_ASTAR_PATH),
+                        width=1.0,
+                        alpha=0.4,
+                    )
+                if self._astar_path is not None:
+                    renderer_gl.draw_waypoints(
+                        self._astar_path, *_c(_C_ASTAR_PRUNED), half=3.5
                     )
 
         # Start/goal markers — always visible.

@@ -1,7 +1,7 @@
-"""City race planning benchmark (RRT* vs SST) in 2-D.
+"""City race planning benchmark (RRT* vs SST vs A*) in 2-D.
 
-Builds the procedural city-neighborhood scene and renders both planners
-on a common figure using the standard two-frame layout.  Both planners'
+Builds the procedural city-neighborhood scene and renders all planners
+on a common figure using the standard two-frame layout. All planners'
 results are overlaid on the same axes for direct comparison.
 
 Figure layout (standard two-frame)
@@ -153,17 +153,25 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     rrt_path = [np.asarray(p) for p in (scene._rrt_path or [])]  # noqa: SLF001
     sst_path = [np.asarray(p) for p in (scene._sst_path or [])]  # noqa: SLF001
+    astar_path = [
+        np.asarray(p) for p in (scene._astar_path or [])
+    ]  # noqa: SLF001
     rrt_traj = [
         np.asarray(p) for p in (scene._rrt_traj_states or [])
     ]  # noqa: SLF001
     sst_traj = [
         np.asarray(p) for p in (scene._sst_traj_states or [])
     ]  # noqa: SLF001
+    astar_traj = [
+        np.asarray(p) for p in (scene._astar_traj_states or [])
+    ]  # noqa: SLF001
 
     logger.info("Simulating RRT* executed trajectory …")
     rrt_executed = _simulate_trajectory(rrt_traj or rrt_path, scene)
     logger.info("Simulating SST executed trajectory …")
     sst_executed = _simulate_trajectory(sst_traj or sst_path, scene)
+    logger.info("Simulating A* executed trajectory …")
+    astar_executed = _simulate_trajectory(astar_traj or astar_path, scene)
 
     rrt_snap = _build_city_snapshot(
         "rrt",
@@ -183,9 +191,18 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         sst_executed,
         include_obstacles=False,
     )
+    astar_snap = _build_city_snapshot(
+        "astar",
+        scene,
+        astar_path,
+        scene.astar_raw_path,
+        astar_traj,
+        astar_executed,
+        include_obstacles=False,
+    )
 
     fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
-        title="City race benchmark — RRT* vs SST"
+        title="City race benchmark — RRT* vs SST vs A*"
     )
 
     # ---- ax_ws: workspace — both planners overlaid -------------------------
@@ -197,12 +214,14 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     FrameRenderer(
         draw_tree=False, draw_obstacles=False, draw_start_goal=False
     ).render(ax_ws, sst_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_ws, astar_snap)
     ax_ws.set_title("Workspace")
     ax_ws.set_xlabel("X (m)")
     ax_ws.set_ylabel("Y (m)")
     ax_ws.set_aspect("equal")
     ax_ws.grid(True, alpha=0.3)
-    ax_ws.legend(loc="upper right", fontsize=7)
 
     # ---- ax_cs: C-space = workspace for 2-D Dubins -------------------------
     # Show clearance heatmap (distance field) as background.
@@ -234,16 +253,19 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     FrameRenderer(
         draw_tree=False, draw_obstacles=False, draw_start_goal=False
     ).render(ax_cs, sst_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_cs, astar_snap)
     ax_cs.set_title("C-space (x m, y m)")
     ax_cs.set_xlabel("X (m)")
     ax_cs.set_ylabel("Y (m)")
     ax_cs.set_aspect("equal")
     ax_cs.grid(True, alpha=0.3)
-    ax_cs.legend(loc="upper right", fontsize=7)
 
     # ---- Bottom: metrics ---------------------------------------------------
     m_rrt = scene.rrt_metrics
     m_sst = scene.sst_metrics
+    m_astar = scene.astar_metrics
 
     def _exec_len(pts: list[tuple[float, float]]) -> float:
         if len(pts) < 2:
@@ -268,6 +290,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             f"traj: {float(m_sst['trajectory_arc_length']):.1f} m | "
             f"executed: {_exec_len(sst_executed):.1f} m | "
             f"status: {m_sst['path_status']}",
+            f"A*    steps/nodes: {m_astar['steps']}/{m_astar['nodes']} | "
+            f"time: {float(m_astar['planner_time']):.1f} s | "
+            f"path: {float(m_astar['planned_path_length']):.1f} m | "
+            f"traj: {float(m_astar['trajectory_arc_length']):.1f} m | "
+            f"executed: {_exec_len(astar_executed):.1f} m | "
+            f"status: {m_astar['path_status']}",
         ],
     )
 
