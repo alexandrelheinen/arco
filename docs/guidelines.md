@@ -323,20 +323,9 @@ sections added/removed), you **must** audit every consumer before pushing.
 
 ### Why this rule exists
 
-During the "Glow up" refactor (PR #…), the `colors.yml` schema was
-restructured from a flat `rrt: {vehicle: …}` layout to a
-`methods: {rrt: {base: …}}` layout, and a new `palette.py` module was
-introduced.  The migration updated most renderers but missed
-`src/arco/tools/simulator/main/city.py`, which still called
-`_rgb("rrt", "vehicle")` against the new schema.
-
-The unit tests did not catch this because `city.py` is a simulator entry
-point that is only exercised by the smoke tests (gate 4).  The smoke tests
-were skipped locally, so the error only surfaced in CI.
-
-**The invariant to enforce:** after restructuring any shared config, zero
-files may reference a key path that no longer exists.  The import check
-above catches this at module-load time, before any simulation runs.
+After restructuring any shared config, zero files may reference a key path
+that no longer exists.  The import check above catches this at module-load
+time, before any simulation runs.
 
 
 ## 13. Tests That Import Display-Only Modules
@@ -358,15 +347,6 @@ placed **before** the import that triggers `pygame`.  This causes pytest to
 skip the entire test module with a clear message when pygame is unavailable,
 rather than crashing the collection phase with `ModuleNotFoundError`.
 
-### Root cause (2025-04 incident)
-
-`tests/tools/test_ppp_robot.py` and `tests/tools/test_rrp_race_robot.py`
-imported `PPPRobot` / `RRPRaceRobot` directly from the simulator main files.
-These files do `import pygame` at the top level.  The CI test runner (Python
-3.10, Ubuntu, headless) does not install pygame, so both test modules failed
-during **collection**, not during execution.  This caused the entire test
-suite to exit with error code 2 before any tests ran.
-
 
 ## 14. Example Functions: Data-Series Dimensions
 
@@ -377,16 +357,6 @@ When plotting multi-step simulations (e.g. Lyapunov functions, V(t)):
   `np.arange(N) * dt` — *not* a cumulative sum of per-waypoint optimizer
   durations (which has length equal to the number of waypoints, not steps).
 
-### Root cause (2025-04 incident)
-
-`vehicle.py`'s `_lyapunov_series` was called with `traj_durations = rrt_durs`
-(per-segment optimizer durations, length ≈ number of waypoints) and
-`traj_states = rrt_executed` (one entry per simulation step, length ≈
-several hundred).  This produced a shape mismatch at `ax.plot(times, V)`.
-
-**Fix**: derive the time axis inside `_lyapunov_series` as
-`np.arange(len(traj_states)) * dt`, where `dt` is the simulation step size.
-
 
 ## 15. Adding a Required Constructor Parameter — All Call-Sites Rule
 
@@ -394,26 +364,6 @@ When a constructor parameter is changed from optional to **required** (i.e. it
 gains no default value), every call site in the entire codebase — including
 simulator `scenes/`, standalone `examples/`, tests, and any other consumer —
 **must** be updated in the same commit.
-
-### Root cause (2026-04 incident)
-
-`TrajectoryPruner.__init__()` gained a mandatory `step_size` parameter.
-Five of seven call sites were updated.  Two were missed:
-
-| File | Impact |
-|---|---|
-| `tools/simulator/scenes/vehicle.py` | smoke test `vehicle` crashed at runtime |
-| `tools/examples/rr.py` | `arcoex rr` example crashed |
-
-Both escaped because:
-
-1. **No unit test exercised those call paths** — the pruner's `_optimize()` path
-   in `vehicle.py` is only reached during a full simulation run, not in the
-   unit-test suite.
-2. **`scripts/pre_push.sh` was not run locally before pushing** — smoke tests
-   (which _do_ exercise `vehicle.py`) would have caught the crash.
-
-### Prevention rule
 
 > After changing any constructor or public-method signature, run:
 > ```bash
