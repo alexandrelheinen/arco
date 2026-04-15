@@ -36,13 +36,65 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.occ import OCCScene
+from arco.tools.viewer import FrameRenderer, SceneSnapshot
 from arco.tools.viewer.layout import StandardLayout
 from arco.tools.viewer.utils import format_clock
 
 logger = logging.getLogger(__name__)
+
+
+def _build_occ_snapshot(
+    planner: str,
+    path: list[np.ndarray] | None,
+    raw_path: list[np.ndarray] | None,
+    traj: list[np.ndarray] | None,
+    collision_pts: list[list[float]],
+    start_pose: np.ndarray,
+    goal_pose: np.ndarray,
+    *,
+    include_obstacles: bool = True,
+) -> SceneSnapshot:
+    """Build a SceneSnapshot from OCC planning results (x,y 2-D projection).
+
+    Args:
+        planner: Planner key, e.g. ``"rrt"`` or ``"sst"``.
+        path: Pruned path in (x, y, ψ) space.
+        raw_path: Raw planner path before pruning.
+        traj: Optimised trajectory states.
+        collision_pts: C-space collision samples ``[[x, y, ψ], …]``.
+        start_pose: Start pose array ``[x, y, ψ]``.
+        goal_pose: Goal pose array ``[x, y, ψ]``.
+        include_obstacles: When ``False`` the obstacles list is left empty
+            (avoid re-rendering on overlaid planners).
+
+    Returns:
+        A :class:`~arco.tools.viewer.SceneSnapshot` with 2-D (x, y) coords.
+    """
+    obs: list[list[float]] = (
+        [[float(p[0]), float(p[1])] for p in collision_pts]
+        if include_obstacles
+        else []
+    )
+    return SceneSnapshot.from_planning_result(
+        scenario="occ",
+        planner=planner,
+        start=[float(start_pose[0]), float(start_pose[1])],
+        goal=[float(goal_pose[0]), float(goal_pose[1])],
+        obstacles=obs,
+        found_path=(
+            [[float(p[0]), float(p[1])] for p in raw_path]
+            if raw_path
+            else None
+        ),
+        pruned_path=(
+            [[float(p[0]), float(p[1])] for p in path] if path else None
+        ),
+        adjusted_trajectory=(
+            [[float(p[0]), float(p[1])] for p in traj] if traj else None
+        ),
+    )
 
 
 def main(cfg: dict, save_path: str | None = None) -> None:
@@ -76,6 +128,27 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     x_range = [float(v) for v in env_cfg.get("x_range", [-4, 4])]
     y_range = [float(v) for v in env_cfg.get("y_range", [-3, 3])]
 
+    rrt_snap = _build_occ_snapshot(
+        "rrt",
+        rrt_path,
+        scene.rrt_raw_path,
+        rrt_traj,
+        collision_pts,
+        start_pose,
+        goal_pose,
+        include_obstacles=True,
+    )
+    sst_snap = _build_occ_snapshot(
+        "sst",
+        sst_path,
+        scene.sst_raw_path,
+        sst_traj,
+        collision_pts,
+        start_pose,
+        goal_pose,
+        include_obstacles=False,
+    )
+
     fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
         title="OCC — Object-centric control (piano movers)"
     )
@@ -89,75 +162,14 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             ymax - ymin,
             linewidth=1,
             edgecolor="black",
-            facecolor=obstacle_hex(),
+            facecolor="#c05050",
             alpha=0.7,
         )
         ax_ws.add_patch(rect)
-    if rrt_path and len(rrt_path) >= 2:
-        rxs = [p[0] for p in rrt_path]
-        rys = [p[1] for p in rrt_path]
-        path_a = 0.35 if rrt_traj else 1.0
-        ax_ws.plot(
-            rxs,
-            rys,
-            color=layer_hex("rrt", "path"),
-            linewidth=1.5,
-            alpha=path_a,
-            label="RRT* path",
-        )
-    if sst_path and len(sst_path) >= 2:
-        sxs = [p[0] for p in sst_path]
-        sys_ = [p[1] for p in sst_path]
-        path_a = 0.35 if sst_traj else 1.0
-        ax_ws.plot(
-            sxs,
-            sys_,
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=path_a,
-            label="SST path",
-        )
-    if rrt_traj and len(rrt_traj) >= 2:
-        txs = [p[0] for p in rrt_traj]
-        tys = [p[1] for p in rrt_traj]
-        ax_ws.plot(
-            txs,
-            tys,
-            "o-",
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.0,
-            markersize=2,
-            label="RRT* traj",
-        )
-    if sst_traj and len(sst_traj) >= 2:
-        txs = [p[0] for p in sst_traj]
-        tys = [p[1] for p in sst_traj]
-        ax_ws.plot(
-            txs,
-            tys,
-            "o-",
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.0,
-            markersize=2,
-            label="SST traj",
-        )
-    ax_ws.plot(
-        start_pose[0],
-        start_pose[1],
-        "s",
-        color=annotation_hex(),
-        markersize=8,
-        label="Start",
-    )
-    ax_ws.plot(
-        goal_pose[0],
-        goal_pose[1],
-        "x",
-        color=annotation_hex(),
-        markersize=8,
-        mew=2,
-        label="Goal",
-    )
+    FrameRenderer(draw_tree=False, draw_obstacles=False).render(ax_ws, rrt_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_ws, sst_snap)
     ax_ws.set_xlim(x_range)
     ax_ws.set_ylim(y_range)
     ax_ws.set_title("Workspace (Cartesian x–y)")
@@ -168,77 +180,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_ws.grid(True, alpha=0.3)
 
     # ---- ax_cs: C-space (x, y) projection ---------------------------------
-    if collision_pts:
-        cxs = [p[0] for p in collision_pts]
-        cys = [p[1] for p in collision_pts]
-        ax_cs.scatter(
-            cxs, cys, s=2, c=obstacle_hex(), alpha=0.3, label="Collision"
-        )
-    if rrt_path and len(rrt_path) >= 2:
-        rxs = [p[0] for p in rrt_path]
-        rys = [p[1] for p in rrt_path]
-        path_a = 0.35 if rrt_traj else 1.0
-        ax_cs.plot(
-            rxs,
-            rys,
-            color=layer_hex("rrt", "path"),
-            linewidth=1.5,
-            alpha=path_a,
-            label="RRT* path",
-        )
-    if sst_path and len(sst_path) >= 2:
-        sxs = [p[0] for p in sst_path]
-        sys_ = [p[1] for p in sst_path]
-        path_a = 0.35 if sst_traj else 1.0
-        ax_cs.plot(
-            sxs,
-            sys_,
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=path_a,
-            label="SST path",
-        )
-    if rrt_traj and len(rrt_traj) >= 2:
-        txs = [p[0] for p in rrt_traj]
-        tys = [p[1] for p in rrt_traj]
-        ax_cs.plot(
-            txs,
-            tys,
-            "o-",
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.0,
-            markersize=2,
-            label="RRT* traj",
-        )
-    if sst_traj and len(sst_traj) >= 2:
-        txs = [p[0] for p in sst_traj]
-        tys = [p[1] for p in sst_traj]
-        ax_cs.plot(
-            txs,
-            tys,
-            "o-",
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.0,
-            markersize=2,
-            label="SST traj",
-        )
-    ax_cs.plot(
-        start_pose[0],
-        start_pose[1],
-        "s",
-        color=annotation_hex(),
-        markersize=8,
-        label="Start",
-    )
-    ax_cs.plot(
-        goal_pose[0],
-        goal_pose[1],
-        "x",
-        color=annotation_hex(),
-        markersize=8,
-        mew=2,
-        label="Goal",
-    )
+    FrameRenderer(draw_tree=False).render(ax_cs, rrt_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_cs, sst_snap)
     ax_cs.set_xlim(x_range)
     ax_cs.set_ylim(y_range)
     ax_cs.set_title("C-space: (x, y) projection")

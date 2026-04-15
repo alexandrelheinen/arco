@@ -35,7 +35,6 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import (
     RRTPlanner,
@@ -45,11 +44,69 @@ from arco.planning.continuous import (
 )
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.sim.tracking import VehicleConfig, build_vehicle_sim
+from arco.tools.viewer import FrameRenderer, SceneSnapshot
 from arco.tools.viewer.layout import StandardLayout
-from arco.tools.viewer.occupancy import draw_occupancy
-from arco.tools.viewer.utils import polyline_length
+from arco.tools.viewer.utils import parent_dict_to_list, polyline_length
 
 logger = logging.getLogger(__name__)
+
+
+def _build_vehicle_snapshot(
+    planner: str,
+    occ: KDTreeOccupancy,
+    start: np.ndarray,
+    goal: np.ndarray,
+    nodes: list[np.ndarray],
+    parent_dict: dict[int, int | None],
+    path: list[np.ndarray] | None,
+    traj: list[np.ndarray] | None,
+    executed: list[tuple[float, float, float]],
+    *,
+    include_obstacles: bool = True,
+) -> SceneSnapshot:
+    """Build a SceneSnapshot from vehicle benchmark planning results.
+
+    Args:
+        planner: Planner key, e.g. ``"rrt"`` or ``"sst"``.
+        occ: Occupancy map (obstacle point cloud).
+        start: Start position array.
+        goal: Goal position array.
+        nodes: Exploration tree nodes.
+        parent_dict: Dict mapping node index to parent index (None for root).
+        path: Raw planned path.
+        traj: Optimised trajectory states.
+        executed: Executed ``(x, y, θ)`` poses from the tracking loop.
+        include_obstacles: When ``False`` the obstacles list is left empty.
+
+    Returns:
+        A :class:`~arco.tools.viewer.SceneSnapshot` for the given planner.
+    """
+    obs: list[list[float]] = (
+        [[float(v) for v in pt] for pt in occ.points]
+        if include_obstacles
+        else []
+    )
+    n = len(nodes)
+    return SceneSnapshot.from_planning_result(
+        scenario="vehicle",
+        planner=planner,
+        start=[float(start[0]), float(start[1])],
+        goal=[float(goal[0]), float(goal[1])],
+        obstacles=obs,
+        tree_nodes=[[float(v) for v in nd] for nd in nodes] if nodes else [],
+        tree_parent=parent_dict_to_list(parent_dict, n) if n > 0 else [],
+        found_path=(
+            [[float(v) for v in p] for p in path] if path else None
+        ),
+        adjusted_trajectory=(
+            [[float(v) for v in p] for p in traj] if traj else None
+        ),
+        executed_trajectory=(
+            [[float(x), float(y), float(th)] for x, y, th in executed]
+            if len(executed) >= 2
+            else None
+        ),
+    )
 
 
 def build_occupancy(planner_cfg: dict, world_cfg: dict) -> KDTreeOccupancy:
@@ -228,7 +285,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         early_stop=bool(planner_cfg.get("early_stop", True)),
     )
     t0 = time.perf_counter()
-    rrt_nodes, _, rrt_path = rrt.get_tree(start.copy(), goal.copy())
+    rrt_nodes, rrt_parent_dict, rrt_path = rrt.get_tree(
+        start.copy(), goal.copy()
+    )
     rrt_time = time.perf_counter() - t0
 
     sst = SSTPlanner(
@@ -243,7 +302,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         early_stop=bool(planner_cfg.get("early_stop", True)),
     )
     t0 = time.perf_counter()
-    sst_nodes, _, sst_path = sst.get_tree(start.copy(), goal.copy())
+    sst_nodes, sst_parent_dict, sst_path = sst.get_tree(
+        start.copy(), goal.copy()
+    )
     sst_time = time.perf_counter() - t0
 
     _step_size = np.asarray(planner_cfg["step_size"], dtype=float)
@@ -260,111 +321,38 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     logger.info("Simulating SST executed trajectory …")
     sst_executed = _simulate_vehicle(sst_traj or sst_path, occ, vehicle_cfg)
 
+    rrt_snap = _build_vehicle_snapshot(
+        "rrt", occ, start, goal,
+        rrt_nodes, rrt_parent_dict, rrt_path, rrt_traj, rrt_executed,
+        include_obstacles=True,
+    )
+    sst_snap = _build_vehicle_snapshot(
+        "sst", occ, start, goal,
+        sst_nodes, sst_parent_dict, sst_path, sst_traj, sst_executed,
+        include_obstacles=False,
+    )
+
     fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
         title="Vehicle benchmark — RRT* vs SST"
     )
 
     # ---- ax_ws: Combined workspace -----------------------------------------
-    fig_tmp, ax_ws = draw_occupancy(
-        occ,
-        bounds=bounds,
-        path=rrt_path,
-        tree_nodes=None,
-        tree_parent=None,
-        start=start,
-        goal=goal,
-        draw_tree=False,
-        path_alpha=(0.35 if rrt_traj is not None else 1.0),
-        title="Workspace",
-        ax=ax_ws,
-    )
-    _ = fig_tmp
-
-    if sst_path is not None and len(sst_path) >= 2:
-        sarr = np.array(sst_path)
-        ax_ws.plot(
-            sarr[:, 0],
-            sarr[:, 1],
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=(0.35 if sst_traj is not None else 0.9),
-            label="SST path",
-        )
-    if rrt_traj is not None and len(rrt_traj) >= 2:
-        arr = np.array(rrt_traj)
-        ax_ws.plot(
-            arr[:, 0],
-            arr[:, 1],
-            "o-",
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.3,
-            markersize=3,
-            label="RRT* traj",
-        )
-    if len(rrt_executed) >= 2:
-        ex = np.array(rrt_executed)
-        ax_ws.plot(
-            ex[:, 0],
-            ex[:, 1],
-            color=layer_hex("rrt", "vehicle"),
-            linewidth=1.8,
-            linestyle="--",
-            alpha=0.85,
-            label="RRT* executed",
-        )
-    if sst_traj is not None and len(sst_traj) >= 2:
-        arr = np.array(sst_traj)
-        ax_ws.plot(
-            arr[:, 0],
-            arr[:, 1],
-            "o-",
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.3,
-            markersize=3,
-            label="SST traj",
-        )
-    if len(sst_executed) >= 2:
-        ex = np.array(sst_executed)
-        ax_ws.plot(
-            ex[:, 0],
-            ex[:, 1],
-            color=layer_hex("sst", "vehicle"),
-            linewidth=1.8,
-            linestyle="--",
-            alpha=0.85,
-            label="SST executed",
-        )
+    FrameRenderer(draw_tree=False).render(ax_ws, rrt_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_ws, sst_snap)
     ax_ws.grid(True, alpha=0.3)
     ax_ws.legend(loc="upper right", fontsize=7)
 
     # ---- ax_cs: C-space = workspace for 2-D Dubins -------------------------
-    fig_tmp2, ax_cs = draw_occupancy(
-        occ,
-        bounds=bounds,
-        path=rrt_path,
-        tree_nodes=None,
-        tree_parent=None,
-        start=start,
-        goal=goal,
-        draw_tree=False,
-        path_alpha=0.4,
-        title="C-space (x m, y m) — velocity constraints",
-        ax=ax_cs,
-    )
-    _ = fig_tmp2
-
-    if sst_path is not None and len(sst_path) >= 2:
-        sarr = np.array(sst_path)
-        ax_cs.plot(
-            sarr[:, 0],
-            sarr[:, 1],
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=0.4,
-        )
+    FrameRenderer(draw_tree=False, draw_obstacles=False).render(ax_cs, rrt_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_cs, sst_snap)
 
     dubins_cfg = vehicle_cfg.get("dubins", {})
     cruise_speed = float(dubins_cfg.get("cruise_speed", 3.0))
+
     for center in (start, goal):
         circ = mpatches.Circle(
             (float(center[0]), float(center[1])),

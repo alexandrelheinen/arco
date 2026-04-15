@@ -35,14 +35,70 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.sparse import CityScene
 from arco.tools.simulator.sim.tracking import build_vehicle_sim
+from arco.tools.viewer import FrameRenderer, SceneSnapshot
 from arco.tools.viewer.layout import StandardLayout
 from arco.tools.viewer.utils import polyline_length
 
 logger = logging.getLogger(__name__)
+
+
+def _build_city_snapshot(
+    planner: str,
+    scene: CityScene,
+    path: list[np.ndarray],
+    raw_path: list[np.ndarray] | None,
+    traj: list[np.ndarray],
+    executed: list[tuple[float, float]],
+    *,
+    include_obstacles: bool = True,
+) -> SceneSnapshot:
+    """Build a SceneSnapshot from city planning results.
+
+    Args:
+        planner: Planner key, e.g. ``"rrt"`` or ``"sst"``.
+        scene: Built :class:`~arco.tools.simulator.scenes.sparse.CityScene`.
+        path: Pruned planned path.
+        raw_path: Raw planner path before pruning.
+        traj: Optimised trajectory states.
+        executed: Executed ``(x, y)`` positions from the tracking loop.
+        include_obstacles: When ``False`` the obstacles list is left empty
+            (avoid re-rendering on overlaid planners).
+
+    Returns:
+        A :class:`~arco.tools.viewer.SceneSnapshot` for the given planner.
+    """
+    occ = scene._occ  # noqa: SLF001
+    obs: list[list[float]] = (
+        [[float(v) for v in pt] for pt in occ.points]
+        if include_obstacles and occ is not None
+        else []
+    )
+    sx, sy = scene._start  # noqa: SLF001
+    gx, gy = scene._goal  # noqa: SLF001
+    return SceneSnapshot.from_planning_result(
+        scenario="city",
+        planner=planner,
+        start=[float(sx), float(sy)],
+        goal=[float(gx), float(gy)],
+        obstacles=obs,
+        found_path=(
+            [[float(v) for v in p] for p in raw_path] if raw_path else None
+        ),
+        pruned_path=(
+            [[float(v) for v in p] for p in path] if path else None
+        ),
+        adjusted_trajectory=(
+            [[float(v) for v in p] for p in traj] if traj else None
+        ),
+        executed_trajectory=(
+            [[float(x), float(y)] for x, y in executed]
+            if len(executed) >= 2
+            else None
+        ),
+    )
 
 
 def _simulate_trajectory(
@@ -83,75 +139,6 @@ def _simulate_trajectory(
     return executed
 
 
-def _draw_planner_layers(
-    ax: plt.Axes,
-    scene: CityScene,
-    path: list[np.ndarray] | None,
-    traj: list[np.ndarray] | None,
-    executed: list[tuple[float, float]],
-    planner_key: str,
-    label_prefix: str,
-    draw_env: bool = True,
-) -> None:
-    """Draw environment + planner result layers onto *ax*.
-
-    Args:
-        ax: Target axes.
-        scene: Built city scene.
-        path: Raw planned waypoints.
-        traj: Optimised trajectory states.
-        executed: Executed (x, y) positions from the tracking loop.
-        planner_key: Palette key, e.g. ``"rrt"`` or ``"sst"``.
-        label_prefix: Human-readable prefix for legend entries.
-        draw_env: When ``True`` draw road dots and obstacle scatter
-            (only needed once per figure).
-    """
-    if draw_env:
-        occ = scene._occ  # noqa: SLF001
-        road = (
-            np.array(scene.road_dots) if scene.road_dots else np.empty((0, 2))
-        )
-        obs = np.array(occ.points) if occ is not None else np.empty((0, 2))
-        if len(road) > 0:
-            ax.scatter(road[:, 0], road[:, 1], s=2, c="#b8c4ce", alpha=0.6)
-        if len(obs) > 0:
-            ax.scatter(obs[:, 0], obs[:, 1], s=3, c=obstacle_hex(), alpha=0.55)
-        sx, sy = scene._start  # noqa: SLF001
-        gx, gy = scene._goal  # noqa: SLF001
-        ann = annotation_hex()
-        ax.plot(sx, sy, "s", color=ann, ms=8, label="Start")
-        ax.plot(gx, gy, "x", color=ann, ms=8, mew=2, label="Goal")
-
-    if path is not None and len(path) >= 2:
-        arr = np.array(path)
-        ax.plot(
-            arr[:, 0],
-            arr[:, 1],
-            color=layer_hex(planner_key, "path"),
-            linewidth=1.6,
-            alpha=0.45,
-            label=f"{label_prefix} path",
-        )
-    if traj is not None and len(traj) >= 2:
-        arr = np.array(traj)
-        ax.plot(
-            arr[:, 0],
-            arr[:, 1],
-            color=layer_hex(planner_key, "trajectory"),
-            linewidth=2.2,
-            label=f"{label_prefix} traj",
-        )
-    if len(executed) >= 2:
-        ex = np.array(executed)
-        ax.plot(
-            ex[:, 0],
-            ex[:, 1],
-            color=layer_hex(planner_key, "vehicle"),
-            linewidth=1.8,
-            linestyle="--",
-            alpha=0.85,
-            label=f"{label_prefix} executed",
-        )
 
 
 def main(cfg: dict, save_path: str | None = None) -> None:
@@ -182,31 +169,30 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     logger.info("Simulating SST executed trajectory …")
     sst_executed = _simulate_trajectory(sst_traj or sst_path, scene)
 
+    rrt_snap = _build_city_snapshot(
+        "rrt", scene, rrt_path, scene.rrt_raw_path, rrt_traj, rrt_executed,
+        include_obstacles=True,
+    )
+    sst_snap = _build_city_snapshot(
+        "sst", scene, sst_path, scene.sst_raw_path, sst_traj, sst_executed,
+        include_obstacles=False,
+    )
+
     fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
         title="City race benchmark — RRT* vs SST"
     )
 
     # ---- ax_ws: workspace — both planners overlaid -------------------------
-    _draw_planner_layers(
-        ax_ws,
-        scene,
-        rrt_path,
-        rrt_traj,
-        rrt_executed,
-        planner_key="rrt",
-        label_prefix="RRT*",
-        draw_env=True,
+    occ = scene._occ  # noqa: SLF001
+    road = (
+        np.array(scene.road_dots) if scene.road_dots else np.empty((0, 2))
     )
-    _draw_planner_layers(
-        ax_ws,
-        scene,
-        sst_path,
-        sst_traj,
-        sst_executed,
-        planner_key="sst",
-        label_prefix="SST",
-        draw_env=False,
-    )
+    if len(road) > 0:
+        ax_ws.scatter(road[:, 0], road[:, 1], s=2, c="#b8c4ce", alpha=0.6)
+    FrameRenderer(draw_tree=False).render(ax_ws, rrt_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_ws, sst_snap)
     ax_ws.set_title("Workspace")
     ax_ws.set_xlabel("X (m)")
     ax_ws.set_ylabel("Y (m)")
@@ -216,7 +202,6 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     # ---- ax_cs: C-space = workspace for 2-D Dubins -------------------------
     # Show clearance heatmap (distance field) as background.
-    occ = scene._occ  # noqa: SLF001
     if occ is not None:
         planner_cfg = cfg.get("planner", {})
         bounds = planner_cfg.get("bounds", [[0, 200], [0, 200]])
@@ -239,26 +224,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             aspect="auto",
             alpha=0.5,
         )
-    _draw_planner_layers(
-        ax_cs,
-        scene,
-        rrt_path,
-        rrt_traj,
-        rrt_executed,
-        planner_key="rrt",
-        label_prefix="RRT*",
-        draw_env=False,
-    )
-    _draw_planner_layers(
-        ax_cs,
-        scene,
-        sst_path,
-        sst_traj,
-        sst_executed,
-        planner_key="sst",
-        label_prefix="SST",
-        draw_env=False,
-    )
+    FrameRenderer(draw_tree=False, draw_obstacles=False).render(ax_cs, rrt_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_cs, sst_snap)
     ax_cs.set_title("C-space (x m, y m)")
     ax_cs.set_xlabel("X (m)")
     ax_cs.set_ylabel("Y (m)")

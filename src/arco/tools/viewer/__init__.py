@@ -7,7 +7,7 @@ from .layout import StandardLayout
 from .road import draw_road_network
 from .scene_snapshot import SceneSnapshot
 from .trace import TraceStyle, draw_trace
-from .utils import format_clock, polyline_length
+from .utils import format_clock, parent_dict_to_list, polyline_length
 
 __all__ = [
     "draw_graph",
@@ -17,6 +17,7 @@ __all__ = [
     "format_clock",
     "FrameRenderer",
     "LayerStyle",
+    "parent_dict_to_list",
     "polyline_length",
     "SceneSnapshot",
     "StandardLayout",

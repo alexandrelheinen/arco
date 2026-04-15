@@ -39,7 +39,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
+from arco.config.palette import annotation_hex, obstacle_hex
 from arco.kinematics import RRPRobot
 from arco.planning.continuous import (
     RRTPlanner,
@@ -53,10 +53,107 @@ from arco.tools.simulator.scenes.rrp import (
     build_cspace_occupancy_3d,
     pick_collision_free_config,
 )
+from arco.tools.viewer import FrameRenderer, SceneSnapshot
 from arco.tools.viewer.layout import StandardLayout
 from arco.tools.viewer.utils import format_clock, polyline_length
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Snapshot builders
+# ---------------------------------------------------------------------------
+
+
+def _build_rrp_cs_snapshot(
+    planner: str,
+    start_q: np.ndarray,
+    goal_q: np.ndarray,
+    path: list[np.ndarray] | None,
+    traj: list[np.ndarray] | None,
+) -> SceneSnapshot:
+    """Build a 3-D C-space SceneSnapshot (q₁, q₂, z) for the RRP example.
+
+    Args:
+        planner: Planner key, e.g. ``"rrt"`` or ``"sst"``.
+        start_q: Start joint config ``[q₁, q₂, z]``.
+        goal_q: Goal joint config ``[q₁, q₂, z]``.
+        path: Raw joint-space path.
+        traj: Optimised joint-space trajectory.
+
+    Returns:
+        A :class:`~arco.tools.viewer.SceneSnapshot` in 3-D joint space.
+    """
+    return SceneSnapshot.from_planning_result(
+        scenario="rrp",
+        planner=planner,
+        start=[float(start_q[0]), float(start_q[1]), float(start_q[2])],
+        goal=[float(goal_q[0]), float(goal_q[1]), float(goal_q[2])],
+        obstacles=[],  # collision mesh drawn as Poly3DCollection manually
+        found_path=(
+            [
+                [float(p[0]), float(p[1]), float(p[2])]
+                for p in path
+            ]
+            if path
+            else None
+        ),
+        adjusted_trajectory=(
+            [
+                [float(p[0]), float(p[1]), float(p[2])]
+                for p in traj
+            ]
+            if traj
+            else None
+        ),
+    )
+
+
+def _build_rrp_ws_snapshot(
+    planner: str,
+    robot: RRPRobot,
+    start_q: np.ndarray,
+    goal_q: np.ndarray,
+    path: list[np.ndarray] | None,
+    traj: list[np.ndarray] | None,
+) -> SceneSnapshot:
+    """Build a 3-D workspace SceneSnapshot (FK x, y, z) for the RRP example.
+
+    Args:
+        planner: Planner key, e.g. ``"rrt"`` or ``"sst"``.
+        robot: The :class:`~arco.kinematics.RRPRobot` instance.
+        start_q: Start joint config ``[q₁, q₂, z]``.
+        goal_q: Goal joint config ``[q₁, q₂, z]``.
+        path: Raw joint-space path.
+        traj: Optimised joint-space trajectory.
+
+    Returns:
+        A :class:`~arco.tools.viewer.SceneSnapshot` in Cartesian 3-D space.
+    """
+    start_xyz = robot.forward_kinematics(
+        float(start_q[0]), float(start_q[1]), float(start_q[2])
+    )
+    goal_xyz = robot.forward_kinematics(
+        float(goal_q[0]), float(goal_q[1]), float(goal_q[2])
+    )
+
+    def _fk(pts: list[np.ndarray] | None) -> list[list[float]] | None:
+        if pts is None:
+            return None
+        return [
+            list(robot.forward_kinematics(float(p[0]), float(p[1]), float(p[2])))
+            for p in pts
+        ]
+
+    return SceneSnapshot.from_planning_result(
+        scenario="rrp",
+        planner=planner,
+        start=list(start_xyz),
+        goal=list(goal_xyz),
+        obstacles=[],  # drawn as _draw_box() manually
+        found_path=_fk(path),
+        adjusted_trajectory=_fk(traj),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +519,11 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             logger.exception("SST TrajectoryOptimizer failed; skipping.")
             sst_opt_status = "exception"
 
+    rrt_cs_snap = _build_rrp_cs_snapshot("rrt", start_q, goal_q, rrt_path, rrt_traj)
+    sst_cs_snap = _build_rrp_cs_snapshot("sst", start_q, goal_q, sst_path, sst_traj)
+    rrt_ws_snap = _build_rrp_ws_snapshot("rrt", robot, start_q, goal_q, rrt_path, rrt_traj)
+    sst_ws_snap = _build_rrp_ws_snapshot("sst", robot, start_q, goal_q, sst_path, sst_traj)
+
     rrt_cart = _fk_path(robot, rrt_path)
     sst_cart = _fk_path(robot, sst_path)
     rrt_traj_cart = _fk_path(robot, rrt_traj)
@@ -457,59 +559,13 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         robot.z_max,
     )
 
-    for cart, lbl, path_key in (
-        (rrt_cart, "RRT* path", "rrt"),
-        (sst_cart, "SST path", "sst"),
-    ):
-        if cart is not None and len(cart) >= 2:
-            arr = np.array(cart)
-            ax_ws.plot(
-                arr[:, 0],
-                arr[:, 1],
-                arr[:, 2],  # type: ignore[attr-defined]
-                color=layer_hex(path_key, "path"),
-                linewidth=1.5,
-                alpha=0.7,
-                label=lbl,
-            )
-    for cart, lbl, traj_key in (
-        (rrt_traj_cart, "RRT* traj", "rrt"),
-        (sst_traj_cart, "SST traj", "sst"),
-    ):
-        if cart is not None and len(cart) >= 2:
-            tarr = np.array(cart)
-            ax_ws.plot(
-                tarr[:, 0],
-                tarr[:, 1],
-                tarr[:, 2],  # type: ignore[attr-defined]
-                "o-",
-                color=layer_hex(traj_key, "trajectory"),
-                linewidth=2.5,
-                markersize=3,
-                alpha=0.9,
-                label=lbl,
-            )
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, is_3d=True
+    ).render(ax_ws, rrt_ws_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False, is_3d=True
+    ).render(ax_ws, sst_ws_snap)
 
-    ax_ws.scatter(
-        [start_cart[0]],
-        [start_cart[1]],
-        [start_cart[2]],  # type: ignore[attr-defined]
-        color=annotation_hex(),
-        s=80,
-        zorder=6,
-        label="Start",
-    )
-    ax_ws.scatter(
-        [goal_cart[0]],
-        [goal_cart[1]],
-        [goal_cart[2]],  # type: ignore[attr-defined]
-        color=annotation_hex(),
-        marker="x",
-        linewidths=2,
-        s=80,
-        zorder=6,
-        label="Goal",
-    )
     ax_ws.set_xlim(*x_lim)  # type: ignore[attr-defined]
     ax_ws.set_ylim(*y_lim)  # type: ignore[attr-defined]
     ax_ws.set_zlim(*z_lim)  # type: ignore[attr-defined]
@@ -549,38 +605,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 alpha=0.30,
             )
 
-    for path, lbl, color in (
-        (rrt_path, "RRT* path", layer_hex("rrt", "path")),
-        (sst_path, "SST path", layer_hex("sst", "path")),
-    ):
-        if path is not None and len(path) >= 2:
-            arr = np.array(path)
-            ax_cs.plot(
-                arr[:, 0],
-                arr[:, 1],
-                arr[:, 2],  # type: ignore[attr-defined]
-                color=color,
-                linewidth=1.5,
-                alpha=0.85,
-                label=lbl,
-            )
-    for traj, lbl, key in (
-        (rrt_traj, "RRT* traj", "rrt"),
-        (sst_traj, "SST traj", "sst"),
-    ):
-        if traj is not None and len(traj) >= 2:
-            tarr = np.array(traj)
-            ax_cs.plot(
-                tarr[:, 0],
-                tarr[:, 1],
-                tarr[:, 2],  # type: ignore[attr-defined]
-                "o-",
-                color=layer_hex(key, "trajectory"),
-                linewidth=2.0,
-                markersize=3,
-                alpha=0.9,
-                label=lbl,
-            )
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, is_3d=True
+    ).render(ax_cs, rrt_cs_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False, is_3d=True
+    ).render(ax_cs, sst_cs_snap)
 
     max_ang_vel = float(sim_cfg.get("max_ang_vel", 1.5))
     max_lin_vel = float(sim_cfg.get("max_lin_vel", 1.0))
@@ -590,27 +620,6 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ey = max_ang_vel * np.outer(np.sin(u), np.sin(v)) + float(start_q[1])
     ez = max_lin_vel * np.outer(np.ones_like(u), np.cos(v)) + float(start_q[2])
     ax_cs.plot_wireframe(ex, ey, ez, color="blue", alpha=0.15, linewidth=0.5)  # type: ignore[attr-defined]
-
-    ax_cs.scatter(
-        [float(start_q[0])],
-        [float(start_q[1])],
-        [float(start_q[2])],  # type: ignore[attr-defined]
-        color=annotation_hex(),
-        s=80,
-        zorder=6,
-        label="Start",
-    )
-    ax_cs.scatter(
-        [float(goal_q[0])],
-        [float(goal_q[1])],
-        [float(goal_q[2])],  # type: ignore[attr-defined]
-        color=annotation_hex(),
-        marker="x",
-        linewidths=2,
-        s=80,
-        zorder=6,
-        label="Goal",
-    )
     ax_cs.set_xlabel("q₁ (rad)")  # type: ignore[attr-defined]
     ax_cs.set_ylabel("q₂ (rad)")  # type: ignore[attr-defined]
     ax_cs.set_zlabel("z (m)")  # type: ignore[attr-defined]
