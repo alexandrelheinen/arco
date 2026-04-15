@@ -33,6 +33,7 @@ import argparse
 import logging
 import math
 import os
+from typing import Any
 
 import pygame
 from OpenGL.GL import (  # type: ignore[import-untyped]
@@ -299,7 +300,7 @@ def run_race(
     astar_total: int = getattr(scene, "astar_total", 0)
     rrt_metrics = scene.rrt_metrics
     sst_metrics = scene.sst_metrics
-    _empty_metrics: dict = {
+    default_astar_metrics: dict[str, Any] = {
         "steps": 0,
         "nodes": 0,
         "planner_time": 0.0,
@@ -309,7 +310,9 @@ def run_race(
         "path_status": "n/a",
         "optimizer_status": "n/a",
     }
-    astar_metrics: dict = getattr(scene, "astar_metrics", _empty_metrics)
+    astar_metrics: dict[str, Any] = getattr(
+        scene, "astar_metrics", default_astar_metrics
+    )
 
     # Pacing: reveal both trees in parallel, finishing together at ~half-time.
     half_frames = (
