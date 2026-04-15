@@ -5,6 +5,25 @@ from __future__ import annotations
 import numpy as np
 
 
+def parent_dict_to_list(
+    parent: dict[int, int | None], n: int
+) -> list[int]:
+    """Convert a planner parent dict to a parallel index list.
+
+    Args:
+        parent: Dict mapping node index to parent index (``None`` for root).
+        n: Total number of nodes.
+
+    Returns:
+        List of length *n* with ``-1`` for root and non-negative parent
+        indices for all other nodes.
+    """
+    return [
+        -1 if parent.get(i) is None else int(parent[i])  # type: ignore[arg-type]
+        for i in range(n)
+    ]
+
+
 def polyline_length(path: list[np.ndarray] | None) -> float:
     """Return total Euclidean arc length for a waypoint sequence.
 

@@ -37,7 +37,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
+from arco.config.palette import annotation_hex, obstacle_hex
 from arco.kinematics import RRRobot
 from arco.planning.continuous import (
     RRTPlanner,
@@ -50,6 +50,7 @@ from arco.tools.simulator.scenes.rr import (
     build_cspace_occupancy,
     pick_collision_free_ik,
 )
+from arco.tools.viewer import FrameRenderer, SceneSnapshot
 from arco.tools.viewer.layout import StandardLayout
 from arco.tools.viewer.utils import format_clock, polyline_length
 
@@ -57,6 +58,103 @@ logger = logging.getLogger(__name__)
 
 # Minimum annulus inner radius below which the inner-hole outline is skipped.
 _INNER_RADIUS_THRESHOLD: float = 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Snapshot builders
+# ---------------------------------------------------------------------------
+
+
+def _build_rr_cs_snapshot(
+    planner: str,
+    collision_pts: list[list[float]],
+    start_q: np.ndarray,
+    goal_q: np.ndarray,
+    path: list[np.ndarray] | None,
+    traj: list[np.ndarray] | None,
+    *,
+    include_obstacles: bool = True,
+) -> SceneSnapshot:
+    """Build a C-space SceneSnapshot (θ₁, θ₂) for the RR example.
+
+    Args:
+        planner: Planner key, e.g. ``"rrt"`` or ``"sst"``.
+        collision_pts: Sampled joint-space collision configurations.
+        start_q: Start joint config ``[θ₁, θ₂]``.
+        goal_q: Goal joint config ``[θ₁, θ₂]``.
+        path: Raw joint-space path.
+        traj: Optimised joint-space trajectory.
+        include_obstacles: When ``False`` the obstacle list is left empty.
+
+    Returns:
+        A :class:`~arco.tools.viewer.SceneSnapshot` in joint space.
+    """
+    obs: list[list[float]] = (
+        [[float(p[0]), float(p[1])] for p in collision_pts]
+        if include_obstacles
+        else []
+    )
+    return SceneSnapshot.from_planning_result(
+        scenario="rr",
+        planner=planner,
+        start=[float(start_q[0]), float(start_q[1])],
+        goal=[float(goal_q[0]), float(goal_q[1])],
+        obstacles=obs,
+        found_path=(
+            [[float(p[0]), float(p[1])] for p in path] if path else None
+        ),
+        adjusted_trajectory=(
+            [[float(p[0]), float(p[1])] for p in traj] if traj else None
+        ),
+    )
+
+
+def _build_rr_ws_snapshot(
+    planner: str,
+    robot: RRRobot,
+    start_q: np.ndarray,
+    goal_q: np.ndarray,
+    path: list[np.ndarray] | None,
+    traj: list[np.ndarray] | None,
+) -> SceneSnapshot:
+    """Build a workspace SceneSnapshot (FK-transformed x, y) for the RR example.
+
+    Args:
+        planner: Planner key, e.g. ``"rrt"`` or ``"sst"``.
+        robot: The :class:`~arco.kinematics.RRRobot` instance.
+        start_q: Start joint config ``[θ₁, θ₂]``.
+        goal_q: Goal joint config ``[θ₁, θ₂]``.
+        path: Raw joint-space path.
+        traj: Optimised joint-space trajectory.
+
+    Returns:
+        A :class:`~arco.tools.viewer.SceneSnapshot` in Cartesian workspace.
+    """
+    start_xy = robot.forward_kinematics(float(start_q[0]), float(start_q[1]))
+    goal_xy = robot.forward_kinematics(float(goal_q[0]), float(goal_q[1]))
+    return SceneSnapshot.from_planning_result(
+        scenario="rr",
+        planner=planner,
+        start=list(start_xy),
+        goal=list(goal_xy),
+        obstacles=[],  # drawn as AABB patches manually
+        found_path=(
+            [
+                list(robot.forward_kinematics(float(p[0]), float(p[1])))
+                for p in path
+            ]
+            if path
+            else None
+        ),
+        adjusted_trajectory=(
+            [
+                list(robot.forward_kinematics(float(p[0]), float(p[1])))
+                for p in traj
+            ]
+            if traj
+            else None
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +380,17 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             label="Obstacle",
         )
 
+    rrt_cs_snap = _build_rr_cs_snapshot(
+        "rrt", collision_pts, start_q, goal_q, rrt_path, rrt_traj,
+        include_obstacles=True,
+    )
+    sst_cs_snap = _build_rr_cs_snapshot(
+        "sst", collision_pts, start_q, goal_q, sst_path, sst_traj,
+        include_obstacles=False,
+    )
+    rrt_ws_snap = _build_rr_ws_snapshot("rrt", robot, start_q, goal_q, rrt_path, rrt_traj)
+    sst_ws_snap = _build_rr_ws_snapshot("sst", robot, start_q, goal_q, sst_path, sst_traj)
+
     rrt_cart = _fk_path(robot, rrt_path)
     sst_cart = _fk_path(robot, sst_path)
     rrt_traj_cart = _fk_path(robot, rrt_traj)
@@ -329,55 +438,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         label="Goal arm",
     )
 
-    if rrt_cart is not None and len(rrt_cart) >= 2:
-        arr = np.array(rrt_cart)
-        ax_ws.plot(
-            arr[:, 0],
-            arr[:, 1],
-            color=layer_hex("rrt", "path"),
-            linewidth=1.5,
-            alpha=(0.35 if rrt_traj_cart else 1.0),
-            label="RRT* path",
-        )
-    if rrt_traj_cart is not None and len(rrt_traj_cart) >= 2:
-        tarr = np.array(rrt_traj_cart)
-        ax_ws.plot(
-            tarr[:, 0],
-            tarr[:, 1],
-            "o-",
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.0,
-            markersize=3,
-            alpha=0.9,
-            label="RRT* traj",
-        )
-    if sst_cart is not None and len(sst_cart) >= 2:
-        arr = np.array(sst_cart)
-        ax_ws.plot(
-            arr[:, 0],
-            arr[:, 1],
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=(0.35 if sst_traj_cart else 1.0),
-            label="SST path",
-        )
-    if sst_traj_cart is not None and len(sst_traj_cart) >= 2:
-        tarr = np.array(sst_traj_cart)
-        ax_ws.plot(
-            tarr[:, 0],
-            tarr[:, 1],
-            "o-",
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.0,
-            markersize=3,
-            alpha=0.9,
-            label="SST traj",
-        )
-
-    sx, sy = robot.forward_kinematics(float(start_q[0]), float(start_q[1]))
-    gx, gy = robot.forward_kinematics(float(goal_q[0]), float(goal_q[1]))
-    ax_ws.plot(sx, sy, "s", color=annotation_hex(), ms=8, zorder=9)
-    ax_ws.plot(gx, gy, "x", color=annotation_hex(), ms=8, mew=2, zorder=9)
+    FrameRenderer(draw_tree=False, draw_obstacles=False).render(ax_ws, rrt_ws_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_ws, sst_ws_snap)
 
     ax_ws.set_aspect("equal")
     ax_ws.set_xlabel("X (m)")
@@ -387,60 +451,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_ws.grid(True, alpha=0.3)
 
     # ---- ax_cs: C-space (θ₁, θ₂) with velocity constraint disc ------------
-    if collision_pts:
-        cpts = np.array(collision_pts)
-        ax_cs.scatter(
-            cpts[:, 0],
-            cpts[:, 1],
-            s=1,
-            c=obstacle_hex(),
-            alpha=0.3,
-            label="C-space obstacle",
-        )
-    if rrt_path is not None:
-        arr = np.array(rrt_path)
-        ax_cs.plot(
-            arr[:, 0],
-            arr[:, 1],
-            color=layer_hex("rrt", "path"),
-            linewidth=1.5,
-            alpha=0.8,
-            label="RRT* path",
-        )
-    if rrt_traj is not None:
-        tarr = np.array(rrt_traj)
-        ax_cs.plot(
-            tarr[:, 0],
-            tarr[:, 1],
-            "o-",
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.0,
-            markersize=3,
-            alpha=0.9,
-            label="RRT* traj",
-        )
-    if sst_path is not None:
-        arr = np.array(sst_path)
-        ax_cs.plot(
-            arr[:, 0],
-            arr[:, 1],
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=0.8,
-            label="SST path",
-        )
-    if sst_traj is not None:
-        tarr = np.array(sst_traj)
-        ax_cs.plot(
-            tarr[:, 0],
-            tarr[:, 1],
-            "o-",
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.0,
-            markersize=3,
-            alpha=0.9,
-            label="SST traj",
-        )
+    FrameRenderer(draw_tree=False).render(ax_cs, rrt_cs_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False
+    ).render(ax_cs, sst_cs_snap)
 
     cruise_speed = float(sim_cfg.get("race_speed", 1.0))
     for center in (start_q, goal_q):
@@ -454,25 +468,6 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             linestyle="--",
         )
         ax_cs.add_patch(circ)
-    ax_cs.plot(
-        float(start_q[0]),
-        float(start_q[1]),
-        "s",
-        color=annotation_hex(),
-        ms=10,
-        zorder=9,
-        label="Start",
-    )
-    ax_cs.plot(
-        float(goal_q[0]),
-        float(goal_q[1]),
-        "x",
-        color=annotation_hex(),
-        ms=8,
-        mew=2,
-        zorder=9,
-        label="Goal",
-    )
     ax_cs.set_xlim(*bounds[0])
     ax_cs.set_ylim(*bounds[1])
     ax_cs.set_xlabel("θ₁ (rad)")

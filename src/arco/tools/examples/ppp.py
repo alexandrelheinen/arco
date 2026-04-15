@@ -38,7 +38,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arco.config.palette import annotation_hex, layer_hex, obstacle_hex
+from arco.config.palette import obstacle_hex
 from arco.mapping import KDTreeOccupancy
 from arco.planning.continuous import (
     RRTPlanner,
@@ -54,10 +54,49 @@ from arco.tools.simulator.scenes.ppp import (
     _sample_box_surface,
 )
 from arco.tools.simulator.scenes.ppp import is_wall as _is_wall
+from arco.tools.viewer import FrameRenderer, SceneSnapshot
 from arco.tools.viewer.layout import StandardLayout
 from arco.tools.viewer.utils import format_clock, polyline_length
 
 logger = logging.getLogger(__name__)
+
+
+def _build_ppp_snapshot(
+    planner: str,
+    start: np.ndarray,
+    goal: np.ndarray,
+    path: list[np.ndarray] | None,
+    traj: list[np.ndarray] | None,
+) -> SceneSnapshot:
+    """Build a 3-D SceneSnapshot for the PPP example (workspace = C-space).
+
+    Args:
+        planner: Planner key, e.g. ``"rrt"`` or ``"sst"``.
+        start: Start position ``[x, y, z]``.
+        goal: Goal position ``[x, y, z]``.
+        path: Raw planned path.
+        traj: Optimised trajectory states.
+
+    Returns:
+        A :class:`~arco.tools.viewer.SceneSnapshot` in 3-D Cartesian space.
+    """
+    return SceneSnapshot.from_planning_result(
+        scenario="ppp",
+        planner=planner,
+        start=[float(start[0]), float(start[1]), float(start[2])],
+        goal=[float(goal[0]), float(goal[1]), float(goal[2])],
+        obstacles=[],  # drawn as _draw_box() manually
+        found_path=(
+            [[float(p[0]), float(p[1]), float(p[2])] for p in path]
+            if path
+            else None
+        ),
+        adjusted_trajectory=(
+            [[float(p[0]), float(p[1]), float(p[2])] for p in traj]
+            if traj
+            else None
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +291,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             )
             sst_opt_status = "exception"
 
+    rrt_snap = _build_ppp_snapshot("rrt", np.array(_START), np.array(_GOAL), rrt_path, rrt_traj)
+    sst_snap = _build_ppp_snapshot("sst", np.array(_START), np.array(_GOAL), sst_path, sst_traj)
+
     # --- 3-D figure ---------------------------------------------------------
     fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
         title="PPP robot — RRT* vs SST in 3-D warehouse",
@@ -273,75 +315,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     for box in _BOXES:
         _draw_box(ax_ws, *box, color=obstacle_hex(), alpha=0.45)
 
-    if rrt_path is not None and len(rrt_path) >= 2:
-        arr = np.array(rrt_path)
-        ax_ws.plot(
-            arr[:, 0],
-            arr[:, 1],
-            arr[:, 2],  # type: ignore[attr-defined]
-            color=layer_hex("rrt", "path"),
-            linewidth=1.5,
-            alpha=0.7,
-            label="RRT* path",
-        )
-    if rrt_traj is not None and len(rrt_traj) >= 2:
-        tarr = np.array([[p[0], p[1], p[2]] for p in rrt_traj])
-        ax_ws.plot(
-            tarr[:, 0],
-            tarr[:, 1],
-            tarr[:, 2],
-            "o-",  # type: ignore[attr-defined]
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=2.5,
-            markersize=3,
-            alpha=0.9,
-            label="RRT* traj",
-        )
-    if sst_path is not None and len(sst_path) >= 2:
-        arr = np.array(sst_path)
-        ax_ws.plot(
-            arr[:, 0],
-            arr[:, 1],
-            arr[:, 2],  # type: ignore[attr-defined]
-            color=layer_hex("sst", "path"),
-            linewidth=1.5,
-            alpha=0.7,
-            label="SST path",
-        )
-    if sst_traj is not None and len(sst_traj) >= 2:
-        tarr = np.array([[p[0], p[1], p[2]] for p in sst_traj])
-        ax_ws.plot(
-            tarr[:, 0],
-            tarr[:, 1],
-            tarr[:, 2],
-            "o-",  # type: ignore[attr-defined]
-            color=layer_hex("sst", "trajectory"),
-            linewidth=2.5,
-            markersize=3,
-            alpha=0.9,
-            label="SST traj",
-        )
-
-    ax_ws.scatter(
-        [_START[0]],
-        [_START[1]],
-        [_START[2]],  # type: ignore[attr-defined]
-        color=annotation_hex(),
-        s=80,
-        zorder=6,
-        label="Start",
-    )
-    ax_ws.scatter(
-        [_GOAL[0]],
-        [_GOAL[1]],
-        [_GOAL[2]],  # type: ignore[attr-defined]
-        color=annotation_hex(),
-        marker="x",
-        linewidths=2,
-        s=80,
-        zorder=6,
-        label="Goal",
-    )
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, is_3d=True
+    ).render(ax_ws, rrt_snap)
+    FrameRenderer(
+        draw_tree=False, draw_obstacles=False, draw_start_goal=False, is_3d=True
+    ).render(ax_ws, sst_snap)
 
     ax_ws.set_xlim(*x_lim)  # type: ignore[attr-defined]
     ax_ws.set_ylim(*y_lim)  # type: ignore[attr-defined]
