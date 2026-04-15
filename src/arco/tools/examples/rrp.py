@@ -91,18 +91,12 @@ def _build_rrp_cs_snapshot(
         goal=[float(goal_q[0]), float(goal_q[1]), float(goal_q[2])],
         obstacles=[],  # collision mesh drawn as Poly3DCollection manually
         found_path=(
-            [
-                [float(p[0]), float(p[1]), float(p[2])]
-                for p in path
-            ]
+            [[float(p[0]), float(p[1]), float(p[2])] for p in path]
             if path
             else None
         ),
         adjusted_trajectory=(
-            [
-                [float(p[0]), float(p[1]), float(p[2])]
-                for p in traj
-            ]
+            [[float(p[0]), float(p[1]), float(p[2])] for p in traj]
             if traj
             else None
         ),
@@ -141,7 +135,9 @@ def _build_rrp_ws_snapshot(
         if pts is None:
             return None
         return [
-            list(robot.forward_kinematics(float(p[0]), float(p[1]), float(p[2])))
+            list(
+                robot.forward_kinematics(float(p[0]), float(p[1]), float(p[2]))
+            )
             for p in pts
         ]
 
@@ -519,10 +515,18 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             logger.exception("SST TrajectoryOptimizer failed; skipping.")
             sst_opt_status = "exception"
 
-    rrt_cs_snap = _build_rrp_cs_snapshot("rrt", start_q, goal_q, rrt_path, rrt_traj)
-    sst_cs_snap = _build_rrp_cs_snapshot("sst", start_q, goal_q, sst_path, sst_traj)
-    rrt_ws_snap = _build_rrp_ws_snapshot("rrt", robot, start_q, goal_q, rrt_path, rrt_traj)
-    sst_ws_snap = _build_rrp_ws_snapshot("sst", robot, start_q, goal_q, sst_path, sst_traj)
+    rrt_cs_snap = _build_rrp_cs_snapshot(
+        "rrt", start_q, goal_q, rrt_path, rrt_traj
+    )
+    sst_cs_snap = _build_rrp_cs_snapshot(
+        "sst", start_q, goal_q, sst_path, sst_traj
+    )
+    rrt_ws_snap = _build_rrp_ws_snapshot(
+        "rrt", robot, start_q, goal_q, rrt_path, rrt_traj
+    )
+    sst_ws_snap = _build_rrp_ws_snapshot(
+        "sst", robot, start_q, goal_q, sst_path, sst_traj
+    )
 
     rrt_cart = _fk_path(robot, rrt_path)
     sst_cart = _fk_path(robot, sst_path)
@@ -559,11 +563,14 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         robot.z_max,
     )
 
+    FrameRenderer(draw_tree=False, draw_obstacles=False, is_3d=True).render(
+        ax_ws, rrt_ws_snap
+    )
     FrameRenderer(
-        draw_tree=False, draw_obstacles=False, is_3d=True
-    ).render(ax_ws, rrt_ws_snap)
-    FrameRenderer(
-        draw_tree=False, draw_obstacles=False, draw_start_goal=False, is_3d=True
+        draw_tree=False,
+        draw_obstacles=False,
+        draw_start_goal=False,
+        is_3d=True,
     ).render(ax_ws, sst_ws_snap)
 
     ax_ws.set_xlim(*x_lim)  # type: ignore[attr-defined]
@@ -605,11 +612,14 @@ def main(cfg: dict, save_path: str | None = None) -> None:
                 alpha=0.30,
             )
 
+    FrameRenderer(draw_tree=False, draw_obstacles=False, is_3d=True).render(
+        ax_cs, rrt_cs_snap
+    )
     FrameRenderer(
-        draw_tree=False, draw_obstacles=False, is_3d=True
-    ).render(ax_cs, rrt_cs_snap)
-    FrameRenderer(
-        draw_tree=False, draw_obstacles=False, draw_start_goal=False, is_3d=True
+        draw_tree=False,
+        draw_obstacles=False,
+        draw_start_goal=False,
+        is_3d=True,
     ).render(ax_cs, sst_cs_snap)
 
     max_ang_vel = float(sim_cfg.get("max_ang_vel", 1.5))

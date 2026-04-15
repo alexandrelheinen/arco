@@ -300,8 +300,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             )
             sst_opt_status = "exception"
 
-    rrt_snap = _build_ppp_snapshot("rrt", np.array(_START), np.array(_GOAL), rrt_path, rrt_traj)
-    sst_snap = _build_ppp_snapshot("sst", np.array(_START), np.array(_GOAL), sst_path, sst_traj)
+    rrt_snap = _build_ppp_snapshot(
+        "rrt", np.array(_START), np.array(_GOAL), rrt_path, rrt_traj
+    )
+    sst_snap = _build_ppp_snapshot(
+        "sst", np.array(_START), np.array(_GOAL), sst_path, sst_traj
+    )
 
     # --- 3-D figure ---------------------------------------------------------
     fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
@@ -324,11 +328,14 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     for box in _BOXES:
         _draw_box(ax_ws, *box, color=obstacle_hex(), alpha=0.45)
 
+    FrameRenderer(draw_tree=False, draw_obstacles=False, is_3d=True).render(
+        ax_ws, rrt_snap
+    )
     FrameRenderer(
-        draw_tree=False, draw_obstacles=False, is_3d=True
-    ).render(ax_ws, rrt_snap)
-    FrameRenderer(
-        draw_tree=False, draw_obstacles=False, draw_start_goal=False, is_3d=True
+        draw_tree=False,
+        draw_obstacles=False,
+        draw_start_goal=False,
+        is_3d=True,
     ).render(ax_ws, sst_snap)
 
     ax_ws.set_xlim(*x_lim)  # type: ignore[attr-defined]

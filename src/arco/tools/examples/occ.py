@@ -166,7 +166,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             alpha=0.7,
         )
         ax_ws.add_patch(rect)
-    FrameRenderer(draw_tree=False, draw_obstacles=False).render(ax_ws, rrt_snap)
+    FrameRenderer(draw_tree=False, draw_obstacles=False).render(
+        ax_ws, rrt_snap
+    )
     FrameRenderer(
         draw_tree=False, draw_obstacles=False, draw_start_goal=False
     ).render(ax_ws, sst_snap)

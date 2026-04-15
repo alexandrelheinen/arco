@@ -87,9 +87,7 @@ def _build_city_snapshot(
         found_path=(
             [[float(v) for v in p] for p in raw_path] if raw_path else None
         ),
-        pruned_path=(
-            [[float(v) for v in p] for p in path] if path else None
-        ),
+        pruned_path=([[float(v) for v in p] for p in path] if path else None),
         adjusted_trajectory=(
             [[float(v) for v in p] for p in traj] if traj else None
         ),
@@ -139,8 +137,6 @@ def _simulate_trajectory(
     return executed
 
 
-
-
 def main(cfg: dict, save_path: str | None = None) -> None:
     """Run the city benchmark and display or save the figure.
 
@@ -170,11 +166,21 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_executed = _simulate_trajectory(sst_traj or sst_path, scene)
 
     rrt_snap = _build_city_snapshot(
-        "rrt", scene, rrt_path, scene.rrt_raw_path, rrt_traj, rrt_executed,
+        "rrt",
+        scene,
+        rrt_path,
+        scene.rrt_raw_path,
+        rrt_traj,
+        rrt_executed,
         include_obstacles=True,
     )
     sst_snap = _build_city_snapshot(
-        "sst", scene, sst_path, scene.sst_raw_path, sst_traj, sst_executed,
+        "sst",
+        scene,
+        sst_path,
+        scene.sst_raw_path,
+        sst_traj,
+        sst_executed,
         include_obstacles=False,
     )
 
@@ -184,9 +190,7 @@ def main(cfg: dict, save_path: str | None = None) -> None:
 
     # ---- ax_ws: workspace — both planners overlaid -------------------------
     occ = scene._occ  # noqa: SLF001
-    road = (
-        np.array(scene.road_dots) if scene.road_dots else np.empty((0, 2))
-    )
+    road = np.array(scene.road_dots) if scene.road_dots else np.empty((0, 2))
     if len(road) > 0:
         ax_ws.scatter(road[:, 0], road[:, 1], s=2, c="#b8c4ce", alpha=0.6)
     FrameRenderer(draw_tree=False).render(ax_ws, rrt_snap)
@@ -224,7 +228,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             aspect="auto",
             alpha=0.5,
         )
-    FrameRenderer(draw_tree=False, draw_obstacles=False).render(ax_cs, rrt_snap)
+    FrameRenderer(draw_tree=False, draw_obstacles=False).render(
+        ax_cs, rrt_snap
+    )
     FrameRenderer(
         draw_tree=False, draw_obstacles=False, draw_start_goal=False
     ).render(ax_cs, sst_snap)
