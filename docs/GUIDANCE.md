@@ -138,10 +138,9 @@ The guidance layer operates downstream of the planning layer:
 2. **Interpolation**: Smooths waypoints into continuous trajectories
 3. **Control**: Tracks trajectories with feedback control
 
-For example, the **Horse Auto-Follow** system (see [horse_auto_follow.md](horse_auto_follow.md)) uses:
-- Route planning (A*) → waypoint path on road graph
-- B-spline interpolation → smooth trajectory
-- Pure Pursuit control → steering commands
+A typical workflow combines route planning (A*) → B-spline interpolation →
+Pure Pursuit control, as demonstrated in the `city` and `vehicle` scenarios
+(see [VISUALIZATION.md](VISUALIZATION.md)).
 
 ## References
 

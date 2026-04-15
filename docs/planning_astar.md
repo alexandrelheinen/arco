@@ -34,4 +34,4 @@ print(path)
 
 ---
 
-*This document will be updated as the implementation progresses.*
+*This document reflects the current A\* implementation in ARCO.*

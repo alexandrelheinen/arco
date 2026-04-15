@@ -11,18 +11,21 @@
 - [A* Algorithm](planning_astar.md) - Grid and graph-based optimal search
 - [RRT* Algorithm](planning_rrt.md) - Asymptotically optimal sampling-based planner
 - [SST Algorithm](planning_sst.md) - Stable Sparse Trees for kinodynamic planning
-- [D* Lite Algorithm](planning_dstar.md) - Dynamic replanning (stub only)
+- [D* Lite Algorithm](planning_dstar.md) - Dynamic replanning (stub only, not planned)
 
 ## Feature Documentation
 - [Route Planning Benchmarks](route_planning_benchmarks.md) - A* road network integration
-- [Horse Auto-Follow System](horse_auto_follow.md) - End-to-end navigation demo
-- [City Network Descriptor](city_network.md) - Road network format specification
+- [Pipeline Architecture](PIPELINE.md) - Multi-step pipeline design
+
+## Visualization Tools
+- [Visualization Tools](VISUALIZATION.md) - arcoex (static images) and arcosim (real-time simulation)
 
 ## Project Documentation
 - [Project Overview](../README.md) - Main README
+- [Tech Stack](STACK.md) - Python version, dependencies, install, and test instructions
 - [Coding Guidelines (authoritative)](guidelines.md) - Development standards
 - [Contributing Guide](../CONTRIBUTING.md) - How to contribute
-- [Project Roadmap](ROADMAP.md) - Completed features and future ideas
+- [Project Roadmap](ROADMAP.md) - Implemented features and explicit won't-do entries
 
 ---
 
