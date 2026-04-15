@@ -154,9 +154,7 @@ class JointSpaceTracker:
         err = target - self.q
 
         # Proportional velocity command.
-        desired_vel = np.clip(
-            self._k_p * err, -self._max_vel, self._max_vel
-        )
+        desired_vel = np.clip(self._k_p * err, -self._max_vel, self._max_vel)
 
         # Add APF repulsion correction.
         repulsion = self._repulsion_velocity(self.q)
@@ -169,9 +167,7 @@ class JointSpaceTracker:
         dv = np.clip(
             desired_vel - self.vel, -self._max_acc * dt, self._max_acc * dt
         )
-        self.vel = np.clip(
-            self.vel + dv, -self._max_vel, self._max_vel
-        )
+        self.vel = np.clip(self.vel + dv, -self._max_vel, self._max_vel)
 
         # Euler integration.
         self.q = self.q + self.vel * dt

@@ -234,7 +234,9 @@ class TrajectoryPruner:
         D = np.abs(b - a)
         ndim = min(D.size, self.step_size.size)
         ratios = D[:ndim] / self.step_size[:ndim]
-        n_step = int(math.ceil(float(np.max(ratios)))) if np.any(ratios > 0) else 0
+        n_step = (
+            int(math.ceil(float(np.max(ratios)))) if np.any(ratios > 0) else 0
+        )
 
         # --- Clearance criterion (safety floor) ---------------------------
         length = float(np.linalg.norm(b - a))

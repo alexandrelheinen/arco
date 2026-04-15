@@ -182,8 +182,10 @@ class PlanningPipeline:
         Returns:
             :class:`PipelineResult` with outputs and timing from every stage.
         """
-        total = 1 + (1 if self.pruner is not None else 0) + (
-            1 if self.optimizer is not None else 0
+        total = (
+            1
+            + (1 if self.pruner is not None else 0)
+            + (1 if self.optimizer is not None else 0)
         )
         stage = 0
         result = PipelineResult()
@@ -460,8 +462,12 @@ class PlanningPipeline:
             result.pruner_time = float(meta.get("pruner_time", 0.0))
             result.optimizer_time = float(meta.get("optimizer_time", 0.0))
             result.planner_status = str(meta.get("planner_status", "unknown"))
-            result.optimizer_status = str(meta.get("optimizer_status", "unknown"))
-            result.optimizer_success = bool(meta.get("optimizer_success", False))
+            result.optimizer_status = str(
+                meta.get("optimizer_status", "unknown")
+            )
+            result.optimizer_success = bool(
+                meta.get("optimizer_success", False)
+            )
             result.extra = dict(meta.get("extra", {}))
 
         logger.debug("PlanningPipeline: loaded result from %s.", path)

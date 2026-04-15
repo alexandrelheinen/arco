@@ -309,9 +309,7 @@ class PPPScene:
 
         pruner = TrajectoryPruner(
             occ,
-            step_size=np.asarray(
-                self._planner_cfg["step_size"], dtype=float
-            ),
+            step_size=np.asarray(self._planner_cfg["step_size"], dtype=float),
             collision_check_count=int(
                 self._planner_cfg["collision_check_count"]
             ),

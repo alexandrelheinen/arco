@@ -107,10 +107,10 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
     glVertex3f,
 )
 
+from arco.control import JointSpaceTracker
 from arco.tools.simulator.scenes.rrp import RRPScene
 from arco.tools.simulator.sim.loading import run_with_loading_screen
 from arco.tools.simulator.sim.video import VideoWriter
-from arco.control import JointSpaceTracker
 
 logger = logging.getLogger(__name__)
 
