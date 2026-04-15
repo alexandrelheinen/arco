@@ -15,16 +15,17 @@ The project emphasizes clear architecture, testability, and documented algorithm
 - [Main docs index](docs/README.md)
 - [Coding guidelines (authoritative)](docs/guidelines.md)
 - [Contributing guide](CONTRIBUTING.md)
+- [Tech stack and installation](docs/STACK.md)
+- [Visualization tools (arcoex, arcosim)](docs/VISUALIZATION.md)
 - [Mapping layer overview](docs/MAPPING.md)
 - [Planning layer overview](docs/PLANNING.md)
   - [A* algorithm notes](docs/planning_astar.md)
   - [RRT* algorithm notes](docs/planning_rrt.md)
   - [SST algorithm notes](docs/planning_sst.md)
-  - [D* Lite notes](docs/planning_dstar.md)
+  - [D* Lite notes (stub, not planned)](docs/planning_dstar.md)
 - [Guidance layer overview](docs/GUIDANCE.md)
 - [Route planning benchmarks](docs/route_planning_benchmarks.md)
-- [Horse auto-follow system design](docs/horse_auto_follow.md)
-- [City network descriptor](docs/city_network.md)
+- [Pipeline architecture](docs/PIPELINE.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## Architecture
@@ -68,10 +69,6 @@ The full ARCO processing pipeline runs as a sequence of independent steps
                      loading screen polls arco_planner_telemetry.json
 ```
 
-> **IPC note**: telemetry currently uses a JSON temp-file
-> (`arco.planning.continuous.telemetry`).  A proper pub/sub middleware is
-> planned — see [docs/ROADMAP.md](docs/ROADMAP.md) §"IPC & Telemetry Middleware".
-
 ## Modules
 
 - **Mapping**: Spatial data structures (grids, graphs, occupancy) and obstacle-query interfaces
@@ -104,11 +101,16 @@ The full ARCO processing pipeline runs as a sequence of independent steps
 │   │   ├── grid           ← discrete grid structures (Manhattan, Euclidean)
 │   │   ├── occupancy.py   ← continuous-space obstacle interface
 │   │   └── kdtree.py      ← KDTree-based occupancy implementation
-│   └── planning
-│       ├── discrete       ← graph-search planners (A*, route planning)
-│       └── continuous     ← sampling-based planners (RRT*, SST)
-├── tests                  ← mirrored test layout
-└── tools                  ← examples and visualization utilities
+│   ├── planning
+│   │   ├── discrete       ← graph-search planners (A*, route planning)
+│   │   └── continuous     ← sampling-based planners (RRT*, SST)
+│   └── tools
+│       ├── arcoex         ← static image generation CLI (matplotlib)
+│       ├── arcosim        ← real-time simulation CLI (pygame)
+│       ├── examples       ← example modules run by arcoex
+│       ├── map            ← scenario YAML and JSON config files
+│       └── simulator      ← simulator modules run by arcosim
+└── tests                  ← mirrored test layout
 ```
 
 ## Installation
@@ -119,13 +121,8 @@ cd arco
 pip install -e ".[dev]"
 ```
 
-The ARCO _config dir_ (directory containing the system configurations/YAML files) can be customized by setting the `ARCO_CONFIG_DIR` envionment variable.
-
-```sh
-export ARCO_CONFIG_DIR="<path_to_custom_root_dir>"
-```
-
-> ARCO Requires Python 3.10+
+> ARCO requires Python 3.10+. See [docs/STACK.md](docs/STACK.md) for the full
+> tech stack and optional dependency groups.
 
 ## Development
 
@@ -138,19 +135,26 @@ pytest tests/ -v
 ### Format code
 
 ```bash
-python -m black --target-version py312 --line-length 79 src/ tools/
-python -m isort --line-length 79 src/ tools/
+python -m black --target-version py312 --line-length 79 src/
+python -m isort --line-length 79 src/
+```
+
+### Run local CI gates
+
+```bash
+bash scripts/pre_push.sh
 ```
 
 ### Local examples
 
 ```bash
-python tools/examples/astar_graph.py
-python tools/examples/astar_grid_obstacle.py
-python tools/examples/astar_manhattan.py
-python tools/examples/route_planning.py
-python tools/examples/rrt_planning.py
-python tools/examples/sst_planning.py
+# Static image generation (arcoex)
+arcoex src/arco/tools/map/astar.yml --save output/astar.png
+arcoex src/arco/tools/map/city.yml  --save output/city.png
+
+# Real-time simulation (arcosim — requires pygame)
+arcosim src/arco/tools/map/city.yml
+arcosim src/arco/tools/map/vehicle.yml
 ```
 
 ## CI and Merge Policy

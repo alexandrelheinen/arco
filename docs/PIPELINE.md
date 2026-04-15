@@ -23,8 +23,8 @@ This "read file A → write file B" discipline means:
 | Aspect | Current | Target |
 |--------|---------|--------|
 | Process model | Single Python process (in-memory) | One OS process per step |
-| IPC | Python function calls / shared objects | File I/O + pub/sub middleware |
-| Telemetry | JSON temp-file polling | Proper pub/sub (see [ROADMAP.md](ROADMAP.md) §IPC) |
+| IPC | Python function calls / shared objects | File I/O |
+| Telemetry | JSON temp-file polling | Dedicated telemetry channel |
 | Restart | Full re-run required | Per-step restart from last written file |
 
 ## Pipeline Steps
@@ -52,9 +52,3 @@ Step 4 — Simulation / Recording
 Each step writes live metrics to a telemetry channel (currently a JSON temp
 file, see `arco.planning.continuous.telemetry`).  The loading screen (and
 future dashboards) poll this channel to display live stop-criteria progress.
-
-<!-- TODO(PROCESS-PIPELINE): Implement the file-based step runner and CLI
-     entry points so each step above can be invoked as:
-       python -m arco.pipeline.step_mapping  config.yml occupancy.json
-       python -m arco.pipeline.step_planning occupancy.json path.json
-     This will replace the current in-process scene.build() approach. -->

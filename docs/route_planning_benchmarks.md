@@ -16,7 +16,7 @@ The projection methods (`find_nearest_node()`, `project_to_nearest_edge()`, `heu
 
 - **RouteRouter works seamlessly** with both `WeightedGraph` and `RoadGraph` instances
 - **RoadGraph adds geometry waypoints** for spline interpolation without affecting route planning
-- **Future path smoothing** (Phase 1.3) will leverage `RoadGraph.full_edge_geometry()` for continuous trajectories
+- **Path smoothing** leverages `RoadGraph.full_edge_geometry()` for continuous trajectories
 
 See `tests/planning/discrete/test_route_road_graph.py` for integration tests.
 
@@ -291,27 +291,22 @@ pytest tests/ -v
 
 ## Future Enhancements
 
-Potential improvements for Phase 2 of the horse auto-follow system:
+Potential improvements to the route planning system:
 
 1. **KD-Tree Projection**: O(log n) nearest-neighbor search for large graphs
 2. **Edge-Based Snapping**: Snap to nearest edge instead of nearest node for smoother paths
-3. **Dynamic Replanning**: Incremental re-projection when player/horse moves
-4. **Path Smoothing**: B-spline or Catmull-Rom interpolation after discrete path planning
-5. **Obstacle-Aware Projection**: Consider occupancy when projecting to nodes
+3. **Dynamic Replanning**: Incremental re-projection as positions update
+4. **Obstacle-Aware Projection**: Consider occupancy when projecting to nodes
 
 ---
 
 ## References
 
-- **Issue**: [Planning: nearest-road projection and route planning on road graph](https://github.com/alexandrelheinen/arco/issues/)
-- **Design Doc**: [docs/horse_auto_follow.md](../docs/horse_auto_follow.md)
-- **A* Paper**: Hart, P. E., Nilsson, N. J., & Raphael, B. (1968). "A Formal Basis for the Heuristic Determination of Minimum Cost Paths."
+- **A\* Paper**: Hart, P. E., Nilsson, N. J., & Raphael, B. (1968). "A Formal Basis for the Heuristic Determination of Minimum Cost Paths."
 - **Tests**: [tests/planning/discrete/test_route.py](../tests/planning/discrete/test_route.py)
 
 ---
 
 **Document Status**: Complete and validated
-
-**Last Updated**: 2026-04-02
 
 **Test Status**: All 30 tests passing ✅
