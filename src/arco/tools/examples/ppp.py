@@ -348,7 +348,6 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_ws.set_box_aspect(  # type: ignore[attr-defined]
         [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
     )
-    ax_ws.legend(loc="upper right", fontsize=8)  # type: ignore[attr-defined]
     ax_ws.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
 
     # ---- ax_cs: C-space = workspace for PPP, annotated with vel. constraints
@@ -423,7 +422,6 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_cs.set_box_aspect(  # type: ignore[attr-defined]
         [x_lim[1] - x_lim[0], y_lim[1] - y_lim[0], z_lim[1] - z_lim[0]]
     )
-    ax_cs.legend(loc="upper right", fontsize=8)  # type: ignore[attr-defined]
     ax_cs.view_init(elev=25, azim=-50)  # type: ignore[attr-defined]
 
     # ---- Bottom: metrics ---------------------------------------------------
