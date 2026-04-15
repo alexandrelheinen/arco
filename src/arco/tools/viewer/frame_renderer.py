@@ -382,16 +382,15 @@ class FrameRenderer:
         *,
         planner: str,
     ) -> None:
-        """Render pruned-path nodes as glowing squares.
+        """Render pruned-path nodes as accent-coloured squares.
 
-        Only the **nodes** (not edges) of the pruned path are shown, as they
-        are the anchors that define the final trajectory segments.  A three-
-        layer halo (outer glow → mid ring → bright core) is drawn so the
-        landmarks stand out against the exploration tree.
+        Only the **nodes** (not edges) are drawn; they mark the trajectory
+        anchors that define the final number of segments.  The squares use a
+        distinct accent colour and sit above the raw-path polyline (zorder 5).
 
         Args:
             ax: Target axes.
-            pruned_path: Pruned waypoint states (nodes only).
+            pruned_path: Pruned waypoint states (nodes only, no edges).
             planner: Planner key for palette lookup.
         """
         style = self.styles.get("pruned_path", LayerStyle())
@@ -400,49 +399,25 @@ class FrameRenderer:
         pts = np.array(pruned_path, dtype=float)
         if pts.ndim != 2 or pts.shape[0] == 0:
             return
-        color = style.color or layer_hex(planner, "path")
-        base_s = style.markersize or 60
-        # Three concentric square scatter calls create the glow effect:
-        #   1. large halo   — very transparent outer bloom
-        #   2. medium ring  — semi-transparent mid layer
-        #   3. bright core  — opaque inner square
-        glow_layers = [
-            (base_s * 8, 0.12),
-            (base_s * 3, 0.30),
-            (base_s,     0.90),
-        ]
+        color = style.color or layer_hex(planner, "pruned")
+        s = style.markersize or 50
+        alpha = style.alpha or 0.95
         dim = pts.shape[1]
-        for s_val, alpha_val in glow_layers:
-            kw: dict[str, Any] = {
-                "c": color,
-                "s": s_val,
-                "alpha": alpha_val,
-                "marker": "s",
-                "linewidths": 0,
-                "zorder": 4,
-            }
-            if self.is_3d and dim >= 3:
-                ax.scatter(  # type: ignore[attr-defined]
-                    pts[:, 0], pts[:, 1], pts[:, 2], **kw
-                )
-            else:
-                ax.scatter(pts[:, 0], pts[:, 1], **kw)
-        # Add a single artist for the legend entry (labelled on the core).
-        label_kw: dict[str, Any] = {
+        kw: dict[str, Any] = {
             "c": color,
-            "s": base_s,
-            "alpha": 0.90,
+            "s": s,
+            "alpha": alpha,
             "marker": "s",
             "linewidths": 0,
-            "zorder": 4,
+            "zorder": 5,
             "label": "Pruned waypoints",
         }
         if self.is_3d and dim >= 3:
             ax.scatter(  # type: ignore[attr-defined]
-                pts[0:1, 0], pts[0:1, 1], pts[0:1, 2], **label_kw
+                pts[:, 0], pts[:, 1], pts[:, 2], **kw
             )
         else:
-            ax.scatter(pts[0:1, 0], pts[0:1, 1], **label_kw)
+            ax.scatter(pts[:, 0], pts[:, 1], **kw)
 
     def _scatter(
         self,
