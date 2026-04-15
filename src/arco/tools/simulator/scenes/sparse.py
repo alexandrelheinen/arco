@@ -323,11 +323,11 @@ def _coerce_astar_cell_size(
 
     Args:
         step_size: Planner ``step_size`` value (scalar or ``[sx, sy]``).
-        cell_size: Optional explicit grid cell size in metres.  When
+        cell_size: Optional explicit grid cell size in meters.  When
             ``None`` the value is derived from ``step_size``.
 
     Returns:
-        Positive scalar cell size in metres.
+        Positive scalar cell size in meters.
     """
     if cell_size is not None:
         return float(cell_size)
