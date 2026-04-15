@@ -139,9 +139,7 @@ def test_run_planner_only_success():
 
 def test_run_planner_only_failure():
     planner = _AlwaysFailsPlanner()
-    result = PlanningPipeline(planner=planner).run(
-        np.zeros(2), np.ones(2)
-    )
+    result = PlanningPipeline(planner=planner).run(np.zeros(2), np.ones(2))
     assert result.planner_status == "no_path"
     assert result.raw_path is None
     assert result.trajectory is None
@@ -149,9 +147,7 @@ def test_run_planner_only_failure():
 
 def test_run_empty_path_treated_as_failure():
     planner = _EmptyPathPlanner()
-    result = PlanningPipeline(planner=planner).run(
-        np.zeros(2), np.ones(2)
-    )
+    result = PlanningPipeline(planner=planner).run(np.zeros(2), np.ones(2))
     assert result.planner_status == "no_path"
 
 
@@ -184,9 +180,9 @@ def test_run_with_pruner_pruner_receives_raw_path():
 
 def test_run_pruner_not_called_when_planning_fails():
     pruner = _RecordingPruner()
-    PlanningPipeline(
-        planner=_AlwaysFailsPlanner(), pruner=pruner
-    ).run(np.zeros(2), np.ones(2))
+    PlanningPipeline(planner=_AlwaysFailsPlanner(), pruner=pruner).run(
+        np.zeros(2), np.ones(2)
+    )
     assert len(pruner.calls) == 0
 
 
@@ -200,9 +196,9 @@ def test_run_with_optimizer_calls_optimizer():
     goal = np.array([5.0, 5.0])
     planner = _AlwaysSucceedsPlanner(start, goal)
     optimizer = _RecordingOptimizer()
-    result = PlanningPipeline(
-        planner=planner, optimizer=optimizer
-    ).run(start, goal)
+    result = PlanningPipeline(planner=planner, optimizer=optimizer).run(
+        start, goal
+    )
 
     assert len(optimizer.calls) == 1
     assert result.optimizer_success is True
@@ -215,9 +211,9 @@ def test_run_optimizer_receives_pruned_path():
     planner = _AlwaysSucceedsPlanner(start, goal)
     pruner = _RecordingPruner()
     optimizer = _RecordingOptimizer()
-    PlanningPipeline(
-        planner=planner, pruner=pruner, optimizer=optimizer
-    ).run(start, goal)
+    PlanningPipeline(planner=planner, pruner=pruner, optimizer=optimizer).run(
+        start, goal
+    )
 
     # Optimizer's first call should receive the pruner's output (same path here)
     assert len(optimizer.calls) == 1
@@ -225,9 +221,9 @@ def test_run_optimizer_receives_pruned_path():
 
 def test_run_optimizer_not_called_on_failure():
     optimizer = _RecordingOptimizer()
-    PlanningPipeline(
-        planner=_AlwaysFailsPlanner(), optimizer=optimizer
-    ).run(np.zeros(2), np.ones(2))
+    PlanningPipeline(planner=_AlwaysFailsPlanner(), optimizer=optimizer).run(
+        np.zeros(2), np.ones(2)
+    )
     assert len(optimizer.calls) == 0
 
 
@@ -266,9 +262,9 @@ def test_run_progress_callback_called_once_per_stage():
     def cb(stage: str, idx: int, total: int) -> None:
         calls.append((stage, idx, total))
 
-    PlanningPipeline(
-        planner=planner, pruner=pruner, optimizer=optimizer
-    ).run(start, goal, progress=cb)
+    PlanningPipeline(planner=planner, pruner=pruner, optimizer=optimizer).run(
+        start, goal, progress=cb
+    )
 
     assert len(calls) == 3
     stages = [c[0] for c in calls]

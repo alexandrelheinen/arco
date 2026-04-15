@@ -93,6 +93,7 @@ def _optimize(
     path: list[np.ndarray] | None,
     vehicle_cfg: dict,
     step_size: np.ndarray,
+    enable_pruning: bool = False,
 ) -> tuple[list[np.ndarray] | None, float, str]:
     """Prune and trajectory-optimise a raw planned path.
 
@@ -101,14 +102,20 @@ def _optimize(
         path: Raw planned waypoints, or ``None``.
         vehicle_cfg: ``vehicle`` sub-dict from the scenario YAML.
         step_size: Planner step size array used by the pruner.
+        enable_pruning: When ``True`` the path is pruned before optimisation.
+            When ``False`` (default) a copy of the original path is used
+            directly, skipping the pruning step.
 
     Returns:
         Tuple of ``(traj, duration, status_string)``.
     """
     if path is None or len(path) < 2:
         return None, 0.0, "no-path"
-    pruner = TrajectoryPruner(occ, step_size=step_size)
-    path = pruner.prune(path)
+    if enable_pruning:
+        pruner = TrajectoryPruner(occ, step_size=step_size)
+        path = pruner.prune(path)
+    else:
+        path = list(path)
     try:
         opt = TrajectoryOptimizer(
             occ,
@@ -240,11 +247,12 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_time = time.perf_counter() - t0
 
     _step_size = np.asarray(planner_cfg["step_size"], dtype=float)
+    _enable_pruning = bool(planner_cfg.get("enable_pruning", False))
     rrt_traj, rrt_dur, rrt_opt = _optimize(
-        occ, rrt_path, vehicle_cfg, _step_size
+        occ, rrt_path, vehicle_cfg, _step_size, enable_pruning=_enable_pruning
     )
     sst_traj, sst_dur, sst_opt = _optimize(
-        occ, sst_path, vehicle_cfg, _step_size
+        occ, sst_path, vehicle_cfg, _step_size, enable_pruning=_enable_pruning
     )
 
     logger.info("Simulating RRT* executed trajectory …")

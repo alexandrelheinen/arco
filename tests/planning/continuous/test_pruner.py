@@ -31,7 +31,9 @@ def _straight_path(node_count=6):
 
 def test_construction_valid():
     occ = _free_occupancy()
-    pruner = TrajectoryPruner(occ, step_size=_STEP_2D, collision_check_count=10)
+    pruner = TrajectoryPruner(
+        occ, step_size=_STEP_2D, collision_check_count=10
+    )
     assert pruner.occupancy is occ
     assert pruner.collision_check_count == 10
     assert np.allclose(pruner.step_size, _STEP_2D)
@@ -65,19 +67,25 @@ def test_construction_negative_collision_check_count_raises():
 def test_construction_scalar_step_size_raises():
     """step_size must be a 1-D array; a scalar (0-D) is rejected."""
     occ = _free_occupancy()
-    with pytest.raises(ValueError, match="step_size must be a non-empty 1-D array"):
+    with pytest.raises(
+        ValueError, match="step_size must be a non-empty 1-D array"
+    ):
         TrajectoryPruner(occ, step_size=np.float64(1.0))
 
 
 def test_construction_zero_step_size_raises():
     occ = _free_occupancy()
-    with pytest.raises(ValueError, match="step_size elements must be strictly positive"):
+    with pytest.raises(
+        ValueError, match="step_size elements must be strictly positive"
+    ):
         TrajectoryPruner(occ, step_size=np.array([1.0, 0.0]))
 
 
 def test_construction_negative_step_size_raises():
     occ = _free_occupancy()
-    with pytest.raises(ValueError, match="step_size elements must be strictly positive"):
+    with pytest.raises(
+        ValueError, match="step_size elements must be strictly positive"
+    ):
         TrajectoryPruner(occ, step_size=np.array([1.0, -0.5]))
 
 
@@ -365,7 +373,9 @@ def test_segment_free_in_free_space():
 
 def test_segment_free_through_obstacle():
     occ = KDTreeOccupancy([[2.5, 2.5]], clearance=0.5)
-    pruner = TrajectoryPruner(occ, step_size=_STEP_2D, collision_check_count=20)
+    pruner = TrajectoryPruner(
+        occ, step_size=_STEP_2D, collision_check_count=20
+    )
     a = np.array([0.0, 0.0])
     b = np.array([5.0, 5.0])
     assert pruner._segment_free(a, b) is False
@@ -408,8 +418,9 @@ def test_n_step_2d_equal_steps():
     # D = [3.0, 3.0], L = [1.0, 1.0] → ratios = [3, 3] → n_step = 3
     # n_samples = max(3+1, …) = at least 4
     occ = KDTreeOccupancy([[1000.0, 1000.0]], clearance=0.01)
-    pruner = TrajectoryPruner(occ, step_size=np.array([1.0, 1.0]),
-                              collision_check_count=1)
+    pruner = TrajectoryPruner(
+        occ, step_size=np.array([1.0, 1.0]), collision_check_count=1
+    )
     a = np.array([0.0, 0.0])
     b = np.array([3.0, 3.0])
     # Just verify the segment is checked (no crash) and returns True (free).
@@ -423,8 +434,9 @@ def test_n_step_2d_asymmetric_step_sizes():
     The single non-zero ratio (0.5) gives n_step = 1 → at least 2 samples.
     """
     occ = KDTreeOccupancy([[1000.0, 1000.0]], clearance=0.01)
-    pruner = TrajectoryPruner(occ, step_size=np.array([1.0, 0.1]),
-                              collision_check_count=1)
+    pruner = TrajectoryPruner(
+        occ, step_size=np.array([1.0, 0.1]), collision_check_count=1
+    )
     a = np.array([0.0, 0.0])
     b = np.array([0.5, 0.0])
     assert pruner._segment_free(a, b) is True
@@ -439,8 +451,9 @@ def test_n_step_2d_psi_dim_dominates():
     """
     # Obstacle at (0.0, 0.25) — exactly at t=0.5 along the segment.
     occ = KDTreeOccupancy([[0.0, 0.25]], clearance=0.05)
-    pruner = TrajectoryPruner(occ, step_size=np.array([1.0, 0.1]),
-                              collision_check_count=1)
+    pruner = TrajectoryPruner(
+        occ, step_size=np.array([1.0, 0.1]), collision_check_count=1
+    )
     a = np.array([0.0, 0.0])
     b = np.array([0.0, 0.5])
     # With n_step = 5 (6 samples) the midpoint t=0.5 → (0, 0.25) is sampled.
@@ -527,9 +540,10 @@ def test_step_size_criterion_prevents_undersampling():
     """
     occ = KDTreeOccupancy([[2.5, 0.0]], clearance=0.1)
     step_size = np.array([0.5, 0.5])
-    pruner = TrajectoryPruner(occ, step_size=step_size, collision_check_count=1)
+    pruner = TrajectoryPruner(
+        occ, step_size=step_size, collision_check_count=1
+    )
     a = np.array([0.0, 0.0])
     b = np.array([5.0, 0.0])
     # With step-size criterion: 11 samples, t=0.5 → x=2.5 is sampled → False.
     assert pruner._segment_free(a, b) is False
-

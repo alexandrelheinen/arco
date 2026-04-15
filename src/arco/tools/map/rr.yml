@@ -46,6 +46,11 @@ planner:
   rrt_max_sample_count: 30000  # [] maximum number of RRT* samples
   sst_max_sample_count: 40000  # [] maximum number of SST samples
   witness_radius: 0.05  # [rad] SST witness cell radius (less than half the step size)
+  # Path pruning is a performance optimisation with a safety trade-off: it
+  # produces a smoother but riskier path by shortcutting intermediate
+  # waypoints.  To remain collision-free after pruning, all safety margins
+  # must be increased.  Disabled by default.
+  enable_pruning: false  # [] enable trajectory pruning (smooths path but requires larger safety margins)
 
 # ---------------------------------------------------------------------------
 # Simulator parameters

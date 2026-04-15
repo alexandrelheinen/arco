@@ -21,4 +21,3 @@ def test_mpc_controller():
     ctrl = MPCController(horizon=5, dt=0.2)
     cmd = ctrl.control(0.0, 1.0)
     assert isinstance(cmd, float)
-

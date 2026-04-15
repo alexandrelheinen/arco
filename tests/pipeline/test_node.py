@@ -12,7 +12,6 @@ from arco.middleware.bus import InMemoryBus
 from arco.middleware.types import MappingFrame
 from arco.pipeline.node import PipelineNode
 
-
 # ---------------------------------------------------------------------------
 # Concrete node fixtures
 # ---------------------------------------------------------------------------
