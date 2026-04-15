@@ -104,8 +104,10 @@ def _cf(t: tuple[int, int, int]) -> tuple[float, float, float]:
 
 _C_BG = ui_rgb("background")
 _C_RRT_PATH = layer_rgb("rrt", "path")
+_C_RRT_PRUNED = layer_rgb("rrt", "pruned")
 _C_RRT_TRAJ = layer_rgb("rrt", "trajectory")
 _C_SST_PATH = layer_rgb("sst", "path")
+_C_SST_PRUNED = layer_rgb("sst", "pruned")
 _C_SST_TRAJ = layer_rgb("sst", "trajectory")
 
 # ---------------------------------------------------------------------------
@@ -604,25 +606,37 @@ def run_rr_sim(
         for obs in obstacles:
             _draw_obstacle(obs)
 
-        # Planned path trace (dim)
-        if current_planner == "rrt" and scene.rrt_path:
-            fk_path = [_fk(p) for p in scene.rrt_path]
+        # Raw path trace (dim) + pruned waypoints as squares
+        if current_planner == "rrt" and scene.rrt_raw_path:
+            fk_raw = [_fk(p) for p in scene.rrt_raw_path]
             color = _cf(_C_RRT_PATH)
-            glColor4f(color[0], color[1], color[2], 0.3)
+            glColor4f(color[0], color[1], color[2], 0.25)
             glLineWidth(1.0)
             glBegin(GL_LINE_STRIP)
-            for x, y in fk_path:
+            for x, y in fk_raw:
                 glVertex2f(x, y)
             glEnd()
-        elif current_planner == "sst" and scene.sst_path:
-            fk_path = [_fk(p) for p in scene.sst_path]
+            if scene.rrt_path:
+                renderer_gl.draw_waypoints(
+                    [_fk(p) for p in scene.rrt_path],
+                    *_cf(_C_RRT_PRUNED),
+                    half=0.03,
+                )
+        elif current_planner == "sst" and scene.sst_raw_path:
+            fk_raw = [_fk(p) for p in scene.sst_raw_path]
             color = _cf(_C_SST_PATH)
-            glColor4f(color[0], color[1], color[2], 0.3)
+            glColor4f(color[0], color[1], color[2], 0.25)
             glLineWidth(1.0)
             glBegin(GL_LINE_STRIP)
-            for x, y in fk_path:
+            for x, y in fk_raw:
                 glVertex2f(x, y)
             glEnd()
+            if scene.sst_path:
+                renderer_gl.draw_waypoints(
+                    [_fk(p) for p in scene.sst_path],
+                    *_cf(_C_SST_PRUNED),
+                    half=0.03,
+                )
 
         # End-effector trail
         if current_planner == "rrt":
@@ -651,14 +665,28 @@ def run_rr_sim(
 
         _draw_cspace_scatter(collision_pts)
 
-        # All paths (dim) in joint space
-        if scene.rrt_path:
+        # Raw paths (dim) + pruned waypoints in joint space
+        if scene.rrt_raw_path:
             _draw_joint_path(
-                scene.rrt_path, _cf(_C_RRT_PATH), alpha=0.3, line_width=1.0
+                scene.rrt_raw_path,
+                _cf(_C_RRT_PATH),
+                alpha=0.2,
+                line_width=0.8,
+            )
+        if scene.rrt_path:
+            renderer_gl.draw_waypoints(
+                scene.rrt_path, *_cf(_C_RRT_PRUNED), half=0.025
+            )
+        if scene.sst_raw_path:
+            _draw_joint_path(
+                scene.sst_raw_path,
+                _cf(_C_SST_PATH),
+                alpha=0.2,
+                line_width=0.8,
             )
         if scene.sst_path:
-            _draw_joint_path(
-                scene.sst_path, _cf(_C_SST_PATH), alpha=0.3, line_width=1.0
+            renderer_gl.draw_waypoints(
+                scene.sst_path, *_cf(_C_SST_PRUNED), half=0.025
             )
 
         # Optimized trajectories (bright)

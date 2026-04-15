@@ -34,6 +34,7 @@ import sys
 import numpy as np
 import pygame
 
+from arco.config.palette import layer_rgb
 from arco.control import ActuatorArray
 from arco.control.rigid_body import CircleBody, SquareBody
 from arco.mapping import KDTreeOccupancy
@@ -43,6 +44,9 @@ from arco.tools.simulator.sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
 
+
+_C_RRT_PRUNED: tuple[int, int, int] = layer_rgb("rrt", "pruned")
+_C_SST_PRUNED: tuple[int, int, int] = layer_rgb("sst", "pruned")
 
 # ---------------------------------------------------------------------------
 # Coordinate helpers
@@ -147,6 +151,33 @@ def _draw_path(
         for p in path
     ]
     pygame.draw.lines(surface, color, False, pts, width)
+
+
+def _draw_waypoints_screen(
+    surface: pygame.Surface,
+    path: list[np.ndarray] | None,
+    origin: tuple[float, float],
+    scale: float,
+    color: tuple[int, int, int],
+    half: int = 5,
+) -> None:
+    """Draw pruned-path nodes as small filled squares (nodes only, no edges).
+
+    Args:
+        surface: Pygame surface to draw on.
+        path: Sequence of ``[x, y, psi]`` waypoints, or ``None``.
+        origin: Screen origin in pixels.
+        scale: Pixels per metre.
+        color: RGB fill color.
+        half: Half side-length in pixels.
+    """
+    if not path:
+        return
+    for p in path:
+        cx, cy = _world_to_screen((float(p[0]), float(p[1])), origin, scale)
+        rect = pygame.Rect(cx - half, cy - half, half * 2, half * 2)
+        pygame.draw.rect(surface, color, rect)
+        pygame.draw.rect(surface, (0, 0, 0), rect, 1)
 
 
 def _draw_actuators(
@@ -607,20 +638,32 @@ def main(cfg: dict) -> None:
             2,
         )
 
-        for panel_idx, (origin, body_s, acts_s, path_s, label) in enumerate(
+        for panel_idx, (
+            origin,
+            body_s,
+            acts_s,
+            raw_path_s,
+            pruned_path_s,
+            pruned_color,
+            label,
+        ) in enumerate(
             [
                 (
                     left_origin,
                     rrt_body,
                     rrt_acts,
+                    scene.rrt_raw_path,
                     scene.rrt_path,
+                    _C_RRT_PRUNED,
                     "RRT*",
                 ),
                 (
                     right_origin,
                     sst_body,
                     sst_acts,
+                    scene.sst_raw_path,
                     scene.sst_path,
+                    _C_SST_PRUNED,
                     "SST",
                 ),
             ]
@@ -629,8 +672,14 @@ def main(cfg: dict) -> None:
             for obs in obstacles:
                 _draw_obstacle(screen, obs, origin, scale)
 
-            # Planned path
-            _draw_path(screen, path_s, origin, scale, (100, 180, 255), width=1)
+            # Raw path (dense, pre-pruning) as dim thin line.
+            _draw_path(
+                screen, raw_path_s, origin, scale, (100, 180, 255), width=1
+            )
+            # Pruned waypoints as accent squares (nodes only, no edges).
+            _draw_waypoints_screen(
+                screen, pruned_path_s, origin, scale, pruned_color
+            )
 
             # Start/goal markers
             _draw_pose_marker(

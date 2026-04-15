@@ -406,6 +406,42 @@ def draw_path(
     glEnd()
 
 
+def draw_waypoints(
+    path: Sequence[Any],
+    r: float,
+    g: float,
+    b: float,
+    half: float = 0.04,
+    alpha: float = 0.95,
+) -> None:
+    """Draw pruned-path nodes as small filled squares (``GL_QUADS``).
+
+    Only the node positions are rendered — no connecting lines — so the
+    squares stand out as trajectory anchors against the raw-path polyline.
+
+    Args:
+        path: Ordered sequence of waypoints; each supports ``[0]`` (x) and
+            ``[1]`` (y).
+        r: Red component ``[0, 1]``.
+        g: Green component ``[0, 1]``.
+        b: Blue component ``[0, 1]``.
+        half: Half side-length in world units.  Adjust to match scene scale.
+        alpha: Opacity in ``[0, 1]``.
+    """
+    if not path:
+        return
+    glDisable(GL_LIGHTING)
+    glColor4f(r, g, b, alpha)
+    glBegin(GL_QUADS)
+    for pt in path:
+        x, y = float(pt[0]), float(pt[1])
+        glVertex2f(x - half, y - half)
+        glVertex2f(x + half, y - half)
+        glVertex2f(x + half, y + half)
+        glVertex2f(x - half, y + half)
+    glEnd()
+
+
 def draw_dashed_path(
     path: Sequence[Any],
     r: float,

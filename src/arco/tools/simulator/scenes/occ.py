@@ -211,6 +211,8 @@ class OCCScene:
         self._goal_pose: np.ndarray = np.zeros(3)
         self._rrt_path: list[np.ndarray] | None = None
         self._sst_path: list[np.ndarray] | None = None
+        self._rrt_raw_path: list[np.ndarray] | None = None
+        self._sst_raw_path: list[np.ndarray] | None = None
         self._rrt_traj: list[np.ndarray] = []
         self._sst_traj: list[np.ndarray] = []
         self._collision_pts: list[list[float]] = []
@@ -432,6 +434,10 @@ class OCCScene:
         )
         pipeline = PlanningPipeline(pruner=pruner, optimizer=optimizer)
 
+        # Snapshot raw paths before pruning overwrites them.
+        self._rrt_raw_path = list(self._rrt_path) if self._rrt_path else None
+        self._sst_raw_path = list(self._sst_path) if self._sst_path else None
+
         for path, is_rrt in (
             (self._rrt_path, True),
             (self._sst_path, False),
@@ -486,13 +492,23 @@ class OCCScene:
         return self._goal_pose
 
     @property
+    def rrt_raw_path(self) -> list[np.ndarray] | None:
+        """Raw (pre-pruning) RRT* path, or ``None``."""
+        return self._rrt_raw_path
+
+    @property
+    def sst_raw_path(self) -> list[np.ndarray] | None:
+        """Raw (pre-pruning) SST path, or ``None``."""
+        return self._sst_raw_path
+
+    @property
     def rrt_path(self) -> list[np.ndarray] | None:
-        """Raw RRT* path in (x, y, psi) space, or ``None``."""
+        """Pruned RRT* path (trajectory anchors), or ``None``."""
         return self._rrt_path
 
     @property
     def sst_path(self) -> list[np.ndarray] | None:
-        """Raw SST path in (x, y, psi) space, or ``None``."""
+        """Pruned SST path (trajectory anchors), or ``None``."""
         return self._sst_path
 
     @property
