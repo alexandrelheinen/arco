@@ -1,15 +1,15 @@
-"""Vehicle benchmark (2-D) - RRT* vs SST in one matplotlib figure.
+"""Vehicle benchmark (2-D) — RRT* vs SST in one matplotlib figure.
 
 This scenario compares both planners on the same scattered-obstacle map.
 
-Figure layout (3 subplots in a row)
--------------------------------------
-* Left   — Combined workspace: both RRT* and SST paths/executed trajectories,
-  obstacle heatmap.
-* Middle — C-space (workspace = C-space for 2-D Dubins position): obstacle
-  heatmap with velocity reach circle (blue) around start and goal.
-* Right  — Lyapunov function V(t) = ‖(x,y)(t) − goal‖ for executed
-  trajectories with a sliding-window highlight of the last T/10 seconds.
+Figure layout (standard two-frame)
+------------------------------------
+* Top-left  — Workspace: obstacle heatmap + both RRT* and SST paths,
+  optimised trajectories, and executed traces overlaid.
+* Top-right — C-space (workspace = C-space for 2-D Dubins position):
+  obstacle heatmap with velocity reach circles around start and goal.
+* Bottom    — Metrics: per-planner step counts, planning times, path and
+  trajectory lengths.
 
 Usage
 -----
@@ -31,6 +31,7 @@ import os
 import time
 
 import matplotlib
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -44,21 +45,23 @@ from arco.planning.continuous import (
 )
 from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.sim.tracking import VehicleConfig, build_vehicle_sim
+from arco.tools.viewer.layout import StandardLayout
 from arco.tools.viewer.occupancy import draw_occupancy
+from arco.tools.viewer.utils import polyline_length
 
 logger = logging.getLogger(__name__)
 
 
-def _polyline_length(path: list[np.ndarray] | None) -> float:
-    if path is None or len(path) < 2:
-        return 0.0
-    return sum(
-        float(np.linalg.norm(path[i + 1] - path[i]))
-        for i in range(len(path) - 1)
-    )
-
-
 def build_occupancy(planner_cfg: dict, world_cfg: dict) -> KDTreeOccupancy:
+    """Build the scattered-obstacle occupancy map.
+
+    Args:
+        planner_cfg: Planner sub-dict from the scenario YAML.
+        world_cfg: World sub-dict from the scenario YAML.
+
+    Returns:
+        A :class:`~arco.mapping.KDTreeOccupancy` covering the planning bounds.
+    """
     rng = np.random.default_rng(int(world_cfg.get("random_seed", 7)))
     x_max = float(planner_cfg["bounds"][0][1])
     y_max = float(planner_cfg["bounds"][1][1])
@@ -90,9 +93,20 @@ def _optimize(
     path: list[np.ndarray] | None,
     vehicle_cfg: dict,
     step_size: np.ndarray,
-) -> tuple[list[np.ndarray] | None, float, str, list[float]]:
+) -> tuple[list[np.ndarray] | None, float, str]:
+    """Prune and trajectory-optimise a raw planned path.
+
+    Args:
+        occ: Occupancy map.
+        path: Raw planned waypoints, or ``None``.
+        vehicle_cfg: ``vehicle`` sub-dict from the scenario YAML.
+        step_size: Planner step size array used by the pruner.
+
+    Returns:
+        Tuple of ``(traj, duration, status_string)``.
+    """
     if path is None or len(path) < 2:
-        return None, 0.0, "no-path", []
+        return None, 0.0, "no-path"
     pruner = TrajectoryPruner(occ, step_size=step_size)
     path = pruner.prune(path)
     try:
@@ -111,12 +125,11 @@ def _optimize(
         return (
             list(res.states),
             float(sum(durs)),
-            (f"{res.optimizer_status_code}: {res.optimizer_status_text}"),
-            durs,
+            f"{res.optimizer_status_code}: {res.optimizer_status_text}",
         )
     except Exception:
         logger.exception("Trajectory optimization failed")
-        return None, 0.0, "exception", []
+        return None, 0.0, "exception"
 
 
 def _simulate_vehicle(
@@ -127,9 +140,6 @@ def _simulate_vehicle(
 ) -> list[tuple[float, float, float]]:
     """Run a headless TrackingLoop and return the executed (x, y, θ) poses.
 
-    The full Dubins state is (x m, y m, θ rad): position from the planner
-    waypoints, heading θ from the TrackingLoop at each step.
-
     Args:
         traj: Optimised trajectory states (each at least (x, y, …)).
         occ: Occupancy map for optional repulsion.
@@ -137,7 +147,8 @@ def _simulate_vehicle(
         dt: Control time step in seconds.
 
     Returns:
-        List of ``(x, y, θ)`` poses.  Empty when *traj* is ``None`` or short.
+        List of ``(x, y, θ)`` poses.  Empty when *traj* is ``None`` or
+        too short.
     """
     if traj is None or len(traj) < 2:
         return []
@@ -159,7 +170,6 @@ def _simulate_vehicle(
         (float(p[0]), float(p[1])) for p in traj
     ]
     _, loop = build_vehicle_sim(waypoints, v_cfg, occupancy=occ)
-    # Full Dubins state: (x m, y m, θ rad) — position from planner, heading from tracking.
     executed: list[tuple[float, float, float]] = [
         (waypoints[0][0], waypoints[0][1], 0.0)
     ]
@@ -175,6 +185,14 @@ def _simulate_vehicle(
 
 
 def main(cfg: dict, save_path: str | None = None) -> None:
+    """Run the vehicle benchmark and display or save the figure.
+
+    Args:
+        cfg: Scenario configuration dictionary (loaded from
+            ``vehicle.yml``).
+        save_path: If provided, save the figure to this path instead of
+            opening an interactive window.
+    """
     if save_path is not None:
         matplotlib.use("Agg")
 
@@ -222,10 +240,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     sst_time = time.perf_counter() - t0
 
     _step_size = np.asarray(planner_cfg["step_size"], dtype=float)
-    rrt_traj, rrt_dur, rrt_opt, rrt_durs = _optimize(
+    rrt_traj, rrt_dur, rrt_opt = _optimize(
         occ, rrt_path, vehicle_cfg, _step_size
     )
-    sst_traj, sst_dur, sst_opt, sst_durs = _optimize(
+    sst_traj, sst_dur, sst_opt = _optimize(
         occ, sst_path, vehicle_cfg, _step_size
     )
 
@@ -234,42 +252,11 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     logger.info("Simulating SST executed trajectory …")
     sst_executed = _simulate_vehicle(sst_traj or sst_path, occ, vehicle_cfg)
 
-    import matplotlib.patches as mpatches
+    fig, ax_ws, ax_cs, ax_bottom = StandardLayout.create(
+        title="Vehicle benchmark — RRT* vs SST"
+    )
 
-    def _lyapunov_series(
-        traj_states: list[tuple[float, float, float]] | None,
-        goal: np.ndarray,
-        dt: float = 0.05,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Compute time axis and V(t) = ||(x,y)(t) − goal|| for a trajectory.
-
-        Uses the simulation step ``dt`` to produce a time axis aligned with
-        every simulation step in *traj_states*.
-
-        Args:
-            traj_states: Sequence of ``(x, y, θ)`` executed poses (one per
-                simulation step).
-            goal: 2-D goal position ``[gx, gy]``.
-            dt: Simulation step size in seconds (must match the dt used in
-                :func:`_simulate_vehicle`).
-
-        Returns:
-            Tuple of ``(times, V)`` arrays.  Both empty if input is too short.
-        """
-        if traj_states is None or len(traj_states) < 2:
-            return np.array([]), np.array([])
-        times = np.arange(len(traj_states), dtype=float) * dt
-        V = np.array(
-            [
-                math.hypot(s[0] - float(goal[0]), s[1] - float(goal[1]))
-                for s in traj_states
-            ]
-        )
-        return times, V
-
-    fig, (ax_ws, ax_cs, ax_lv) = plt.subplots(1, 3, figsize=(18, 6))
-
-    # ---- ax_ws: Combined workspace with both planners' results -------------
+    # ---- ax_ws: Combined workspace -----------------------------------------
     fig_tmp, ax_ws = draw_occupancy(
         occ,
         bounds=bounds,
@@ -280,12 +267,11 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         goal=goal,
         draw_tree=False,
         path_alpha=(0.35 if rrt_traj is not None else 1.0),
-        title="Vehicle benchmark — Cartesian workspace",
+        title="Workspace",
         ax=ax_ws,
     )
     _ = fig_tmp
 
-    # Overlay SST path
     if sst_path is not None and len(sst_path) >= 2:
         sarr = np.array(sst_path)
         ax_ws.plot(
@@ -296,7 +282,6 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             alpha=(0.35 if sst_traj is not None else 0.9),
             label="SST path",
         )
-
     if rrt_traj is not None and len(rrt_traj) >= 2:
         arr = np.array(rrt_traj)
         ax_ws.plot(
@@ -341,31 +326,10 @@ def main(cfg: dict, save_path: str | None = None) -> None:
             alpha=0.85,
             label="SST executed",
         )
-
-    ax_ws.text(
-        0.02,
-        0.98,
-        "\n".join(
-            [
-                f"RRT* steps/nodes: {max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)}",
-                f"RRT* time: {rrt_time:.2f}s | len: {_polyline_length(rrt_path):.1f} m",
-                f"RRT* traj dur: {rrt_dur:.1f}s | {rrt_opt}",
-                f"SST steps/nodes: {max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)}",
-                f"SST time: {sst_time:.2f}s | len: {_polyline_length(sst_path):.1f} m",
-                f"SST traj dur: {sst_dur:.1f}s | {sst_opt}",
-            ]
-        ),
-        transform=ax_ws.transAxes,
-        va="top",
-        ha="left",
-        fontsize=7,
-        color="black",
-        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
-    )
     ax_ws.grid(True, alpha=0.3)
     ax_ws.legend(loc="upper right", fontsize=7)
 
-    # ---- ax_cs: C-space = workspace (2-D position) with vel. reach circles --
+    # ---- ax_cs: C-space = workspace for 2-D Dubins -------------------------
     fig_tmp2, ax_cs = draw_occupancy(
         occ,
         bounds=bounds,
@@ -407,56 +371,27 @@ def main(cfg: dict, save_path: str | None = None) -> None:
     ax_cs.grid(True, alpha=0.3)
     ax_cs.legend(loc="upper right", fontsize=7)
 
-    # ---- ax_lv: Lyapunov V(t) = ‖(x,y)(t) − goal‖ -------------------------
-    rrt_exec_times, rrt_V = _lyapunov_series(
-        rrt_executed if rrt_executed else None, goal
+    # ---- Bottom: metrics ---------------------------------------------------
+    StandardLayout.write_metrics(
+        ax_bottom,
+        [
+            f"RRT*  steps/nodes: "
+            f"{max(0, len(rrt_path)-1 if rrt_path else 0)}/{len(rrt_nodes)} | "
+            f"time: {rrt_time:.2f} s | "
+            f"path: {polyline_length(rrt_path):.1f} m | "
+            f"traj: {rrt_dur:.1f} s | {rrt_opt}",
+            f"SST   steps/nodes: "
+            f"{max(0, len(sst_path)-1 if sst_path else 0)}/{len(sst_nodes)} | "
+            f"time: {sst_time:.2f} s | "
+            f"path: {polyline_length(sst_path):.1f} m | "
+            f"traj: {sst_dur:.1f} s | {sst_opt}",
+        ],
     )
-    sst_exec_times, sst_V = _lyapunov_series(
-        sst_executed if sst_executed else None, goal
-    )
-
-    if len(rrt_exec_times) > 0:
-        ax_lv.plot(
-            rrt_exec_times,
-            rrt_V,
-            color=layer_hex("rrt", "trajectory"),
-            linewidth=1.8,
-            label="RRT* V(t)",
-        )
-        window = (rrt_exec_times[-1] - rrt_exec_times[0]) / 10.0
-        ax_lv.axvspan(
-            rrt_exec_times[-1] - window,
-            rrt_exec_times[-1],
-            alpha=0.10,
-            color="gray",
-        )
-    if len(sst_exec_times) > 0:
-        ax_lv.plot(
-            sst_exec_times,
-            sst_V,
-            color=layer_hex("sst", "trajectory"),
-            linewidth=1.8,
-            label="SST V(t)",
-        )
-        window = (sst_exec_times[-1] - sst_exec_times[0]) / 10.0
-        ax_lv.axvspan(
-            sst_exec_times[-1] - window,
-            sst_exec_times[-1],
-            alpha=0.10,
-            color="steelblue",
-        )
-
-    ax_lv.axhline(0, color="gray", linewidth=0.8, linestyle=":")
-    ax_lv.set_xlabel("Time (s)")
-    ax_lv.set_ylabel("V(t) = ‖(x,y) − goal‖ (m)")
-    ax_lv.set_title("Lyapunov function")
-    ax_lv.legend(loc="upper right", fontsize=7)
-    ax_lv.grid(True, alpha=0.3)
 
     plt.tight_layout()
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
-        fig.savefig(save_path, dpi=150)
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("Saved vehicle benchmark example to %s", save_path)
     else:
         plt.show()
