@@ -168,6 +168,9 @@ class Entity(ABC):
     geometry: Geometry
     state: list[float] = dataclasses.field(default_factory=list)
 
+    #: Minimum spatial dimension (x, y) returned by :attr:`position`.
+    _MIN_SPATIAL_DIM: dataclasses.ClassVar[int] = 2
+
     @property
     def position(self) -> list[float]:
         """Return the position portion of :attr:`state`.
@@ -187,15 +190,16 @@ class Entity(ABC):
         Returns:
             Number of position coordinates: length of half-extents for box
             geometry, or ``len(state) - 1`` for sphere geometry (reserving
-            the last element for heading), with a minimum of 2.
+            the last element for heading), with a minimum of
+            :attr:`_MIN_SPATIAL_DIM`.
         """
         if isinstance(self.geometry, BoxGeometry):
             # Box geometry: dimension equals the number of half-extent axes.
             return len(self.geometry.half_extents)
         # Sphere geometry: last state element is heading; position is the rest.
         if not self.state:
-            return 2
-        return max(2, len(self.state) - 1)
+            return self._MIN_SPATIAL_DIM
+        return max(self._MIN_SPATIAL_DIM, len(self.state) - 1)
 
     @abstractmethod
     def to_dict(self) -> dict[str, Any]:

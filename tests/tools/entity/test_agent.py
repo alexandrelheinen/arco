@@ -65,14 +65,26 @@ def test_dubins_turn_rate_clamp() -> None:
     """Turn-rate is clamped to ±max_turn_rate."""
     agent = _dubins(state=[0.0, 0.0, 0.0], max_turn_rate=0.1)
     agent.step([999.0, 0.0], dt=1.0)
-    assert agent.state[2] == pytest.approx(0.1)
+    assert agent.heading == pytest.approx(0.1)
 
 
 def test_dubins_heading_update() -> None:
     """Heading changes by turn_rate * dt."""
     agent = _dubins(state=[0.0, 0.0, 0.0])
     agent.step([1.0, 0.0], dt=0.5)
-    assert agent.state[2] == pytest.approx(0.5)
+    assert agent.heading == pytest.approx(0.5)
+
+
+def test_dubins_named_properties() -> None:
+    """x, y, heading properties alias state[0], state[1], state[2]."""
+    agent = _dubins(state=[3.0, 4.0, 1.5])
+    assert agent.x == pytest.approx(3.0)
+    assert agent.y == pytest.approx(4.0)
+    assert agent.heading == pytest.approx(1.5)
+    agent.x = 10.0
+    agent.y = 20.0
+    agent.heading = 0.0
+    assert agent.state == pytest.approx([10.0, 20.0, 0.0])
 
 
 def test_dubins_step_bad_state_raises() -> None:
