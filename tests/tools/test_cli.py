@@ -252,3 +252,49 @@ def test_dispatch_static_pygame_import_error_exits() -> None:
         with pytest.raises(SystemExit) as exc:
             _arcosim_dispatch_static("ppp", {}, None)
         assert exc.value.code != 0
+
+
+# ---------------------------------------------------------------------------
+# arcoex (deprecated): delegation to _dispatch_static
+# ---------------------------------------------------------------------------
+
+
+def test_arcoex_main_delegates_to_dispatch_static(
+    tmp_path: pathlib.Path,
+) -> None:
+    """arcoex.main delegates to arcosim._dispatch_static (same dispatch path)."""
+    import warnings
+
+    from arco.tools.arcoex.__main__ import main as arcoex_main
+
+    fake_mod = MagicMock()
+    fake_mod.main = MagicMock()
+    yml = tmp_path / "city.yml"
+    yml.write_text("scenario: city\n")
+
+    saved_argv = sys.argv
+    sys.argv = ["arcoex", str(yml)]
+    try:
+        with patch("importlib.import_module", return_value=fake_mod):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                arcoex_main()
+    finally:
+        sys.argv = saved_argv
+
+    # Must emit a DeprecationWarning.
+    assert any(
+        issubclass(w.category, DeprecationWarning) for w in caught
+    ), "arcoex.main() did not emit a DeprecationWarning"
+    # Must still call the example's main().
+    fake_mod.main.assert_called_once()
+
+
+def test_arcoex_main_has_deprecation_warning_message() -> None:
+    """arcoex.main() DeprecationWarning mentions arcosim --image."""
+    import warnings
+
+    from arco.tools.arcoex.__main__ import _DEPRECATION_MSG
+
+    assert "arcosim" in _DEPRECATION_MSG
+    assert "--image" in _DEPRECATION_MSG
