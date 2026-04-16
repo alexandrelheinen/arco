@@ -29,8 +29,8 @@ See [PLANNING.md](PLANNING.md) for details.
 See [GUIDANCE.md](GUIDANCE.md) for details.
 
 ### Tools
-- `arcoex` — static image generation from scenario YAML files (matplotlib)
-- `arcosim` — real-time simulation from scenario YAML files (pygame/PyOpenGL)
+- `arcosim` — unified CLI for real-time simulation and static image generation
+  (`--image` mode) from scenario YAML files (pygame/PyOpenGL + matplotlib)
 - Built-in scenarios: `astar`, `city`, `occ`, `ppp`, `rr`, `rrp`, `vehicle`
 
 See [VISUALIZATION.md](VISUALIZATION.md) for details.

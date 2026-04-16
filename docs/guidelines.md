@@ -258,7 +258,7 @@ GitHub workflows.  All gates are mandatory — none may be skipped:
 |------|--------|----------------|
 | 1 | `scripts/check_formatting.sh` | `black` + `isort` (blocking), `pydocstyle` (warning) |
 | 2 | `scripts/run_tests.sh` | `pytest` unit tests |
-| 3 | `scripts/run_examples.sh` | `arcoex` headless image generation for every scenario |
+| 3 | `scripts/run_examples.sh` | `arcosim --image` headless image generation for every scenario |
 | 4 | `scripts/run_smoke_tests.sh` | `arcosim` short headless recording for every simulator |
 | 5 | `scripts/generate_videos.sh` | `arcosim` full-length simulation videos |
 
