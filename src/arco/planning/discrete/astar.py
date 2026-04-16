@@ -20,11 +20,11 @@ class AStarPlanner(DiscretePlanner):
     Accepts any Graph (e.g., Grid, Occupancy, custom Graph).
 
     Tie-breaking: when multiple nodes share the same f-score the planner
-    uses the heuristic value h as a secondary key (prefer the node closer
-    to the goal) and a monotonically increasing insertion counter as a
-    tertiary key (FIFO among equal h).  This avoids lexicographic
-    comparison of node tuples, which caused systematic L-shaped paths on
-    symmetric grids.
+    first prefers moves that continue the current direction (fewer heading
+    changes), then uses the heuristic value h as a secondary key (prefer
+    the node closer to the goal), and finally a monotonically increasing
+    insertion counter (FIFO among equal h). This avoids lexicographic
+    comparison of node tuples and reduces zig-zagging in symmetric grids.
 
     Default heuristic: ``graph.heuristic`` if the graph exposes it,
     otherwise ``graph.distance``.  Grid subclasses expose a Euclidean
@@ -98,19 +98,20 @@ class AStarPlanner(DiscretePlanner):
             - ``parent_map`` maps discovered nodes to their predecessor.
         """
         logger.debug("A* plan: start=%s goal=%s", start, goal)
-        open_set: List[Tuple[float, float, int, Any]] = []
+        open_set: List[Tuple[float, int, float, int, Any]] = []
         counter: int = 0
         expanded_count = 0
         h_start = self.heuristic(start, goal)
         f_start = 0.0 + h_start  # g(start)=0, so f=h
-        heapq.heappush(open_set, (f_start, h_start, counter, start))
+        heapq.heappush(open_set, (f_start, 0, h_start, counter, start))
         came_from: Dict[Any, Any] = {}
         g_score: Dict[Any, float] = {start: 0}
+        direction_rank: Dict[Any, int] = {start: 0}
         expanded_order: List[Any] = []
         closed_set: set[Any] = set()
 
         while open_set:
-            _, _, _, current = heapq.heappop(open_set)
+            _, _, _, _, current = heapq.heappop(open_set)
             if current in closed_set:
                 continue
             closed_set.add(current)
@@ -139,13 +140,38 @@ class AStarPlanner(DiscretePlanner):
                 tentative_g = g_score[current] + self.graph.distance(
                     current, neighbor
                 )
-                if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                direction_change_penalty = self._turn_penalty(
+                    current,
+                    neighbor,
+                    came_from,
+                )
+                better_cost = (
+                    neighbor not in g_score
+                    or tentative_g < g_score[neighbor] - 1e-12
+                )
+                equal_cost_better_direction = (
+                    neighbor in g_score
+                    and abs(tentative_g - g_score[neighbor]) <= 1e-12
+                    and direction_change_penalty
+                    < direction_rank.get(neighbor, 1)
+                )
+                if better_cost or equal_cost_better_direction:
                     came_from[neighbor] = current
                     g_score[neighbor] = tentative_g
+                    direction_rank[neighbor] = direction_change_penalty
                     h = self.heuristic(neighbor, goal)
                     f = tentative_g + h
                     counter += 1
-                    heapq.heappush(open_set, (f, h, counter, neighbor))
+                    heapq.heappush(
+                        open_set,
+                        (
+                            f,
+                            direction_change_penalty,
+                            h,
+                            counter,
+                            neighbor,
+                        ),
+                    )
         logger.debug(
             (
                 "A*: finished no-path start=%s goal=%s expanded=%d "
@@ -232,3 +258,38 @@ class AStarPlanner(DiscretePlanner):
                 prev_dir = curr_dir
         simplified.append(path[-1])
         return simplified
+
+    def _turn_penalty(
+        self,
+        current: Any,
+        neighbor: Any,
+        came_from: Dict[Any, Any],
+    ) -> int:
+        """Return tie-break penalty: 0 keeps direction, 1 changes it.
+
+        This value is used only in the priority-queue sort key (not in
+        ``g``), so path optimality is preserved.
+        """
+        parent = came_from.get(current)
+        if parent is None:
+            return 0
+
+        prev_a = self._as_direction_vector(parent)
+        prev_b = self._as_direction_vector(current)
+        next_b = self._as_direction_vector(neighbor)
+        if prev_a is None or prev_b is None or next_b is None:
+            return 0
+        if prev_a.shape != prev_b.shape or prev_b.shape != next_b.shape:
+            return 0
+
+        prev_dir = prev_b - prev_a
+        next_dir = next_b - prev_b
+        if (
+            float(np.linalg.norm(prev_dir)) <= 1e-12
+            or float(np.linalg.norm(next_dir)) <= 1e-12
+        ):
+            return 0
+
+        prev_key = tuple(np.round(prev_dir / np.linalg.norm(prev_dir), 8))
+        next_key = tuple(np.round(next_dir / np.linalg.norm(next_dir), 8))
+        return 0 if prev_key == next_key else 1
