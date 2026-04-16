@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 import os
 
-DEFAULT_LOG_LEVEL = os.environ.get("ARCO_LOG_LEVEL", "INFO").upper()
+from pyparsing import Optional
 
 
-def configure_logging(level: int = DEFAULT_LOG_LEVEL) -> None:
+def configure_logging(level: Optional[str] = None) -> None:
     """Configure the root logger with a standard format for ARCO tools.
 
     Sets up the root logger to emit messages to the console (stderr) with a
@@ -21,6 +21,13 @@ def configure_logging(level: int = DEFAULT_LOG_LEVEL) -> None:
             Pass ``logging.DEBUG`` to see detailed algorithm entry/exit
             messages from the ``arco`` package.
     """
+    if level is None:
+        level = os.getenv("ARCO_LOG_LEVEL", "INFO").upper()
+    else:
+        level = level.upper()
+
+    print("SETTING UP LEVEL", level)
+
     logging.basicConfig(
         level=level,
         format="%(levelname)s - %(message)s",

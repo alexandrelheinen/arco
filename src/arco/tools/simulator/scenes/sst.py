@@ -153,15 +153,9 @@ class SSTScene(SimScene):
                     self._path = pruner.prune(self._path)
                 else:
                     self._path = list(self._path)
-                opt = TrajectoryOptimizer(
+                opt = TrajectoryOptimizer.create_from_config(
                     self._occ,
                     cruise_speed=_VEHICLE_CONFIG.cruise_speed,
-                    weight_time=10.0,
-                    weight_deviation=1.0,
-                    weight_velocity=1.0,
-                    weight_collision=5.0,
-                    sample_count=2,
-                    max_iter=50,
                 )
                 result = opt.optimize(self._path)
                 self._traj_states = result.states

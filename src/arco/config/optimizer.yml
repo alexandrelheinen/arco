@@ -1,0 +1,29 @@
+# weight_time = cfg.get("weight_time", 10.0)
+# weight_deviation = cfg.get("weight_deviation", 1.0)
+# weight_velocity = cfg.get("weight_velocity", 1.0)
+# weight_collision = cfg.get("weight_collision", 5.0)
+# collision_barrier_scale = cfg.get("collision_barrier_scale", 50.0)
+# collision_barrier_power = cfg.get("collision_barrier_power", 4.0)
+# weight_dynamics = cfg.get("weight_dynamics", 100.0)
+# time_relaxation = cfg.get("time_relaxation", 1.5)
+# method = cfg.get("method", "L-BFGS-B")
+# sample_count = cfg.get("sample_count", 3)
+# max_iter = cfg.get("max_iter", 500)
+# ftol = cfg.get("ftol", 1e-9)
+
+weight:
+  time: 1.0e2
+  deviation: 1.0e-2
+  velocity: 1.0e0
+  collision: 1.0e4
+  dynamics: 1.0e4
+
+collision_barrier:
+  scale: 1.0
+  power: 4.0
+
+method:
+  name: L-BFGS-B
+  sample_count: 3
+  max_iter: 100
+  ftol: 1.0e-3

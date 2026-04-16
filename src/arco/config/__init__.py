@@ -27,7 +27,7 @@ import yaml
 _CONFIG_DIR = os.getenv(
     "ARCO_CONFIG_DIR", os.path.join(os.path.dirname(__file__))
 )
-_MAP_DIR = os.path.join(os.path.dirname(__file__), "..", "tools", "map")
+_MAP_DIR = os.path.join(_CONFIG_DIR, "map")
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,9 @@ def load_config(name: str) -> dict[str, Any]:
     Raises:
         FileNotFoundError: If ``tools/config/<name>.yml`` does not exist.
     """
-    return _load_yaml(os.path.join(_CONFIG_DIR, f"{name}.yml"))
+    config_path = os.path.join(_CONFIG_DIR, f"{name}.yml")
+    logger.debug("Loading config %r...", config_path)
+    return _load_yaml(config_path)
 
 
 def load_map_config(name: str) -> dict[str, Any]:
@@ -77,7 +79,9 @@ def load_map_config(name: str) -> dict[str, Any]:
     Raises:
         FileNotFoundError: If ``tools/map/<name>.yml`` does not exist.
     """
-    return _load_yaml(os.path.join(_MAP_DIR, f"{name}.yml"))
+    config_path = os.path.join(_MAP_DIR, f"{name}.yml")
+    logger.debug("Loading map config %r...", config_path)
+    return _load_yaml(config_path)
 
 
 from arco.config.palette import (  # noqa: E402
