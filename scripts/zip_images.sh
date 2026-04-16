@@ -23,6 +23,9 @@ echo "=== Zipping generated images ==="
 echo "Source : $IMAGES_DIR"
 echo "Output : $OUTPUT_ZIP"
 
-(cd "$IMAGES_DIR" && zip -r "$OUTPUT_ZIP" .)
+# Resolve to absolute path before changing directory so the zip ends up in
+# the right place regardless of where the subshell CDs to.
+ABS_ZIP="$(realpath -m "$OUTPUT_ZIP")"
+(cd "$IMAGES_DIR" && zip -r "$ABS_ZIP" .)
 
 echo "✅  Archive created: $OUTPUT_ZIP"
