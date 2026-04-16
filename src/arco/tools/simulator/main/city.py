@@ -56,6 +56,11 @@ from arco.config.palette import layer_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.scenes import RaceScene
 from arco.tools.simulator.scenes.sparse import CityScene
+from arco.tools.simulator.sim.layout import (
+    ScreenLayout,
+    draw_sidebar_panel,
+    make_chrome_surface,
+)
 from arco.tools.simulator.sim.loading import run_with_loading_screen
 from arco.tools.simulator.sim.tracking import (
     VehicleConfig,
@@ -91,9 +96,6 @@ _C_ASTAR_VEH: tuple[int, int, int] = layer_rgb("astar", "vehicle")
 _C_ASTAR_TRAJ: tuple[int, int, int] = layer_rgb("astar", "trajectory")
 _C_ASTAR_HUD: tuple[int, int, int] = layer_rgb("astar", "vehicle")
 
-_C_HUD: tuple[int, int, int] = ui_rgb("hud_text")
-_C_HUD_DIM: tuple[int, int, int] = ui_rgb("hud_dim")
-_C_HUD_SHADOW: tuple[int, int, int] = ui_rgb("hud_shadow")
 _C_WINNER: tuple[int, int, int] = ui_rgb("hud_winner")
 _C_TIE: tuple[int, int, int] = ui_rgb("hud_tie")
 
@@ -115,72 +117,8 @@ def _format_clock(seconds: float) -> str:
 
 
 # ---------------------------------------------------------------------------
-# HUD helpers — build a pygame surface then blit_overlay
+# Private rendering helpers
 # ---------------------------------------------------------------------------
-
-
-def _make_side_panel(
-    font: pygame.font.Font,
-    sections: list[tuple[list[str], tuple[int, int, int]]],
-) -> pygame.Surface:
-    """Build a single vertical side-panel surface with colour-coded sections.
-
-    All planner info is stacked vertically so the panel never overlaps
-    the simulation columns.  Adjacent sections are separated by a blank line.
-
-    Args:
-        font: Pygame monospace font.
-        sections: Ordered list of ``(lines, color)`` pairs.  Each pair
-            renders its lines in *color*; a blank spacer row is inserted
-            between consecutive sections.
-
-    Returns:
-        Transparent SRCALPHA pygame surface.
-    """
-    lh = font.get_linesize() + 2
-    entries: list[tuple[str, tuple[int, int, int] | None]] = []
-    for i, (lines, color) in enumerate(sections):
-        for line in lines:
-            entries.append((line, color))
-        if i < len(sections) - 1:
-            entries.append(("", None))
-
-    panel_w = max((font.size(t)[0] for t, _ in entries if t), default=100) + 24
-    panel_h = len(entries) * lh + 10
-    surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-    surf.fill((10, 14, 24, 185))
-    y = 5
-    for text, color in entries:
-        if not text or color is None:
-            y += lh
-            continue
-        surf.blit(font.render(text, True, _C_HUD_SHADOW), (11, y + 1))
-        surf.blit(font.render(text, True, color), (10, y))
-        y += lh
-    return surf
-
-
-def _blit_center(
-    font: pygame.font.Font,
-    line: str,
-    color: tuple[int, int, int],
-    sw: int,
-    sh: int,
-    y: int,
-) -> None:
-    """Render a single centered line at vertical position y.
-
-    Args:
-        font: Pygame font.
-        line: Text to render.
-        color: RGB text color.
-        sw: Screen width in pixels.
-        sh: Screen height in pixels.
-        y: Vertical pixel position.
-    """
-    surf = _make_side_panel(font, [([line], color)])
-    x = (sw - surf.get_width()) // 2
-    renderer_gl.blit_overlay(surf, x, y, sw, sh)
 
 
 def _draw_winner_banner(
@@ -189,6 +127,7 @@ def _draw_winner_banner(
     color: tuple[int, int, int],
     sw: int,
     sh: int,
+    layout: ScreenLayout | None = None,
 ) -> None:
     """Draw a translucent centered banner with large winner text.
 
@@ -198,6 +137,7 @@ def _draw_winner_banner(
         color: RGB text color.
         sw: Screen width in pixels.
         sh: Screen height in pixels.
+        layout: Optional layout for centering within the content area.
     """
     rendered = font.render(text, True, color)
     rw, rh = rendered.get_width(), rendered.get_height()
@@ -205,8 +145,12 @@ def _draw_winner_banner(
     banner = pygame.Surface((rw + 2 * pad, rh + 2 * pad), pygame.SRCALPHA)
     banner.fill((10, 10, 20, 200))
     banner.blit(rendered, (pad, pad))
-    bx = (sw - banner.get_width()) // 2
-    by = (sh - banner.get_height()) // 2
+    if layout is not None:
+        bx = layout.content_x + (layout.content_w - banner.get_width()) // 2
+        by = layout.header_h + (layout.content_h - banner.get_height()) // 2
+    else:
+        bx = (sw - banner.get_width()) // 2
+        by = (sh - banner.get_height()) // 2
     renderer_gl.blit_overlay(banner, bx, by, sw, sh)
 
 
@@ -270,7 +214,9 @@ def run_race(
     pygame.display.set_caption(scene.title)
 
     font = pygame.font.SysFont("monospace", 14)
+    title_font = pygame.font.SysFont("monospace", 14, bold=True)
     big_font = pygame.font.SysFont("monospace", 36, bold=True)
+    layout = ScreenLayout(sw, sh)
 
     # GL state
     bg = scene.bg_color
@@ -558,7 +504,11 @@ def run_race(
             glClearColor(bg[0] / 255.0, bg[1] / 255.0, bg[2] / 255.0, 1.0)
             glClear(GL_COLOR_BUFFER_BIT)
 
-            renderer_gl.setup_2d_projection(x_min, x_max, y_min, y_max, sw, sh)
+            # World-space GL (content viewport only)
+            renderer_gl.setup_2d_projection(
+                x_min, x_max, y_min, y_max, layout.content_w, layout.content_h
+            )
+            layout.setup_content_viewport()
 
             scene.draw_background(
                 rrt_revealed,
@@ -566,23 +516,7 @@ def run_race(
                 racing=(phase in ("racing", "done")),
             )
 
-            if phase == "background":
-                _draw_planning_hud(
-                    font,
-                    rrt_revealed,
-                    rrt_total,
-                    rrt_metrics,
-                    sst_revealed,
-                    sst_total,
-                    sst_metrics,
-                    astar_total,
-                    astar_metrics,
-                    paused,
-                    sw,
-                    sh,
-                )
-
-            elif phase in ("racing", "done"):
+            if phase in ("racing", "done"):
                 if len(rrt_traj) >= 2:
                     renderer_gl.draw_path(
                         [(p[0], p[1]) for p in rrt_traj],
@@ -661,20 +595,48 @@ def run_race(
                         *_c(_C_ASTAR_VEH),
                     )
 
-                _draw_race_hud(
-                    font,
-                    race_time,
-                    rrt_finish_time,
-                    sst_finish_time,
-                    astar_finish_time,
-                    rrt_metrics,
-                    sst_metrics,
-                    astar_metrics,
-                    paused,
-                    sw,
-                    sh,
-                )
+            layout.reset_viewport()
 
+            # 2-D overlays (full viewport)
+            if phase == "background":
+                both_ready = (
+                    rrt_revealed >= rrt_total and sst_revealed >= sst_total
+                )
+                if paused:
+                    footer_text = "[ PAUSED ]"
+                elif both_ready:
+                    footer_text = "All paths ready \u2014 launching race\u2026"
+                else:
+                    footer_text = "Planning\u2026"
+            elif phase == "racing":
+                footer_text = (
+                    "[ PAUSED ]" if paused else f"Race  {race_time:.1f} s"
+                )
+            else:  # done
+                footer_text = "Press  R  to restart   |   Q  to quit"
+
+            chrome_surf = make_chrome_surface(
+                layout, scene.title, footer_text, title_font, font
+            )
+            renderer_gl.blit_overlay(chrome_surf, 0, 0, sw, sh)
+
+            if phase == "background":
+                sidebar_sections = scene.sidebar_content(
+                    phase="background",
+                    rrt_revealed=rrt_revealed,
+                    sst_revealed=sst_revealed,
+                )
+            else:
+                sidebar_sections = scene.sidebar_content(
+                    phase=phase,
+                    race_time=race_time,
+                    rrt_finish=rrt_finish_time,
+                    sst_finish=sst_finish_time,
+                    astar_finish=astar_finish_time,
+                )
+            draw_sidebar_panel(layout, font, sidebar_sections, sw, sh)
+
+            if phase in ("racing", "done"):
                 if rrt_finished or sst_finished or astar_finished:
                     active = [
                         ("RRT*", rrt_finish_time, _C_RRT_HUD),
@@ -683,19 +645,28 @@ def run_race(
                     if astar_wps:
                         active.append(("A*", astar_finish_time, _C_ASTAR_HUD))
 
-                    finished = [item for item in active if item[1] is not None]
-                    all_done = len(finished) == len(active)
-                    if all_done and len(finished) >= 2:
+                    finished_items = [
+                        item for item in active if item[1] is not None
+                    ]
+                    all_done = len(finished_items) == len(active)
+                    if all_done and len(finished_items) >= 2:
                         times = [
-                            float(t) for _, t, _ in finished if t is not None
+                            float(t)
+                            for _, t, _ in finished_items
+                            if t is not None
                         ]
                         if max(times) - min(times) < 0.15:
                             _draw_winner_banner(
-                                big_font, "IT'S A TIE!", _C_TIE, sw, sh
+                                big_font,
+                                "IT'S A TIE!",
+                                _C_TIE,
+                                sw,
+                                sh,
+                                layout=layout,
                             )
                         else:
                             winner = min(
-                                finished,
+                                finished_items,
                                 key=lambda x: (
                                     float(x[1])
                                     if x[1] is not None
@@ -708,10 +679,11 @@ def run_race(
                                 winner[2],
                                 sw,
                                 sh,
+                                layout=layout,
                             )
-                    elif finished:
+                    elif finished_items:
                         leader = min(
-                            finished,
+                            finished_items,
                             key=lambda x: (
                                 float(x[1]) if x[1] is not None else math.inf
                             ),
@@ -722,17 +694,8 @@ def run_race(
                             leader[2],
                             sw,
                             sh,
+                            layout=layout,
                         )
-
-            if phase == "done" and not recording:
-                _blit_center(
-                    font,
-                    "Press  R  to restart   |   Q  to quit",
-                    _C_HUD_DIM,
-                    sw,
-                    sh,
-                    sh - 34,
-                )
 
             # ------------------------------------------------------------------
             # Output frame
@@ -758,188 +721,6 @@ def run_race(
 # ---------------------------------------------------------------------------
 # Private rendering helpers
 # ---------------------------------------------------------------------------
-
-
-def _draw_planning_hud(
-    font: pygame.font.Font,
-    rrt_revealed: int,
-    rrt_total: int,
-    rrt_metrics: dict,
-    sst_revealed: int,
-    sst_total: int,
-    sst_metrics: dict,
-    astar_total: int,
-    astar_metrics: dict,
-    paused: bool,
-    sw: int,
-    sh: int,
-) -> None:
-    """Draw the planning-phase HUD as a single left-side vertical panel.
-
-    All three planners are listed top-to-bottom in one panel so no text
-    overlaps the simulation columns.
-
-    Args:
-        font: Pygame font.
-        rrt_revealed: Nodes revealed so far for RRT*.
-        rrt_total: Total RRT* nodes.
-        rrt_metrics: RRT* metrics dictionary.
-        sst_revealed: Nodes revealed so far for SST.
-        sst_total: Total SST nodes.
-        sst_metrics: SST metrics dictionary.
-        astar_total: Total A* waypoints.
-        astar_metrics: A* metrics dictionary.
-        paused: Whether simulation is paused.
-        sw: Screen width in pixels.
-        sh: Screen height in pixels.
-    """
-
-    def _planner_lines(
-        name: str, revealed: int, total: int, metrics: dict
-    ) -> list[str]:
-        return [
-            name,
-            f"  Reveal nodes: {revealed}/{total}",
-            (
-                "  Planner steps / nodes: "
-                f"{int(metrics['steps'])} / {int(metrics['nodes'])}"
-            ),
-            (
-                "  Planner time: "
-                f"{_format_clock(float(metrics['planner_time']))}"
-            ),
-            (
-                "  Planned path length: "
-                f"{int(round(float(metrics['planned_path_length'])))} m"
-            ),
-            (
-                "  Trajectory arc length: "
-                f"{int(round(float(metrics['trajectory_arc_length'])))} m"
-            ),
-            (
-                "  Predicted duration: "
-                f"{_format_clock(float(metrics['trajectory_duration']))}"
-            ),
-            f"  Path status: {metrics['path_status']}",
-            f"  Optimizer status: {metrics['optimizer_status']}",
-        ]
-
-    panel = _make_side_panel(
-        font,
-        [
-            (
-                _planner_lines("RRT*", rrt_revealed, rrt_total, rrt_metrics),
-                _C_RRT_HUD,
-            ),
-            (
-                _planner_lines("A*", astar_total, astar_total, astar_metrics),
-                _C_ASTAR_HUD,
-            ),
-            (
-                _planner_lines("SST", sst_revealed, sst_total, sst_metrics),
-                _C_SST_HUD,
-            ),
-        ],
-    )
-    renderer_gl.blit_overlay(panel, 8, 8, sw, sh)
-
-    both_ready = rrt_revealed >= rrt_total and sst_revealed >= sst_total
-    center_line = (
-        "[ PAUSED — press SPACE ]"
-        if paused
-        else (
-            "All paths ready — launching race…" if both_ready else "Planning…"
-        )
-    )
-    _blit_center(font, center_line, _C_HUD, sw, sh, sh - 34)
-
-
-def _draw_race_hud(
-    font: pygame.font.Font,
-    race_time: float,
-    rrt_finish: float | None,
-    sst_finish: float | None,
-    astar_finish: float | None,
-    rrt_metrics: dict,
-    sst_metrics: dict,
-    astar_metrics: dict,
-    paused: bool,
-    sw: int,
-    sh: int,
-) -> None:
-    """Draw the racing-phase HUD as a single left-side vertical panel.
-
-    Args:
-        font: Pygame font.
-        race_time: Elapsed race simulation time in seconds.
-        rrt_finish: Simulation time at which RRT* vehicle finished, or None.
-        sst_finish: Simulation time at which SST vehicle finished, or None.
-        rrt_metrics: RRT* metrics dictionary.
-        sst_metrics: SST metrics dictionary.
-        astar_finish: Simulation time at which A* vehicle finished, or None.
-        astar_metrics: A* metrics dictionary.
-        paused: Whether the simulation is paused.
-        sw: Screen width in pixels.
-        sh: Screen height in pixels.
-    """
-    rrt_status = (
-        f"  GOAL  in {rrt_finish:.1f} s"
-        if rrt_finish is not None
-        else f"  t = {race_time:.1f} s"
-    )
-    sst_status = (
-        f"  GOAL  in {sst_finish:.1f} s"
-        if sst_finish is not None
-        else f"  t = {race_time:.1f} s"
-    )
-    astar_status = (
-        f"  GOAL  in {astar_finish:.1f} s"
-        if astar_finish is not None
-        else f"  t = {race_time:.1f} s"
-    )
-
-    def _vehicle_lines(name: str, status: str, metrics: dict) -> list[str]:
-        return [
-            name,
-            status,
-            (
-                "  Planner steps / nodes: "
-                f"{int(metrics['steps'])} / {int(metrics['nodes'])}"
-            ),
-            (
-                "  Planner time: "
-                f"{_format_clock(float(metrics['planner_time']))}"
-            ),
-            (
-                "  Planned path length: "
-                f"{int(round(float(metrics['planned_path_length'])))} m"
-            ),
-            (
-                "  Trajectory arc length: "
-                f"{int(round(float(metrics['trajectory_arc_length'])))} m"
-            ),
-            (
-                "  Predicted duration: "
-                f"{_format_clock(float(metrics['trajectory_duration']))}"
-            ),
-            f"  Path status: {metrics['path_status']}",
-            f"  Optimizer status: {metrics['optimizer_status']}",
-        ]
-
-    panel = _make_side_panel(
-        font,
-        [
-            (_vehicle_lines("RRT*", rrt_status, rrt_metrics), _C_RRT_HUD),
-            (_vehicle_lines("A*", astar_status, astar_metrics), _C_ASTAR_HUD),
-            (_vehicle_lines("SST", sst_status, sst_metrics), _C_SST_HUD),
-        ],
-    )
-    renderer_gl.blit_overlay(panel, 8, 8, sw, sh)
-
-    center = (
-        "[ PAUSED — press SPACE ]" if paused else f"Race  {race_time:.1f} s"
-    )
-    _blit_center(font, center, _C_HUD, sw, sh, 10)
 
 
 # ---------------------------------------------------------------------------
