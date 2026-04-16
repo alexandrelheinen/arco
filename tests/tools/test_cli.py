@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -18,6 +20,9 @@ from arco.tools.arcoex.__main__ import SUPPORTED_SCENARIOS as ARCOEX_SCENARIOS
 from arco.tools.arcoex.__main__ import _load_scenario as _arcoex_load
 from arco.tools.arcosim.__main__ import (
     SUPPORTED_SCENARIOS as ARCOSIM_SCENARIOS,
+)
+from arco.tools.arcosim.__main__ import (
+    _dispatch_static as _arcosim_dispatch_static,
 )
 from arco.tools.arcosim.__main__ import _load_scenario as _arcosim_load
 
@@ -192,3 +197,58 @@ def test_occ_config_uses_three_actuators() -> None:
     _, cfg = _arcosim_load(_scenario_yml("occ"))
     act_cfg = cfg.get("actuator", {})
     assert int(act_cfg.get("count", 0)) == 3
+
+
+# ---------------------------------------------------------------------------
+# arcosim --image / --static: _dispatch_static
+# ---------------------------------------------------------------------------
+
+
+def test_dispatch_static_calls_example_main(tmp_path: pathlib.Path) -> None:
+    """_dispatch_static imports tools.examples.<scenario> and calls main()."""
+    fake_mod = MagicMock()
+    fake_mod.main = MagicMock()
+
+    with patch(
+        "importlib.import_module", return_value=fake_mod
+    ) as mock_import:
+        _arcosim_dispatch_static("city", {"scenario": "city"}, None)
+        mock_import.assert_called_once_with("arco.tools.examples.city")
+        fake_mod.main.assert_called_once_with(
+            {"scenario": "city"}, save_path=None
+        )
+
+
+def test_dispatch_static_passes_save_path(tmp_path: pathlib.Path) -> None:
+    """_dispatch_static forwards save_path when --record is set."""
+    fake_mod = MagicMock()
+    fake_mod.main = MagicMock()
+    save = str(tmp_path / "out.png")
+
+    with patch("importlib.import_module", return_value=fake_mod):
+        _arcosim_dispatch_static("astar", {"scenario": "astar"}, save)
+        fake_mod.main.assert_called_once_with(
+            {"scenario": "astar"}, save_path=save
+        )
+
+
+def test_dispatch_static_missing_matplotlib_exits() -> None:
+    """_dispatch_static exits if matplotlib is not installed."""
+    with patch.dict("sys.modules", {"matplotlib": None}):
+        with pytest.raises(SystemExit) as exc:
+            _arcosim_dispatch_static("city", {}, None)
+        assert exc.value.code != 0
+
+
+def test_dispatch_static_pygame_import_error_exits() -> None:
+    """_dispatch_static exits with helpful message when pygame required."""
+
+    def _import(name: str):
+        if name.startswith("arco.tools.examples."):
+            raise ImportError("No module named 'pygame'")
+        return MagicMock()
+
+    with patch("importlib.import_module", side_effect=_import):
+        with pytest.raises(SystemExit) as exc:
+            _arcosim_dispatch_static("ppp", {}, None)
+        assert exc.value.code != 0
