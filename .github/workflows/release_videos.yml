@@ -6,12 +6,21 @@ on:
       - published
 
 jobs:
-  generate-videos:
-    name: Generate and attach simulation MP4s
+  # -----------------------------------------------------------------------
+  # One parallel job per simulator scenario.  Each job generates a single
+  # MP4 and uploads it as a workflow artifact so the publish job can
+  # collect and attach all files to the release in one step.
+  # -----------------------------------------------------------------------
+  generate-video:
+    name: Generate ${{ matrix.scenario }} video
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scenario: [astar, city, ppp, rr, vehicle, rrp, occ]
+      fail-fast: false
 
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -22,28 +31,54 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install ffmpeg and virtual display
-        run: sudo apt-get install -y ffmpeg xvfb libgl1
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg xvfb libgl1 libglib2.0-0
 
-      - name: Install package with pygame
+      - name: Install package with simulator dependencies
         run: pip install -e ".[tools,pygame]"
 
-      - name: Create output directory
-        run: mkdir -p /tmp/sim_videos
-
-      - name: Generate all simulation videos
+      - name: Generate video
         run: |
           bash scripts/generate_videos.sh \
+            --only ${{ matrix.scenario }} \
             --out-dir /tmp/sim_videos \
             --duration 60
 
-      - name: Upload videos to release
+      - name: Upload video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ matrix.scenario }}
+          path: /tmp/sim_videos/arcosim_${{ matrix.scenario }}.mp4
+          retention-days: 1
+
+  # -----------------------------------------------------------------------
+  # Collect all per-scenario artifacts and attach them to the release.
+  # -----------------------------------------------------------------------
+  publish:
+    name: Publish videos to release
+    needs: generate-video
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all video artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/sim_videos
+          pattern: video-*
+          merge-multiple: true
+
+      - name: Publish videos to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          for SCENARIO in astar city ppp rr vehicle rrp occ; do
-            gh release upload "${TAG}" \
-              /tmp/sim_videos/arcosim_${SCENARIO}.mp4 \
-              --clobber
-          done
+          bash scripts/publish_release_videos.sh \
+            "${{ github.event.release.tag_name }}" \
+            /tmp/sim_videos
