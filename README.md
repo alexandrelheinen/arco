@@ -148,12 +148,12 @@ bash scripts/pre_push.sh
 
 ```bash
 # Static image generation (arcosim --image)
-arcosim src/arco/tools/map/astar.yml --image --record output/astar.png
-arcosim src/arco/tools/map/city.yml  --image --record output/city.png
+arcosim map/astar.yml --image --record output/astar.png
+arcosim map/city.yml  --image --record output/city.png
 
 # Real-time simulation (arcosim — requires pygame)
-arcosim src/arco/tools/map/city.yml
-arcosim src/arco/tools/map/vehicle.yml
+arcosim map/city.yml
+arcosim map/vehicle.yml
 ```
 
 ## CI and Merge Policy

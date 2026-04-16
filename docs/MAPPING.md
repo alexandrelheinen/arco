@@ -187,7 +187,7 @@ from arco.mapping.graph import load_road_graph
 from arco.planning.discrete import RouteRouter
 
 # Load road network
-graph = load_road_graph("src/arco/tools/map/city.json")
+graph = load_road_graph("map/city.json")
 
 # Plan route
 router = RouteRouter(graph)
@@ -227,7 +227,7 @@ path = planner.plan(start=np.array([1, 1]), goal=np.array([9, 9]))
 
 ## City Road Network
 
-The file `src/arco/tools/map/city.json` is the hand-crafted road network used
+The file `map/city.json` is the hand-crafted road network used
 as the default environment for the city scenario in both modes of `arcosim` (static image and real-time simulation).
 
 ### JSON format
@@ -299,7 +299,7 @@ with four symmetric holes and four terminal nodes.
 ```python
 from arco.mapping.graph.loader import load_road_graph
 
-graph = load_road_graph("src/arco/tools/map/city.json")
+graph = load_road_graph("map/city.json")
 print(len(graph.nodes), "nodes")   # 61
 print(len(graph.edges), "edges")   # 110
 ```

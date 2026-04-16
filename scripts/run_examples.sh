@@ -20,13 +20,13 @@ echo "=== Example image generation (arcosim --image) ==="
 echo "Output directory: $SAVE_DIR"
 
 SCENARIOS=(
-    "src/arco/tools/map/astar.yml"
-    "src/arco/tools/map/ppp.yml"
-    "src/arco/tools/map/rr.yml"
-    "src/arco/tools/map/city.yml"
-    "src/arco/tools/map/vehicle.yml"
-    "src/arco/tools/map/rrp.yml"
-    "src/arco/tools/map/occ.yml"
+    "map/astar.yml"
+    "map/ppp.yml"
+    "map/rr.yml"
+    "map/city.yml"
+    "map/vehicle.yml"
+    "map/rrp.yml"
+    "map/occ.yml"
 )
 
 FAILED=0
