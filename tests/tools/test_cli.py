@@ -1,4 +1,4 @@
-"""Tests for arcoex and arcosim CLI utility functions."""
+"""Tests for the arcosim CLI utility functions."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import pathlib
 import sys
 from unittest.mock import MagicMock, patch
 
+import matplotlib  # noqa: F401 — must be pre-loaded before importlib patches
 import pytest
 import yaml
 
@@ -16,8 +17,6 @@ _REPO = os.path.dirname(
 )
 sys.path.insert(0, os.path.join(_REPO, "src"))
 
-from arco.tools.arcoex.__main__ import SUPPORTED_SCENARIOS as ARCOEX_SCENARIOS
-from arco.tools.arcoex.__main__ import _load_scenario as _arcoex_load
 from arco.tools.arcosim.__main__ import (
     SUPPORTED_SCENARIOS as ARCOSIM_SCENARIOS,
 )
@@ -42,31 +41,14 @@ def _scenario_yml(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_arcoex_supported_scenarios_non_empty() -> None:
-    assert len(ARCOEX_SCENARIOS) > 0
-
-
 def test_arcosim_supported_scenarios_non_empty() -> None:
+    """SUPPORTED_SCENARIOS must declare at least one scenario."""
     assert len(ARCOSIM_SCENARIOS) > 0
-
-
-def test_arcoex_and_arcosim_share_same_scenarios() -> None:
-    assert ARCOEX_SCENARIOS == ARCOSIM_SCENARIOS
 
 
 # ---------------------------------------------------------------------------
 # _load_scenario — valid YAML files
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("scenario", sorted(ARCOEX_SCENARIOS))
-def test_arcoex_load_scenario_shipped_configs(scenario: str) -> None:
-    """Every shipped config/map/*.yml is loadable by arcoex."""
-    path = _scenario_yml(scenario)
-    name, cfg = _arcoex_load(path)
-    assert name == scenario
-    assert isinstance(cfg, dict)
-    assert cfg.get("scenario") == scenario
 
 
 @pytest.mark.parametrize("scenario", sorted(ARCOSIM_SCENARIOS))
@@ -84,35 +66,19 @@ def test_arcosim_load_scenario_shipped_configs(scenario: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_arcoex_load_missing_file_exits(
-    tmp_path: pytest.TempPathFactory,
-) -> None:
-    with pytest.raises(SystemExit) as exc:
-        _arcoex_load(str(tmp_path / "does_not_exist.yml"))
-    assert exc.value.code != 0
-
-
 def test_arcosim_load_missing_file_exits(
     tmp_path: pytest.TempPathFactory,
 ) -> None:
+    """_load_scenario exits non-zero when the YAML file is not found."""
     with pytest.raises(SystemExit) as exc:
         _arcosim_load(str(tmp_path / "does_not_exist.yml"))
-    assert exc.value.code != 0
-
-
-def test_arcoex_load_missing_scenario_key_exits(
-    tmp_path: pytest.TempPathFactory,
-) -> None:
-    yml = tmp_path / "bad.yml"
-    yml.write_text("grid:\n  cell_size: 1.0\n")
-    with pytest.raises(SystemExit) as exc:
-        _arcoex_load(str(yml))
     assert exc.value.code != 0
 
 
 def test_arcosim_load_missing_scenario_key_exits(
     tmp_path: pytest.TempPathFactory,
 ) -> None:
+    """_load_scenario exits non-zero when 'scenario:' key is absent."""
     yml = tmp_path / "bad.yml"
     yml.write_text("grid:\n  cell_size: 1.0\n")
     with pytest.raises(SystemExit) as exc:
@@ -120,19 +86,10 @@ def test_arcosim_load_missing_scenario_key_exits(
     assert exc.value.code != 0
 
 
-def test_arcoex_load_unknown_scenario_exits(
-    tmp_path: pytest.TempPathFactory,
-) -> None:
-    yml = tmp_path / "unknown.yml"
-    yml.write_text("scenario: nonexistent\n")
-    with pytest.raises(SystemExit) as exc:
-        _arcoex_load(str(yml))
-    assert exc.value.code != 0
-
-
 def test_arcosim_load_unknown_scenario_exits(
     tmp_path: pytest.TempPathFactory,
 ) -> None:
+    """_load_scenario exits non-zero for an unrecognised scenario name."""
     yml = tmp_path / "unknown.yml"
     yml.write_text("scenario: nonexistent\n")
     with pytest.raises(SystemExit) as exc:
@@ -252,49 +209,3 @@ def test_dispatch_static_pygame_import_error_exits() -> None:
         with pytest.raises(SystemExit) as exc:
             _arcosim_dispatch_static("ppp", {}, None)
         assert exc.value.code != 0
-
-
-# ---------------------------------------------------------------------------
-# arcoex (deprecated): delegation to _dispatch_static
-# ---------------------------------------------------------------------------
-
-
-def test_arcoex_main_delegates_to_dispatch_static(
-    tmp_path: pathlib.Path,
-) -> None:
-    """arcoex.main delegates to arcosim._dispatch_static (same dispatch path)."""
-    import warnings
-
-    from arco.tools.arcoex.__main__ import main as arcoex_main
-
-    fake_mod = MagicMock()
-    fake_mod.main = MagicMock()
-    yml = tmp_path / "city.yml"
-    yml.write_text("scenario: city\n")
-
-    saved_argv = sys.argv
-    sys.argv = ["arcoex", str(yml)]
-    try:
-        with patch("importlib.import_module", return_value=fake_mod):
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always")
-                arcoex_main()
-    finally:
-        sys.argv = saved_argv
-
-    # Must emit a DeprecationWarning.
-    assert any(
-        issubclass(w.category, DeprecationWarning) for w in caught
-    ), "arcoex.main() did not emit a DeprecationWarning"
-    # Must still call the example's main().
-    fake_mod.main.assert_called_once()
-
-
-def test_arcoex_main_has_deprecation_warning_message() -> None:
-    """arcoex.main() DeprecationWarning mentions arcosim --image."""
-    import warnings
-
-    from arco.tools.arcoex.__main__ import _DEPRECATION_MSG
-
-    assert "arcosim" in _DEPRECATION_MSG
-    assert "--image" in _DEPRECATION_MSG
