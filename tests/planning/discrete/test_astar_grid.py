@@ -33,16 +33,14 @@ def test_astar_empty_grid_staircase():
     assert path[0] == start
     assert path[-1] == goal
 
-    # Optimal path length is 2*(n-1)+1 nodes
-    assert len(path) == 2 * (n - 1) + 1
-
-    # All moves must be axis-aligned (Manhattan connectivity)
+    # Simplified path should remain optimal in total Manhattan distance.
+    total_distance = 0
     for a, b in zip(path[:-1], path[1:]):
         dr = abs(a[0] - b[0])
         dc = abs(a[1] - b[1])
-        assert (dr == 1 and dc == 0) or (
-            dr == 0 and dc == 1
-        ), f"Non-Manhattan move: {a} -> {b}"
+        assert dr == 0 or dc == 0, f"Non-axis move: {a} -> {b}"
+        total_distance += dr + dc
+    assert total_distance == 2 * (n - 1)
 
     # Staircase property: the path never drifts more than 1 cell from the
     # main diagonal — this rules out the L-shaped path that naive A*
@@ -64,12 +62,31 @@ def test_astar_diagonal_path():
     path = planner.plan(start, goal)
 
     assert path is not None, "A* did not find a path on empty grid"
-    assert len(path) == 2 * (n - 1) + 1
+    total_distance = 0
     assert path[0] == start
     assert path[-1] == goal
     for a, b in zip(path[:-1], path[1:]):
         dr = abs(a[0] - b[0])
         dc = abs(a[1] - b[1])
-        assert (dr == 1 and dc == 0) or (
-            dr == 0 and dc == 1
-        ), f"Non-Manhattan move: {a} -> {b}"
+        assert dr == 0 or dc == 0, f"Non-axis move: {a} -> {b}"
+        total_distance += dr + dc
+    assert total_distance == 2 * (n - 1)
+
+
+def test_astar_prefers_consecutive_moves_tie_break() -> None:
+    """When costs tie, continuing direction should be preferred.
+
+    For start=(0,0), goal=(1,2), both routes below have equal path cost:
+    - right, right, down
+    - right, down, right
+
+    The tie-break should prefer the first route (fewer direction changes),
+    which is then simplified to [(0,0), (0,2), (1,2)].
+    """
+    grid = ManhattanGrid((3, 3))
+    planner = AStarPlanner(grid)
+
+    path = planner.plan((0, 0), (1, 2))
+
+    assert path is not None
+    assert path == [(0, 0), (0, 2), (1, 2)]
