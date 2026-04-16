@@ -46,13 +46,13 @@ ${DOWNLOAD_LINE}
 
 | Group | Image | Description |
 |-------|-------|-------------|
-| Example | \`arcoex_astar_${REF}.png\` | A* graph scenario (2-D) |
-| Example | \`arcoex_ppp_${REF}.png\` | PPP warehouse scenario (3-D) |
-| Example | \`arcoex_rr_${REF}.png\` | RR arm scenario (2-D) |
-| Example | \`arcoex_city_${REF}.png\` | City race scenario (2-D) |
-| Example | \`arcoex_vehicle_${REF}.png\` | Vehicle benchmark scenario (2-D, RRT* vs SST) |
-| Example | \`arcoex_rrp_${REF}.png\` | RRP SCARA arm scenario (3-D) |
-| Example | \`arcoex_occ_${REF}.png\` | OCC piano movers scenario (2-D) |
+| Example | \`arcosim_astar_${REF}.png\` | A* graph scenario (2-D) |
+| Example | \`arcosim_ppp_${REF}.png\` | PPP warehouse scenario (3-D) |
+| Example | \`arcosim_rr_${REF}.png\` | RR arm scenario (2-D) |
+| Example | \`arcosim_city_${REF}.png\` | City race scenario (2-D) |
+| Example | \`arcosim_vehicle_${REF}.png\` | Vehicle benchmark scenario (2-D, RRT* vs SST) |
+| Example | \`arcosim_rrp_${REF}.png\` | RRP SCARA arm scenario (3-D) |
+| Example | \`arcosim_occ_${REF}.png\` | OCC piano movers scenario (2-D) |
 | Diagram | \`overview.png\` | High-level package dependency map |
 | Diagram | \`scoped_<pkg>.png\` | Scoped class diagram per changed module |
 

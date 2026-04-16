@@ -39,7 +39,7 @@ if [ ! -f "$CFG" ]; then
 fi
 
 mkdir -p "$SAVE_DIR"
-OUT="$SAVE_DIR/arcoex_${SCENARIO}.png"
+OUT="$SAVE_DIR/arcosim_${SCENARIO}.png"
 
 echo "=== Example image: $SCENARIO ==="
 echo "Config : $CFG"
