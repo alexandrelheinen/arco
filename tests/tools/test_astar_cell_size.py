@@ -49,7 +49,9 @@ def test_tuple_step_size_defaults_to_fifth() -> None:
 
 
 def test_ndarray_step_size_defaults_to_fifth() -> None:
-    assert _coerce_astar_cell_size(np.array([20.0, 20.0])) == pytest.approx(4.0)
+    assert _coerce_astar_cell_size(np.array([20.0, 20.0])) == pytest.approx(
+        4.0
+    )
 
 
 def test_empty_sequence_raises() -> None:
@@ -67,7 +69,9 @@ def test_explicit_cell_size_overrides_default() -> None:
 
 
 def test_explicit_cell_size_with_list_step_size() -> None:
-    assert _coerce_astar_cell_size([15.0, 15.0], cell_size=2.5) == pytest.approx(2.5)
+    assert _coerce_astar_cell_size(
+        [15.0, 15.0], cell_size=2.5
+    ) == pytest.approx(2.5)
 
 
 def test_explicit_cell_size_none_falls_back_to_default() -> None:
@@ -85,9 +89,9 @@ def test_city_yml_has_astar_cell_size() -> None:
     with open(path) as fh:
         cfg = yaml.safe_load(fh)
     planner = cfg.get("planner", {})
-    assert "astar_cell_size" in planner, (
-        "city.yml planner section must have an 'astar_cell_size' key"
-    )
+    assert (
+        "astar_cell_size" in planner
+    ), "city.yml planner section must have an 'astar_cell_size' key"
 
 
 def test_city_yml_astar_cell_size_equals_step_size_over_five() -> None:

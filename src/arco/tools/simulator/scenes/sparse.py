@@ -419,6 +419,8 @@ class CityScene(RaceScene):
         self._sst_metrics: dict[str, Any] = dict(self._rrt_metrics)
 
         # A* planner output (grid-space planning, world-space path points)
+        self._astar_nodes: list[Any] = []
+        self._astar_parent: dict[int, int | None] = {}
         self._astar_path: list[Any] | None = None
         self._astar_raw_path: list[Any] | None = None
         self._astar_traj_states: list[Any] = []
@@ -581,8 +583,34 @@ class CityScene(RaceScene):
 
         astar = AStarPlanner(grid)
         astar_t0 = time.perf_counter()
-        astar_idx_path = astar.plan(astar_start, astar_goal)
+        astar_idx_path, astar_expanded, astar_came_from = (
+            astar.plan_with_diagnostics(astar_start, astar_goal)
+        )
         astar_elapsed = time.perf_counter() - astar_t0
+
+        astar_index_map: dict[Any, int] = {}
+        for node in astar_expanded:
+            if node not in astar_index_map:
+                astar_index_map[node] = len(astar_index_map)
+        self._astar_nodes = [
+            np.array(
+                _grid_index_to_world_center(
+                    node,
+                    x_min=x_min,
+                    y_min=y_min,
+                    cell_size=cell_size,
+                ),
+                dtype=float,
+            )
+            for node in astar_expanded
+        ]
+        self._astar_parent = {}
+        for node, idx in astar_index_map.items():
+            parent_node = astar_came_from.get(node)
+            if parent_node is not None and parent_node in astar_index_map:
+                self._astar_parent[idx] = astar_index_map[parent_node]
+            else:
+                self._astar_parent[idx] = None
 
         if astar_idx_path is None:
             self._astar_path = None
@@ -609,7 +637,7 @@ class CityScene(RaceScene):
                         else 0
                     ),
                 ),
-                "nodes": len(astar_idx_path) if astar_idx_path else 0,
+                "nodes": len(self._astar_nodes),
                 "planner_time": astar_elapsed,
                 "planned_path_length": _polyline_length(self._astar_path),
                 "path_status": (
@@ -714,10 +742,8 @@ class CityScene(RaceScene):
 
     @property
     def astar_total(self) -> int:
-        """Total number of A* planned waypoints."""
-        if self._astar_path is None:
-            return 0
-        return len(self._astar_path)
+        """Total number of A* exploration-tree nodes."""
+        return len(self._astar_nodes)
 
     @property
     def rrt_waypoints(self) -> list[tuple[float, float]]:
@@ -794,6 +820,7 @@ class CityScene(RaceScene):
         self,
         rrt_revealed: int,
         sst_revealed: int,
+        astar_revealed: int,
         racing: bool = False,
     ) -> None:
         """Render the obstacle field, both exploration trees, and paths.
@@ -810,6 +837,8 @@ class CityScene(RaceScene):
             rrt_revealed: Number of RRT* tree nodes to display (ignored when
                 *racing* is ``True``).
             sst_revealed: Number of SST tree nodes to display (ignored when
+                *racing* is ``True``).
+            astar_revealed: Number of A* tree nodes to display (ignored when
                 *racing* is ``True``).
             racing: When ``True``, collapse the view to only the adjusted
                 trajectories and start/goal markers.
@@ -898,8 +927,17 @@ class CityScene(RaceScene):
                         self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
                     )
 
-            # A* has no exploration tree in this scene; render path directly.
-            if self._astar_path is not None:
+            renderer_gl.draw_tree(
+                self._astar_nodes,
+                self._astar_parent,
+                astar_revealed,
+                *_c(_C_ASTAR_PATH),
+                *_c(_C_ASTAR_PATH),
+            )
+            if (
+                astar_revealed >= self.astar_total
+                and self._astar_path is not None
+            ):
                 astar_path_alpha = (
                     _PATH_ALPHA if self._astar_traj_states else 1.0
                 )
@@ -1044,7 +1082,7 @@ class CityScene(RaceScene):
         if phase == "background":
             rrt_revealed = int(state.get("rrt_revealed", 0))
             sst_revealed = int(state.get("sst_revealed", 0))
-            astar_tot = self.astar_total
+            astar_revealed = int(state.get("astar_revealed", 0))
             return [
                 (
                     _planner_bg(
@@ -1054,7 +1092,10 @@ class CityScene(RaceScene):
                 ),
                 (
                     _planner_bg(
-                        "A*", astar_tot, astar_tot, self._astar_metrics
+                        "A*",
+                        astar_revealed,
+                        self.astar_total,
+                        self._astar_metrics,
                     ),
                     _c_astar,
                 ),

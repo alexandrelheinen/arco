@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import heapq
 import logging
+from collections.abc import Sequence
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import numpy as np
 
 from .base import DiscretePlanner
 
@@ -65,21 +68,65 @@ class AStarPlanner(DiscretePlanner):
         Returns:
             A list of nodes from start to goal, or None if no path exists.
         """
+        path, _, _ = self.plan_with_diagnostics(start, goal)
+        return path
+
+    def plan_with_diagnostics(
+        self,
+        start: Any,
+        goal: Any,
+    ) -> tuple[Optional[List[Any]], List[Any], Dict[Any, Any]]:
+        """Plan using A* and return path plus exploration diagnostics.
+
+        The returned diagnostics allow visualizers to reconstruct the A*
+        exploration tree without re-running the algorithm.
+
+        Args:
+            start: The start node.
+            goal: The goal node.
+
+        Returns:
+            ``(path, expanded_order, parent_map)`` where:
+
+            - ``path`` is the simplified path from ``start`` to ``goal``, or
+              ``None`` if no path exists.
+            - ``expanded_order`` is the ordered list of nodes popped from the
+              frontier and expanded.
+            - ``parent_map`` maps discovered nodes to their predecessor.
+        """
         logger.debug("A* plan: start=%s goal=%s", start, goal)
         open_set: List[Tuple[float, float, int, Any]] = []
         counter: int = 0
+        expanded_count = 0
         h_start = self.heuristic(start, goal)
         f_start = 0.0 + h_start  # g(start)=0, so f=h
         heapq.heappush(open_set, (f_start, h_start, counter, start))
         came_from: Dict[Any, Any] = {}
         g_score: Dict[Any, float] = {start: 0}
+        expanded_order: List[Any] = []
+        closed_set: set[Any] = set()
 
         while open_set:
             _, _, _, current = heapq.heappop(open_set)
+            if current in closed_set:
+                continue
+            closed_set.add(current)
+            expanded_order.append(current)
+            expanded_count += 1
             if current == goal:
                 path = self._reconstruct_path(came_from, current)
-                logger.debug("A* found path: length=%d", len(path))
-                return path
+                simplified_path = self._simplify_path(path)
+                logger.debug(
+                    (
+                        "A*: finished success raw_length=%d simplified_length=%d "
+                        "expanded=%d frontier=%d"
+                    ),
+                    len(path),
+                    len(simplified_path),
+                    expanded_count,
+                    len(open_set),
+                )
+                return simplified_path, expanded_order, came_from
             for neighbor in self.graph.neighbors(current):
                 # If the graph supports is_occupied, skip occupied nodes
                 if hasattr(
@@ -96,8 +143,17 @@ class AStarPlanner(DiscretePlanner):
                     f = tentative_g + h
                     counter += 1
                     heapq.heappush(open_set, (f, h, counter, neighbor))
-        logger.debug("A* found no path from %s to %s", start, goal)
-        return None  # No path found
+        logger.debug(
+            (
+                "A*: finished no-path start=%s goal=%s expanded=%d "
+                "frontier=%d"
+            ),
+            start,
+            goal,
+            expanded_count,
+            len(open_set),
+        )
+        return None, expanded_order, came_from
 
     def _reconstruct_path(
         self,
@@ -119,3 +175,57 @@ class AStarPlanner(DiscretePlanner):
             path.append(current)
         path.reverse()
         return path
+
+    @staticmethod
+    def _as_direction_vector(node: Any) -> np.ndarray | None:
+        """Return node as a numeric vector, or ``None`` if unsupported."""
+        if isinstance(node, np.ndarray):
+            arr = np.asarray(node, dtype=float).reshape(-1)
+            return arr if arr.size >= 2 else None
+        if isinstance(node, Sequence) and not isinstance(node, (str, bytes)):
+            try:
+                arr = np.asarray(node, dtype=float).reshape(-1)
+            except (TypeError, ValueError):
+                return None
+            return arr if arr.size >= 2 else None
+        return None
+
+    def _simplify_path(self, path: List[Any]) -> List[Any]:
+        """Simplify a path by collapsing consecutive steps with same direction.
+
+        This mandatory in-algorithm simplification is distinct from the
+        trajectory-pruning stage used later in the planning pipeline.
+        """
+        if len(path) < 3:
+            return path
+
+        first = self._as_direction_vector(path[0])
+        second = self._as_direction_vector(path[1])
+        if first is None or second is None:
+            return path
+
+        def _direction(a: Any, b: Any) -> tuple[float, ...] | None:
+            va = self._as_direction_vector(a)
+            vb = self._as_direction_vector(b)
+            if va is None or vb is None or va.shape != vb.shape:
+                return None
+            delta = vb - va
+            norm = float(np.linalg.norm(delta))
+            if norm <= 1e-12:
+                return None
+            return tuple(np.round(delta / norm, 8).tolist())
+
+        prev_dir = _direction(path[0], path[1])
+        if prev_dir is None:
+            return path
+
+        simplified: List[Any] = [path[0]]
+        for idx in range(1, len(path) - 1):
+            curr_dir = _direction(path[idx], path[idx + 1])
+            if curr_dir is None:
+                return path
+            if curr_dir != prev_dir:
+                simplified.append(path[idx])
+                prev_dir = curr_dir
+        simplified.append(path[-1])
+        return simplified
