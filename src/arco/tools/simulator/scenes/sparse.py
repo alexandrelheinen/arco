@@ -449,7 +449,7 @@ class CityScene(RaceScene):
                 for i in range(len(path) - 1)
             )
 
-        from arco.mapping import ManhattanGrid
+        from arco.mapping import EuclideanGrid
         from arco.planning.continuous import (
             RRTPlanner,
             SSTPlanner,
@@ -548,7 +548,7 @@ class CityScene(RaceScene):
         cell_size = _coerce_astar_cell_size(
             self._cfg["step_size"], self._cfg.get("astar_cell_size")
         )
-        grid = ManhattanGrid(
+        grid = EuclideanGrid(
             physical_size=[y_max - y_min, x_max - x_min],
             cell_size=cell_size,
         )
@@ -666,12 +666,12 @@ class CityScene(RaceScene):
         opt = TrajectoryOptimizer(
             self._occ,
             cruise_speed=cruise,
-            weight_time=10.0,
-            weight_deviation=1.0,
-            weight_velocity=1.0,
-            weight_collision=5.0,
+            weight_time=1.0e2,
+            weight_deviation=5.0e-1,
+            weight_velocity=1.0e1,
+            weight_collision=1.0e4,
             sample_count=0,
-            max_iter=30,
+            max_iter=100,
         )
         pipeline = PlanningPipeline(pruner=pruner, optimizer=opt)
 

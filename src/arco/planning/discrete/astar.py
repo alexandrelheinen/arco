@@ -53,10 +53,13 @@ class AStarPlanner(DiscretePlanner):
         super().__init__(graph)
         if heuristic is not None:
             self.heuristic = heuristic
+            logger.debug("Setting custom heuristic")
         elif hasattr(graph, "heuristic"):
             self.heuristic = graph.heuristic
+            logger.debug("Using graph-provided heuristic")
         else:
             self.heuristic = graph.distance
+            logger.debug("Using graph distance as heuristic")
 
     def plan(self, start: Any, goal: Any) -> Optional[List[Any]]:
         """Plan a path from start to goal using A*.

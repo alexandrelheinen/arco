@@ -38,8 +38,8 @@ planner:
   enable_pruning: false  # [] enable trajectory pruning (smooths path but requires larger safety margins)
 
 world:
-  world_width: 1280.0  # [m] width of the world
-  world_height: 720.0  # [m] height of the world
+  world_width: 600.0  # [m] width of the world
+  world_height: 600.0  # [m] height of the world
   mean_edge_length: 120.0  # [m] mean length of road network edges
   jitter_sigma: 0.15  # [] relative jitter applied to node positions
   max_edge_factor: 1.7  # [] maximum edge length multiplier relative to mean
