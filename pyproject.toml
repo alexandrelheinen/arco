@@ -29,8 +29,11 @@ tools = [
     "arco",
     "matplotlib",
     "pyyaml",
+]
+pygame = [
+    "arco[tools]",
     "pygame>=2.0.0",
-    "PyOpenGL>=3.1.0"
+    "PyOpenGL>=3.1.0",
 ]
 
 [project.scripts]
