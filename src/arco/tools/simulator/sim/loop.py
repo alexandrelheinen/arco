@@ -410,7 +410,7 @@ def run_sim(
                     renderer_gl.draw_path(
                         [(p[0], p[1]) for p in trajectory],
                         *_C_TRAJECTORY,
-                        width=1.5,
+                        width=2.5,
                     )
                 la = find_lookahead(
                     vehicle.x,

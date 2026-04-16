@@ -32,9 +32,9 @@ _COLORS = load_config("colors")
 # Alpha values for each rendering layer.
 LAYER_ALPHA: dict[str, float] = {
     "tree": 0.12,  # Very transparent — must not dominate dense trees
-    "path": 0.60,  # Raw path — dimmed but visible
-    "pruned": 0.85,  # Pruned/smoothed — bright and clear
-    "trajectory": 0.90,  # Predicted trajectory — prominent
+    "path": 0.40,  # Raw path — dimmed but visible
+    "pruned": 0.70,  # Pruned/smoothed — bright and clear
+    "trajectory": 0.70,  # Predicted trajectory — prominent
     "vehicle": 1.00,  # Executed trajectory and vehicle body — fully opaque
 }
 
