@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # scripts/run_example.sh
 #
-# Generates a static example image for a single arcoex scenario (headless).
+# Generates a static example image for a single scenario (headless).
+# Uses `arcosim --image --record` (replaces the former `arcoex --save`).
 # Requires: package installed with [tools] extras and matplotlib.
 #
 # Usage: bash scripts/run_example.sh <scenario> [--save-dir <path>]
@@ -44,5 +45,5 @@ echo "=== Example image: $SCENARIO ==="
 echo "Config : $CFG"
 echo "Output : $OUT"
 
-MPLBACKEND=Agg arcoex "$CFG" --save "$OUT"
+MPLBACKEND=Agg arcosim "$CFG" --image --record "$OUT"
 echo "✅  $SCENARIO: OK  →  $OUT"
