@@ -48,9 +48,9 @@ echo "--- Scoped class diagrams ---"
 # unavailable (e.g. workflow_dispatch on a shallow clone).
 CHANGED=""
 if git rev-parse --verify origin/main >/dev/null 2>&1; then
-    CHANGED=$(git diff --name-only origin/main...HEAD | grep '\.py$' || true)
+    CHANGED=$(git diff --name-only --diff-filter=d origin/main...HEAD | grep '\.py$' || true)
 elif git rev-parse --verify origin/HEAD >/dev/null 2>&1; then
-    CHANGED=$(git diff --name-only origin/HEAD...HEAD | grep '\.py$' || true)
+    CHANGED=$(git diff --name-only --diff-filter=d origin/HEAD...HEAD | grep '\.py$' || true)
 fi
 
 if [ -n "$CHANGED" ]; then
