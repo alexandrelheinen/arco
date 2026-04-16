@@ -7,12 +7,12 @@ import pathlib
 import sys
 from unittest.mock import MagicMock, patch
 
-import matplotlib  # Pre-load before any importlib patches: _dispatch_static does
-
-# `import matplotlib` inside a patched importlib context; if matplotlib has
-# not yet been initialised, its _check_versions() would call importlib.import_module
-# for each dependency, intercepting the mock and raising AttributeError on
-# the missing __version__ attribute.
+# Pre-load matplotlib before any importlib patches applied by the tests below.
+# _dispatch_static does `import matplotlib` inside a patched importlib context;
+# if matplotlib is not yet initialised at that point, its _check_versions()
+# calls importlib.import_module for each dependency, intercepting the mock and
+# raising AttributeError on the missing __version__ attribute.
+import matplotlib  # noqa: E402
 import pytest
 import yaml
 
