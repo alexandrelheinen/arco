@@ -45,6 +45,8 @@ import os
 import sys
 from typing import Any
 
+from arco.tools.logging_config import configure_logging
+
 # ---------------------------------------------------------------------------
 # Optional-dependency guard for yaml — needed for _load_scenario at import time.
 # ---------------------------------------------------------------------------
@@ -297,6 +299,7 @@ def main() -> None:
     )
     args, extra_argv = parser.parse_known_args()
 
+    configure_logging()
     scenario, cfg = _load_scenario(args.scenario_file)
 
     if args.image or args.static:

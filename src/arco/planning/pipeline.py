@@ -114,7 +114,9 @@ class PlanningPipeline:
         pipeline = PlanningPipeline(
             planner=RRTPlanner(occ, bounds=bounds, step_size=step_size),
             pruner=TrajectoryPruner(occ, step_size=step_size),
-            optimizer=TrajectoryOptimizer(occ, cruise_speed=1.0),
+            optimizer=TrajectoryOptimizer.create_from_config(
+                occ, cruise_speed=1.0
+            ),
         )
         result = pipeline.run(start, goal)
         if result.trajectory:
@@ -358,8 +360,8 @@ class PlanningPipeline:
             result.optimizer_status = "skipped"
 
         logger.info(
-            "PlanningPipeline.run_from_path: pruner %.2fs, optimizer %.2fs;"
-            " trajectory %d pts, %.1fs.",
+            "Exec time: pruner %.2f s, optimizer %.2f s;"
+            " trajectory %d nodes, %.1f s.",
             result.pruner_time,
             result.optimizer_time,
             len(result.trajectory or []),

@@ -172,15 +172,9 @@ def _optimize(
     else:
         path = list(path)
     try:
-        opt = TrajectoryOptimizer(
+        opt = TrajectoryOptimizer.create_from_config(
             occ,
             cruise_speed=float(vehicle_cfg["dubins"]["cruise_speed"]),
-            weight_time=10.0,
-            weight_deviation=1.0,
-            weight_velocity=1.0,
-            weight_collision=20.0,
-            sample_count=10,
-            max_iter=200,
         )
         res = opt.optimize(path)
         durs: list[float] = list(res.durations) if res.durations else []

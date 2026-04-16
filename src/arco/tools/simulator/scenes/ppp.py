@@ -323,15 +323,9 @@ class PPPScene:
             if _enable_pruning
             else None
         )
-        opt = TrajectoryOptimizer(
+        opt = TrajectoryOptimizer.create_from_config(
             occ,
             cruise_speed=float(self._sim_cfg.get("race_speed", 2.0)),
-            weight_time=10.0,
-            weight_deviation=1.0,
-            weight_velocity=1.0,
-            weight_collision=5.0,
-            sample_count=1,
-            max_iter=50,
         )
         pipeline = PlanningPipeline(pruner=pruner, optimizer=opt)
 

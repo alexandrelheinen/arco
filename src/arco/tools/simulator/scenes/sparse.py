@@ -663,15 +663,9 @@ class CityScene(RaceScene):
             if _enable_pruning
             else None
         )
-        opt = TrajectoryOptimizer(
+        opt = TrajectoryOptimizer.create_from_config(
             self._occ,
             cruise_speed=cruise,
-            weight_time=1.0e2,
-            weight_deviation=5.0e-1,
-            weight_velocity=1.0e1,
-            weight_collision=1.0e4,
-            sample_count=0,
-            max_iter=100,
         )
         pipeline = PlanningPipeline(pruner=pruner, optimizer=opt)
 
@@ -961,63 +955,35 @@ class CityScene(RaceScene):
                     )
         else:
             # Racing: full backdrop (road dots + buildings) so the obstacle
-            # field stays visible, then the adjusted trajectories.
+            # field stays visible, then trajectory-style routes.
             renderer_gl.draw_obstacle_points(
                 self._road_dots, *_c(_C_ROAD_DOT), point_size=3.0
             )
             renderer_gl.draw_obstacle_points(
                 self._occ.points, *_c(_C_BUILDING), point_size=5.0
             )
-            if self._rrt_traj_states:
+            rrt_route = self._rrt_traj_states or self._rrt_path
+            if rrt_route:
                 renderer_gl.draw_path(
-                    self._rrt_traj_states, *_c(_C_RRT_TRAJ), width=3.0
+                    rrt_route,
+                    *_c(_C_RRT_TRAJ),
+                    width=3.0,
                 )
-            else:
-                # No trajectory yet — show raw + pruned nodes.
-                if self._rrt_raw_path:
-                    renderer_gl.draw_path(
-                        self._rrt_raw_path,
-                        *_c(_C_RRT_PATH),
-                        width=1.0,
-                        alpha=0.4,
-                    )
-                if self._rrt_path is not None:
-                    renderer_gl.draw_waypoints(
-                        self._rrt_path, *_c(_C_RRT_PRUNED), half=3.5
-                    )
-            if self._sst_traj_states:
+            sst_route = self._sst_traj_states or self._sst_path
+            if sst_route:
                 renderer_gl.draw_path(
-                    self._sst_traj_states, *_c(_C_SST_TRAJ), width=3.0
+                    sst_route,
+                    *_c(_C_SST_TRAJ),
+                    width=3.0,
                 )
-            else:
-                if self._sst_raw_path:
-                    renderer_gl.draw_path(
-                        self._sst_raw_path,
-                        *_c(_C_SST_PATH),
-                        width=1.0,
-                        alpha=0.4,
-                    )
-                if self._sst_path is not None:
-                    renderer_gl.draw_waypoints(
-                        self._sst_path, *_c(_C_SST_PRUNED), half=3.5
-                    )
 
-            if self._astar_traj_states:
+            astar_route = self._astar_traj_states or self._astar_path
+            if astar_route:
                 renderer_gl.draw_path(
-                    self._astar_traj_states, *_c(_C_ASTAR_TRAJ), width=3.0
+                    astar_route,
+                    *_c(_C_ASTAR_TRAJ),
+                    width=3.0,
                 )
-            else:
-                if self._astar_raw_path:
-                    renderer_gl.draw_path(
-                        self._astar_raw_path,
-                        *_c(_C_ASTAR_PATH),
-                        width=1.0,
-                        alpha=0.4,
-                    )
-                if self._astar_path is not None:
-                    renderer_gl.draw_waypoints(
-                        self._astar_path, *_c(_C_ASTAR_PRUNED), half=3.5
-                    )
 
         # Start/goal markers — always visible.
         sx, sy = float(self._start[0]), float(self._start[1])

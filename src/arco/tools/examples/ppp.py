@@ -245,15 +245,9 @@ def main(cfg: dict, save_path: str | None = None) -> None:
         if _enable_pruning
         else None
     )
-    opt = TrajectoryOptimizer(
+    opt = TrajectoryOptimizer.create_from_config(
         occ,
         cruise_speed=float(sim_cfg.get("race_speed", 2.0)),
-        weight_time=10.0,
-        weight_deviation=1.0,
-        weight_velocity=1.0,
-        weight_collision=5.0,
-        sample_count=1,
-        max_iter=200,
     )
     rrt_traj: list[np.ndarray] | None = None
     sst_traj: list[np.ndarray] | None = None

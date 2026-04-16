@@ -9,6 +9,7 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import numpy as np
 from scipy.optimize import minimize
 
+from arco.config import load_config
 from arco.mapping.occupancy import Occupancy
 
 
@@ -79,7 +80,7 @@ class TrajectoryOptimizer:
           + w_velocity · Σ (|pᵢ − pᵢ₋₁| / tᵢ − v_cruise)²
           + w_collision · Σ max(0, clearance − dist(pᵢ, obstacles))²
                     + w_collision · barrier_scale · Σ (max(0, clearance − dist)
-                                                                                         / max(clearance, ε))^barrier_power
+                      / max(clearance, ε))^barrier_power
           + w_dynamics · Σ [max(0, vᵢ − max_speed)² + max(0, min_speed − vᵢ)²]
 
     where *T = Σ tᵢ* is the total traversal time and the dynamics term
@@ -141,6 +142,87 @@ class TrajectoryOptimizer:
     Raises:
         ValueError: If *cruise_speed* is not positive.
     """
+
+    @staticmethod
+    def create_from_config(
+        occupancy: Occupancy,
+        cruise_speed: float,
+        max_speed: Optional[float] = None,
+        min_speed: Optional[float] = None,
+    ) -> TrajectoryOptimizer:
+        """Construct a TrajectoryOptimizer from a config file.
+
+        The config file is expected to be a YAML file named ``optimizer.yml``
+        located in the config directory.  The file should contain keys
+        corresponding to the parameters of :class:`TrajectoryOptimizer`, with
+        the same names (e.g. ``weight_time``, ``collision_barrier_power``, etc.).
+        Any missing parameters will be filled in with the default values from
+        the constructor.
+
+            Args:
+                occupancy: Occupancy map for collision queries.
+                cruise_speed: Target traversal speed (world units / s).
+                max_speed: Optional upper speed limit for the dynamics penalty
+                    and feasibility check.
+                min_speed: Optional lower speed limit for the dynamics penalty
+                    and feasibility check.
+
+        Returns:
+            An instance of :class:`TrajectoryOptimizer` initialized with the
+            parameters from the config file.
+        """
+        # Find the optimizer.yml in the config dir
+        cfg = load_config("optimizer")
+
+        # Read the parameters from the config, using defaults when missing
+        weight = cfg.get("weight", None)
+        if weight is None:
+            raise ValueError("Config file must specify 'weight' key.")
+
+        weight_time = float(weight.get("time", 1e2))
+        weight_deviation = float(weight.get("deviation", 1e-2))
+        weight_velocity = float(weight.get("velocity", 1e0))
+        weight_collision = float(weight.get("collision", 1e4))
+        weight_dynamics = float(weight.get("dynamics", 1e2))
+
+        collision_barrier = cfg.get("collision_barrier", None)
+        if collision_barrier is None:
+            raise ValueError(
+                "Config file must specify 'collision_barrier' key."
+            )
+
+        collision_barrier_scale = float(collision_barrier.get("scale", 50.0))
+        collision_barrier_power = float(collision_barrier.get("power", 4.0))
+
+        method = cfg.get("method", None)
+        if method is None:
+            raise ValueError("Config file must specify 'method' key.")
+
+        time_relaxation = float(method.get("time_relaxation", 1.5))
+        method_name = str(method.get("name", "L-BFGS-B"))
+        sample_count = int(method.get("sample_count", 3))
+        max_iter = int(method.get("max_iter", 30))
+        ftol = float(method.get("ftol", 1e-9))
+
+        # Create the optimizer instance
+        return TrajectoryOptimizer(
+            occupancy=occupancy,
+            cruise_speed=cruise_speed,
+            weight_time=weight_time,
+            weight_deviation=weight_deviation,
+            weight_velocity=weight_velocity,
+            weight_collision=weight_collision,
+            collision_barrier_scale=collision_barrier_scale,
+            collision_barrier_power=collision_barrier_power,
+            weight_dynamics=weight_dynamics,
+            max_speed=max_speed,
+            min_speed=min_speed,
+            time_relaxation=time_relaxation,
+            method=method_name,
+            sample_count=sample_count,
+            max_iter=max_iter,
+            ftol=ftol,
+        )
 
     def __init__(
         self,
