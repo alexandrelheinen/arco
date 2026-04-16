@@ -1,11 +1,13 @@
-"""arcoex CLI: run an ARCO example scenario from a YAML file.
+"""arcoex CLI (deprecated) — thin wrapper over ``arcosim --image``.
 
-Usage::
+.. deprecated::
+    ``arcoex`` is deprecated and will be removed in a future release.
+    Use ``arcosim <scenario.yml> --image [--record <output.png>]`` instead::
 
-    arcoex path/to/scenario.yml [--save PATH]
+        # was: arcoex map/city.yml --save output.png
+        arcosim map/city.yml --image --record output.png
 
-The ``scenario:`` field in the YAML header identifies which example to run.
-Supported scenarios: astar, city, occ, ppp, rr, rrp, vehicle.
+The supported scenarios, YAML format, and output are identical.
 
 Requires the ``tools`` optional dependency group::
 
@@ -17,6 +19,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import warnings
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -42,9 +45,18 @@ SUPPORTED_SCENARIOS: frozenset[str] = frozenset(
     {"astar", "city", "occ", "ppp", "rr", "rrp", "vehicle"}
 )
 
+# ---------------------------------------------------------------------------
+# Deprecation warning text
+# ---------------------------------------------------------------------------
+
+_DEPRECATION_MSG = (
+    "arcoex is deprecated and will be removed in a future release. "
+    "Use 'arcosim <scenario.yml> --image [--record <output.png>]' instead."
+)
+
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# Internal helpers (kept for backward compatibility with existing tests)
 # ---------------------------------------------------------------------------
 
 
@@ -90,67 +102,28 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
     return scenario, cfg
 
 
-def _dispatch(
-    scenario: str, cfg: dict[str, Any], save_path: str | None
-) -> None:
-    """Dispatch to the example handler for the given scenario.
-
-    Imports ``tools.examples.<scenario>`` dynamically (after path setup) and
-    calls its ``main(save_path=...)`` function.
-
-    ``sys.argv`` is trimmed to just the program name before the call so that
-    the example's own ``argparse`` (if invoked as a fallback) does not see
-    the scenario-file path as an unrecognized argument.
-
-    Args:
-        scenario: Scenario name, e.g. ``"city"`` or ``"ppp"``.
-        cfg: Parsed scenario configuration dict (already loaded by the CLI).
-        save_path: Optional file path to save the output image to.  When
-            ``None`` the example opens an interactive matplotlib window.
-
-    Raises:
-        SystemExit: If optional pygame dependencies are missing for the
-            requested scenario.
-    """
-    import importlib
-
-    try:
-        mod = importlib.import_module(f"arco.tools.examples.{scenario}")
-    except ImportError as exc:
-        if "pygame" in str(exc) or "OpenGL" in str(exc):
-            print(
-                f"arcoex: scenario '{scenario}' requires the 'pygame' extra."
-                " Install with: pip install arco[tools,pygame]",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        raise
-
-    saved_argv = sys.argv
-    sys.argv = [sys.argv[0]]
-    try:
-        mod.main(cfg, save_path=save_path)
-    finally:
-        sys.argv = saved_argv
-
-
 # ---------------------------------------------------------------------------
-# Public entry point
+# Public entry point — thin wrapper over _dispatch_static from arcosim
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    """Entry point for the ``arcoex`` CLI.
+    """Entry point for the ``arcoex`` CLI (deprecated).
 
-    Parses CLI arguments, validates the scenario YAML file, and dispatches
-    to the matching example handler.
+    Emits a :class:`DeprecationWarning`, then delegates to
+    :func:`arco.tools.arcosim.__main__._dispatch_static`, which provides
+    identical functionality via ``arcosim --image``.
 
     Raises:
         SystemExit: On any validation error or missing dependencies.
     """
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=1)
+    print(f"⚠️  arcoex is deprecated. {_DEPRECATION_MSG}", file=sys.stderr)
+
     parser = argparse.ArgumentParser(
         prog="arcoex",
         description=(
+            "[DEPRECATED — use 'arcosim --image' instead] "
             "Run an ARCO example scenario from a YAML file.\n\n"
             f"Supported scenarios: {', '.join(sorted(SUPPORTED_SCENARIOS))}"
         ),
@@ -164,12 +137,20 @@ def main() -> None:
         "--save",
         metavar="PATH",
         default=None,
-        help="Save the output image to PATH instead of opening a window.",
+        help=(
+            "Save the output image to PATH instead of opening a window. "
+            "Equivalent to 'arcosim --image --record PATH'."
+        ),
     )
     args = parser.parse_args()
 
     scenario, cfg = _load_scenario(args.scenario_file)
-    _dispatch(scenario, cfg, args.save)
+
+    # Delegate to arcosim's static dispatch — same code path as
+    # 'arcosim <file> --image [--record <path>]'.
+    from arco.tools.arcosim.__main__ import _dispatch_static
+
+    _dispatch_static(scenario, cfg, args.save)
 
 
 if __name__ == "__main__":
