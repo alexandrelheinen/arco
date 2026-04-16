@@ -7,7 +7,12 @@ import pathlib
 import sys
 from unittest.mock import MagicMock, patch
 
-import matplotlib  # noqa: F401 — must be pre-loaded before importlib patches
+import matplotlib  # Pre-load before any importlib patches: _dispatch_static does
+
+# `import matplotlib` inside a patched importlib context; if matplotlib has
+# not yet been initialised, its _check_versions() would call importlib.import_module
+# for each dependency, intercepting the mock and raising AttributeError on
+# the missing __version__ attribute.
 import pytest
 import yaml
 
@@ -161,7 +166,7 @@ def test_occ_config_uses_three_actuators() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_dispatch_static_calls_example_main(tmp_path: pathlib.Path) -> None:
+def test_dispatch_static_calls_example_main() -> None:
     """_dispatch_static imports tools.examples.<scenario> and calls main()."""
     fake_mod = MagicMock()
     fake_mod.main = MagicMock()

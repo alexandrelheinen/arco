@@ -168,7 +168,9 @@ class Entity(ABC):
     geometry: Geometry
     state: list[float] = dataclasses.field(default_factory=list)
 
-    #: Minimum spatial dimension (x, y) returned by :attr:`position`.
+    #: Minimum number of position coordinates (x, y) returned by
+    #: :attr:`position` for sphere geometry when the state is shorter than
+    #: expected.  Box geometry always uses the actual half-extents count.
     _MIN_SPATIAL_DIM: dataclasses.ClassVar[int] = 2
 
     @property
