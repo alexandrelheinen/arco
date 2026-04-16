@@ -4,11 +4,37 @@ Usage::
 
     arcosim path/to/scenario.yml [--fps N] [--record PATH]
             [--record-duration S]
+    arcosim path/to/scenario.yml --image [--record PATH]
+    arcosim path/to/scenario.yml --static [--record PATH]
 
 The ``scenario:`` field in the YAML header identifies which simulation to run.
 Supported scenarios: astar, city, occ, ppp, rr, rrp, vehicle.
 
-Requires the ``tools`` and ``pygame`` optional dependency groups::
+Static / image mode
+-------------------
+Pass ``--image`` (or its alias ``--static``) to run the example in static
+image mode instead of the real-time pygame simulation.  This mode is
+equivalent to the former ``arcoex`` command.  When ``--record PATH`` is
+also provided, the output image is saved to *PATH* instead of opening an
+interactive window.
+
+Examples::
+
+    # interactive simulation
+    arcosim map/city.yml
+
+    # static image, open window
+    arcosim map/city.yml --image
+
+    # static image, saved to file (replaces: arcoex map/city.yml --save out.png)
+    arcosim map/city.yml --image --record out.png
+
+Requires the ``tools`` optional dependency group for static mode::
+
+    pip install arco[tools]
+
+Requires the ``tools`` and ``pygame`` optional dependency groups for
+real-time simulation::
 
     pip install arco[tools,pygame]
 """
@@ -90,6 +116,60 @@ def _load_scenario(path: str) -> tuple[str, dict[str, Any]]:
         )
         sys.exit(1)
     return scenario, cfg
+
+
+def _dispatch_static(
+    scenario: str,
+    cfg: dict[str, Any],
+    save_path: str | None,
+) -> None:
+    """Dispatch to the *static image* example handler for the given scenario.
+
+    This is the mode formerly provided by the ``arcoex`` command.  It imports
+    ``tools.examples.<scenario>`` and calls its ``main(cfg, save_path=…)``
+    function, producing a matplotlib figure instead of a pygame window.
+
+    Args:
+        scenario: Scenario name, e.g. ``"city"`` or ``"ppp"``.
+        cfg: Parsed scenario configuration dict.
+        save_path: File path to save the output image, or ``None`` to open an
+            interactive matplotlib window.
+
+    Raises:
+        SystemExit: If the ``tools`` (matplotlib) extra is not installed, or
+            if the scenario requires ``pygame`` and that extra is absent.
+    """
+    import importlib
+
+    try:
+        import matplotlib  # noqa: F401  (presence check only)
+    except ImportError:
+        print(
+            "arcosim --image requires the 'tools' extra. "
+            "Install with: pip install arco[tools]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    try:
+        mod = importlib.import_module(f"arco.tools.examples.{scenario}")
+    except ImportError as exc:
+        if "pygame" in str(exc) or "OpenGL" in str(exc):
+            print(
+                f"arcosim --image: scenario '{scenario}' requires the "
+                "'pygame' extra. "
+                "Install with: pip install arco[tools,pygame]",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        raise
+
+    saved_argv = sys.argv
+    sys.argv = [sys.argv[0]]
+    try:
+        mod.main(cfg, save_path=save_path)
+    finally:
+        sys.argv = saved_argv
 
 
 def _dispatch(
@@ -187,7 +267,8 @@ def main() -> None:
         "--record",
         metavar="PATH",
         default="",
-        help="Record simulation to this MP4 file (requires ffmpeg).",
+        help="Record simulation to this MP4 file (requires ffmpeg). "
+        "In --image/--static mode, saves the output image to this path.",
     )
     parser.add_argument(
         "--record-duration",
@@ -197,10 +278,35 @@ def main() -> None:
         dest="record_duration",
         help="Maximum recording length in seconds (default: 90).",
     )
+    # --image / --static: static matplotlib rendering (replaces arcoex)
+    static_group = parser.add_mutually_exclusive_group()
+    static_group.add_argument(
+        "--image",
+        action="store_true",
+        default=False,
+        help=(
+            "Run in static image mode (matplotlib) instead of real-time "
+            "pygame simulation.  Equivalent to the former 'arcoex' command. "
+            "Requires: pip install arco[tools]"
+        ),
+    )
+    static_group.add_argument(
+        "--static",
+        action="store_true",
+        default=False,
+        dest="static",
+        help="Alias for --image.",
+    )
     args, extra_argv = parser.parse_known_args()
 
     scenario, cfg = _load_scenario(args.scenario_file)
-    _dispatch(scenario, cfg, args.record, args.record_duration, extra_argv)
+
+    if args.image or args.static:
+        # Static image mode — delegates to tools/examples/<scenario>.py
+        save_path: str | None = args.record if args.record else None
+        _dispatch_static(scenario, cfg, save_path)
+    else:
+        _dispatch(scenario, cfg, args.record, args.record_duration, extra_argv)
 
 
 if __name__ == "__main__":

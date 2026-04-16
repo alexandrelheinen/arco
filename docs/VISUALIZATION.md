@@ -4,10 +4,19 @@ ARCO ships two visualization tools: **arcoex** for static image generation and
 **arcosim** for real-time interactive simulation. Both tools are driven by YAML
 scenario files and are distributed as optional extras.
 
-## arcoex — Static Example Runner
+> **Deprecation notice**: `arcoex` is deprecated in favour of
+> `arcosim --image`.  The new flag provides the same static-image output
+> through a single, unified entry point.  `arcoex` will be removed in a future
+> release.  See [ENTITY_MODEL.md](ENTITY_MODEL.md) for the planned unified
+> frontend architecture.
+
+## arcoex — Static Example Runner *(deprecated)*
 
 `arcoex` runs a scenario through the ARCO pipeline and saves the result as a
 static matplotlib figure. It is the tool used by the `generate-images` CI gate.
+
+> **Prefer `arcosim --image`** for new usage.  The `--image` flag of `arcosim`
+> provides identical output via the same dispatch path.
 
 ### What it does
 
@@ -55,17 +64,26 @@ The `scenario:` key in the YAML header selects which example to run.
 `arcosim` runs a scenario as an interactive real-time simulation using pygame
 and PyOpenGL. It can also record to an MP4 file.
 
+It also supports a **static image mode** (`--image` / `--static`) that
+renders a matplotlib figure instead of opening a pygame window — this is the
+replacement for the deprecated `arcoex` command.
+
 ### What it does
 
 - Loads a scenario YAML file and dispatches to the matching simulator module in
   `arco.tools.simulator.main`.
 - Opens a pygame window that animates the scenario in real time.
 - Optionally records the session to an MP4 file (requires ffmpeg).
+- In `--image` mode: dispatches to `arco.tools.examples` for matplotlib output.
 
 ### Dependencies
 
 ```bash
+# Real-time simulation
 pip install arco[tools,pygame]   # adds pygame >= 2.0 and PyOpenGL >= 3.1
+
+# Static image mode only
+pip install arco[tools]          # matplotlib + pyyaml; no pygame needed
 ```
 
 A display server (or virtual framebuffer such as `xvfb`) is required for
@@ -82,6 +100,15 @@ arcosim src/arco/tools/map/city.yml --record output/city.mp4
 
 # Limit recording duration
 arcosim src/arco/tools/map/city.yml --record output/city.mp4 --record-duration 30
+
+# Static image mode — opens matplotlib window (replaces: arcoex map/city.yml)
+arcosim src/arco/tools/map/city.yml --image
+
+# Static image mode — save to file (replaces: arcoex map/city.yml --save out.png)
+arcosim src/arco/tools/map/city.yml --image --record output/city.png
+
+# --static is an alias for --image
+arcosim src/arco/tools/map/city.yml --static --record output/city.png
 ```
 
 Scenario-specific flags (e.g. `--fps`, `--dt`, `--camera`) can be appended and
