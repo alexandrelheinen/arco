@@ -228,7 +228,7 @@ path = planner.plan(start=np.array([1, 1]), goal=np.array([9, 9]))
 ## City Road Network
 
 The file `src/arco/tools/map/city.json` is the hand-crafted road network used
-as the default environment for the city scenario in both `arcosim` (static image mode) and `arcosim` (real-time simulation).
+as the default environment for the city scenario in both modes of `arcosim` (static image and real-time simulation).
 
 ### JSON format
 
