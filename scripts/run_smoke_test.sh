@@ -44,7 +44,7 @@ if [ -z "$SCENARIO" ]; then
     exit 1
 fi
 
-CFG="src/arco/tools/map/${SCENARIO}.yml"
+CFG="map/${SCENARIO}.yml"
 if [ ! -f "$CFG" ]; then
     echo "❌  Config not found: $CFG"
     exit 1

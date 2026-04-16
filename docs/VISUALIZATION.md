@@ -29,22 +29,22 @@ interactive use. For headless recording, `xvfb-run` and `ffmpeg` are needed.
 
 ```bash
 # Interactive simulation (requires pygame)
-arcosim src/arco/tools/map/city.yml
+arcosim map/city.yml
 
 # Record to MP4 (requires pygame + ffmpeg)
-arcosim src/arco/tools/map/city.yml --record output/city.mp4
+arcosim map/city.yml --record output/city.mp4
 
 # Limit recording duration
-arcosim src/arco/tools/map/city.yml --record output/city.mp4 --record-duration 30
+arcosim map/city.yml --record output/city.mp4 --record-duration 30
 
 # Static image mode — opens matplotlib window
-arcosim src/arco/tools/map/city.yml --image
+arcosim map/city.yml --image
 
 # Static image mode — save to file (headless-safe)
-arcosim src/arco/tools/map/city.yml --image --record output/city.png
+arcosim map/city.yml --image --record output/city.png
 
 # --static is an alias for --image
-arcosim src/arco/tools/map/city.yml --static --record output/city.png
+arcosim map/city.yml --static --record output/city.png
 ```
 
 ### Supported scenarios
@@ -74,7 +74,7 @@ start_node: 59
 goal_node: 57
 ```
 
-The YAML files for the built-in scenarios live in `src/arco/tools/map/`.
+The YAML files for the built-in scenarios live in `map/`.
 
 ---
 
