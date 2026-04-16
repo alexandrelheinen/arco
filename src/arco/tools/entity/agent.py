@@ -95,6 +95,37 @@ class DubinsAgent(Agent):
     max_turn_rate: float = math.pi
     speed: float = 0.0
 
+    # ------------------------------------------------------------------
+    # Convenience accessors for named state elements
+    # ------------------------------------------------------------------
+
+    @property
+    def x(self) -> float:
+        """X-coordinate in metres."""
+        return self.state[0]
+
+    @x.setter
+    def x(self, value: float) -> None:
+        self.state[0] = value
+
+    @property
+    def y(self) -> float:
+        """Y-coordinate in metres."""
+        return self.state[1]
+
+    @y.setter
+    def y(self, value: float) -> None:
+        self.state[1] = value
+
+    @property
+    def heading(self) -> float:
+        """Heading angle in radians."""
+        return self.state[2]
+
+    @heading.setter
+    def heading(self, value: float) -> None:
+        self.state[2] = value
+
     def step(self, control: list[float], dt: float) -> None:
         """Advance Dubins kinematics by *dt* seconds.
 
@@ -129,10 +160,10 @@ class DubinsAgent(Agent):
         turn_rate = max(
             -self.max_turn_rate, min(self.max_turn_rate, turn_rate)
         )
-        self.state[2] += turn_rate * dt
+        self.heading += turn_rate * dt
         self.speed = max(0.0, min(self.max_speed, self.speed + accel * dt))
-        self.state[0] += self.speed * math.cos(self.state[2]) * dt
-        self.state[1] += self.speed * math.sin(self.state[2]) * dt
+        self.x += self.speed * math.cos(self.heading) * dt
+        self.y += self.speed * math.sin(self.heading) * dt
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-safe dictionary.

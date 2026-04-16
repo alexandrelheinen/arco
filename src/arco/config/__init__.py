@@ -5,7 +5,8 @@ Two loader functions are provided:
 - :func:`load_config` — loads source-code configs from ``arco/config/``
   (renderer color palette, etc.).
 - :func:`load_map_config` — loads scenario files from ``arco/tools/map/``
-  (full scenario YAMLs launched by ``arcosim`` / ``arcoex``).
+  (full scenario YAMLs launched by ``arcosim`` / the deprecated ``arcoex``
+  wrapper).
 
 Usage::
 
@@ -63,9 +64,10 @@ def load_config(name: str) -> dict[str, Any]:
 def load_map_config(name: str) -> dict[str, Any]:
     """Load a scenario YAML file from ``tools/map/``.
 
-    These are full scenario configs launched by ``arcosim`` / ``arcoex``
-    (they carry a ``scenario:`` key at the top).  Simulator and example
-    modules use this function to read scenario-specific parameters.
+    These are full scenario configs launched by ``arcosim`` (and the
+    deprecated ``arcoex`` wrapper) — they carry a ``scenario:`` key at the
+    top.  Simulator and example modules use this function to read
+    scenario-specific parameters.
 
     Args:
         name: Base name of the scenario file (without the ``.yml``

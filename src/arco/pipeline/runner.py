@@ -13,7 +13,7 @@ pipeline.  It:
    subscriber support).
 6. Stops all nodes gracefully when :meth:`stop` is called.
 
-``arcoex`` (matplotlib static) and ``arcosim`` (pygame real-time) are
+``arcosim --image`` (matplotlib static) and ``arcosim`` (pygame real-time) are
 both consumers of this bus and can be attached independently.
 
 Example::

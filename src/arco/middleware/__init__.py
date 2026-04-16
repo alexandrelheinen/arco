@@ -2,8 +2,8 @@
 
 This package provides the typed message-bus infrastructure that connects
 the mapping, planning, and guidance pipeline stages to one or more
-frontend renderers without coupling them.  ``arcoex`` (matplotlib static
-image generation) and ``arcosim`` (pygame real-time simulation) both
+frontend renderers without coupling them.  ``arcosim --image`` (matplotlib
+static image generation) and ``arcosim`` (pygame real-time simulation) both
 consume the same bus and are unaware of each other.
 
 Public API:

@@ -8,8 +8,9 @@ The "trace" visualisation renders:
    prominent marker with an optional heading arrow (for Dubins / SE(2)
    robots).
 
-Both arcoex (static image) and arcosim (pygame) should use :func:`draw_trace`
-so the trailing-trace appearance is standardised across tools.
+Both ``arcosim --image`` (static image) and ``arcosim`` (pygame) should use
+:func:`draw_trace` so the trailing-trace appearance is standardised across
+tools.
 
 Example
 -------

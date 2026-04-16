@@ -1,9 +1,9 @@
 """Standardised JSON-serializable data model for planning results.
 
-Both *arcoex* (static image generation) and *arcosim* (pygame simulation)
-consume the same :class:`SceneSnapshot` structure, enabling a clean
-middleware boundary: algorithms write a ``SceneSnapshot``, the rendering
-layer reads it — no algorithm-specific rendering code needed.
+Both ``arcosim --image`` (static image generation) and ``arcosim`` (pygame
+simulation) consume the same :class:`SceneSnapshot` structure, enabling a
+clean middleware boundary: algorithms write a ``SceneSnapshot``, the
+rendering layer reads it — no algorithm-specific rendering code needed.
 
 The snapshot stores every visual layer described in the issue:
 

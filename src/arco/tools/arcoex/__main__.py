@@ -118,7 +118,10 @@ def main() -> None:
         SystemExit: On any validation error or missing dependencies.
     """
     warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=1)
-    print(f"⚠️  arcoex is deprecated. {_DEPRECATION_MSG}", file=sys.stderr)
+    print(
+        f"⚠️  arcoex is deprecated — use 'arcosim --image' instead.",
+        file=sys.stderr,
+    )
 
     parser = argparse.ArgumentParser(
         prog="arcoex",
