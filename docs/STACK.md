@@ -32,16 +32,16 @@ pip install arco[dev]
 | `pylint` | Static analysis |
 | `pydocstyle` | Docstring style checker (Google convention) |
 
-### `tools` — visualization tools (arcoex / arcosim)
+### `tools` — visualization tools (arcosim)
 
 ```bash
-pip install arco[tools]        # arcoex only (matplotlib)
-pip install arco[tools,pygame] # arcoex + arcosim (adds pygame + PyOpenGL)
+pip install arco[tools]        # static image mode only (matplotlib)
+pip install arco[tools,pygame] # full arcosim (adds pygame + PyOpenGL)
 ```
 
 | Package | Role |
 |---------|------|
-| `matplotlib` | Static figure generation (arcoex) |
+| `matplotlib` | Static figure generation (`arcosim --image`) |
 | `pyyaml` | Scenario YAML loading |
 | `pygame >= 2.0` | Real-time simulation window (arcosim) |
 | `PyOpenGL >= 3.1` | OpenGL rendering in arcosim |
@@ -57,8 +57,8 @@ pip install -e ".[dev]"
 For the visualization tools:
 
 ```bash
-pip install -e ".[tools]"         # arcoex only
-pip install -e ".[tools,pygame]"  # arcoex + arcosim
+pip install -e ".[tools]"         # static image mode only
+pip install -e ".[tools,pygame]"  # full arcosim (real-time + static)
 ```
 
 ## Running the test suite
@@ -90,9 +90,6 @@ Individual gates:
 |--------|----------------|
 | `scripts/check_formatting.sh` | black + isort (blocking), pydocstyle (warning) |
 | `scripts/run_tests.sh` | pytest unit tests |
-| `scripts/run_examples.sh` | arcoex headless image generation |
+| `scripts/run_examples.sh` | `arcosim --image` headless image generation |
 | `scripts/run_smoke_tests.sh` | arcosim short headless recordings |
 | `scripts/generate_videos.sh` | arcosim full-length simulation videos |
-
-Use `--no-smoke --no-videos` only when a display server (xvfb) or ffmpeg is
-unavailable.

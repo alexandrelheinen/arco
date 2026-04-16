@@ -16,7 +16,7 @@ The project emphasizes clear architecture, testability, and documented algorithm
 - [Coding guidelines (authoritative)](docs/guidelines.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Tech stack and installation](docs/STACK.md)
-- [Visualization tools (arcoex, arcosim)](docs/VISUALIZATION.md)
+- [Visualization tools (arcosim)](docs/VISUALIZATION.md)
 - [Mapping layer overview](docs/MAPPING.md)
 - [Planning layer overview](docs/PLANNING.md)
   - [A* algorithm notes](docs/planning_astar.md)
@@ -105,9 +105,8 @@ The full ARCO processing pipeline runs as a sequence of independent steps
 │   │   ├── discrete       ← graph-search planners (A*, route planning)
 │   │   └── continuous     ← sampling-based planners (RRT*, SST)
 │   └── tools
-│       ├── arcoex         ← static image generation CLI (matplotlib)
-│       ├── arcosim        ← real-time simulation CLI (pygame)
-│       ├── examples       ← example modules run by arcoex
+│       ├── arcosim        ← real-time and static image CLI (pygame / matplotlib)
+│       ├── examples       ← example modules run by arcosim --image
 │       ├── map            ← scenario YAML and JSON config files
 │       └── simulator      ← simulator modules run by arcosim
 └── tests                  ← mirrored test layout
@@ -148,9 +147,9 @@ bash scripts/pre_push.sh
 ### Local examples
 
 ```bash
-# Static image generation (arcoex)
-arcoex src/arco/tools/map/astar.yml --save output/astar.png
-arcoex src/arco/tools/map/city.yml  --save output/city.png
+# Static image generation (arcosim --image)
+arcosim src/arco/tools/map/astar.yml --image --record output/astar.png
+arcosim src/arco/tools/map/city.yml  --image --record output/city.png
 
 # Real-time simulation (arcosim — requires pygame)
 arcosim src/arco/tools/map/city.yml

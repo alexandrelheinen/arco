@@ -18,7 +18,7 @@
 - [Pipeline Architecture](PIPELINE.md) - Multi-step pipeline design
 
 ## Visualization Tools
-- [Visualization Tools](VISUALIZATION.md) - arcoex (static images) and arcosim (real-time simulation)
+- [Visualization Tools](VISUALIZATION.md) - arcosim (static images and real-time simulation)
 
 ## Project Documentation
 - [Project Overview](../README.md) - Main README
