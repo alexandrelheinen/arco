@@ -130,13 +130,20 @@ def render(src_root: Path, output: Path) -> None:
         },
     )
 
-    # Add nodes for every known package.
+    # Add nodes for every known sub-package (skip the bare 'arco' root entry
+    # which would appear alongside sub-packages and add visual clutter).
     for pkg in sorted(deps):
+        if pkg == "arco":
+            continue
         dot.node(pkg, pkg)
 
-    # Add edges.
+    # Add edges (also skip root 'arco' as source/target).
     for src_pkg, targets in sorted(deps.items()):
+        if src_pkg == "arco":
+            continue
         for tgt in sorted(targets):
+            if tgt == "arco":
+                continue
             dot.edge(src_pkg, tgt)
 
     output.parent.mkdir(parents=True, exist_ok=True)

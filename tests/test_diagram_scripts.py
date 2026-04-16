@@ -137,6 +137,26 @@ def test_collect_dependencies_real_src() -> None:
         assert expected in deps, f"Expected sub-package '{expected}' not found"
 
 
+def test_render_package_map_excludes_root_arco_node(
+    tmp_path: Path, tmp_src: Path
+) -> None:
+    """render() does not produce a bare 'arco' node in the overview diagram."""
+    graphviz = pytest.importorskip("graphviz")
+    try:
+        graphviz.version()
+    except graphviz.ExecutableNotFound:
+        pytest.skip("graphviz CLI (dot) not installed")
+
+    out = tmp_path / "overview.png"
+    render_package_map.render(tmp_src, out)
+    # The dot source should not contain a standalone 'arco' node definition.
+    dot = graphviz.Digraph()
+    deps = render_package_map._collect_dependencies(tmp_src)
+    assert "arco" not in {
+        pkg for pkg in deps if pkg != "arco"
+    }, "root arco should not appear as a dependency target"
+
+
 # ---------------------------------------------------------------------------
 # render_package_map: render (integration — requires dot CLI)
 # ---------------------------------------------------------------------------
@@ -244,20 +264,24 @@ def test_parse_file_extracts_inheritance(tmp_path: Path) -> None:
 
 
 def test_parse_file_arco_imports(tmp_path: Path) -> None:
-    """_parse_file extracts arco symbol names from from-imports."""
+    """_parse_file extracts arco symbol names from from-imports and import stmts."""
     py = tmp_path / "consumer.py"
     py.write_text(
         textwrap.dedent(
             """\
             from arco.mapping.graph import RoadGraph
             from arco.control.pid import PIDController
+            import arco.middleware.bus
             """
         ),
         encoding="utf-8",
     )
     info = render_scoped._parse_file(py, tmp_path)
+    # from-imports capture the symbol name (last segment).
     assert "RoadGraph" in info.arco_imports
     assert "PIDController" in info.arco_imports
+    # bare 'import arco.X.Y' captures full path after 'arco.' → 'middleware.bus'
+    assert "middleware.bus" in info.arco_imports
 
 
 def test_parse_file_ignores_syntax_error(tmp_path: Path) -> None:

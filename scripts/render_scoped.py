@@ -117,7 +117,10 @@ def _parse_file(py_file: Path, src_root: Path) -> _ModuleInfo:
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name.startswith("arco."):
-                    info.arco_imports.add(alias.name.split(".")[-1])
+                    # Capture the full qualified name after 'arco.' so that
+                    # 'import arco.mapping.graph' yields 'mapping.graph'
+                    # rather than just 'graph', preserving package context.
+                    info.arco_imports.add(alias.name[len("arco.") :])
 
         elif isinstance(node, ast.ImportFrom):
             if node.module and node.module.startswith("arco."):
@@ -270,6 +273,19 @@ def render_scoped(
                     )
 
             # Import edges (dashed) — arco symbols imported into this module.
+            # Use a dedicated invisible anchor node for the module so that
+            # import edges always originate from a stable, deterministic point
+            # rather than an arbitrarily chosen first class.
+            anchor_id = f"{mod_id}__anchor"
+            dot.node(
+                anchor_id,
+                info.label,
+                shape="plaintext",
+                style="",
+                fillcolor="transparent",
+                fontsize="9",
+                fontcolor="#555555",
+            )
             for imported in sorted(info.arco_imports):
                 if imported in all_classes:
                     # Already in the diagram — skip to avoid clutter.
@@ -282,18 +298,13 @@ def render_scoped(
                     style="filled,dashed",
                     fillcolor="#fff3cc",
                 )
-                # Draw one edge from the module cluster label node to the
-                # imported symbol.  Use the first class in the module as proxy
-                # if there are classes, otherwise skip.
-                if info.classes:
-                    proxy_id = f"{mod_id}__{info.classes[0][0]}"
-                    dot.edge(
-                        proxy_id,
-                        imp_node_id,
-                        style="dashed",
-                        arrowhead="open",
-                        tooltip=f"{info.label} imports {imported}",
-                    )
+                dot.edge(
+                    anchor_id,
+                    imp_node_id,
+                    style="dashed",
+                    arrowhead="open",
+                    tooltip=f"{info.label} imports {imported}",
+                )
 
         out_png = output_dir / f"scoped_{pkg}.png"
         out_stem = str(out_png.with_suffix(""))
