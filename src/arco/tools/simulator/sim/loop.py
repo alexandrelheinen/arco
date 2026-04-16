@@ -34,6 +34,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 from arco.tools.simulator import renderer_gl
 
 from .camera import CameraFilter, FollowTransform
+from .layout import ScreenLayout, draw_sidebar_panel, make_chrome_surface
 from .loading import run_with_loading_screen
 from .scene import SimScene
 from .tracking import build_vehicle_sim, find_lookahead
@@ -61,8 +62,6 @@ _LOOKAHEAD_DISC_R = 0.5  # meters
 _C_TRAJECTORY = (60 / 255, 140 / 255, 220 / 255)
 _C_LOOKAHEAD = (240 / 255, 200 / 255, 0 / 255)
 _C_VEHICLE = (80 / 255, 220 / 255, 100 / 255)
-_C_HUD = (220, 220, 220)
-_C_HUD_SHADOW = (40, 40, 50)
 
 
 def _resolve_screen_size() -> tuple[int, int]:
@@ -126,56 +125,6 @@ def _world_bounds(
     return renderer_gl.world_bounds_from_transform(tx, sw, sh)
 
 
-def _draw_tracking_hud(
-    font: pygame.font.Font,
-    sw: int,
-    sh: int,
-    label: str,
-    step: int,
-    speed: float,
-    cte: float,
-    finished: bool,
-    paused: bool,
-) -> None:
-    """Render the vehicle-tracking HUD as a texture overlay.
-
-    Args:
-        font: Monospace pygame font.
-        sw: Screen width in pixels.
-        sh: Screen height in pixels.
-        label: Scene label shown at the top.
-        step: Current simulation step.
-        speed: Current speed in m/s.
-        cte: Cross-track error in meters.
-        finished: Whether the vehicle has reached the goal.
-        paused: Whether the simulation is paused.
-    """
-    lines = [
-        f"{label} — tracking",
-        f"Step: {step}",
-        f"Speed: {speed:.1f} m/s",
-        f"CTE: {cte:+.1f} m",
-    ]
-    if paused:
-        lines.append("[ PAUSED — press SPACE ]")
-    if finished:
-        lines.append("[ GOAL REACHED ]")
-
-    line_h = font.get_linesize() + 2
-    panel_h = len(lines) * line_h + 8
-    panel_w = max(font.size(ln)[0] for ln in lines) + 20
-    surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-    surf.fill((10, 10, 20, 180))
-    y = 4
-    for line in lines:
-        shadow = font.render(line, True, _C_HUD_SHADOW)
-        surf.blit(shadow, (11, y + 1))
-        text = font.render(line, True, _C_HUD)
-        surf.blit(text, (10, y))
-        y += line_h
-    renderer_gl.blit_overlay(surf, 0, 0, sw, sh)
-
-
 def run_sim(
     scene: SimScene,
     *,
@@ -231,6 +180,8 @@ def run_sim(
     pygame.display.set_mode(screen_size, pygame.OPENGL | pygame.DOUBLEBUF)
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("monospace", 14)
+    title_font = pygame.font.SysFont("monospace", 14, bold=True)
+    layout = ScreenLayout(screen_w, screen_h)
 
     # Build scene AFTER pygame.init() so SysFont is safe to call.
     run_with_loading_screen(scene, screen_w, screen_h, bg_color=scene.bg_color)
@@ -268,14 +219,14 @@ def run_sim(
     world_w = max(full_bounds[1] - full_bounds[0], 1.0)
     world_h = max(full_bounds[3] - full_bounds[2], 1.0)
     full_scale = min(
-        (screen_w - 120) / world_w,
-        (screen_h - 120) / world_h,
+        (layout.content_w - 40) / world_w,
+        (layout.content_h - 40) / world_h,
     )
 
     def _current_follow_bounds() -> tuple[float, float, float, float]:
         scale = full_scale * follow_zoom
-        half_w_world = screen_w / (2.0 * scale)
-        half_h_world = screen_h / (2.0 * scale)
+        half_w_world = layout.content_w / (2.0 * scale)
+        half_h_world = layout.content_h / (2.0 * scale)
         cx, cy = cam_filter.x, cam_filter.y
         return (
             cx - half_w_world,
@@ -290,7 +241,7 @@ def run_sim(
         else:
             x_min, x_max, y_min, y_max = full_bounds
         renderer_gl.setup_2d_projection(
-            x_min, x_max, y_min, y_max, screen_w, screen_h
+            x_min, x_max, y_min, y_max, layout.content_w, layout.content_h
         )
 
     # Phase and vehicle state.
@@ -445,16 +396,16 @@ def run_sim(
             glClearColor(r_bg / 255.0, g_bg / 255.0, b_bg / 255.0, 1.0)
             glClear(GL_COLOR_BUFFER_BIT)
 
+            # World-space GL (content viewport only)
             _setup_projection()
+            layout.setup_content_viewport()
 
             reveal_count = (
                 revealed if phase == "background" else background_total
             )
             scene.draw_background(reveal_count)
 
-            if phase == "background":
-                scene.draw_background_hud(font, screen_w, screen_h, revealed)
-            elif vehicle is not None:
+            if phase == "tracking" and vehicle is not None:
                 if len(trajectory) >= 2:
                     renderer_gl.draw_path(
                         [(p[0], p[1]) for p in trajectory],
@@ -478,20 +429,44 @@ def run_sim(
                     vehicle.heading,
                     *_C_VEHICLE,
                 )
+
+            layout.reset_viewport()
+
+            # 2-D overlays (full viewport)
+            if phase == "background":
+                footer_text = "[ PAUSED ]" if paused else "Planning\u2026"
+                sections = scene.sidebar_content(
+                    phase="background",
+                    revealed=reveal_count,
+                )
+            else:  # tracking
+                footer_text = (
+                    "[ PAUSED ]"
+                    if paused
+                    else (
+                        "[ GOAL REACHED ]"
+                        if veh_finished
+                        else f"Step {veh_step}"
+                    )
+                )
                 metrics = (
                     (veh_loop.metrics or {}) if veh_loop is not None else {}
                 )
-                _draw_tracking_hud(
-                    font,
-                    screen_w,
-                    screen_h,
-                    scene.title,
-                    veh_step,
-                    float(metrics.get("speed", 0.0)),
-                    float(metrics.get("cross_track_error", 0.0)),
-                    veh_finished,
-                    paused,
+                sections = scene.sidebar_content(
+                    phase="tracking",
+                    revealed=background_total,
+                    veh_step=veh_step,
+                    speed=float(metrics.get("speed", 0.0)),
+                    cte=float(metrics.get("cross_track_error", 0.0)),
+                    finished=veh_finished,
+                    paused=paused,
                 )
+
+            chrome_surf = make_chrome_surface(
+                layout, scene.title, footer_text, title_font, font
+            )
+            renderer_gl.blit_overlay(chrome_surf, 0, 0, screen_w, screen_h)
+            draw_sidebar_panel(layout, font, sections, screen_w, screen_h)
 
             # ------------------------------------------------------------------
             # Output: record frame or flip display
