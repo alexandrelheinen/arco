@@ -1,6 +1,6 @@
 # ARCO: Autonomous Routing, Control, and Observation
 
-<img src="docs/images/arco.svg" alt="ARCO Logo" width="200" align="left">
+<img src="docs/images/arco.svg" alt="ARCO Logo" width="120" align="left">
 
 ARCO is a Python library for autonomous navigation building blocks:
 
