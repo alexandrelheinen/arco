@@ -22,7 +22,7 @@ dev = [
     "isort",
     "matplotlib",
     "pyyaml",
-    "pylint",
+    "graphviz",
     "pydocstyle"
 ]
 tools = [

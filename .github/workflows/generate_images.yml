@@ -53,10 +53,10 @@ jobs:
           path: /tmp/generated_images/arcoex_${{ matrix.scenario }}.png
 
   # -----------------------------------------------------------------------
-  # Generate pyreverse class and package diagrams (requires graphviz).
+  # Generate graphviz package and scoped class diagrams.
   # -----------------------------------------------------------------------
   generate-diagrams:
-    name: Generate pyreverse diagrams
+    name: Generate graphviz diagrams
     runs-on: ubuntu-latest
 
     permissions:
@@ -65,17 +65,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install Graphviz
+      - name: Install Graphviz CLI
         run: sudo apt-get install -y graphviz
 
       - name: Install package with dev dependencies
         run: pip install -e ".[dev,tools,pygame]"
+
+      - name: Fetch origin/main for diff
+        run: git fetch origin main:refs/remotes/origin/main || true
 
       - name: Generate diagrams
         run: bash scripts/generate_diagrams.sh --out-dir /tmp/generated_diagrams
