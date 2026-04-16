@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: image-${{ matrix.scenario }}
-          path: /tmp/generated_images/arcoex_${{ matrix.scenario }}.png
+          path: /tmp/generated_images/arcosim_${{ matrix.scenario }}.png
 
   # -----------------------------------------------------------------------
   # Generate graphviz package and scoped class diagrams.

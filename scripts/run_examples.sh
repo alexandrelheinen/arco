@@ -32,7 +32,7 @@ SCENARIOS=(
 FAILED=0
 for CFG in "${SCENARIOS[@]}"; do
     NAME="$(basename "$CFG" .yml)"
-    OUT="$SAVE_DIR/arcoex_${NAME}.png"
+    OUT="$SAVE_DIR/arcosim_${NAME}.png"
     echo "--- $NAME ---"
     if MPLBACKEND=Agg arcosim "$CFG" --image --record "$OUT"; then
         echo "✅  $NAME: OK  →  $OUT"
