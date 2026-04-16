@@ -13,10 +13,9 @@ Supported scenarios: astar, city, occ, ppp, rr, rrp, vehicle.
 Static / image mode
 -------------------
 Pass ``--image`` (or its alias ``--static``) to run the example in static
-image mode instead of the real-time pygame simulation.  This mode is
-equivalent to the former ``arcoex`` command.  When ``--record PATH`` is
-also provided, the output image is saved to *PATH* instead of opening an
-interactive window.
+image mode (matplotlib figure) instead of the real-time pygame simulation.
+When ``--record PATH`` is also provided, the output image is saved to *PATH*
+instead of opening an interactive window.
 
 Examples::
 
@@ -26,7 +25,7 @@ Examples::
     # static image, open window
     arcosim map/city.yml --image
 
-    # static image, saved to file (replaces: arcoex map/city.yml --save out.png)
+    # static image, saved to file
     arcosim map/city.yml --image --record out.png
 
 Requires the ``tools`` optional dependency group for static mode::
@@ -125,9 +124,9 @@ def _dispatch_static(
 ) -> None:
     """Dispatch to the *static image* example handler for the given scenario.
 
-    This is the mode formerly provided by the ``arcoex`` command.  It imports
-    ``tools.examples.<scenario>`` and calls its ``main(cfg, save_path=…)``
-    function, producing a matplotlib figure instead of a pygame window.
+    Imports ``tools.examples.<scenario>`` and calls its
+    ``main(cfg, save_path=…)`` function, producing a matplotlib figure
+    instead of a pygame window.
 
     Args:
         scenario: Scenario name, e.g. ``"city"`` or ``"ppp"``.
@@ -278,7 +277,7 @@ def main() -> None:
         dest="record_duration",
         help="Maximum recording length in seconds (default: 90).",
     )
-    # --image / --static: static matplotlib rendering (replaces arcoex)
+    # --image / --static: static matplotlib rendering
     static_group = parser.add_mutually_exclusive_group()
     static_group.add_argument(
         "--image",
@@ -286,8 +285,7 @@ def main() -> None:
         default=False,
         help=(
             "Run in static image mode (matplotlib) instead of real-time "
-            "pygame simulation.  Equivalent to the former 'arcoex' command. "
-            "Requires: pip install arco[tools]"
+            "pygame simulation.  Requires: pip install arco[tools]"
         ),
     )
     static_group.add_argument(
