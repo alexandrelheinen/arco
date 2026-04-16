@@ -18,7 +18,9 @@ SAVE_DIR="/tmp/arco_examples"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --save-dir) SAVE_DIR="$2"; shift 2 ;;
+        --save-dir)
+            [[ -z "${2:-}" || "${2:-}" == -* ]] && echo "Error: --save-dir requires a value" && exit 1
+            SAVE_DIR="$2"; shift 2 ;;
         -*) echo "Unknown option: $1"; exit 1 ;;
         *)  SCENARIO="$1"; shift ;;
     esac

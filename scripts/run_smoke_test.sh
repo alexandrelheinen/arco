@@ -25,9 +25,15 @@ RESULT_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --duration)    DURATION="$2";    shift 2 ;;
-        --out-dir)     OUT_DIR="$2";     shift 2 ;;
-        --result-file) RESULT_FILE="$2"; shift 2 ;;
+        --duration)
+            [[ -z "${2:-}" || "${2:-}" == -* ]] && echo "Error: --duration requires a value" && exit 1
+            DURATION="$2"; shift 2 ;;
+        --out-dir)
+            [[ -z "${2:-}" || "${2:-}" == -* ]] && echo "Error: --out-dir requires a value" && exit 1
+            OUT_DIR="$2"; shift 2 ;;
+        --result-file)
+            [[ -z "${2:-}" || "${2:-}" == -* ]] && echo "Error: --result-file requires a value" && exit 1
+            RESULT_FILE="$2"; shift 2 ;;
         -*) echo "Unknown option: $1"; exit 1 ;;
         *)  SCENARIO="$1"; shift ;;
     esac
