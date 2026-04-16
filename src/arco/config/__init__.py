@@ -27,7 +27,7 @@ import yaml
 _CONFIG_DIR = os.getenv(
     "ARCO_CONFIG_DIR", os.path.join(os.path.dirname(__file__))
 )
-_MAP_DIR = os.path.join(_CONFIG_DIR, "map")
+_MAP_DIR = os.path.join(os.path.dirname(__file__), "..", "tools", "map")
 
 logger = logging.getLogger(__name__)
 
