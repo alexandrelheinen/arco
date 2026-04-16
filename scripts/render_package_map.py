@@ -177,7 +177,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.src.is_dir():
-        print(f"ERROR: source directory not found: {args.src}", file=sys.stderr)
+        print(
+            f"ERROR: source directory not found: {args.src}", file=sys.stderr
+        )
         sys.exit(1)
 
     render(args.src, args.output)

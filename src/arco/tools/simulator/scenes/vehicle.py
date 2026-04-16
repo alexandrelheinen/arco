@@ -291,8 +291,13 @@ class VehicleScene(RaceScene):
         return dict(self._sst_metrics)
 
     def draw_background(
-        self, rrt_revealed: int, sst_revealed: int, racing: bool = False
+        self,
+        rrt_revealed: int,
+        sst_revealed: int,
+        astar_revealed: int = 0,
+        racing: bool = False,
     ) -> None:
+        del astar_revealed
         assert self._occ is not None
         _ob = obstacle_rgb()
         renderer_gl.draw_obstacle_points(

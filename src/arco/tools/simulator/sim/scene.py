@@ -143,6 +143,7 @@ class RaceScene(ArcosimScene):
         self,
         rrt_revealed: int,
         sst_revealed: int,
+        astar_revealed: int = 0,
         racing: bool = False,
     ) -> None:
         """Render the obstacle field and exploration trees.
@@ -150,5 +151,6 @@ class RaceScene(ArcosimScene):
         Args:
             rrt_revealed: Number of RRT* tree nodes to display.
             sst_revealed: Number of SST tree nodes to display.
+            astar_revealed: Number of A* tree nodes to display.
             racing: When ``True``, collapse the view to the race backdrop.
         """

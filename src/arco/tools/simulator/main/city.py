@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """RRT* vs SST vs A* race on a cul-de-sac obstacle map.
 
-Three planners compete on the same sparse environment featuring a U-shaped
-concave obstacle that blocks the direct path to the goal.  Their exploration
-trees are revealed simultaneously.  Once all paths are drawn, all vehicles
-launch at the same instant — the first one to reach the goal wins.
+    Three planners compete on the same sparse environment featuring a U-shaped
+    concave obstacle that blocks the direct path to the goal. Their exploration
+    trees are revealed simultaneously. Once all paths are drawn, all vehicles
+    launch at the same instant — the first one to reach the goal wins.
 
 The simulation stops 3 seconds after the second vehicle arrives.
 
@@ -169,8 +169,8 @@ def run_race(
 ) -> None:
     """Run the three-vehicle cul-de-sac race.
 
-    Phase 1 — **planning reveal**: both exploration trees grow on screen
-    simultaneously.  The race does not start until both trees are fully drawn.
+    Phase 1 — **planning reveal**: all exploration trees grow on screen
+    simultaneously. The race does not start until every tree is fully drawn.
 
     Phase 2 — **racing**: all vehicles follow their respective planned paths
     from a shared start.  The first to arrive is declared the winner.  The
@@ -260,24 +260,27 @@ def run_race(
         scene, "astar_metrics", default_astar_metrics
     )
 
-    # Pacing: reveal both trees in parallel, finishing together at ~half-time.
+    # Pacing: reveal all trees in parallel, finishing together at ~half-time.
     half_frames = (
         max(1, max_record_frames // 2) if recording else max(1, fps * 8)
     )
-    nodes_per_frame = max(1, max(rrt_total, sst_total) // half_frames)
+    nodes_per_frame = max(
+        1, max(rrt_total, sst_total, astar_total) // half_frames
+    )
 
     # ---------------------------------------------------------------------------
     # Mutable simulation state
     # ---------------------------------------------------------------------------
     # Discrete background stages for LEFT/RIGHT navigation:
-    # 0 = empty init, 1 = RRT* tree complete, 2 = both trees complete.
-    _bg_stages = [(0, 0), (rrt_total, 0), (rrt_total, sst_total)]
+    # 0 = empty init, 1 = all trees complete.
+    _bg_stages = [(0, 0, 0), (rrt_total, sst_total, astar_total)]
     _bg_stage_idx = 0
 
     phase = "background"  # "background" | "racing" | "done"
 
     rrt_revealed = 0
     sst_revealed = 0
+    astar_revealed = 0
     hold = 0
 
     rrt_vehicle = None
@@ -322,13 +325,14 @@ def run_race(
         logger.info("Race started.")
 
     def _restart() -> None:
-        nonlocal phase, rrt_revealed, sst_revealed, hold
+        nonlocal phase, rrt_revealed, sst_revealed, astar_revealed, hold
         nonlocal rrt_finish_time, sst_finish_time, astar_finish_time
         nonlocal last_finish_time, paused
         nonlocal _bg_stage_idx
         phase = "background"
         rrt_revealed = 0
         sst_revealed = 0
+        astar_revealed = 0
         hold = 0
         _bg_stage_idx = 0
         rrt_finish_time = None
@@ -373,12 +377,15 @@ def run_race(
                             _bg_stage_idx = min(
                                 len(_bg_stages) - 1, _bg_stage_idx + 1
                             )
-                            rrt_revealed, sst_revealed = _bg_stages[
-                                _bg_stage_idx
-                            ]
+                            (
+                                rrt_revealed,
+                                sst_revealed,
+                                astar_revealed,
+                            ) = _bg_stages[_bg_stage_idx]
                             if (
                                 rrt_revealed < rrt_total
                                 or sst_revealed < sst_total
+                                or astar_revealed < astar_total
                             ):
                                 hold = 0
                         elif (
@@ -386,9 +393,11 @@ def run_race(
                             and phase == "background"
                         ):
                             _bg_stage_idx = max(0, _bg_stage_idx - 1)
-                            rrt_revealed, sst_revealed = _bg_stages[
-                                _bg_stage_idx
-                            ]
+                            (
+                                rrt_revealed,
+                                sst_revealed,
+                                astar_revealed,
+                            ) = _bg_stages[_bg_stage_idx]
                             hold = 0
 
             # ------------------------------------------------------------------
@@ -402,8 +411,13 @@ def run_race(
                     sst_revealed = min(
                         sst_revealed + nodes_per_frame, sst_total
                     )
+                    astar_revealed = min(
+                        astar_revealed + nodes_per_frame, astar_total
+                    )
                     both_done = (
-                        rrt_revealed >= rrt_total and sst_revealed >= sst_total
+                        rrt_revealed >= rrt_total
+                        and sst_revealed >= sst_total
+                        and astar_revealed >= astar_total
                     )
                     if both_done:
                         hold += 1
@@ -513,6 +527,7 @@ def run_race(
             scene.draw_background(
                 rrt_revealed,
                 sst_revealed,
+                astar_revealed,
                 racing=(phase in ("racing", "done")),
             )
 
@@ -600,7 +615,9 @@ def run_race(
             # 2-D overlays (full viewport)
             if phase == "background":
                 both_ready = (
-                    rrt_revealed >= rrt_total and sst_revealed >= sst_total
+                    rrt_revealed >= rrt_total
+                    and sst_revealed >= sst_total
+                    and astar_revealed >= astar_total
                 )
                 if paused:
                     footer_text = "[ PAUSED ]"
@@ -625,6 +642,7 @@ def run_race(
                     phase="background",
                     rrt_revealed=rrt_revealed,
                     sst_revealed=sst_revealed,
+                    astar_revealed=astar_revealed,
                 )
             else:
                 sidebar_sections = scene.sidebar_content(
