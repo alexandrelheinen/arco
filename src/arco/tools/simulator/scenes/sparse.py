@@ -43,6 +43,7 @@ from arco.config.palette import (
     ui_rgb,
 )
 from arco.tools.simulator import renderer_gl
+from arco.tools.simulator.sim.scene import RaceScene
 from arco.tools.simulator.sim.tracking import VehicleConfig
 
 logger = logging.getLogger(__name__)
@@ -342,7 +343,14 @@ def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
     return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
 
-class CityScene:
+def _format_clock(seconds: float) -> str:
+    """Format seconds as ``MMminSSs``."""
+    rounded = int(round(max(0.0, seconds)))
+    mins, secs = divmod(rounded, 60)
+    return f"{mins:02d}min{secs:02d}s"
+
+
+class CityScene(RaceScene):
     """Three-planner race scene on a procedural triangular neighborhood.
 
     Runs RRT*, SST, and A* on the same 1280 × 720 m obstacle map generated from a
@@ -984,6 +992,110 @@ class CityScene:
             gx, gy, self._ring_outer, self._ring_inner, *_c(_C_GOAL)
         )
         renderer_gl.draw_disc(gx, gy, self._ring_inner, *_c(_C_BG))
+
+    def sidebar_content(
+        self, **state: Any
+    ) -> list[tuple[list[str], tuple[int, int, int]]]:
+        """Return sidebar sections for planning or racing phase.
+
+        Args:
+            **state: Phase-specific state. Keys vary by phase; see
+                :meth:`~arco.tools.simulator.main.city.run_race` for usage.
+
+        Returns:
+            Three ``(lines, color)`` sections — one per planner.
+        """
+        from arco.config.palette import layer_rgb
+
+        phase = state.get("phase", "background")
+
+        def _planner_bg(
+            name: str, revealed: int, total: int, metrics: dict
+        ) -> list[str]:
+            return [
+                name,
+                f"  Nodes: {revealed}/{total}",
+                f"  Steps/nodes: {int(metrics['steps'])}/{int(metrics['nodes'])}",
+                f"  Plan time: {_format_clock(float(metrics['planner_time']))}",
+                f"  Path: {int(round(float(metrics['planned_path_length'])))} m",
+                f"  Arc: {int(round(float(metrics['trajectory_arc_length'])))} m",
+                f"  Duration: {_format_clock(float(metrics['trajectory_duration']))}",
+                f"  Path: {metrics['path_status']}",
+                f"  Optim: {metrics['optimizer_status']}",
+            ]
+
+        def _planner_race(name: str, status: str, metrics: dict) -> list[str]:
+            return [
+                name,
+                f"  {status}",
+                f"  Steps/nodes: {int(metrics['steps'])}/{int(metrics['nodes'])}",
+                f"  Plan time: {_format_clock(float(metrics['planner_time']))}",
+                f"  Path: {int(round(float(metrics['planned_path_length'])))} m",
+                f"  Arc: {int(round(float(metrics['trajectory_arc_length'])))} m",
+                f"  Duration: {_format_clock(float(metrics['trajectory_duration']))}",
+                f"  Path: {metrics['path_status']}",
+                f"  Optim: {metrics['optimizer_status']}",
+            ]
+
+        _c_rrt = layer_rgb("rrt", "vehicle")
+        _c_sst = layer_rgb("sst", "vehicle")
+        _c_astar = layer_rgb("astar", "vehicle")
+
+        if phase == "background":
+            rrt_revealed = int(state.get("rrt_revealed", 0))
+            sst_revealed = int(state.get("sst_revealed", 0))
+            astar_tot = self.astar_total
+            return [
+                (
+                    _planner_bg(
+                        "RRT*", rrt_revealed, self.rrt_total, self._rrt_metrics
+                    ),
+                    _c_rrt,
+                ),
+                (
+                    _planner_bg(
+                        "A*", astar_tot, astar_tot, self._astar_metrics
+                    ),
+                    _c_astar,
+                ),
+                (
+                    _planner_bg(
+                        "SST", sst_revealed, self.sst_total, self._sst_metrics
+                    ),
+                    _c_sst,
+                ),
+            ]
+        else:  # racing or done
+            race_time = float(state.get("race_time", 0.0))
+            rrt_finish = state.get("rrt_finish")
+            sst_finish = state.get("sst_finish")
+            astar_finish = state.get("astar_finish")
+
+            def _status(finish: float | None) -> str:
+                if finish is not None:
+                    return f"GOAL in {finish:.1f} s"
+                return f"t = {race_time:.1f} s"
+
+            return [
+                (
+                    _planner_race(
+                        "RRT*", _status(rrt_finish), self._rrt_metrics
+                    ),
+                    _c_rrt,
+                ),
+                (
+                    _planner_race(
+                        "A*", _status(astar_finish), self._astar_metrics
+                    ),
+                    _c_astar,
+                ),
+                (
+                    _planner_race(
+                        "SST", _status(sst_finish), self._sst_metrics
+                    ),
+                    _c_sst,
+                ),
+            ]
 
 
 # Backward-compatible alias kept during refactor.

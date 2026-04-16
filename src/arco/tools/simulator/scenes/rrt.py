@@ -16,7 +16,6 @@ import math
 from typing import Any
 
 import numpy as np
-import pygame
 
 from arco.config.palette import annotation_rgb, layer_rgb, obstacle_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
@@ -38,8 +37,6 @@ _C_START: tuple[int, int, int] = annotation_rgb(dark_bg=True)
 _C_GOAL: tuple[int, int, int] = annotation_rgb(dark_bg=True)
 _C_SDF_NEAR: tuple[int, int, int] = ui_rgb("road_sdf")
 
-_C_HUD = ui_rgb("hud_text")
-_C_HUD_SHADOW = ui_rgb("hud_shadow")
 
 # Alpha for the raw reference path when the trajectory is drawn on top.
 _PATH_ALPHA = 0.35
@@ -294,43 +291,48 @@ class RRTScene(SimScene):
         renderer_gl.draw_ring(gx, gy, _RING_OUTER, _RING_INNER, *_c(_C_GOAL))
         renderer_gl.draw_disc(gx, gy, _RING_INNER, *_c(_C_BG))
 
-    def draw_background_hud(
-        self,
-        font: pygame.font.Font,
-        sw: int,
-        sh: int,
-        revealed: int,
-    ) -> None:
-        """Draw the planning-phase HUD showing exploration progress.
+    def sidebar_content(  # type: ignore[override]
+        self, **state: Any
+    ) -> list[tuple[list[str], tuple[int, int, int]]]:
+        """Return sidebar lines for the current simulation state.
 
         Args:
-            font: Pygame font for rendering text.
-            sw: Screen width in pixels.
-            sh: Screen height in pixels.
-            revealed: Number of tree nodes currently visible.
+            **state: Keys used: ``phase``, ``revealed``, ``veh_step``,
+                ``speed``, ``cte``, ``finished``, ``paused``.
+
+        Returns:
+            Single-element list with ``(lines, color)`` for the RRT* planner.
         """
-        lines = [
-            self.title,
-            f"Nodes: {revealed}/{self.background_total}",
-            f"Path: {'found' if self._path is not None else 'none'}",
-        ]
-        if revealed >= self.background_total:
-            lines.append(
-                "Traj: optimized" if self._traj_states else "Traj: raw path"
-            )
-        line_h = font.get_linesize() + 2
-        panel_h = len(lines) * line_h + 8
-        panel_w = max(font.size(ln)[0] for ln in lines) + 20
-        surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-        surf.fill((10, 10, 20, 180))
-        y = 4
-        for line in lines:
-            shadow = font.render(line, True, _C_HUD_SHADOW)
-            surf.blit(shadow, (11, y + 1))
-            text = font.render(line, True, _C_HUD)
-            surf.blit(text, (10, y))
-            y += line_h
-        renderer_gl.blit_overlay(surf, 0, 0, sw, sh)
+        from arco.config.palette import layer_rgb
+
+        color = layer_rgb("rrt", "vehicle")
+        phase = state.get("phase", "background")
+        if phase == "background":
+            revealed = int(state.get("revealed", 0))
+            lines: list[str] = [
+                self.title,
+                f"Nodes: {revealed}/{self.background_total}",
+                f"Path: {'found' if self._path is not None else 'none'}",
+            ]
+            if revealed >= self.background_total:
+                lines.append(
+                    "Traj: "
+                    + ("optimized" if self._traj_states else "raw path")
+                )
+        else:
+            veh_step = int(state.get("veh_step", 0))
+            speed = float(state.get("speed", 0.0))
+            cte = float(state.get("cte", 0.0))
+            finished = bool(state.get("finished", False))
+            lines = [
+                self.title,
+                f"Step: {veh_step}",
+                f"Speed: {speed:.1f} m/s",
+                f"CTE: {cte:+.2f} m",
+            ]
+            if finished:
+                lines.append("[ GOAL REACHED ]")
+        return [(lines, color)]
 
 
 # ---------------------------------------------------------------------------

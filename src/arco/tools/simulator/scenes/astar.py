@@ -12,7 +12,6 @@ import math
 from typing import Any
 
 import numpy as np
-import pygame
 
 from arco.config.palette import annotation_rgb, layer_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
@@ -32,8 +31,6 @@ _C_NODE_START = annotation_rgb(dark_bg=True)
 _C_NODE_GOAL = annotation_rgb(dark_bg=True)
 _C_NODE_ROUTE = layer_rgb("astar", "path")
 _C_SMOOTH_PATH = layer_rgb("astar", "trajectory")
-_C_HUD = ui_rgb("hud_text")
-_C_HUD_SHADOW = ui_rgb("hud_shadow")
 
 
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
@@ -223,21 +220,33 @@ class AStarScene(SimScene):
                 self._smooth_path, *_c(_C_SMOOTH_PATH)
             )
 
-    def draw_background_hud(
-        self,
-        font: pygame.font.Font,
-        sw: int,
-        sh: int,
-        revealed: int,
-    ) -> None:
-        """No-op — never called because ``background_total`` is zero.
+    def sidebar_content(
+        self, **state: Any
+    ) -> list[tuple[list[str], tuple[int, int, int]]]:
+        """Return sidebar lines (tracking phase only — no background reveal).
 
         Args:
-            font: Pygame font for rendering text.
-            sw: Screen width in pixels.
-            sh: Screen height in pixels.
-            revealed: Ignored.
+            **state: Keys used: ``veh_step``, ``speed``, ``cte``, ``finished``.
+
+        Returns:
+            Single-element list with ``(lines, color)`` for the A* planner.
         """
+        from arco.config.palette import layer_rgb
+
+        color = layer_rgb("astar", "vehicle")
+        veh_step = int(state.get("veh_step", 0))
+        speed = float(state.get("speed", 0.0))
+        cte = float(state.get("cte", 0.0))
+        finished = bool(state.get("finished", False))
+        lines: list[str] = [
+            self.title,
+            f"Step: {veh_step}",
+            f"Speed: {speed:.1f} m/s",
+            f"CTE: {cte:+.2f} m",
+        ]
+        if finished:
+            lines.append("[ GOAL REACHED ]")
+        return [(lines, color)]
 
 
 # ---------------------------------------------------------------------------

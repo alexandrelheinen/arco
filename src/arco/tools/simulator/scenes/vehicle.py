@@ -10,6 +10,7 @@ import numpy as np
 
 from arco.config.palette import annotation_rgb, layer_rgb, obstacle_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
+from arco.tools.simulator.sim.scene import RaceScene
 from arco.tools.simulator.sim.tracking import VehicleConfig
 
 _C_BG: tuple[int, int, int] = ui_rgb("background")
@@ -32,7 +33,7 @@ def _polyline_length(path: list[np.ndarray] | None) -> float:
     )
 
 
-class VehicleScene:
+class VehicleScene(RaceScene):
     """Shared-map RRT* vs SST benchmark scene for simulator race mode."""
 
     def __init__(self, cfg: dict[str, Any]) -> None:
@@ -440,3 +441,98 @@ class VehicleScene:
             _bg[1] / 255.0,
             _bg[2] / 255.0,
         )
+
+    def sidebar_content(
+        self, **state: Any
+    ) -> list[tuple[list[str], tuple[int, int, int]]]:
+        """Return sidebar sections for the vehicle benchmark scene.
+
+        Args:
+            **state: Keys: ``phase``, ``rrt_revealed``, ``sst_revealed``,
+                ``race_time``, ``rrt_finish``, ``sst_finish``.
+
+        Returns:
+            Two ``(lines, color)`` sections — RRT* and SST.
+        """
+        from arco.config.palette import layer_rgb
+
+        phase = state.get("phase", "background")
+        _c_rrt = layer_rgb("rrt", "vehicle")
+        _c_sst = layer_rgb("sst", "vehicle")
+
+        def _fmt(seconds: float) -> str:
+            rounded = int(round(max(0.0, seconds)))
+            mins, secs = divmod(rounded, 60)
+            return f"{mins:02d}min{secs:02d}s"
+
+        def _planner_bg(
+            name: str, revealed: int, total: int, metrics: dict
+        ) -> list[str]:
+            return [
+                name,
+                f"  Nodes: {revealed}/{total}",
+                f"  Steps/nodes: {int(metrics['steps'])}/{int(metrics['nodes'])}",
+                f"  Plan time: {_fmt(float(metrics['planner_time']))}",
+                f"  Path: {int(round(float(metrics['planned_path_length'])))} m",
+                f"  Arc: {int(round(float(metrics['trajectory_arc_length'])))} m",
+                f"  Duration: {_fmt(float(metrics['trajectory_duration']))}",
+                f"  Path: {metrics['path_status']}",
+                f"  Optim: {metrics['optimizer_status']}",
+            ]
+
+        def _planner_race(name: str, status: str, metrics: dict) -> list[str]:
+            return [
+                name,
+                f"  {status}",
+                f"  Steps/nodes: {int(metrics['steps'])}/{int(metrics['nodes'])}",
+                f"  Plan time: {_fmt(float(metrics['planner_time']))}",
+                f"  Path: {int(round(float(metrics['planned_path_length'])))} m",
+                f"  Arc: {int(round(float(metrics['trajectory_arc_length'])))} m",
+                f"  Duration: {_fmt(float(metrics['trajectory_duration']))}",
+                f"  Path: {metrics['path_status']}",
+                f"  Optim: {metrics['optimizer_status']}",
+            ]
+
+        if phase == "background":
+            rrt_revealed = int(state.get("rrt_revealed", 0))
+            sst_revealed = int(state.get("sst_revealed", 0))
+            return [
+                (
+                    _planner_bg(
+                        "RRT*", rrt_revealed, self.rrt_total, self._rrt_metrics
+                    ),
+                    _c_rrt,
+                ),
+                (
+                    _planner_bg(
+                        "SST", sst_revealed, self.sst_total, self._sst_metrics
+                    ),
+                    _c_sst,
+                ),
+            ]
+        else:
+            race_time = float(state.get("race_time", 0.0))
+            rrt_finish = state.get("rrt_finish")
+            sst_finish = state.get("sst_finish")
+
+            def _status(f: float | None) -> str:
+                return (
+                    f"GOAL in {f:.1f} s"
+                    if f is not None
+                    else f"t = {race_time:.1f} s"
+                )
+
+            return [
+                (
+                    _planner_race(
+                        "RRT*", _status(rrt_finish), self._rrt_metrics
+                    ),
+                    _c_rrt,
+                ),
+                (
+                    _planner_race(
+                        "SST", _status(sst_finish), self._sst_metrics
+                    ),
+                    _c_sst,
+                ),
+            ]
