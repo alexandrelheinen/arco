@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # scripts/generate_diagrams.sh
 #
-# Generates pyreverse class and package diagrams for the arco source tree.
-# Requires: pyreverse (included with pylint) and graphviz.
+# Generates graphviz architecture diagrams for the arco source tree:
+#
+#   1. overview.png       — high-level package dependency map (always generated)
+#   2. scoped_<pkg>.png   — per-module class diagrams for files changed vs main
+#
+# Requires: graphviz CLI (dot) + the graphviz Python package.
+# Install the CLI on Ubuntu with: sudo apt-get install -y graphviz
+# Install the Python wrapper with: pip install graphviz
 #
 # Usage: bash scripts/generate_diagrams.sh [--out-dir <path>]
 #
@@ -24,25 +30,38 @@ done
 
 mkdir -p "$OUT_DIR"
 
-echo "=== Generating pyreverse diagrams ==="
+echo "=== Generating graphviz diagrams ==="
 echo "Output directory: $OUT_DIR"
 
-# --ignore=pipeline.py avoids a pyreverse KeyError triggered by modules
-# that are re-exported from a parent __init__.py but also appear as a
-# direct "from .pipeline import …" dependency inside that __init__.
-echo "--- Class diagram ---"
-pyreverse --verbose -f PUB_ONLY --colorized -o png -k --no-standalone \
-    --ignore=pipeline.py \
-    -p classes ./src/arco/
-mv classes_classes.png "$OUT_DIR/pyreverse_classes.png"
-echo "✅  pyreverse_classes.png  →  $OUT_DIR"
+# -----------------------------------------------------------------------
+# 1. High-level package dependency map (always generated).
+# -----------------------------------------------------------------------
+echo "--- Package overview ---"
+python scripts/render_package_map.py --output "$OUT_DIR/overview.png"
 
-echo "--- Package diagram ---"
-pyreverse --verbose -f PUB_ONLY --colorized -o png -k --no-standalone \
-    --ignore=pipeline.py \
-    -p packages ./src/arco/
-mv packages_packages.png "$OUT_DIR/pyreverse_packages.png"
-echo "✅  pyreverse_packages.png  →  $OUT_DIR"
+# -----------------------------------------------------------------------
+# 2. Scoped per-module class diagrams for files changed vs origin/main.
+# -----------------------------------------------------------------------
+echo "--- Scoped class diagrams ---"
+
+# Detect changed Python files.  Falls back gracefully when origin/main is
+# unavailable (e.g. workflow_dispatch on a shallow clone).
+CHANGED=""
+if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    CHANGED=$(git diff --name-only origin/main...HEAD | grep '\.py$' || true)
+elif git rev-parse --verify origin/HEAD >/dev/null 2>&1; then
+    CHANGED=$(git diff --name-only origin/HEAD...HEAD | grep '\.py$' || true)
+fi
+
+if [ -n "$CHANGED" ]; then
+    echo "Changed Python files:"
+    echo "$CHANGED"
+    # shellcheck disable=SC2086
+    echo "$CHANGED" | tr '\n' '\0' | xargs -0 \
+        python scripts/render_scoped.py --output-dir "$OUT_DIR"
+else
+    echo "No changed Python files detected — skipping scoped diagrams."
+fi
 
 echo "======================================"
 echo "✅  All diagrams GENERATED"
