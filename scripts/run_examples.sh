@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # scripts/run_examples.sh
 #
-# Generates static example images for every arcoex scenario (headless).
+# Generates static example images for every scenario (headless).
+# Uses `arcosim --image --record` (replaces the former `arcoex --save`).
 # Requires: package installed with [tools] extras and matplotlib.
 #
 # Usage: bash scripts/run_examples.sh [--save-dir /path/to/output]
@@ -15,7 +16,7 @@ cd "$REPO_ROOT"
 SAVE_DIR="${1:-/tmp/arco_examples}"
 mkdir -p "$SAVE_DIR"
 
-echo "=== Example image generation (arcoex) ==="
+echo "=== Example image generation (arcosim --image) ==="
 echo "Output directory: $SAVE_DIR"
 
 SCENARIOS=(
@@ -33,7 +34,7 @@ for CFG in "${SCENARIOS[@]}"; do
     NAME="$(basename "$CFG" .yml)"
     OUT="$SAVE_DIR/arcoex_${NAME}.png"
     echo "--- $NAME ---"
-    if MPLBACKEND=Agg arcoex "$CFG" --save "$OUT"; then
+    if MPLBACKEND=Agg arcosim "$CFG" --image --record "$OUT"; then
         echo "✅  $NAME: OK  →  $OUT"
     else
         echo "❌  $NAME: FAILED"

@@ -7,7 +7,7 @@
 # Gates (all required — none may be skipped):
 #   1. check_formatting.sh  — black + isort (blocking), pydocstyle (warning)
 #   2. run_tests.sh         — pytest unit tests
-#   3. run_examples.sh      — arcoex headless image generation
+#   3. run_examples.sh      — arcosim --image headless image generation
 #   4. run_smoke_tests.sh   — arcosim short headless recordings
 #   5. generate_videos.sh   — arcosim full-length simulation videos
 #
@@ -43,7 +43,7 @@ run_gate() {
 
 run_gate "Formatting (black + isort)" "$SCRIPTS/check_formatting.sh"
 run_gate "Unit tests (pytest)"        "$SCRIPTS/run_tests.sh"
-run_gate "Examples (arcoex)"          "$SCRIPTS/run_examples.sh"
+run_gate "Examples (arcosim --image)"     "$SCRIPTS/run_examples.sh"
 run_gate "Smoke tests (arcosim)"      "$SCRIPTS/run_smoke_tests.sh"
 run_gate "Videos (arcosim)"           "$SCRIPTS/generate_videos.sh"
 
