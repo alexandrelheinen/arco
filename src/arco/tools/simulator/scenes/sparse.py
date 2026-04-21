@@ -36,12 +36,7 @@ from typing import Any
 import numpy as np
 from scipy.spatial import Delaunay as _Delaunay
 
-from arco.config.palette import (
-    annotation_rgb,
-    layer_rgb,
-    obstacle_rgb,
-    ui_rgb,
-)
+from arco.config.palette import annotation_rgb, layer_rgb, obstacle_rgb, ui_rgb
 from arco.tools.simulator import renderer_gl
 from arco.tools.simulator.sim.scene import RaceScene
 from arco.tools.simulator.sim.tracking import VehicleConfig

@@ -50,9 +50,7 @@ from arco.tools.logging_config import configure_logging
 from arco.tools.simulator.scenes.ppp import BOXES as _BOXES
 from arco.tools.simulator.scenes.ppp import GOAL as _GOAL
 from arco.tools.simulator.scenes.ppp import START as _START
-from arco.tools.simulator.scenes.ppp import (
-    _sample_box_surface,
-)
+from arco.tools.simulator.scenes.ppp import _sample_box_surface
 from arco.tools.simulator.scenes.ppp import is_wall as _is_wall
 from arco.tools.viewer import FrameRenderer, SceneSnapshot
 from arco.tools.viewer.layout import StandardLayout

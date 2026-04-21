@@ -266,10 +266,7 @@ class RRScene:
         import logging
 
         from arco.kinematics import RRRobot
-        from arco.planning.continuous import (
-            RRTPlanner,
-            SSTPlanner,
-        )
+        from arco.planning.continuous import RRTPlanner, SSTPlanner
 
         _log = logging.getLogger(__name__)
         _total = 5

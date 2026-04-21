@@ -24,28 +24,27 @@ from typing import Any
 
 import yaml
 
-_CONFIG_DIR = os.getenv(
-    "ARCO_CONFIG_DIR", os.path.join(os.path.dirname(__file__))
-)
-_MAP_DIR = os.path.join(os.path.dirname(__file__), "..", "tools", "map")
-
 logger = logging.getLogger(__name__)
 
+# Get the directory of this file, and use it as the default
+# config directory if ARCO_CONFIG_DIR is not set
+_my_dir = os.path.dirname(os.path.abspath(__file__))
+_config_dir = os.getenv("ARCO_CONFIG_DIR", _my_dir)
 
-def _load_yaml(path: str) -> dict[str, Any]:
-    if not os.path.isfile(path):
-        raise FileNotFoundError(f"Config file does not exist: {path!r}")
-    logger.info("Loading config %r...", path)
-    with open(path) as fh:
-        return yaml.safe_load(fh) or {}
+logger.info("ARCO config dir set to %r", _config_dir)
 
 
 def load_config(name: str) -> dict[str, Any]:
-    """Load a YAML configuration file from ``tools/config/``.
+    """Load a YAML configuration file from ``ARCO_CONFIG_DIR``.
 
     These are source-code configs accessed directly by library modules
     (planners, vehicles, colors, etc.).  They are **not** scenario files
     and are not intended to be passed to the CLI tools.
+
+    The ARCO root configuration directory must be determined by the
+    environment variable ``ARCO_CONFIG_DIR``.  This is expected to be set
+    by the user or by the CLI tools, and should point to the directory
+    containing the YAML config files.
 
     Args:
         name: Base name of the config file (without the ``.yml``
@@ -55,33 +54,17 @@ def load_config(name: str) -> dict[str, Any]:
         A dictionary containing the parsed YAML configuration.
 
     Raises:
-        FileNotFoundError: If ``tools/config/<name>.yml`` does not exist.
+        EnvironmentError: If the ARCO_CONFIG_DIR environment variable
+            is not set.
+        FileNotFoundError: If ``ARCO_CONFIG_DIR/<name>.yml``
+            does not exist.
     """
-    config_path = os.path.join(_CONFIG_DIR, f"{name}.yml")
+    # Look for the specific config file in the directory
+    config_path = os.path.join(_config_dir, f"{name}.yml")
     logger.debug("Loading config %r...", config_path)
-    return _load_yaml(config_path)
 
-
-def load_map_config(name: str) -> dict[str, Any]:
-    """Load a scenario YAML file from ``tools/map/``.
-
-    These are full scenario configs launched by ``arcosim`` — they carry a
-    ``scenario:`` key at the top.  Simulator and example modules use this
-    function to read scenario-specific parameters.
-
-    Args:
-        name: Base name of the scenario file (without the ``.yml``
-            extension), e.g. ``"rr"``, ``"rrp"``, or ``"occ"``.
-
-    Returns:
-        A dictionary containing the parsed YAML configuration.
-
-    Raises:
-        FileNotFoundError: If ``tools/map/<name>.yml`` does not exist.
-    """
-    config_path = os.path.join(_MAP_DIR, f"{name}.yml")
-    logger.debug("Loading map config %r...", config_path)
-    return _load_yaml(config_path)
+    with open(config_path) as fh:
+        return yaml.safe_load(fh) or {}
 
 
 from arco.config.palette import (  # noqa: E402
@@ -104,7 +87,6 @@ from arco.config.palette import (  # noqa: E402
 
 __all__ = [
     "load_config",
-    "load_map_config",
     "LAYER_ALPHA",
     "annotation_hex",
     "annotation_rgb",

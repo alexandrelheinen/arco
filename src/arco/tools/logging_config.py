@@ -26,8 +26,6 @@ def configure_logging(level: Optional[str] = None) -> None:
     else:
         level = level.upper()
 
-    print("SETTING UP LEVEL", level)
-
     logging.basicConfig(
         level=level,
         format="%(levelname)s - %(message)s",
