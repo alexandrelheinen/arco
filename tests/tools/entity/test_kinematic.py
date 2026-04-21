@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from arco.tools.entity import (
+from arco.simulator.entity import (
     BoxGeometry,
     EndEffector,
     KinematicChain,
@@ -15,7 +15,7 @@ from arco.tools.entity import (
     RevoluteJoint,
     SphereGeometry,
 )
-from arco.tools.entity.kinematic import _joint_from_dict
+from arco.simulator.entity.kinematic import _joint_from_dict
 
 # ---------------------------------------------------------------------------
 # RevoluteJoint

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from arco.tools.viewer.scene_snapshot import SceneSnapshot
+from arco.simulator.viewer.scene_snapshot import SceneSnapshot
 
 # ---------------------------------------------------------------------------
 # Construction and defaults
@@ -163,6 +163,6 @@ def test_from_dict_partial_populates_defaults() -> None:
 
 
 def test_scene_snapshot_importable_from_viewer() -> None:
-    from arco.tools.viewer import SceneSnapshot as SS
+    from arco.simulator.viewer import SceneSnapshot as SS
 
     assert SS is SceneSnapshot

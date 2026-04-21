@@ -26,7 +26,7 @@ _REPO = os.path.dirname(
 )
 sys.path.insert(0, os.path.join(_REPO, "src"))
 
-from arco.tools.simulator.scenes.sparse import _coerce_astar_cell_size
+from arco.simulator.scenes.sparse import _coerce_astar_cell_size
 
 _MAP_DIR = os.path.join(_REPO, "src", "arco", "tools", "map")
 

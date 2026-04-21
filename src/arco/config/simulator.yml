@@ -1,0 +1,3 @@
+# The product of both gives the real time factor
+fps: 30  # [Hz] 30 frames per second
+timestep: 0.1  # [s] 100 ms per step

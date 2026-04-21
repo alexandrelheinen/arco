@@ -9,8 +9,8 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 
-from arco.tools.viewer.frame_renderer import FrameRenderer, LayerStyle
-from arco.tools.viewer.scene_snapshot import SceneSnapshot
+from arco.simulator.viewer.frame_renderer import FrameRenderer, LayerStyle
+from arco.simulator.viewer.scene_snapshot import SceneSnapshot
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -278,8 +278,8 @@ def test_layer_style_visible_false_hides_found_path() -> None:
 
 
 def test_frame_renderer_importable_from_viewer() -> None:
-    from arco.tools.viewer import FrameRenderer as FR
-    from arco.tools.viewer import LayerStyle as LS
+    from arco.simulator.viewer import FrameRenderer as FR
+    from arco.simulator.viewer import LayerStyle as LS
 
     assert FR is FrameRenderer
     assert LS is LayerStyle

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from arco.tools.entity import BoxGeometry, Object, SphereGeometry
+from arco.simulator.entity import BoxGeometry, Object, SphereGeometry
 
 
 def _obj(**kwargs) -> Object:

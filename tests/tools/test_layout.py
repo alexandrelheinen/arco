@@ -17,8 +17,8 @@ _REPO = os.path.dirname(
 )
 sys.path.insert(0, os.path.join(_REPO, "src"))
 
-from arco.tools.viewer.layout import StandardLayout
-from arco.tools.viewer.utils import format_clock, polyline_length
+from arco.simulator.viewer.layout import StandardLayout
+from arco.simulator.viewer.utils import format_clock, polyline_length
 
 # ---------------------------------------------------------------------------
 # polyline_length
@@ -218,14 +218,14 @@ def test_write_metrics_columns_splits_lines() -> None:
 
 
 def test_standard_layout_importable_from_viewer() -> None:
-    from arco.tools.viewer import StandardLayout as SL  # noqa: F401
+    from arco.simulator.viewer import StandardLayout as SL  # noqa: F401
 
     assert SL is StandardLayout
 
 
 def test_utils_importable_from_viewer() -> None:
-    from arco.tools.viewer import format_clock as fc  # noqa: F401
-    from arco.tools.viewer import polyline_length as pl  # noqa: F401
+    from arco.simulator.viewer import format_clock as fc  # noqa: F401
+    from arco.simulator.viewer import polyline_length as pl  # noqa: F401
 
     assert pl is polyline_length
     assert fc is format_clock

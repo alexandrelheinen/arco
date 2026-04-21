@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from arco.tools.entity import BoxGeometry, SphereGeometry, geometry_from_dict
+from arco.simulator.entity import (
+    BoxGeometry,
+    SphereGeometry,
+    geometry_from_dict,
+)
 
 # ---------------------------------------------------------------------------
 # BoxGeometry

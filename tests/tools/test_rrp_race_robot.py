@@ -7,7 +7,7 @@ import pytest
 
 pygame = pytest.importorskip("pygame")  # skip whole module if no display libs
 
-from arco.tools.simulator.main.rrp import RRPRaceRobot  # noqa: E402
+from arco.simulator.main.rrp import RRPRaceRobot  # noqa: E402
 
 
 def test_angular_velocity_capped() -> None:
