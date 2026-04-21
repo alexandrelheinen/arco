@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -12,6 +12,7 @@ authors = [
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
+    "pyyaml",
     "scipy"
 ]
 
@@ -21,18 +22,11 @@ dev = [
     "black",
     "isort",
     "matplotlib",
-    "pyyaml",
     "graphviz",
     "pydocstyle"
 ]
 tools = [
     "arco",
-    "matplotlib",
-    "pyyaml",
-]
-pygame = [
-    # Pulls in [tools] transitively so callers only need [tools,pygame].
-    "arco[tools]",
     "pygame>=2.0.0",
     "PyOpenGL>=3.1.0",
 ]
@@ -41,23 +35,13 @@ pygame = [
 arcosim = "arco.tools.arcosim.__main__:main"
 
 [tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.package-dir]
-"" = "src"
-
-[tool.setuptools.packages.find]
-where = ["src"]
+# This tells setuptools to look for the package 'arco' inside the 'src' folder
+packages = ["arco"]
+package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-"arco.config" = [
-    "*.json",
-    "*.yml",
-]
-"arco.tools.map" = [
-    "*.json",
-    "*.yml",
-]
+# This identifies the 'arco.config' sub-package and includes its .yml files
+"arco.config" = ["*.yml"]
 
 [tool.black]
 line-length = 79

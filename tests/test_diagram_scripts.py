@@ -59,19 +59,23 @@ def tmp_src(tmp_path: Path) -> Path:
     (arco / "beta" / "__init__.py").write_text("", encoding="utf-8")
 
     (arco / "alpha" / "core.py").write_text(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
             import arco.beta
 
             class AlphaCore:
                 pass
-            """),
+            """
+        ),
         encoding="utf-8",
     )
     (arco / "beta" / "helper.py").write_text(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
             class BetaHelper:
                 pass
-            """),
+            """
+        ),
         encoding="utf-8",
     )
     return arco
@@ -240,13 +244,15 @@ def test_parse_file_extracts_inheritance(tmp_path: Path) -> None:
     """_parse_file captures base class names from class definitions."""
     py = tmp_path / "derived.py"
     py.write_text(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
             class Base:
                 pass
 
             class Derived(Base):
                 pass
-            """),
+            """
+        ),
         encoding="utf-8",
     )
     # Use tmp_path as src_root so label = "derived"
@@ -261,11 +267,13 @@ def test_parse_file_arco_imports(tmp_path: Path) -> None:
     """_parse_file extracts arco symbol names from from-imports and import stmts."""
     py = tmp_path / "consumer.py"
     py.write_text(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
             from arco.mapping.graph import RoadGraph
             from arco.control.pid import PIDController
             import arco.middleware.bus
-            """),
+            """
+        ),
         encoding="utf-8",
     )
     info = render_scoped._parse_file(py, tmp_path)
