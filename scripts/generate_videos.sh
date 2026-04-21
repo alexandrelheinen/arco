@@ -24,7 +24,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 OUT_DIR="/tmp/arco_videos"
-DURATION=60
+DURATION=120  # seconds (2 minutes)
 ONLY=""
 
 # Parse optional args
@@ -41,21 +41,14 @@ mkdir -p "$OUT_DIR"
 
 echo "=== Simulation video generation (arcosim, headless) ==="
 echo "Output directory : $OUT_DIR"
-echo "Duration per clip: ${DURATION}s"
+echo "Duration per clip: ${DURATION} s"
 [ -n "$ONLY" ] && echo "Scenarios filter : $ONLY"
 
-ALL_SCENARIOS=(
-    "map/astar.yml"
-    "map/city.yml"
-    "map/rr.yml"
-    "map/vehicle.yml"
-    "map/ppp.yml"
-    "map/rrp.yml"
-    "map/occ.yml"
-)
+MAP_DIR="$REPO_ROOT/map"
+ALL_SCENARIOS=$(find "$MAP_DIR" -name "*.yml" | sort)
 
 FAILED=0
-for CFG in "${ALL_SCENARIOS[@]}"; do
+for CFG in $ALL_SCENARIOS; do
     NAME="$(basename "$CFG" .yml)"
 
     # Apply --only filter if provided
@@ -69,11 +62,10 @@ for CFG in "${ALL_SCENARIOS[@]}"; do
     fi
 
     OUT="$OUT_DIR/arcosim_${NAME}.mp4"
-    echo "--- $NAME ---"
+    echo "--- $NAME ($CFG) ---"
     if SDL_AUDIODRIVER=dummy xvfb-run -a arcosim "$CFG" \
-           --fps 30 \
-           --record "$OUT" \
-           --record-duration "$DURATION"; then
+           -o "$OUT" \
+           -d "$DURATION"; then
         echo "✅  $NAME: OK  →  $OUT"
     else
         echo "❌  $NAME: FAILED"
