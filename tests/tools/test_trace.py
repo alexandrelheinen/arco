@@ -10,7 +10,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 
-from arco.tools.viewer.trace import TraceStyle, draw_trace
+from arco.simulator.viewer.trace import TraceStyle, draw_trace
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -186,8 +186,8 @@ def test_draw_trace_3d_no_arrow() -> None:
 
 
 def test_draw_trace_importable_from_viewer() -> None:
-    from arco.tools.viewer import TraceStyle as TS
-    from arco.tools.viewer import draw_trace as dt
+    from arco.simulator.viewer import TraceStyle as TS
+    from arco.simulator.viewer import draw_trace as dt
 
     assert dt is draw_trace
     assert TS is TraceStyle

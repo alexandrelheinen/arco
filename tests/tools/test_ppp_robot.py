@@ -7,7 +7,7 @@ import pytest
 
 pygame = pytest.importorskip("pygame")  # skip whole module if no display libs
 
-from arco.tools.simulator.main.ppp import PPPRobot  # noqa: E402
+from arco.simulator.main.ppp import PPPRobot  # noqa: E402
 
 
 def test_axes_are_independent() -> None:

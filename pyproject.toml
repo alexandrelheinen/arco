@@ -32,12 +32,13 @@ tools = [
 ]
 
 [project.scripts]
-arcosim = "arco.tools.arcosim.__main__:main"
+arcosim = "arco.simulator.__main__:main"
 
 [tool.setuptools]
-# This tells setuptools to look for the package 'arco' inside the 'src' folder
-packages = ["arco"]
 package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.package-data]
 # This identifies the 'arco.config' sub-package and includes its .yml files

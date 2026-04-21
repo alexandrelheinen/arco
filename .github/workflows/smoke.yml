@@ -1,0 +1,97 @@
+name: Simulator Smoke Tests
+
+# Runs a short headless recording of every simulator script to ensure they
+# execute without errors.  Each scenario runs as an independent parallel job
+# for faster feedback and finer-grained failure reporting.  A final report
+# job posts a per-scenario pass/fail table as a PR comment.
+#
+# On pull requests each smoke-test matrix job should be set as a required
+# status check (Settings → Branches → Branch protection rules → "Require
+# status checks to pass before merging" → add each
+# "smoke-test (<scenario>) / Smoke <scenario>" job).
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  push:
+    branches:
+      - main
+
+jobs:
+  # -----------------------------------------------------------------------
+  # One parallel job per simulator scenario.
+  # -----------------------------------------------------------------------
+  smoke-test:
+    name: Smoke ${{ matrix.scenario }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scenario: [astar, city, rr, vehicle, ppp, rrp, occ]
+      fail-fast: false
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install system dependencies
+        run: sudo apt-get install -y ffmpeg xvfb libgl1
+
+      - name: Install package with pygame
+        run: pip install -e ".[tools]"
+
+      - name: Run smoke test
+        run: |
+          bash scripts/run_smoke_test.sh ${{ matrix.scenario }} \
+            --result-file /tmp/smoke_result_${{ matrix.scenario }}.txt
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-result-${{ matrix.scenario }}
+          path: /tmp/smoke_result_${{ matrix.scenario }}.txt
+
+  # -----------------------------------------------------------------------
+  # Collect all per-scenario results and post a summary PR comment.
+  # Runs even when some smoke-test jobs fail so failures are always reported.
+  # Skipped on push-to-main and workflow_dispatch (no PR to comment on).
+  # -----------------------------------------------------------------------
+  report:
+    name: Post smoke test report
+    needs: smoke-test
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all result artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: /tmp/smoke_results
+          pattern: smoke-result-*
+          merge-multiple: true
+
+      - name: Post PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash scripts/post_smoke_report.sh /tmp/smoke_results

@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from arco.tools.entity import (
+from arco.simulator.entity import (
     BoxGeometry,
     CartesianAgent,
     DubinsAgent,

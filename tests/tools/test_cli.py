@@ -22,13 +22,11 @@ _REPO = os.path.dirname(
 )
 sys.path.insert(0, os.path.join(_REPO, "src"))
 
-from arco.tools.arcosim.__main__ import (
-    SUPPORTED_SCENARIOS as ARCOSIM_SCENARIOS,
-)
-from arco.tools.arcosim.__main__ import (
+from arco.simulator.__main__ import SUPPORTED_SCENARIOS as ARCOSIM_SCENARIOS
+from arco.simulator.__main__ import (
     _dispatch_static as _arcosim_dispatch_static,
 )
-from arco.tools.arcosim.__main__ import _load_scenario as _arcosim_load
+from arco.simulator.__main__ import _load_scenario as _arcosim_load
 
 # ---------------------------------------------------------------------------
 # Shared helpers

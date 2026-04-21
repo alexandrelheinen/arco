@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from arco.tools.simulator.sim.layout import ScreenLayout
+from arco.simulator.sim.layout import ScreenLayout
 
 
 def test_content_dimensions() -> None:

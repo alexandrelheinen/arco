@@ -38,13 +38,13 @@ for SCENARIO in "${SCENARIOS[@]}"; do
     if [ -f "$RESULT_FILE" ]; then
         CONTENT="$(tr -d '[:space:]' < "$RESULT_FILE")"
         if [ "$CONTENT" = "pass" ]; then
-            STATUS="✅ pass"
+            STATUS="Pass"
         else
-            STATUS="❌ fail"
+            STATUS="**Fail**"
             ALL_PASS=false
         fi
     else
-        STATUS="❌ fail"
+        STATUS="**Fail** (result file missing)"
         ALL_PASS=false
     fi
     TABLE_ROWS="${TABLE_ROWS}| \`${SCENARIO}\` | ${STATUS} |
@@ -52,14 +52,14 @@ for SCENARIO in "${SCENARIOS[@]}"; do
 done
 
 if $ALL_PASS; then
-    SUMMARY="✅ All smoke tests passed"
+    SUMMARY="All smoke tests passed"
 else
-    SUMMARY="❌ Some smoke tests failed"
+    SUMMARY="Some smoke tests **failed**"
 fi
 
 RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
-BODY="## 🔥 Smoke Test Results
+BODY="## Smoke Test Results
 
 ${SUMMARY}
 
@@ -76,4 +76,4 @@ echo "$BODY" | jq -Rs '{"body": .}' | \
         "/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
         --input -
 
-echo "✅  Comment posted."
+echo "Comment posted."

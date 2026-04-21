@@ -44,9 +44,9 @@ if [ -z "$SCENARIO" ]; then
     exit 1
 fi
 
-CFG="map/${SCENARIO}.yml"
-if [ ! -f "$CFG" ]; then
-    echo "❌  Config not found: $CFG"
+MAP_FILE="map/${SCENARIO}.yml"
+if [ ! -f "$MAP_FILE" ]; then
+    echo "❌  Config not found: $MAP_FILE"
     exit 1
 fi
 
@@ -54,19 +54,18 @@ mkdir -p "$OUT_DIR"
 OUT="$OUT_DIR/smoke_${SCENARIO}.mp4"
 
 echo "=== Smoke test: $SCENARIO ==="
-echo "Config   : $CFG"
+echo "Map      : $MAP_FILE"
 echo "Output   : $OUT"
-echo "Duration : ${DURATION}s"
+echo "Duration : ${DURATION} s"
 
 PASSED=false
-if SDL_AUDIODRIVER=dummy xvfb-run -a arcosim "$CFG" \
-       --fps 30 \
-       --record "$OUT" \
-       --record-duration "$DURATION"; then
+if SDL_AUDIODRIVER=dummy xvfb-run -a arcosim "$MAP_FILE" \
+       -o "$OUT" \
+       -d "$DURATION"; then
     PASSED=true
-    echo "✅  $SCENARIO: PASSED"
+    echo "$SCENARIO: PASSED"
 else
-    echo "❌  $SCENARIO: FAILED"
+    echo "$SCENARIO: FAILED"
 fi
 
 if [ -n "$RESULT_FILE" ]; then
