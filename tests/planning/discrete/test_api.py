@@ -36,6 +36,21 @@ def test_astar_no_path():
     assert path is None
 
 
+def test_astar_invalid_grid_type_raises():
+    """AStar must raise ValueError for an unrecognised grid_type."""
+    grid = np.zeros((5, 5), dtype=int)
+    with pytest.raises(ValueError, match="grid_type must be"):
+        AStar(grid, grid_type="hexagonal")
+
+
+def test_astar_euclidean_grid_type():
+    """AStar must accept 'euclidean' grid_type without error."""
+    grid = np.zeros((5, 5), dtype=int)
+    astar = AStar(grid, grid_type="euclidean")
+    path = astar.search((0, 0), (4, 4))
+    assert path is not None
+
+
 @pytest.mark.xfail(
     reason="D* planner not yet implemented",
     strict=True,

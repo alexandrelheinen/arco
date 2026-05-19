@@ -185,20 +185,32 @@ path = planner.plan(start=0, goal=9999)
 ```python
 from arco.mapping.graph import load_road_graph
 from arco.planning.discrete import RouteRouter
+import numpy as np
 
 # Load road network
 graph = load_road_graph("map/city.json")
 
-# Plan route
-router = RouteRouter(graph)
+# Plan route (returns None if start/goal are off-road or no path exists)
+router = RouteRouter(graph, activation_radius=50.0)
 result = router.plan(
     start_position=np.array([100.0, 200.0]),
     goal_position=np.array([800.0, 900.0])
 )
 
-# Get full path with waypoints
-path = graph.full_edge_geometry(result.path[0], result.path[1])
+if result is not None:
+    print(f"Path nodes: {result.path}")
+    print(f"Start node: {result.start_node}, distance: {result.start_distance:.2f}")
+    # Get full waypoint geometry for each edge
+    for a, b in zip(result.path[:-1], result.path[1:]):
+        waypoints = graph.full_edge_geometry(a, b)
 ```
+
+`RouteResult` fields: `path` (node ID list), `start_node`, `goal_node`,
+`start_projection`, `goal_projection`, `start_distance`, `goal_distance`.
+
+**Failure modes**: returns `None` when start or goal exceeds the activation
+radius, or when no path connects the projected nodes in the graph.
+All benchmarks and edge-case tests are in `tests/planning/discrete/`.
 
 ### Continuous Planning (RRT*, SST)
 

@@ -70,5 +70,5 @@ See [ENTITY_MODEL.md](ENTITY_MODEL.md) for details.
 
 | Feature | Decision |
 |---------|----------|
-| **D\* Lite** | Stub exists (`DStarLite` in `planning.discrete.api`), full implementation not planned. Route planning with A* covers the main use case; incremental replanning is not required. See [planning_dstar.md](planning_dstar.md). |
+| **D\* Lite** | Stub exists (`DStarLite` in `planning.discrete.api`), full implementation not planned. Route planning with A* covers the main use case; incremental replanning is not required. |
 | **IPC / pub-sub middleware** | Full IPC across processes is not planned. The in-process `arco.middleware` bus (implemented) is sufficient for the single-process pipeline. |

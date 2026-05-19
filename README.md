@@ -22,10 +22,10 @@ The project emphasizes clear architecture, testability, and documented algorithm
   - [A* algorithm notes](docs/planning_astar.md)
   - [RRT* algorithm notes](docs/planning_rrt.md)
   - [SST algorithm notes](docs/planning_sst.md)
-  - [D* Lite notes (stub, not planned)](docs/planning_dstar.md)
+  - [Trajectory optimizer notes](docs/planning_optimizer.md)
+  - [D* Lite — stub only, not planned](docs/ROADMAP.md)
 - [Guidance layer overview](docs/GUIDANCE.md)
-- [Route planning benchmarks](docs/route_planning_benchmarks.md)
-- [Pipeline architecture](docs/PIPELINE.md)
+- [Trajectory optimizer notes](docs/planning_optimizer.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## Architecture

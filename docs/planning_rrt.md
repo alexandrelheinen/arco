@@ -30,7 +30,7 @@ RRT* extends the basic RRT algorithm with two key improvements:
 - [x] Goal biasing for faster convergence
 - [x] Early stopping option for first-solution mode
 - [x] Configurable step size and sample limits
-- [x] Tree export for visualization (`nodes_`, `edges_` attributes)
+- [x] Tree export for visualization via `get_tree(start, goal)` → `(nodes, parent, path)`
 
 ### Configuration Parameters
 
@@ -38,13 +38,13 @@ The `RRTPlanner` class accepts:
 
 - `occupancy`: Occupancy map for collision checking
 - `bounds`: Axis-aligned bounding box as `[(min, max), ...]` per dimension
-- `max_sample_count`: Maximum iterations (default: 5000)
+- `max_sample_count`: Maximum iterations (default: 2000)
 - `step_size`: Maximum extension step in world units (default: 1.0)
-- `goal_tolerance`: Distance threshold for goal region (default: 0.5)
-- `rewire_radius`: Search radius for rewiring (default: auto-computed)
+- `goal_tolerance`: Distance threshold for goal region (default: 1.0)
+- `rewire_radius`: Fixed search radius for rewiring (default: auto-computed via RRT* formula)
 - `collision_check_count`: Segment discretization for collision checks (default: 10)
 - `goal_bias`: Probability of sampling goal directly (default: 0.05)
-- `early_stop`: Stop at first solution vs. optimize further (default: False)
+- `early_stop`: Stop at first solution vs. optimize further (default: True)
 
 ### Usage Example
 
@@ -74,8 +74,9 @@ path = planner.plan(start, goal)
 
 if path is not None:
     print(f"Found path with {len(path)} waypoints")
-    # Access tree structure for visualization
-    print(f"Tree has {len(planner.nodes_)} nodes")
+    # Access tree structure for visualization via get_tree()
+    nodes, parent, path = planner.get_tree(start, goal)
+    print(f"Tree has {len(nodes)} nodes")
 ```
 
 ## Comparison with SST
@@ -91,9 +92,14 @@ For purely geometric obstacle avoidance in ARCO, RRT* is the recommended choice.
 
 ## Visualization
 
-The planner exposes tree structure through attributes:
-- `nodes_`: List of node positions as numpy arrays
-- `edges_`: List of (parent_index, child_index) tuples
+The planner exposes tree structure through the `get_tree(start, goal)` method:
+
+```python
+nodes, parent, path = planner.get_tree(start, goal)
+# nodes: list of np.ndarray positions
+# parent: dict mapping node index → parent index (None for root)
+# path: solution path or None
+```
 
 Example visualization scripts are available in `tools/examples/rrt_planning.py`.
 

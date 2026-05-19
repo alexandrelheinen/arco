@@ -17,7 +17,7 @@ src/arco/guidance/
 
 ## Components
 
-### Control (`arco.guidance.control`)
+### Control (`arco.control`)
 
 Feedback controllers that generate control inputs to track a reference trajectory.
 
@@ -93,21 +93,17 @@ import numpy as np
 # 1. Plan discrete path
 grid = ...  # Grid object
 planner = AStar(grid)
-path = planner.plan(start, goal)  # List of waypoints
+path = planner.search(start, goal)  # List of waypoints
 
-# 2. Smooth with B-spline
+# 2. Smooth with B-spline (currently a pass-through stub)
 interpolator = BSplineInterpolator(degree=3)
-smooth_trajectory = interpolator.fit(np.array(path))
-
-# 3. Sample at uniform intervals
-t_samples = np.linspace(0, 1, 100)
-trajectory_points = [interpolator.evaluate(t) for t in t_samples]
+smooth_path = interpolator.interpolate(path)
 ```
 
 ### Pure Pursuit Control Workflow
 
 ```python
-from arco.guidance.control import PurePursuitController, TrackingLoop
+from arco.control import PurePursuitController, TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 
 # 1. Create vehicle model
