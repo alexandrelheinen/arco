@@ -25,7 +25,6 @@ The project emphasizes clear architecture, testability, and documented algorithm
   - [Trajectory optimizer notes](docs/planning_optimizer.md)
   - [D* Lite — stub only, not planned](docs/ROADMAP.md)
 - [Guidance layer overview](docs/GUIDANCE.md)
-- [Trajectory optimizer notes](docs/planning_optimizer.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## Architecture
