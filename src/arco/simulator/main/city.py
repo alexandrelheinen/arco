@@ -318,11 +318,16 @@ def run_race(
         astar_finished = False
         race_time = 0.0
         occ = getattr(scene, "_occ", None)
-        scene_cfg = getattr(scene, "_cfg", {}) or {}
-        tracker_mode = str(
-            scene_cfg.get("simulator", {}).get("tracker", "pure_pursuit")
-        )
+        # CityScene stores simulator config in _sim_cfg; VehicleScene keeps
+        # the full YAML under _cfg["simulator"].
+        sim_cfg = getattr(scene, "_sim_cfg", None)
+        if not isinstance(sim_cfg, dict):
+            sim_cfg = (getattr(scene, "_cfg", {}) or {}).get("simulator", {})
+        tracker_mode = str(sim_cfg.get("tracker", "pure_pursuit"))
         if tracker_mode == "mpc":
+            # One MPC instance per global-planner path.  The planner
+            # (RRT* / SST / A*) still owns topology; MPC only tracks the
+            # arbitrary waypoint list it receives as reference.
             mpc_cfg = PathFollowingMPCConfig.create_from_config()
             if rrt_wps:
                 rrt_vehicle, rrt_loop = build_vehicle_mpc_sim(
@@ -336,7 +341,9 @@ def run_race(
                 astar_vehicle, astar_loop = build_vehicle_mpc_sim(
                     astar_wps, cfg, mpc_cfg, occ
                 )
-            logger.info("Race started (tracker=mpc).")
+            logger.info(
+                "Race started (tracker=mpc) for RRT*/SST/A* references."
+            )
         else:
             if rrt_wps:
                 rrt_vehicle, rrt_loop = build_vehicle_sim(rrt_wps, cfg, occ)
@@ -762,7 +769,11 @@ def run_race(
 
 def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     sim_cfg = load_config("simulator")
-    scene = CityScene(cfg.get("planner", {}), cfg.get("world", {}))
+    scene = CityScene(
+        cfg.get("planner", {}),
+        cfg.get("world", {}),
+        sim_cfg=cfg.get("simulator", {}),
+    )
     run_race(
         scene,
         fps=sim_cfg["fps"],
