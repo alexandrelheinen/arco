@@ -101,15 +101,10 @@ _C_ASTAR_HUD: tuple[int, int, int] = layer_rgb("astar", "vehicle")
 _C_WINNER: tuple[int, int, int] = ui_rgb("hud_winner")
 _C_TIE: tuple[int, int, int] = ui_rgb("hud_tie")
 
-# Vehicle body world dimensions — deliberately oversized vs physical scale
-# so agents stay readable on the 600 m dark city map (~1.5–2 px/m on a
-# 1280×720 view).  Road half-width ≈ 15 m; markers are larger than that
-# on purpose for visibility, not kinematic fidelity.
-_VEH_HALF_L = 20.0  # meters
-_VEH_HALF_W = 11.0  # meters
-_VEH_GLOW_RADIUS = 48.0  # meters — soft halo around each racer
-_VEH_CORE_RADIUS = 14.0  # meters — bright core disc under the body
-_LOOKAHEAD_DISC_R = 8.0  # meters
+# Vehicle body world dimensions (~2× the original 1.5 × 0.7 m rectangle).
+_VEH_HALF_L = 3.0  # meters
+_VEH_HALF_W = 1.4  # meters
+_LOOKAHEAD_DISC_R = 1.0  # meters
 
 
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
@@ -128,69 +123,39 @@ def _format_clock(seconds: float) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _brighten_rgb(
+    color: tuple[int, int, int], *, mix: float = 0.55
+) -> tuple[float, float, float]:
+    """Mix an RGB color toward white for a brighter on-dark fill.
+
+    Args:
+        color: Base RGB color in ``[0, 255]``.
+        mix: Fraction of white blended in (``0`` = original, ``1`` = white).
+
+    Returns:
+        Brightened RGB components in ``[0, 1]``.
+    """
+    r, g, b = _c(color)
+    m = float(min(max(mix, 0.0), 1.0))
+    return (r + (1.0 - r) * m, g + (1.0 - g) * m, b + (1.0 - b) * m)
+
+
 def _draw_race_vehicle(
     x: float,
     y: float,
     heading: float,
     color: tuple[int, int, int],
 ) -> None:
-    """Draw a large, glowing race agent on the dark city map.
-
-    Stacks a soft color halo, a bright core disc, and an oriented body
-    rectangle so the vehicle remains visible while racing through the
-    neighborhood corridors.
+    """Draw a race agent: ~2× body with a brighter fill color.
 
     Args:
         x: Vehicle x position in world meters.
         y: Vehicle y position in world meters.
         heading: Vehicle heading in radians.
-        color: RGB body/glow color in ``[0, 255]``.
+        color: Base RGB body color in ``[0, 255]``.
     """
-    r, g, b = _c(color)
-    # Additive-ish outer bloom (high alpha on dark bg reads as glow).
-    renderer_gl.draw_glow_disc(
-        x,
-        y,
-        _VEH_GLOW_RADIUS,
-        r,
-        g,
-        b,
-        layer_count=6,
-        max_alpha=0.55,
-    )
-    # Hot core — push toward white for contrast on the dark background.
-    renderer_gl.draw_disc(
-        x,
-        y,
-        _VEH_CORE_RADIUS * 1.35,
-        min(1.0, r + 0.55),
-        min(1.0, g + 0.55),
-        min(1.0, b + 0.55),
-        alpha=0.55,
-    )
-    renderer_gl.draw_disc(
-        x,
-        y,
-        _VEH_CORE_RADIUS,
-        min(1.0, r + 0.70),
-        min(1.0, g + 0.70),
-        min(1.0, b + 0.70),
-        alpha=0.95,
-    )
     renderer_gl.draw_oriented_rect(
-        x, y, _VEH_HALF_L, _VEH_HALF_W, heading, r, g, b
-    )
-    # Bright nose tip so heading reads even when the body is small on screen.
-    nose_x = x + math.cos(heading) * (_VEH_HALF_L * 0.85)
-    nose_y = y + math.sin(heading) * (_VEH_HALF_L * 0.85)
-    renderer_gl.draw_disc(
-        nose_x,
-        nose_y,
-        _VEH_CORE_RADIUS * 0.45,
-        1.0,
-        1.0,
-        1.0,
-        alpha=0.95,
+        x, y, _VEH_HALF_L, _VEH_HALF_W, heading, *_brighten_rgb(color)
     )
 
 
