@@ -1,0 +1,28 @@
+# Preview map for MPC city race video (reduced planner budgets).
+# Same world/tracker as city.yml; not used by release matrix.
+scenario: city
+planner:
+  step_size:
+  - 15.0
+  - 15.0
+  goal_tolerance: 2.0
+  collision_check_count: 4
+  goal_bias: 0.05
+  obstacle_clearance: 8.0
+  rrt_max_sample_count: 2500
+  sst_max_sample_count: 4000
+  astar_max_sample_count: 4000
+  witness_radius: 0.5
+  enable_pruning: false
+world:
+  world_width: 600.0
+  world_height: 600.0
+  mean_edge_length: 120.0
+  jitter_sigma: 0.15
+  max_edge_factor: 1.7
+  road_half_width: 15.0
+  obstacle_sampling_spacing: 4.0
+  road_dot_spacing: 15.0
+  seed: 42
+simulator:
+  tracker: mpc
