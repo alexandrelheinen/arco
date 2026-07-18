@@ -33,16 +33,23 @@ Feedback controllers that generate control inputs to track a reference trajector
   - Look-ahead distance determines aggressiveness
   - Works well for car-like vehicles
 
-- **MPCController** (`control/mpc.py`): Model Predictive Control
-  - Optimization-based control with preview horizon
-  - Handles constraints and multi-objective cost
-  - More computationally expensive than PID/Pure Pursuit
+- **DubinsPathFollowingMPC** (`control/mpc/`): Receding-horizon contouring NMPC
+  - Jointly optimizes lateral error, heading, speed, and obstacle clearance
+  - CasADi + IPOPT backend via optional extra: `pip install arco[mpc]`
+  - Soft directional obstacle barriers (same philosophy as `TrajectoryOptimizer`)
+  - Paired with `MPCTrackingLoop` (no APF blend; avoidance is inside the NLP)
 
-- **TrackingLoop** (`control/tracking.py`): Integration framework
-  - Wraps a controller with execution timing and state management
-  - Provides consistent interface for all controller types
+- **MPCTrackingLoop** (`control/mpc/tracking_loop.py`): Drop-in metrics parallel
+  to `TrackingLoop` for the MPC tracker (`build_vehicle_mpc_sim` factory)
 
-All controllers inherit from the `Controller` abstract base class (`control/base.py`).
+- **TrackingLoop** (`control/tracking.py`): Pure Pursuit integration framework
+  - Optional APF repulsion for reactive avoidance (legacy / baseline)
+
+- **MPCController** (`control/mpc/controller.py`): Deprecated scalar stub
+  - Emits `DeprecationWarning`; use `DubinsPathFollowingMPC` instead
+
+PID / Pure Pursuit inherit from the `Controller` abstract base class
+(`control/base.py`). Path-following MPC uses the separate `MPCTracker` ABC.
 
 ### Interpolation (`arco.guidance.interpolation`)
 
@@ -107,27 +114,39 @@ trajectory_points = [interpolator.evaluate(t) for t in t_samples]
 ### Pure Pursuit Control Workflow
 
 ```python
-from arco.guidance.control import PurePursuitController, TrackingLoop
+from arco.control import PurePursuitController, TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
 
-# 1. Create vehicle model
-vehicle = DubinsVehicle(turning_radius=2.0)
+vehicle = DubinsVehicle(x=0.0, y=0.0, heading=0.0, max_turn_rate=1.0)
+controller = PurePursuitController(lookahead_distance=3.0)
+loop = TrackingLoop(vehicle, controller, cruise_speed=0.5)
+metrics = loop.run(trajectory_points, steps=100, dt=0.05)
+```
 
-# 2. Configure controller
-controller = PurePursuitController(
-    lookahead_distance=3.0,
-    vehicle=vehicle
+### Path-following MPC Workflow
+
+```python
+from arco.control.mpc import (
+    DubinsPathFollowingMPC,
+    DubinsVehicleLimits,
+    PathFollowingMPCConfig,
 )
+from arco.simulator.sim.tracking import VehicleConfig, build_vehicle_mpc_sim
 
-# 3. Set reference path
-controller.set_path(trajectory_points)
-
-# 4. Execute tracking loop
-loop = TrackingLoop(controller, dt=0.1)
-for state in loop.run():
-    # Apply control and update vehicle
-    control_input = loop.compute_control(state)
-    # ... apply to vehicle physics
+cfg = VehicleConfig(
+    max_speed=1.0,
+    min_speed=0.05,
+    cruise_speed=0.36,
+    lookahead_distance=1.0,  # unused by MPC; kept for VehicleConfig parity
+    goal_radius=0.2,
+    max_turn_rate=1.2,
+    max_acceleration=1.2,
+    max_turn_rate_dot=2.0,
+)
+mpc_cfg = PathFollowingMPCConfig.create_from_config()
+vehicle, loop = build_vehicle_mpc_sim(waypoints, cfg, mpc_cfg, occupancy=occ)
+for _ in range(200):
+    metrics = loop.step(waypoints, dt=0.05)
 ```
 
 ## Integration with Planning
