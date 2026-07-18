@@ -546,6 +546,7 @@ def draw_disc(
     r: float,
     g: float,
     b: float,
+    alpha: float = 1.0,
 ) -> None:
     """Draw a filled circle approximated as a 24-gon using ``GL_TRIANGLE_FAN``.
 
@@ -556,9 +557,11 @@ def draw_disc(
         r: Red component ``[0, 1]``.
         g: Green component ``[0, 1]``.
         b: Blue component ``[0, 1]``.
+        alpha: Opacity in ``[0, 1]``.  Values below 1.0 require blending
+            to be enabled by the caller.
     """
     glDisable(GL_LIGHTING)
-    glColor3f(r, g, b)
+    glColor4f(r, g, b, float(alpha))
     glBegin(GL_TRIANGLE_FAN)
     glVertex2f(cx, cy)
     for i in range(_DISC_SEGS + 1):
@@ -567,6 +570,46 @@ def draw_disc(
             cx + radius * math.cos(angle), cy + radius * math.sin(angle)
         )
     glEnd()
+
+
+def draw_glow_disc(
+    cx: float,
+    cy: float,
+    radius: float,
+    r: float,
+    g: float,
+    b: float,
+    *,
+    layer_count: int = 4,
+    max_alpha: float = 0.35,
+) -> None:
+    """Draw a soft radial glow as concentric translucent discs.
+
+    Larger, more transparent discs are drawn first so the stack reads as a
+    bloom/halo around ``(cx, cy)``.  Caller must enable ``GL_BLEND``.
+
+    Args:
+        cx: Center x in world meters.
+        cy: Center y in world meters.
+        radius: Outer glow radius in world meters.
+        r: Red component ``[0, 1]``.
+        g: Green component ``[0, 1]``.
+        b: Blue component ``[0, 1]``.
+        layer_count: Number of concentric discs (at least 1).
+        max_alpha: Peak opacity of the innermost glow layer.
+    """
+    layers = max(int(layer_count), 1)
+    for i in range(layers, 0, -1):
+        frac = i / layers
+        draw_disc(
+            cx,
+            cy,
+            radius * frac,
+            r,
+            g,
+            b,
+            alpha=max_alpha * (1.0 - 0.55 * frac),
+        )
 
 
 def draw_ring(
