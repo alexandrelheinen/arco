@@ -73,7 +73,8 @@ The full ARCO processing pipeline runs as a sequence of independent steps
 
 - **Mapping**: Spatial data structures (grids, graphs, occupancy) and obstacle-query interfaces
 - **Planning**: Path search (A*, route planning) and sampling methods (RRT*, SST)
-- **Guidance**: Trajectory shaping (interpolation, primitives) and feedback control (PID, Pure Pursuit, MPC)
+- **Guidance / control**: Trajectory shaping (interpolation, primitives) and
+  feedback control (PID, Pure Pursuit, path-following MPC)
 
 ## Current Algorithm Status
 
@@ -118,6 +119,13 @@ The full ARCO processing pipeline runs as a sequence of independent steps
 git clone https://github.com/alexandrelheinen/arco.git
 cd arco
 pip install -e ".[dev]"
+```
+
+Path-following MPC (CasADi + IPOPT) is an optional extra:
+
+```bash
+pip install -e ".[mpc]"
+# or: pip install "arco[mpc]"
 ```
 
 > ARCO requires Python 3.10+. See [docs/STACK.md](docs/STACK.md) for the full

@@ -1,3 +1,5 @@
+import warnings
+
 from arco.control.mpc import MPCController
 from arco.control.pid import PIDController
 from arco.control.pure_pursuit import PurePursuitController
@@ -18,6 +20,9 @@ def test_pid_controller():
 
 
 def test_mpc_controller():
-    ctrl = MPCController(horizon=5, dt=0.2)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        ctrl = MPCController(horizon=5, dt=0.2)
+    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
     cmd = ctrl.control(0.0, 1.0)
     assert isinstance(cmd, float)

@@ -1,12 +1,19 @@
-"""MPCController: model predictive controller."""
+"""MPCController: deprecated scalar MPC stub."""
 
 from __future__ import annotations
 
-from .base import Controller
+import warnings
+
+from arco.control.base import Controller
 
 
 class MPCController(Controller):
-    """Model Predictive Controller (stub)."""
+    """Deprecated scalar Model Predictive Controller stub.
+
+    .. deprecated:: 0.4.0
+        Use :class:`~arco.control.mpc.path_following.DubinsPathFollowingMPC`
+        for multi-state path-following MPC instead.
+    """
 
     def __init__(self, horizon: int = 10, dt: float = 0.1) -> None:
         """Initialize MPCController.
@@ -15,6 +22,12 @@ class MPCController(Controller):
             horizon: Prediction horizon (number of steps).
             dt: Time step duration in seconds.
         """
+        warnings.warn(
+            "MPCController is deprecated; use DubinsPathFollowingMPC "
+            "from arco.control.mpc for path-following MPC.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.horizon = horizon
         self.dt = dt
 
@@ -28,5 +41,4 @@ class MPCController(Controller):
         Returns:
             Control command as a float.
         """
-        # Placeholder: would compute MPC output in practice
         return 0.0

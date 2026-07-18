@@ -15,6 +15,12 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from arco.mapping.occupancy import Occupancy
 
+from arco.control.mpc import (
+    DubinsPathFollowingMPC,
+    DubinsVehicleLimits,
+    MPCTrackingLoop,
+    PathFollowingMPCConfig,
+)
 from arco.control.pure_pursuit import PurePursuitController
 from arco.control.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
@@ -136,4 +142,75 @@ def build_vehicle_sim(
         occupancy=occupancy,
         repulsion_gain=cfg.repulsion_gain,
     )
+    return vehicle, loop
+
+
+def build_vehicle_mpc_sim(
+    waypoints: list[tuple[float, float]],
+    cfg: VehicleConfig,
+    mpc_cfg: PathFollowingMPCConfig,
+    occupancy: Optional["Occupancy"] = None,
+) -> tuple[DubinsVehicle, MPCTrackingLoop]:
+    """Create a Dubins vehicle and MPC tracking loop at waypoints[0].
+
+    Parallel factory to :func:`build_vehicle_sim` that uses
+    :class:`~arco.control.mpc.DubinsPathFollowingMPC` instead of
+    Pure Pursuit + APF.
+
+    Args:
+        waypoints: Ordered list of ``(x, y)`` path waypoints.
+        cfg: Vehicle dynamic limits and cruise speed.
+        mpc_cfg: Path-following MPC horizon and weights.
+        occupancy: Optional occupancy map used inside the optimizer
+            for directional obstacle barriers.
+
+    Returns:
+        Tuple of ``(vehicle, mpc_tracking_loop)``.
+
+    Raises:
+        ImportError: If the optional CasADi dependency is missing
+            (``pip install arco[mpc]``).
+    """
+    x0, y0 = waypoints[0]
+    theta0 = initial_heading(waypoints)
+    vehicle = DubinsVehicle(
+        x=x0,
+        y=y0,
+        heading=theta0,
+        max_speed=cfg.max_speed,
+        min_speed=cfg.min_speed,
+        max_turn_rate=cfg.max_turn_rate,
+        max_acceleration=cfg.max_acceleration,
+        max_turn_rate_dot=cfg.max_turn_rate_dot,
+    )
+    limits = DubinsVehicleLimits(
+        max_speed=cfg.max_speed,
+        min_speed=cfg.min_speed,
+        max_turn_rate=cfg.max_turn_rate,
+        max_acceleration=cfg.max_acceleration,
+        max_turn_rate_dot=cfg.max_turn_rate_dot,
+    )
+    # VehicleConfig.cruise_speed is the authoritative cruise for the sim;
+    # MPC weights / horizon come from mpc_cfg.
+    effective_mpc_cfg = PathFollowingMPCConfig(
+        horizon_step_count=mpc_cfg.horizon_step_count,
+        dt=mpc_cfg.dt,
+        cruise_speed=cfg.cruise_speed,
+        weight_contour=mpc_cfg.weight_contour,
+        weight_heading=mpc_cfg.weight_heading,
+        weight_progress=mpc_cfg.weight_progress,
+        weight_control=mpc_cfg.weight_control,
+        weight_obstacle=mpc_cfg.weight_obstacle,
+        obstacle_barrier_power=mpc_cfg.obstacle_barrier_power,
+        weight_terminal=mpc_cfg.weight_terminal,
+        weight_slack=mpc_cfg.weight_slack,
+        max_solver_iter_count=mpc_cfg.max_solver_iter_count,
+    )
+    tracker = DubinsPathFollowingMPC(
+        vehicle_limits=limits,
+        config=effective_mpc_cfg,
+        occupancy=occupancy,
+    )
+    tracker.set_reference(waypoints)
+    loop = MPCTrackingLoop(vehicle, tracker, cruise_speed=cfg.cruise_speed)
     return vehicle, loop

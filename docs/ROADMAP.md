@@ -20,13 +20,21 @@ See [MAPPING.md](MAPPING.md) for details.
 
 See [PLANNING.md](PLANNING.md) for details.
 
-### Guidance layer
-- Controllers: `PIDController`, `PurePursuitController`, `MPCController`, `TrackingLoop`
+### Guidance / control layer
+- Controllers: `PIDController`, `PurePursuitController`, `TrackingLoop`
+- Path-following MPC (shipped): `DubinsPathFollowingMPC`, `MPCTrackingLoop`,
+  `ReferencePath` under `arco.control.mpc` (optional `arco[mpc]` / CasADi)
+- Deprecated stub: scalar `MPCController` (use `DubinsPathFollowingMPC`)
 - Interpolation: `BSplineInterpolator` for smooth trajectory generation
 - Primitives: `DubinsPrimitive` for kinematic steering constraints
 - Vehicle models: `DubinsVehicle`
 
 See [GUIDANCE.md](GUIDANCE.md) for details.
+
+### Follow-ups
+- Joint-space MPC (`JointSpaceMPC`) to replace `JointSpaceTracker` APF for
+  SCARA / 6-DOF pipelines
+- Optional acados backend after the CasADi formulation is stable
 
 ### Tools
 - `arcosim` — unified CLI for real-time simulation and static image generation
