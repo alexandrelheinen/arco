@@ -15,9 +15,12 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from arco.mapping.occupancy import Occupancy
 
+from arco.control.joint_tracker import JointSpaceTracker
 from arco.control.mpc import (
     DubinsPathFollowingMPC,
     DubinsVehicleLimits,
+    JointSpaceMPC,
+    JointSpaceMPCConfig,
     MPCTrackingLoop,
     PathFollowingMPCConfig,
 )
@@ -214,3 +217,49 @@ def build_vehicle_mpc_sim(
     tracker.set_reference(waypoints)
     loop = MPCTrackingLoop(vehicle, tracker, cruise_speed=cfg.cruise_speed)
     return vehicle, loop
+
+
+def build_joint_tracker(
+    *,
+    max_vel: float | list[float] | tuple[float, ...],
+    max_acc: float | list[float] | tuple[float, ...],
+    proportional_gain: float = 2.0,
+    occupancy: Optional["Occupancy"] = None,
+    repulsion_gain: float = 0.0,
+    tracker: str = "pure_pursuit",
+    mpc_cfg: JointSpaceMPCConfig | None = None,
+) -> JointSpaceTracker | JointSpaceMPC:
+    """Build a C-space tracker: P+APF or joint-space MPC.
+
+    Args:
+        max_vel: Per-axis velocity limits.
+        max_acc: Per-axis acceleration limits.
+        proportional_gain: P-gain for the APF tracker (ignored by MPC).
+        occupancy: Optional C-space occupancy map.
+        repulsion_gain: APF gain for the legacy tracker (ignored by MPC).
+        tracker: ``"mpc"`` selects :class:`JointSpaceMPC`; any other
+            value selects :class:`JointSpaceTracker`.
+        mpc_cfg: Optional joint-space MPC config.
+
+    Returns:
+        A tracker exposing ``reset(q0)`` and ``step(target_q, dt)``.
+
+    Raises:
+        ImportError: If ``tracker == "mpc"`` and CasADi is missing.
+    """
+    if tracker == "mpc":
+        return JointSpaceMPC(
+            max_vel=max_vel,
+            max_acc=max_acc,
+            proportional_gain=proportional_gain,
+            occupancy=occupancy,
+            repulsion_gain=repulsion_gain,
+            config=mpc_cfg or JointSpaceMPCConfig.create_from_config(),
+        )
+    return JointSpaceTracker(
+        max_vel=max_vel,
+        max_acc=max_acc,
+        proportional_gain=proportional_gain,
+        occupancy=occupancy,
+        repulsion_gain=repulsion_gain,
+    )

@@ -56,6 +56,8 @@ planner:
 
 # Speed at which the carrot target advances along the planned path (m/s).
 simulator:
+  # Online tracker: "pure_pursuit" (P+APF) or "mpc" (joint-space CasADi NMPC).
+  tracker: mpc
   race_speed: 2.0  # [m/s] speed at which the carrot target advances along the planned path
 
 # Maximum speed per prismatic joint axis (m/s).

@@ -81,4 +81,6 @@ planner:
 # Simulator parameters
 # ---------------------------------------------------------------------------
 simulator:
+  # Online tracker: "pure_pursuit" (P+APF) or "mpc" (joint-space CasADi NMPC).
+  tracker: mpc
   race_speed: 0.6  # [m/s] speed for end-effector path following

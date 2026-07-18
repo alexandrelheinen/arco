@@ -19,3 +19,19 @@ obstacle_barrier:
 
 solver:
   max_iter_count: 50
+
+# Joint-space carrot-tracking MPC (PPP / RRP / N-DOF).
+joint_space:
+  horizon:
+    step_count: 12
+    dt: 0.05
+  weights:
+    tracking: 20.0
+    velocity: 0.5
+    control: 0.05
+    obstacle: 60.0
+  obstacle_barrier:
+    power: 4.0
+  solver:
+    max_iter_count: 40
+

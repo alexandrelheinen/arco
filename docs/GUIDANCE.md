@@ -38,6 +38,12 @@ Feedback controllers that generate control inputs to track a reference trajector
   - CasADi + IPOPT backend via optional extra: `pip install arco[mpc]`
   - Soft directional obstacle barriers (same philosophy as `TrajectoryOptimizer`)
   - Paired with `MPCTrackingLoop` (no APF blend; avoidance is inside the NLP)
+  - Enable in SE(2) races with `simulator.tracker: mpc` (`map/vehicle.yml`)
+
+- **JointSpaceMPC** (`control/mpc/joint_space.py`): N-DOF carrot-tracking NMPC
+  - Drop-in for `JointSpaceTracker` (`reset` / `step` API)
+  - Soft C-space obstacle barriers; used by PPP / RRP when `tracker: mpc`
+  - Factory: `build_joint_tracker(..., tracker="mpc")`
 
 - **MPCTrackingLoop** (`control/mpc/tracking_loop.py`): Drop-in metrics parallel
   to `TrackingLoop` for the MPC tracker (`build_vehicle_mpc_sim` factory)

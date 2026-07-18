@@ -37,3 +37,8 @@ vehicle:
     max_turn_rate_dot: 3600.0  # [deg/s²] maximum rate of change of turn rate
     goal_radius: 3.0  # [m] radius around goal considered as reached
     curvature_gain: 0.5  # [1/m] gain for curvature-based steering
+
+# Online tracker: "pure_pursuit" (default PP+APF) or "mpc" (CasADi NMPC).
+simulator:
+  tracker: mpc
+

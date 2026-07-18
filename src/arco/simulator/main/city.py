@@ -53,6 +53,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 
 from arco.config import load_config
 from arco.config.palette import layer_rgb, ui_rgb
+from arco.control.mpc import PathFollowingMPCConfig
 from arco.simulator import renderer_gl
 from arco.simulator.scenes import RaceScene
 from arco.simulator.scenes.sparse import CityScene
@@ -64,6 +65,7 @@ from arco.simulator.sim.layout import (
 from arco.simulator.sim.loading import run_with_loading_screen
 from arco.simulator.sim.tracking import (
     VehicleConfig,
+    build_vehicle_mpc_sim,
     build_vehicle_sim,
     find_lookahead,
 )
@@ -316,13 +318,35 @@ def run_race(
         astar_finished = False
         race_time = 0.0
         occ = getattr(scene, "_occ", None)
-        if rrt_wps:
-            rrt_vehicle, rrt_loop = build_vehicle_sim(rrt_wps, cfg, occ)
-        if sst_wps:
-            sst_vehicle, sst_loop = build_vehicle_sim(sst_wps, cfg, occ)
-        if astar_wps:
-            astar_vehicle, astar_loop = build_vehicle_sim(astar_wps, cfg, occ)
-        logger.info("Race started.")
+        scene_cfg = getattr(scene, "_cfg", {}) or {}
+        tracker_mode = str(
+            scene_cfg.get("simulator", {}).get("tracker", "pure_pursuit")
+        )
+        if tracker_mode == "mpc":
+            mpc_cfg = PathFollowingMPCConfig.create_from_config()
+            if rrt_wps:
+                rrt_vehicle, rrt_loop = build_vehicle_mpc_sim(
+                    rrt_wps, cfg, mpc_cfg, occ
+                )
+            if sst_wps:
+                sst_vehicle, sst_loop = build_vehicle_mpc_sim(
+                    sst_wps, cfg, mpc_cfg, occ
+                )
+            if astar_wps:
+                astar_vehicle, astar_loop = build_vehicle_mpc_sim(
+                    astar_wps, cfg, mpc_cfg, occ
+                )
+            logger.info("Race started (tracker=mpc).")
+        else:
+            if rrt_wps:
+                rrt_vehicle, rrt_loop = build_vehicle_sim(rrt_wps, cfg, occ)
+            if sst_wps:
+                sst_vehicle, sst_loop = build_vehicle_sim(sst_wps, cfg, occ)
+            if astar_wps:
+                astar_vehicle, astar_loop = build_vehicle_sim(
+                    astar_wps, cfg, occ
+                )
+            logger.info("Race started (tracker=%s).", tracker_mode)
 
     def _restart() -> None:
         nonlocal phase, rrt_revealed, sst_revealed, astar_revealed, hold

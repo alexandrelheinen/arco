@@ -8,6 +8,8 @@ from arco.control.joint_tracker import JointSpaceTracker
 from arco.control.mpc import (
     DubinsPathFollowingMPC,
     DubinsVehicleLimits,
+    JointSpaceMPC,
+    JointSpaceMPCConfig,
     MPCController,
     MPCStepResult,
     MPCTracker,
@@ -26,6 +28,8 @@ __all__ = [
     "Controller",
     "DubinsPathFollowingMPC",
     "DubinsVehicleLimits",
+    "JointSpaceMPC",
+    "JointSpaceMPCConfig",
     "JointSpaceTracker",
     "MPCController",
     "MPCStepResult",
