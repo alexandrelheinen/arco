@@ -105,11 +105,11 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 )
 
 from arco.config import load_config
-from arco.control import JointSpaceTracker
 from arco.simulator.scenes.ppp import BOUNDS as _SCENE_BOUNDS
 from arco.simulator.scenes.ppp import PPPScene
 from arco.simulator.scenes.ppp import is_wall as _is_wall_box
 from arco.simulator.sim.loading import run_with_loading_screen
+from arco.simulator.sim.tracking import build_joint_tracker
 from arco.simulator.sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
@@ -973,6 +973,7 @@ def run_race(
     goal_reach_dist = float(sim_cfg["goal_reach_dist"])
     proportional_gain = float(sim_cfg.get("proportional_gain", 2.0))
     repulsion_gain = float(sim_cfg.get("repulsion_gain", 0.0))
+    tracker_mode = str(sim_cfg.get("tracker", "pure_pursuit"))
 
     pygame.init()
     sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
@@ -1015,20 +1016,22 @@ def run_race(
     hold_timer = 0.0
     _max_vel_3d = np.full(3, max_joint_vel)
     _max_acc_3d = np.full(3, max_joint_acc)
-    rrt_robot = JointSpaceTracker(
+    rrt_robot = build_joint_tracker(
         max_vel=_max_vel_3d,
         max_acc=_max_acc_3d,
         proportional_gain=proportional_gain,
         occupancy=scene.occ,
         repulsion_gain=repulsion_gain,
+        tracker=tracker_mode,
     )
     rrt_robot.reset(scene.start)
-    sst_robot = JointSpaceTracker(
+    sst_robot = build_joint_tracker(
         max_vel=_max_vel_3d,
         max_acc=_max_acc_3d,
         proportional_gain=proportional_gain,
         occupancy=scene.occ,
         repulsion_gain=repulsion_gain,
+        tracker=tracker_mode,
     )
     sst_robot.reset(scene.start)
     rrt_carrot_dist = 0.0

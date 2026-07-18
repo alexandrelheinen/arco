@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from arco.control.mpc.base import MPCTracker
 from arco.control.mpc.controller import MPCController
+from arco.control.mpc.joint_space import JointSpaceMPC, JointSpaceMPCConfig
 from arco.control.mpc.path_following import (
     DubinsPathFollowingMPC,
     DubinsVehicleLimits,
@@ -16,6 +17,8 @@ from arco.control.mpc.tracking_loop import MPCTrackingLoop
 __all__ = [
     "DubinsPathFollowingMPC",
     "DubinsVehicleLimits",
+    "JointSpaceMPC",
+    "JointSpaceMPCConfig",
     "MPCController",
     "MPCStepResult",
     "MPCTracker",
