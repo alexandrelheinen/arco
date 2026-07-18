@@ -36,8 +36,10 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg xvfb libgl1 libglib2.0-0
 
-      - name: Install package with simulator dependencies
-        run: pip install -e ".[tools,pygame]"
+      - name: Install package with simulator and MPC dependencies
+        # mpc (CasADi) is required when map YAMLs set simulator.tracker: mpc
+        # (vehicle, ppp, rrp). Without it, arcosim raises ImportError at race start.
+        run: pip install -e ".[tools,pygame,mpc]"
 
       - name: Generate video
         run: |
