@@ -357,11 +357,19 @@ class CityScene(RaceScene):
     Args:
         cfg: Parsed planner configuration dict (from ``city.yml`` ``planner``).
         obs_cfg: Parsed obstacle-layout dict (from ``city.yml`` ``world``).
+        sim_cfg: Optional simulator section (from ``city.yml`` ``simulator``),
+            e.g. ``tracker: mpc`` for path-following NMPC on all racers.
     """
 
-    def __init__(self, cfg: dict[str, Any], obs_cfg: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        cfg: dict[str, Any],
+        obs_cfg: dict[str, Any],
+        sim_cfg: dict[str, Any] | None = None,
+    ) -> None:
         self._cfg = cfg
         self._obs_cfg = obs_cfg
+        self._sim_cfg = dict(sim_cfg or {})
         self._occ: Any = None
         self._sdf_tex_id: int | None = None
 

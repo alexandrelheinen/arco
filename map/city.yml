@@ -47,3 +47,9 @@ world:
   obstacle_sampling_spacing: 4.0  # [m] spacing between obstacle sample points along road edges
   road_dot_spacing: 15.0  # [m] spacing between road dot markers
   seed: 42  # [] random seed for world generation
+
+# Online tracker for all three racers (RRT*, SST, A*).
+# Global planners still provide the topological waypoint path; MPC only
+# follows that arbitrary reference (no replanning inside the tracker).
+simulator:
+  tracker: mpc  # "pure_pursuit" (PP+APF) or "mpc" (CasADi path-following NMPC)
