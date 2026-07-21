@@ -97,6 +97,7 @@ class MPCTrackingLoop:
             "repulsion_turn_rate": 0.0,
             "mpc_progress": result.progress,
             "mpc_predicted_clearance_min": result.predicted_clearance_min,
+            "mpc_predicted_xy": list(result.predicted_xy),
             "mpc_solver_success": result.solver_success,
             "mpc_solver_status": result.solver_status,
             "mpc_solve_time_s": result.solve_time_s,

@@ -37,6 +37,24 @@ def _require_casadi() -> Any:
     return ca
 
 
+def _predicted_xy_from_states(states: np.ndarray) -> list[tuple[float, float]]:
+    """Extract ``(x, y)`` samples from an MPC state trajectory matrix.
+
+    Args:
+        states: State matrix with shape ``(5, N)`` where rows are
+            ``(x, y, θ, v, ω)``.
+
+    Returns:
+        Ordered list of ``(x, y)`` tuples along the predicted horizon.
+    """
+    if states.ndim != 2 or states.shape[0] < 2:
+        return []
+    return [
+        (float(states[0, i]), float(states[1, i]))
+        for i in range(int(states.shape[1]))
+    ]
+
+
 @dataclass
 class DubinsVehicleLimits:
     """Dynamic limits mirrored from :class:`~arco.guidance.vehicle.DubinsVehicle`.
@@ -123,6 +141,41 @@ class PathFollowingMPCConfig:
             weight_slack=float(weights.get("slack", 1.0)),
             obstacle_barrier_power=float(barrier.get("power", 4.0)),
             max_solver_iter_count=int(solver.get("max_iter_count", 50)),
+        )
+
+    def with_horizon_overrides(
+        self,
+        *,
+        step_count: int | None = None,
+        dt: float | None = None,
+    ) -> PathFollowingMPCConfig:
+        """Return a copy with optional horizon overrides applied.
+
+        Args:
+            step_count: Optional new prediction horizon length (steps).
+            dt: Optional new discretization step (s).
+
+        Returns:
+            A new :class:`PathFollowingMPCConfig` with the requested
+            horizon fields replaced; other fields are unchanged.
+        """
+        return PathFollowingMPCConfig(
+            horizon_step_count=(
+                int(step_count)
+                if step_count is not None
+                else self.horizon_step_count
+            ),
+            dt=float(dt) if dt is not None else self.dt,
+            cruise_speed=self.cruise_speed,
+            weight_contour=self.weight_contour,
+            weight_heading=self.weight_heading,
+            weight_progress=self.weight_progress,
+            weight_control=self.weight_control,
+            weight_obstacle=self.weight_obstacle,
+            obstacle_barrier_power=self.obstacle_barrier_power,
+            weight_terminal=self.weight_terminal,
+            weight_slack=self.weight_slack,
+            max_solver_iter_count=self.max_solver_iter_count,
         )
 
 
@@ -298,6 +351,7 @@ class DubinsPathFollowingMPC(MPCTracker):
         self._warm_u = sol["U"]
         self._warm_s = sol["S"]
 
+        predicted_xy = _predicted_xy_from_states(sol["X"])
         return MPCStepResult(
             speed_cmd=speed_cmd,
             turn_rate_cmd=turn_rate_cmd,
@@ -309,6 +363,7 @@ class DubinsPathFollowingMPC(MPCTracker):
             solver_status=str(sol["status"]),
             solve_time_s=float(solve_time_s),
             cost=float(sol["cost"]),
+            predicted_xy=predicted_xy,
         )
 
     # ------------------------------------------------------------------
@@ -350,6 +405,11 @@ class DubinsPathFollowingMPC(MPCTracker):
         ):
             _, cross_track_error, heading_error = self._reference.project(pose)
 
+        predicted_xy: list[tuple[float, float]] = []
+        if self._warm_x is not None and self._warm_x.ndim == 2:
+            predicted_xy = _predicted_xy_from_states(self._warm_x)
+        elif self._state_is_finite(pose, speed, turn_rate):
+            predicted_xy = [(float(pose[0]), float(pose[1]))]
         return MPCStepResult(
             speed_cmd=float(speed_cmd),
             turn_rate_cmd=float(turn_rate_cmd),
@@ -361,6 +421,7 @@ class DubinsPathFollowingMPC(MPCTracker):
             solver_status=status,
             solve_time_s=float(solve_time_s),
             cost=float("inf"),
+            predicted_xy=predicted_xy,
         )
 
     def _look_ahead_distance(self) -> float:

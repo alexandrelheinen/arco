@@ -87,6 +87,8 @@ def test_mpc_tracks_straight_path_no_obstacles(straight_path) -> None:
 
     assert abs(result.cross_track_error) < 0.05
     assert success_count / steps > 0.95
+    assert len(result.predicted_xy) == cfg.horizon_step_count + 1
+    assert all(len(pt) == 2 for pt in result.predicted_xy)
 
 
 def test_mpc_slows_before_box_obstacle(straight_path) -> None:
@@ -245,3 +247,12 @@ def test_path_following_config_from_yaml() -> None:
     assert abs(cfg.dt - 0.05) < 1e-12
     assert abs(cfg.cruise_speed - 0.42) < 1e-12
     assert cfg.weight_obstacle > 0.0
+
+
+def test_path_following_config_with_horizon_overrides() -> None:
+    cfg = PathFollowingMPCConfig.create_from_config()
+    longer = cfg.with_horizon_overrides(step_count=60, dt=0.05)
+    assert longer.horizon_step_count == 60
+    assert abs(longer.dt - 0.05) < 1e-12
+    assert longer.weight_contour == cfg.weight_contour
+    assert cfg.horizon_step_count == 20

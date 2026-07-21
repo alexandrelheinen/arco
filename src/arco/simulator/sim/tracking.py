@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from arco.mapping.occupancy import Occupancy
@@ -27,6 +27,48 @@ from arco.control.mpc import (
 from arco.control.pure_pursuit import PurePursuitController
 from arco.control.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
+
+
+def path_following_mpc_config_from_simulator(
+    sim_cfg: dict[str, Any] | None = None,
+    *,
+    cruise_speed: float | None = None,
+    default_horizon_step_count: int | None = None,
+    default_horizon_dt: float | None = None,
+) -> PathFollowingMPCConfig:
+    """Build path-following MPC config from global defaults + scenario YAML.
+
+    Reads optional ``simulator.mpc.horizon.{step_count,dt}`` overrides from
+    *sim_cfg*.  When those keys are absent, *default_horizon_** values (if
+    provided) replace the global ``mpc.yml`` horizon — used by the city demo
+    to keep a longer anticipation window without changing other scenarios.
+
+    Args:
+        sim_cfg: Scenario ``simulator`` dict (may be ``None`` / empty).
+        cruise_speed: Optional cruise override forwarded to
+            :meth:`PathFollowingMPCConfig.create_from_config`.
+        default_horizon_step_count: Horizon steps used when YAML omits
+            ``mpc.horizon.step_count``.
+        default_horizon_dt: Horizon ``dt`` used when YAML omits
+            ``mpc.horizon.dt``.
+
+    Returns:
+        Configured :class:`PathFollowingMPCConfig`.
+    """
+    cfg = PathFollowingMPCConfig.create_from_config(cruise_speed=cruise_speed)
+    sim = sim_cfg if isinstance(sim_cfg, dict) else {}
+    mpc = sim.get("mpc") if isinstance(sim.get("mpc"), dict) else {}
+    horizon = (
+        mpc.get("horizon") if isinstance(mpc.get("horizon"), dict) else {}
+    )
+    step_count = horizon.get("step_count", default_horizon_step_count)
+    dt = horizon.get("dt", default_horizon_dt)
+    if step_count is None and dt is None:
+        return cfg
+    return cfg.with_horizon_overrides(
+        step_count=None if step_count is None else int(step_count),
+        dt=None if dt is None else float(dt),
+    )
 
 
 @dataclass
