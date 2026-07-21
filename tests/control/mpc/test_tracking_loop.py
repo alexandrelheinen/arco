@@ -57,8 +57,14 @@ def test_mpc_tracking_loop_metrics_schema() -> None:
         "mpc_cost",
         "mpc_progress",
         "mpc_predicted_clearance_min",
+        "mpc_predicted_xy",
     ):
         assert key in metrics
+    assert isinstance(metrics["mpc_predicted_xy"], list)
+    assert len(metrics["mpc_predicted_xy"]) >= 2
+    x0, y0 = metrics["mpc_predicted_xy"][0]
+    assert abs(x0 - 0.0) < 1e-6
+    assert abs(y0 - 0.0) < 1e-6
 
 
 def test_build_vehicle_mpc_sim_factory() -> None:

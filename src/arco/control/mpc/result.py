@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -21,6 +21,8 @@ class MPCStepResult:
         solver_status: Solver status string (e.g. IPOPT return status).
         solve_time_s: Wall-clock solve time in seconds.
         cost: Optimal (or fallback) cost value.
+        predicted_xy: Predicted ``(x, y)`` samples over the horizon
+            (including the current pose).  Empty on solver failure.
     """
 
     speed_cmd: float
@@ -33,3 +35,4 @@ class MPCStepResult:
     solver_status: str
     solve_time_s: float
     cost: float
+    predicted_xy: list[tuple[float, float]] = field(default_factory=list)

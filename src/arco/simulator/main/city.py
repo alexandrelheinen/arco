@@ -53,10 +53,18 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 
 from arco.config import load_config
 from arco.config.palette import layer_rgb, ui_rgb
-from arco.control.mpc import PathFollowingMPCConfig
 from arco.simulator import renderer_gl
 from arco.simulator.scenes import RaceScene
 from arco.simulator.scenes.sparse import CityScene
+from arco.simulator.sim.city_race_style import (
+    DEFAULT_CITY_HORIZON_DT,
+    DEFAULT_CITY_HORIZON_STEP_COUNT,
+    LOOKAHEAD_DISC_R,
+    PAST_TRACE_WIDTH,
+    PREDICTED_TRACE_WIDTH,
+    VEH_HALF_L,
+    VEH_HALF_W,
+)
 from arco.simulator.sim.layout import (
     ScreenLayout,
     draw_sidebar_panel,
@@ -68,6 +76,7 @@ from arco.simulator.sim.tracking import (
     build_vehicle_mpc_sim,
     build_vehicle_sim,
     find_lookahead,
+    path_following_mpc_config_from_simulator,
 )
 from arco.simulator.sim.video import VideoWriter
 
@@ -100,11 +109,6 @@ _C_ASTAR_HUD: tuple[int, int, int] = layer_rgb("astar", "vehicle")
 
 _C_WINNER: tuple[int, int, int] = ui_rgb("hud_winner")
 _C_TIE: tuple[int, int, int] = ui_rgb("hud_tie")
-
-# Vehicle body world dimensions (~2× the original 1.5 × 0.7 m rectangle).
-_VEH_HALF_L = 3.0  # meters
-_VEH_HALF_W = 1.4  # meters
-_LOOKAHEAD_DISC_R = 1.0  # meters
 
 
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
@@ -146,7 +150,7 @@ def _draw_race_vehicle(
     heading: float,
     color: tuple[int, int, int],
 ) -> None:
-    """Draw a race agent: ~2× body with a brighter fill color.
+    """Draw a race agent: 2×-enlarged body with a brighter fill color.
 
     Args:
         x: Vehicle x position in world meters.
@@ -155,7 +159,7 @@ def _draw_race_vehicle(
         color: Base RGB body color in ``[0, 255]``.
     """
     renderer_gl.draw_oriented_rect(
-        x, y, _VEH_HALF_L, _VEH_HALF_W, heading, *_brighten_rgb(color)
+        x, y, VEH_HALF_L, VEH_HALF_W, heading, *_brighten_rgb(color)
     )
 
 
@@ -341,6 +345,13 @@ def run_race(
 
     paused = False
 
+    # CityScene stores simulator config in _sim_cfg; VehicleScene keeps
+    # the full YAML under _cfg["simulator"].
+    sim_cfg = getattr(scene, "_sim_cfg", None)
+    if not isinstance(sim_cfg, dict):
+        sim_cfg = (getattr(scene, "_cfg", {}) or {}).get("simulator", {})
+    tracker_mode = str(sim_cfg.get("tracker", "pure_pursuit"))
+
     def _start_racing() -> None:
         nonlocal rrt_vehicle, rrt_loop, rrt_traj
         nonlocal sst_vehicle, sst_loop, sst_traj
@@ -354,17 +365,17 @@ def run_race(
         astar_finished = False
         race_time = 0.0
         occ = getattr(scene, "_occ", None)
-        # CityScene stores simulator config in _sim_cfg; VehicleScene keeps
-        # the full YAML under _cfg["simulator"].
-        sim_cfg = getattr(scene, "_sim_cfg", None)
-        if not isinstance(sim_cfg, dict):
-            sim_cfg = (getattr(scene, "_cfg", {}) or {}).get("simulator", {})
-        tracker_mode = str(sim_cfg.get("tracker", "pure_pursuit"))
         if tracker_mode == "mpc":
             # One MPC instance per global-planner path.  The planner
             # (RRT* / SST / A*) still owns topology; MPC only tracks the
             # arbitrary waypoint list it receives as reference.
-            mpc_cfg = PathFollowingMPCConfig.create_from_config()
+            # City defaults to a longer horizon so anticipation reads on
+            # the 600 m video; scenario YAML may still override it.
+            mpc_cfg = path_following_mpc_config_from_simulator(
+                sim_cfg,
+                default_horizon_step_count=DEFAULT_CITY_HORIZON_STEP_COUNT,
+                default_horizon_dt=DEFAULT_CITY_HORIZON_DT,
+            )
             if rrt_wps:
                 rrt_vehicle, rrt_loop = build_vehicle_mpc_sim(
                     rrt_wps, cfg, mpc_cfg, occ
@@ -378,7 +389,10 @@ def run_race(
                     astar_wps, cfg, mpc_cfg, occ
                 )
             logger.info(
-                "Race started (tracker=mpc) for RRT*/SST/A* references."
+                "Race started (tracker=mpc, horizon=%d×%.3fs) for "
+                "RRT*/SST/A* references.",
+                mpc_cfg.horizon_step_count,
+                mpc_cfg.dt,
             )
         else:
             if rrt_wps:
@@ -603,51 +617,88 @@ def run_race(
                     renderer_gl.draw_path(
                         [(p[0], p[1]) for p in rrt_traj],
                         *_c(_C_RRT_TRAJ),
-                        width=1.5,
+                        width=PAST_TRACE_WIDTH,
                     )
                 if len(sst_traj) >= 2:
                     renderer_gl.draw_path(
                         [(p[0], p[1]) for p in sst_traj],
                         *_c(_C_SST_TRAJ),
-                        width=1.5,
+                        width=PAST_TRACE_WIDTH,
                     )
                 if len(astar_traj) >= 2:
                     renderer_gl.draw_path(
                         [(p[0], p[1]) for p in astar_traj],
                         *_c(_C_ASTAR_TRAJ),
-                        width=1.5,
+                        width=PAST_TRACE_WIDTH,
                     )
 
-                if rrt_vehicle is not None and not rrt_finished:
-                    la = find_lookahead(
-                        rrt_vehicle.x,
-                        rrt_vehicle.y,
-                        rrt_wps,
-                        cfg.lookahead_distance,
+                use_mpc = tracker_mode == "mpc"
+
+                def _draw_mpc_prediction(
+                    loop: Any,
+                    color: tuple[int, int, int],
+                    finished: bool,
+                ) -> None:
+                    if finished or loop is None:
+                        return
+                    metrics = getattr(loop, "metrics", None)
+                    if not isinstance(metrics, dict):
+                        return
+                    pred = metrics.get("mpc_predicted_xy") or []
+                    if len(pred) >= 2:
+                        renderer_gl.draw_path(
+                            [(float(p[0]), float(p[1])) for p in pred],
+                            *_c(color),
+                            width=PREDICTED_TRACE_WIDTH,
+                        )
+                        tip = pred[-1]
+                        renderer_gl.draw_disc(
+                            float(tip[0]),
+                            float(tip[1]),
+                            LOOKAHEAD_DISC_R,
+                            *_c(color),
+                        )
+
+                if use_mpc:
+                    _draw_mpc_prediction(rrt_loop, _C_RRT_VEH, rrt_finished)
+                    _draw_mpc_prediction(sst_loop, _C_SST_VEH, sst_finished)
+                    _draw_mpc_prediction(
+                        astar_loop, _C_ASTAR_VEH, astar_finished
                     )
-                    renderer_gl.draw_disc(
-                        la[0], la[1], _LOOKAHEAD_DISC_R, *_c(_C_RRT_VEH)
-                    )
-                if sst_vehicle is not None and not sst_finished:
-                    la = find_lookahead(
-                        sst_vehicle.x,
-                        sst_vehicle.y,
-                        sst_wps,
-                        cfg.lookahead_distance,
-                    )
-                    renderer_gl.draw_disc(
-                        la[0], la[1], _LOOKAHEAD_DISC_R, *_c(_C_SST_VEH)
-                    )
-                if astar_vehicle is not None and not astar_finished:
-                    la = find_lookahead(
-                        astar_vehicle.x,
-                        astar_vehicle.y,
-                        astar_wps,
-                        cfg.lookahead_distance,
-                    )
-                    renderer_gl.draw_disc(
-                        la[0], la[1], _LOOKAHEAD_DISC_R, *_c(_C_ASTAR_VEH)
-                    )
+                else:
+                    if rrt_vehicle is not None and not rrt_finished:
+                        la = find_lookahead(
+                            rrt_vehicle.x,
+                            rrt_vehicle.y,
+                            rrt_wps,
+                            cfg.lookahead_distance,
+                        )
+                        renderer_gl.draw_disc(
+                            la[0], la[1], LOOKAHEAD_DISC_R, *_c(_C_RRT_VEH)
+                        )
+                    if sst_vehicle is not None and not sst_finished:
+                        la = find_lookahead(
+                            sst_vehicle.x,
+                            sst_vehicle.y,
+                            sst_wps,
+                            cfg.lookahead_distance,
+                        )
+                        renderer_gl.draw_disc(
+                            la[0], la[1], LOOKAHEAD_DISC_R, *_c(_C_SST_VEH)
+                        )
+                    if astar_vehicle is not None and not astar_finished:
+                        la = find_lookahead(
+                            astar_vehicle.x,
+                            astar_vehicle.y,
+                            astar_wps,
+                            cfg.lookahead_distance,
+                        )
+                        renderer_gl.draw_disc(
+                            la[0],
+                            la[1],
+                            LOOKAHEAD_DISC_R,
+                            *_c(_C_ASTAR_VEH),
+                        )
 
                 if rrt_vehicle is not None:
                     _draw_race_vehicle(

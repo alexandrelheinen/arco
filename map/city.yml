@@ -53,3 +53,9 @@ world:
 # follows that arbitrary reference (no replanning inside the tracker).
 simulator:
   tracker: mpc  # "pure_pursuit" (PP+APF) or "mpc" (CasADi path-following NMPC)
+  # Longer city horizon so MPC anticipation (~3.0 s / ~54 m at 18 m/s cruise)
+  # is visible in recorded videos.  Global mpc.yml default remains 1.0 s.
+  mpc:
+    horizon:
+      step_count: 60  # [] prediction steps
+      dt: 0.05  # [s] prediction model step

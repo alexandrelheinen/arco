@@ -59,6 +59,16 @@ arcosim map/city.yml --static --record output/city.png
 | `rrp`    | RRP robot arm kinematics |
 | `vehicle`| Vehicle trajectory with tracking controller |
 
+City race notes when `simulator.tracker: mpc`:
+
+- Scenario YAML may set `simulator.mpc.horizon.{step_count,dt}` (city default
+  is **60 × 0.05 s = 3.0 s**) so the predicted horizon is long enough to read
+  on the 600 m map video.
+- The race renderer draws each racer's **MPC predicted XY polyline** (plus a
+  tip disc) instead of a Pure-Pursuit carrot.
+- Race glyphs use a 2×-enlarged body (`6.0 × 2.8` m half-extents) and a
+  slightly thicker past-trace width (`2.5` px).
+
 ---
 
 ## Scenario YAML format
