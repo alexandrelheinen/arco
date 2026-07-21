@@ -11,16 +11,18 @@ from __future__ import annotations
 VEH_HALF_L: float = 6.0
 VEH_HALF_W: float = 2.8
 
-# Disc radius for the horizon tip / lookahead marker (meters).
-LOOKAHEAD_DISC_R: float = 2.0
+# Disc radius for the horizon tip marker (meters).  Sized so the tip reads
+# clearly ahead of the vehicle on the 600 m map (~1.5–2 px/m → ~20 px).
+LOOKAHEAD_DISC_R: float = 12.0
 
-# Past executed trajectory line width in pixels (slightly thicker than 1.5).
-PAST_TRACE_WIDTH: float = 2.5
+# Past executed trajectory line width in pixels (thicker than the prior 1.5).
+PAST_TRACE_WIDTH: float = 3.0
 
-# MPC predicted-horizon polyline width in pixels.
-PREDICTED_TRACE_WIDTH: float = 2.0
+# MPC predicted-horizon polyline width in pixels (thicker than the route).
+PREDICTED_TRACE_WIDTH: float = 4.0
 
 # Default city-demo prediction horizon when scenario YAML omits an override.
-# 60 × 0.05 s = 3.0 s (~54 m at 18 m/s cruise) so anticipation reads on video.
-DEFAULT_CITY_HORIZON_STEP_COUNT: int = 60
+# 120 × 0.05 s = 6.0 s (~108 m at 18 m/s cruise) so the horizon tip sits a
+# clear road-length ahead of each racer on the recorded video.
+DEFAULT_CITY_HORIZON_STEP_COUNT: int = 120
 DEFAULT_CITY_HORIZON_DT: float = 0.05

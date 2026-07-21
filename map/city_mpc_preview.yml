@@ -29,5 +29,5 @@ simulator:
   # Match city.yml: longer horizon so anticipation reads in preview videos.
   mpc:
     horizon:
-      step_count: 60
+      step_count: 120
       dt: 0.05

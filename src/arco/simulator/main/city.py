@@ -645,19 +645,23 @@ def run_race(
                     if not isinstance(metrics, dict):
                         return
                     pred = metrics.get("mpc_predicted_xy") or []
-                    if len(pred) >= 2:
-                        renderer_gl.draw_path(
-                            [(float(p[0]), float(p[1])) for p in pred],
-                            *_c(color),
-                            width=PREDICTED_TRACE_WIDTH,
-                        )
-                        tip = pred[-1]
-                        renderer_gl.draw_disc(
-                            float(tip[0]),
-                            float(tip[1]),
-                            LOOKAHEAD_DISC_R,
-                            *_c(color),
-                        )
+                    if len(pred) < 2:
+                        return
+                    # Brighten the predicted fan so it reads against the
+                    # already-drawn optimized route underneath.
+                    bright = _brighten_rgb(color, mix=0.70)
+                    renderer_gl.draw_path(
+                        [(float(p[0]), float(p[1])) for p in pred],
+                        *bright,
+                        width=PREDICTED_TRACE_WIDTH,
+                    )
+                    tip = pred[-1]
+                    renderer_gl.draw_disc(
+                        float(tip[0]),
+                        float(tip[1]),
+                        LOOKAHEAD_DISC_R,
+                        *bright,
+                    )
 
                 if use_mpc:
                     _draw_mpc_prediction(rrt_loop, _C_RRT_VEH, rrt_finished)

@@ -41,7 +41,7 @@ Feedback controllers that generate control inputs to track a reference trajector
   - Enable in SE(2) races with `simulator.tracker: mpc`
     (`map/vehicle.yml`, `map/city.yml` — RRT* / SST / A* each keep their
     own planned waypoint reference; MPC does not replace the global planner)
-  - City race may override `simulator.mpc.horizon` (default **3.0 s**) and
+  - City race may override `simulator.mpc.horizon` (default **6.0 s**) and
     draws the predicted XY polyline so anticipation is visible in videos
 
 - **JointSpaceMPC** (`control/mpc/joint_space.py`): N-DOF carrot-tracking NMPC
