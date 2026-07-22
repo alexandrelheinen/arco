@@ -21,11 +21,14 @@ from arco.simulator.sim.tracking import (
 )
 
 
-def test_city_race_vehicle_is_double_prior_glyph() -> None:
-    # Prior city glyph was 3.0 × 1.4 m half-extents; user asked for 2×.
-    assert VEH_HALF_L == 6.0
-    assert VEH_HALF_W == 2.8
-    assert LOOKAHEAD_DISC_R >= 12.0
+def test_city_race_vehicle_is_visible_rectangle() -> None:
+    # Prior city glyph was 3.0 × 1.4 m; keep a clearly larger rectangle, not
+    # a disc-based racer glyph.
+    assert VEH_HALF_L == 8.0
+    assert VEH_HALF_W == 3.6
+    # Lookahead disc is only a small PP carrot, never the vehicle body.
+    assert LOOKAHEAD_DISC_R <= 2.0
+    assert LOOKAHEAD_DISC_R < min(VEH_HALF_L, VEH_HALF_W)
 
 
 def test_city_race_traces_are_thicker_and_prediction_visible() -> None:
