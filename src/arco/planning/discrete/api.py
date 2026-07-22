@@ -25,7 +25,16 @@ class AStar:
             grid: A numpy array where 0=free and 1=occupied.
             grid_type: Grid connectivity type. Use 'euclidean' for diagonal
                 neighbors or 'manhattan' (default) for axis-aligned neighbors.
+
+        Raises:
+            ValueError: If *grid_type* is not ``'euclidean'`` or
+                ``'manhattan'``.
         """
+        if grid_type not in ("euclidean", "manhattan"):
+            raise ValueError(
+                f"grid_type must be 'euclidean' or 'manhattan', "
+                f"got {grid_type!r}."
+            )
         if grid_type == "euclidean":
             self._grid = EuclideanGrid(grid.shape)
         else:

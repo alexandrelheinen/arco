@@ -69,7 +69,8 @@ class AStarPlanner(DiscretePlanner):
             goal: The goal node.
 
         Returns:
-            A list of nodes from start to goal, or None if no path exists.
+            A list of nodes from start to goal, or None if no path exists
+            or if the start node is occupied.
         """
         path, _, _ = self.plan_with_diagnostics(start, goal)
         return path
@@ -92,12 +93,17 @@ class AStarPlanner(DiscretePlanner):
             ``(path, expanded_order, parent_map)`` where:
 
             - ``path`` is the simplified path from ``start`` to ``goal``, or
-              ``None`` if no path exists.
+              ``None`` if no path exists or the start node is occupied.
             - ``expanded_order`` is the ordered list of nodes popped from the
               frontier and expanded.
             - ``parent_map`` maps discovered nodes to their predecessor.
         """
         logger.debug("A* plan: start=%s goal=%s", start, goal)
+        if hasattr(self.graph, "is_occupied") and self.graph.is_occupied(
+            start
+        ):
+            logger.debug("A*: start node %s is occupied", start)
+            return None, [], {}
         open_set: List[Tuple[float, int, float, int, Any]] = []
         counter: int = 0
         expanded_count = 0

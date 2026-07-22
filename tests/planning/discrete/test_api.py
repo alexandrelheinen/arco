@@ -36,6 +36,13 @@ def test_astar_no_path():
     assert path is None
 
 
+def test_astar_rejects_unknown_grid_type():
+    """Unknown grid_type must raise ValueError instead of silent fallback."""
+    grid = np.zeros((3, 3), dtype=int)
+    with pytest.raises(ValueError, match="grid_type"):
+        AStar(grid, grid_type="hexagonal")
+
+
 @pytest.mark.xfail(
     reason="D* planner not yet implemented",
     strict=True,

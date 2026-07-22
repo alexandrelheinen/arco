@@ -63,3 +63,27 @@ def test_astar_plan_with_diagnostics_returns_tree_data():
     assert start in expanded_order
     assert goal in expanded_order
     assert isinstance(came_from, dict)
+
+
+def test_astar_occupied_start_returns_none():
+    """Occupied start must not produce a path through a blocked cell."""
+    grid = ManhattanGrid((5, 5))
+    grid.set_occupied((0, 0))
+    planner = AStarPlanner(grid)
+
+    assert planner.plan((0, 0), (4, 4)) is None
+
+
+def test_astar_occupied_start_diagnostics_are_empty():
+    """Occupied start diagnostics must be empty sentinels."""
+    grid = ManhattanGrid((5, 5))
+    grid.set_occupied((0, 0))
+    planner = AStarPlanner(grid)
+
+    path, expanded_order, came_from = planner.plan_with_diagnostics(
+        (0, 0), (4, 4)
+    )
+
+    assert path is None
+    assert expanded_order == []
+    assert came_from == {}
