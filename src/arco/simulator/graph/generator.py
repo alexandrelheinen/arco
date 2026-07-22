@@ -197,8 +197,9 @@ def _generate_ring(cfg: dict[str, Any]) -> RoadGraph:
 
 if __name__ == "__main__":
     import argparse
+    from pathlib import Path
 
-    from arco.config import load_map_config
+    import yaml
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -210,9 +211,21 @@ if __name__ == "__main__":
             "load_road_graph()."
         ),
     )
+    parser.add_argument(
+        "--map",
+        metavar="PATH",
+        default=None,
+        help=(
+            "Scenario YAML containing a 'graph' section "
+            "(default: map/astar.yml)."
+        ),
+    )
     args = parser.parse_args()
 
-    cfg = load_map_config("astar").get("graph", {})
+    repo_root = Path(__file__).resolve().parents[4]
+    map_path = Path(args.map) if args.map else repo_root / "map" / "astar.yml"
+    with open(map_path) as fh:
+        cfg = (yaml.safe_load(fh) or {}).get("graph", {})
     graph = generate_graph(cfg)
     print(
         f"Generated '{cfg.get('type', 'ring')}' graph: "

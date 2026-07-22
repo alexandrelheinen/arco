@@ -3,7 +3,6 @@
 from .graph import (
     CartesianGraph,
     Graph,
-    OrientedGraph,
     RoadGraph,
     WeightedGraph,
     load_road_graph,
@@ -13,3 +12,16 @@ from .grid.euclidean import EuclideanGrid
 from .grid.manhattan import ManhattanGrid
 from .kdtree import KDTreeOccupancy
 from .occupancy import Occupancy
+
+__all__ = [
+    "CartesianGraph",
+    "EuclideanGrid",
+    "Graph",
+    "Grid",
+    "KDTreeOccupancy",
+    "ManhattanGrid",
+    "Occupancy",
+    "RoadGraph",
+    "WeightedGraph",
+    "load_road_graph",
+]

@@ -1,19 +1,16 @@
-"""Utility for loading tool configuration files.
+"""Utility for loading package configuration files.
 
-Two loader functions are provided:
-
-- :func:`load_config` — loads source-code configs from ``arco/config/``
-  (renderer color palette, etc.).
-- :func:`load_map_config` — loads scenario files from ``arco/tools/map/``
-  (full scenario YAMLs launched by ``arcosim``).
+:func:`load_config` loads YAML files from ``arco/config/`` (palette,
+optimizer defaults, MPC defaults, etc.). Scenario files for ``arcosim`` live
+in the repository ``map/`` directory and are loaded by the CLI, not by this
+module.
 
 Usage::
 
-    from arco.config import load_config, load_map_config
+    from arco.config import load_config
 
     cfg = load_config("colors")      # loads arco/config/colors.yml
-    cfg = load_map_config("rr")      # loads arco/tools/map/rr.yml
-    cfg = load_map_config("vehicle") # loads arco/tools/map/vehicle.yml
+    cfg = load_config("optimizer")   # loads arco/config/optimizer.yml
 """
 
 from __future__ import annotations
@@ -48,16 +45,13 @@ def load_config(name: str) -> dict[str, Any]:
 
     Args:
         name: Base name of the config file (without the ``.yml``
-            extension), e.g. ``"astar"``, ``"vehicle"``, or ``"colors"``.
+            extension), e.g. ``"optimizer"``, ``"mpc"``, or ``"colors"``.
 
     Returns:
         A dictionary containing the parsed YAML configuration.
 
     Raises:
-        EnvironmentError: If the ARCO_CONFIG_DIR environment variable
-            is not set.
-        FileNotFoundError: If ``ARCO_CONFIG_DIR/<name>.yml``
-            does not exist.
+        FileNotFoundError: If ``ARCO_CONFIG_DIR/<name>.yml`` does not exist.
     """
     # Look for the specific config file in the directory
     config_path = os.path.join(_config_dir, f"{name}.yml")
