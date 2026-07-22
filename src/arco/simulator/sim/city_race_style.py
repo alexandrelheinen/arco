@@ -23,6 +23,8 @@ PAST_TRACE_WIDTH: float = 3.0
 PREDICTED_TRACE_WIDTH: float = 4.0
 
 # Default city-demo prediction horizon when scenario YAML omits an override.
-# 120 × 0.05 s = 6.0 s (~108 m at 18 m/s cruise).
-DEFAULT_CITY_HORIZON_STEP_COUNT: int = 120
+# 72 × 0.05 s = 3.6 s (~64.8 m at 18 m/s cruise) — about half a city block
+# (mean_edge_length = 120 m).  The previous 6.0 s / ~108 m horizon spanned a
+# full block and caused A* MPC tracking to cut sharp grid corners and loop.
+DEFAULT_CITY_HORIZON_STEP_COUNT: int = 72
 DEFAULT_CITY_HORIZON_DT: float = 0.05

@@ -62,8 +62,9 @@ arcosim map/city.yml --static --record output/city.png
 City race notes when `simulator.tracker: mpc`:
 
 - Scenario YAML may set `simulator.mpc.horizon.{step_count,dt}` (city default
-  is **120 × 0.05 s = 6.0 s**) so the predicted horizon is long enough to read
-  on the 600 m map video.
+  is **72 × 0.05 s = 3.6 s**, ~64.8 m at 18 m/s ≈ half a block).  The prior
+  full-block 6.0 s horizon overshot sharp A* grid corners and could trap the
+  purple racer in a junction loop on the release video.
 - The race renderer draws each racer's **MPC predicted XY polyline** (no tip
   disc) instead of a Pure-Pursuit carrot.
 - Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) with

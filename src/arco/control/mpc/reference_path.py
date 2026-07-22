@@ -185,12 +185,22 @@ class ReferencePath:
         return s_vals, xs, ys, headings, kappas
 
     def project(
-        self, pose: tuple[float, float, float]
+        self,
+        pose: tuple[float, float, float],
+        *,
+        s_hint: float | None = None,
+        window: float | None = None,
     ) -> tuple[float, float, float]:
         """Project a pose onto the nearest path point.
 
         Args:
             pose: Vehicle pose ``(x, y, heading)``.
+            s_hint: Optional arc-length center for a local search window.
+                Used with *window* so contouring progress cannot flip to a
+                distant junction-scale nearest segment after a corner cut.
+            window: Half-width (m) of the local search around *s_hint*.
+                Ignored unless *s_hint* is also provided.  ``None`` or a
+                non-positive value keeps the global nearest-point search.
 
         Returns:
             ``(s, lateral_error, heading_error)`` where *lateral_error*
@@ -203,7 +213,17 @@ class ReferencePath:
         best_lat = 0.0
         best_heading = 0.0
 
+        s_lo = 0.0
+        s_hi = self._total_length
+        if s_hint is not None and window is not None and window > 0.0:
+            s_lo = max(0.0, float(s_hint) - float(window))
+            s_hi = min(self._total_length, float(s_hint) + float(window))
+
         for i, length in enumerate(self._seg_lengths):
+            seg_start = float(self._cumulative[i])
+            seg_end = float(self._cumulative[i + 1])
+            if seg_end < s_lo or seg_start > s_hi:
+                continue
             p0 = self._points[i]
             p1 = self._points[i + 1]
             dx = float(p1[0] - p0[0])
@@ -216,16 +236,16 @@ class ReferencePath:
             rel_y = y - float(p0[1])
             proj = rel_x * tx + rel_y * ty
             proj = float(np.clip(proj, 0.0, length))
+            # Clamp the candidate into the local arc-length window.
+            cand_s = float(np.clip(seg_start + proj, s_lo, s_hi))
+            proj = cand_s - seg_start
             qx = float(p0[0]) + proj * tx
             qy = float(p0[1]) + proj * ty
             dist_sq = (x - qx) ** 2 + (y - qy) ** 2
             if dist_sq < best_dist_sq:
                 best_dist_sq = dist_sq
-                best_s = float(self._cumulative[i] + proj)
+                best_s = cand_s
                 # Signed lateral: left of tangent is positive.
-                best_lat = -rel_x * ty + rel_y * tx
-                # Use the along-track relative vector for lateral at the
-                # projected point (recompute with clamped projection).
                 best_lat = -(x - qx) * ty + (y - qy) * tx
                 theta_ref = math.atan2(ty, tx)
                 best_heading = math.atan2(
