@@ -217,5 +217,6 @@ Removed in the cleanup (were listed as non-interface above):
 ## Related docs
 
 - [FAILURE_MODES.md](FAILURE_MODES.md) — constructor and planning failure contracts
+- [ALGORITHMS.md](ALGORITHMS.md) — core computational blocks
 - [ROADMAP.md](ROADMAP.md) — shipped vs won't-do features
 - Layer overviews: [MAPPING.md](MAPPING.md), [PLANNING.md](PLANNING.md), [GUIDANCE.md](GUIDANCE.md)

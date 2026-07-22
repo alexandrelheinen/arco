@@ -6,6 +6,7 @@
 - [Guidance](GUIDANCE.md) — interpolation, primitives, control usage
 
 ## Algorithm notes
+- [Core algorithm blocks](ALGORITHMS.md)
 - [A*](planning_astar.md)
 - [RRT*](planning_rrt.md)
 - [SST](planning_sst.md)
