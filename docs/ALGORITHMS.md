@@ -185,7 +185,37 @@ O(log n_obs) average.
 
 ---
 
+## 9. Sub-optimized implementations and proposals
+
+| Location | Current | Complexity | Proposed fix | Known how? |
+|----------|---------|------------|--------------|------------|
+| `RRTPlanner._nearest` | Linear scan | O(n) | Periodic scipy KD-tree rebuild | Yes |
+| `RRTPlanner._near` | Linear scan | O(n) | KD-tree range query (same index) | Yes |
+| `RRTPlanner.plan` vs `get_tree` | Duplicated expansion loop | n/a | Have `plan` delegate to `get_tree` | Yes (easy) |
+| `SSTPlanner._select_active` | Linear over active set | O(\|active\|) | KD-tree over active positions | Yes |
+| `SSTPlanner._nearest_witness` | Linear over witnesses | O(\|witnesses\|) | KD-tree over witness positions | Yes |
+| `PurePursuitController.control` | Full path scan each tick | O(n_path) | Monotonic segment index | Yes (easy) |
+| `CartesianGraph.find_nearest_node` | Linear over nodes | O(n) | Static KD-tree for road graphs | Yes (easy) |
+| Segment collision sampling | Fixed `collision_check_count` | O(k) | Adaptive / AABB prefilter | Partially |
+| `TrajectoryOptimizer.optimize` | Dense scipy L-BFGS-B in Python | many evals | Warm-start; tighten weights; optional CasADi | Partially |
+| Path-following / joint MPC | Rebuild + solve NLP each step | IPOPT/tick | Warm-start; longer control period; acados later | Partially |
+| `BSplineInterpolator.interpolate` | No-op stub | n/a | Implement with `splprep`/`splev` | Yes (feature, not micro-opt) |
+
+### Notes
+
+- `scipy.spatial.KDTree` is already a dependency (via scipy) but is immutable.
+  For growing RRT*/SST trees, rebuild every `M ≈ sqrt(N_max)` inserts to keep
+  amortized insert cost reasonable.
+- SST witnesses only grow, so witness KD-trees only need rebuild-on-growth.
+- Pure Pursuit and `plan`/`get_tree` dedup are the cheapest wins.
+- MPC / optimizer improvements depend on solver backend choices more than on
+  micro-optimizing Python loops; an acados backend is a follow-up on the
+  [roadmap](ROADMAP.md), not a drop-in rewrite of the CasADi formulation.
+- Unknown / out of scope here: GPU collision checking, exact continuous
+  collision detection for curved Dubins segments, and distributed planning.
+
 ## Related docs
 
 - [PLANNING.md](PLANNING.md) and per-algorithm notes under `docs/planning_*.md`
 - [API.md](API.md) for the public symbols that wrap these blocks
+- [ROADMAP.md](ROADMAP.md) for planned MPC backend follow-ups
