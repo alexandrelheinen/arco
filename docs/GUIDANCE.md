@@ -42,7 +42,8 @@ Feedback controllers that generate control inputs to track a reference trajector
   - Soft directional obstacle barriers
   - Paired with `MPCTrackingLoop`
   - Enable in SE(2) races with `simulator.tracker: mpc`
-  - City race may override `simulator.mpc.horizon` (default **6.0 s**)
+  - City race may override `simulator.mpc.horizon` (default **3.6 s**,
+    ~half a city block / 60% of the prior 6.0 s setting)
 
 - **JointSpaceMPC** (`arco.control.mpc.joint_space`): N-DOF carrot-tracking NMPC
   - Drop-in for `JointSpaceTracker` (`reset` / `step` API)

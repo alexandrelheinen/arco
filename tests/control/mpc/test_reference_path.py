@@ -23,6 +23,31 @@ def test_reference_path_project_lateral_offset() -> None:
     assert abs(head) < 1e-6
 
 
+def test_reference_path_project_window_rejects_distant_nearest() -> None:
+    """Local window keeps contouring progress on the active approach lane.
+
+    A hairpin makes a pose just past the first corner geometrically closer to
+    the return leg; without a window the global nearest point flips forward
+    by nearly the full length — the failure mode behind city A* junction
+    loops.
+    """
+    path = ReferencePath(
+        [
+            (0.0, 0.0),
+            (20.0, 0.0),
+            (20.0, 0.5),
+            (0.0, 0.5),
+        ]
+    )
+    # Past the corner on the outbound lane, closer to the inbound return.
+    pose = (10.0, 0.35, 0.0)
+    s_global, _, _ = path.project(pose)
+    assert s_global > 25.0
+    s_local, _, _ = path.project(pose, s_hint=10.0, window=8.0)
+    assert s_local < 15.0
+    assert abs(s_local - 10.0) < 1e-6
+
+
 def test_reference_path_tangent_and_curvature_straight() -> None:
     path = ReferencePath([(0.0, 0.0), (5.0, 0.0), (10.0, 0.0)])
     tx, ty = path.tangent(4.0)

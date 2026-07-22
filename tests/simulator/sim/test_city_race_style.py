@@ -36,10 +36,27 @@ def test_city_race_traces_are_thicker_and_prediction_visible() -> None:
     assert PREDICTED_TRACE_WIDTH >= 4.0
 
 
-def test_city_default_horizon_is_six_seconds() -> None:
-    assert DEFAULT_CITY_HORIZON_STEP_COUNT == 120
+def test_city_default_horizon_is_half_block() -> None:
+    """City horizon is 60% of the prior 6.0 s / 120-step setting.
+
+    72 × 0.05 s = 3.6 s ≈ 64.8 m at 18 m/s cruise — about half of
+    ``mean_edge_length`` (120 m).
+    """
+    assert DEFAULT_CITY_HORIZON_STEP_COUNT == 72
     assert abs(DEFAULT_CITY_HORIZON_DT - 0.05) < 1e-12
-    assert DEFAULT_CITY_HORIZON_STEP_COUNT * DEFAULT_CITY_HORIZON_DT == 6.0
+    assert (
+        abs(DEFAULT_CITY_HORIZON_STEP_COUNT * DEFAULT_CITY_HORIZON_DT - 3.6)
+        < 1e-12
+    )
+    # Explicitly 60% of the previous full-block horizon (120 steps / 6.0 s).
+    assert DEFAULT_CITY_HORIZON_STEP_COUNT == int(120 * 0.6)
+    assert (
+        abs(
+            DEFAULT_CITY_HORIZON_STEP_COUNT * DEFAULT_CITY_HORIZON_DT
+            - 6.0 * 0.6
+        )
+        < 1e-12
+    )
 
 
 def test_path_following_mpc_config_uses_city_defaults_without_yaml() -> None:
@@ -50,7 +67,7 @@ def test_path_following_mpc_config_uses_city_defaults_without_yaml() -> None:
         default_horizon_step_count=DEFAULT_CITY_HORIZON_STEP_COUNT,
         default_horizon_dt=DEFAULT_CITY_HORIZON_DT,
     )
-    assert city_cfg.horizon_step_count == 120
+    assert city_cfg.horizon_step_count == 72
     assert abs(city_cfg.dt - 0.05) < 1e-12
 
 
@@ -60,17 +77,20 @@ def test_path_following_mpc_config_honors_yaml_override() -> None:
             "tracker": "mpc",
             "mpc": {"horizon": {"step_count": 48, "dt": 0.04}},
         },
-        default_horizon_step_count=120,
+        default_horizon_step_count=72,
         default_horizon_dt=0.05,
     )
     assert cfg.horizon_step_count == 48
     assert abs(cfg.dt - 0.04) < 1e-12
 
 
-def test_city_map_yaml_declares_long_horizon() -> None:
+def test_city_map_yaml_declares_half_block_horizon() -> None:
     root = Path(__file__).resolve().parents[3]
     for name in ("city.yml", "city_mpc_preview.yml"):
         data = yaml.safe_load((root / "map" / name).read_text())
         horizon = data["simulator"]["mpc"]["horizon"]
-        assert int(horizon["step_count"]) >= 120
-        assert float(horizon["dt"]) * int(horizon["step_count"]) >= 6.0
+        assert int(horizon["step_count"]) == 72
+        assert (
+            abs(float(horizon["dt"]) * int(horizon["step_count"]) - 3.6)
+            < 1e-12
+        )

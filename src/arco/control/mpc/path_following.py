@@ -287,7 +287,22 @@ class DubinsPathFollowingMPC(MPCTracker):
                 solve_time_s=0.0,
             )
 
-        s_proj, e_lat, e_head = self._reference.project(pose)
+        # Local projection around the current contouring progress.  A global
+        # nearest-point search can jump backward by a full city-block when the
+        # vehicle cuts a sharp A* corner and sits geometrically closer to an
+        # earlier approach lane — that regression is what starts permanent
+        # circling in the city race.
+        horizon_m = (
+            self.config.cruise_speed
+            * self.config.dt
+            * self.config.horizon_step_count
+        )
+        project_window = max(float(horizon_m), 30.0)
+        s_proj, e_lat, e_head = self._reference.project(
+            pose,
+            s_hint=self._progress,
+            window=project_window,
+        )
         # Keep the contouring progress close to the geometric projection.
         self._progress = 0.7 * self._progress + 0.3 * s_proj
         self._progress = float(
@@ -403,7 +418,16 @@ class DubinsPathFollowingMPC(MPCTracker):
         if self._reference is not None and self._state_is_finite(
             pose, speed, turn_rate
         ):
-            _, cross_track_error, heading_error = self._reference.project(pose)
+            horizon_m = (
+                self.config.cruise_speed
+                * self.config.dt
+                * self.config.horizon_step_count
+            )
+            _, cross_track_error, heading_error = self._reference.project(
+                pose,
+                s_hint=self._progress,
+                window=max(float(horizon_m), 30.0),
+            )
 
         predicted_xy: list[tuple[float, float]] = []
         if self._warm_x is not None and self._warm_x.ndim == 2:
