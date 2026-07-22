@@ -1,32 +1,25 @@
 # ARCO Documentation
 
-## Core Layer Documentation
-- [Mapping Layer](MAPPING.md) - Spatial data structures (grids, graphs, occupancy)
-- [Planning Layer](PLANNING.md) - Path search and sampling algorithms
-- [Guidance Layer](GUIDANCE.md) - Trajectory shaping and feedback control
+## Layer docs
+- [Mapping](MAPPING.md) — grids, graphs, occupancy
+- [Planning](PLANNING.md) — discrete and sampling planners
+- [Guidance](GUIDANCE.md) — interpolation, primitives, control usage
 
-## Algorithm-Specific Documentation
+## Algorithm notes
+- [A*](planning_astar.md)
+- [RRT*](planning_rrt.md)
+- [SST](planning_sst.md)
+- [Trajectory optimizer](planning_optimizer.md)
 
-### Planning Algorithms
-- [A* Algorithm](planning_astar.md) - Grid and graph-based optimal search
-- [RRT* Algorithm](planning_rrt.md) - Asymptotically optimal sampling-based planner
-- [SST Algorithm](planning_sst.md) - Stable Sparse Trees for kinodynamic planning
-- [D* Lite Algorithm](planning_dstar.md) - Dynamic replanning (stub only, not planned)
+## Tools and design
+- [Visualization (`arcosim`)](VISUALIZATION.md)
+- [Pipeline](PIPELINE.md)
+- [Entity model](ENTITY_MODEL.md)
+- [Entity format research](entity_formats.md)
 
-## Feature Documentation
-- [Route Planning Benchmarks](route_planning_benchmarks.md) - A* road network integration
-- [Pipeline Architecture](PIPELINE.md) - Multi-step pipeline design
-
-## Visualization Tools
-- [Visualization Tools](VISUALIZATION.md) - arcosim (static images and real-time simulation)
-
-## Project Documentation
-- [Project Overview](../README.md) - Main README
-- [Tech Stack](STACK.md) - Python version, dependencies, install, and test instructions
-- [Coding Guidelines (authoritative)](guidelines.md) - Development standards
-- [Contributing Guide](../CONTRIBUTING.md) - How to contribute
-- [Project Roadmap](ROADMAP.md) - Implemented features and explicit won't-do entries
-
----
-
-*This index is updated to reflect the complete documentation set.*
+## Project
+- [README](../README.md)
+- [Tech stack](STACK.md)
+- [Coding guidelines](guidelines.md) (authoritative)
+- [Contributing](../CONTRIBUTING.md)
+- [Roadmap](ROADMAP.md)

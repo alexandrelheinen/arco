@@ -47,7 +47,7 @@ coupling to any rendering backend.
 ## Usage Example
 
 ```python
-from arco.tools.entity import DubinsAgent, BoxGeometry, Object, SphereGeometry
+from arco.simulator.entity import DubinsAgent, BoxGeometry, Object, SphereGeometry
 
 # Create a Dubins vehicle agent
 agent = DubinsAgent(

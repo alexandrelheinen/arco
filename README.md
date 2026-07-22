@@ -2,115 +2,62 @@
 
 <img src="docs/images/arco.svg" alt="ARCO Logo" width="120" align="left">
 
-ARCO (Algorithms for Robotic Control and Optimization) is a Python library for autonomous navigation building blocks:
+ARCO (Algorithms for Robotic Control and Optimization) is a Python library for
+autonomous navigation building blocks: mapping, planning, and guidance/control.
 
-- Mapping representations for discrete and continuous spaces
-- Planning algorithms for graph search and sampling-based exploration
-- Guidance components for interpolation, motion primitives, and control
+## Documentation
 
-The project emphasizes clear architecture, testability, and documented algorithmic decisions.
-
-## Documentation Index
-
-- [Main docs index](docs/README.md)
-- [Coding guidelines (authoritative)](docs/guidelines.md)
-- [Contributing guide](CONTRIBUTING.md)
-- [Tech stack and installation](docs/STACK.md)
-- [Visualization tools (arcosim)](docs/VISUALIZATION.md)
-- [Mapping layer overview](docs/MAPPING.md)
-- [Planning layer overview](docs/PLANNING.md)
-  - [A* algorithm notes](docs/planning_astar.md)
-  - [RRT* algorithm notes](docs/planning_rrt.md)
-  - [SST algorithm notes](docs/planning_sst.md)
-  - [D* Lite notes (stub, not planned)](docs/planning_dstar.md)
-- [Guidance layer overview](docs/GUIDANCE.md)
-- [Route planning benchmarks](docs/route_planning_benchmarks.md)
-- [Pipeline architecture](docs/PIPELINE.md)
+- [Docs index](docs/README.md)
+- [Coding guidelines](docs/guidelines.md) (authoritative)
+- [Tech stack](docs/STACK.md)
+- [Mapping](docs/MAPPING.md) · [Planning](docs/PLANNING.md) · [Guidance](docs/GUIDANCE.md)
+- [Visualization (`arcosim`)](docs/VISUALIZATION.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Architecture
 
-A planner operates on a map object:
+Planners operate on map objects:
 
-- Discrete planners (A*, route planning) operate on Grid or Graph structures
-- Continuous planners (RRT*, SST) operate on Occupancy structures
+- Discrete planners (A*, route planning) use Grid or Graph structures
+- Continuous planners (RRT*, SST) use Occupancy structures
 
-Core map families:
+Map families: `ManhattanGrid` (L₁), `EuclideanGrid` (L₂), graph hierarchy
+(`Graph` → `WeightedGraph` → `CartesianGraph` → `RoadGraph`), and
+`KDTreeOccupancy`.
 
-- Manhattan Grid: axis-aligned neighbors with Manhattan metric ($L_1$)
-- Euclidean Grid: diagonal-capable neighbors with Euclidean metric ($L_2$)
-- Graph hierarchy: Graph → WeightedGraph → CartesianGraph → RoadGraph
-- Occupancy: abstract continuous-space obstacle-query interface (KDTreeOccupancy)
+Guidance and control run after planning: motion primitives, interpolation, and
+feedback controllers (PID, Pure Pursuit, path-following MPC).
 
-Guidance is applied after planning:
-
-- Exploration primitives: kinematic steering constraints for graph growth
-- Interpolation: conversion of discrete plans into smooth trajectories
-- Controllers: path tracking and control law generation
-
-## Pipeline
-
-The full ARCO processing pipeline runs as a sequence of independent steps
-(see [docs/PIPELINE.md](docs/PIPELINE.md)):
-
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   MAPPING    │     │   PLANNING   │     │ OPTIMIZATION │     │  SIMULATION  │
-│              │     │              │     │              │     │              │
-│ config.yml   │────▶│occupancy.json│────▶│  path.json   │────▶│trajectory    │
-│ obstacles    │     │ RRT* / SST   │     │ pruner +     │     │ renderer +   │
-│              │     │ C-space      │     │ optimizer    │     │ controller   │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
-       │                    │                    │                    │
-       ▼                    ▼                    ▼                    ▼
- occupancy.json         path.json        trajectory.json     video / metrics
-
-              ◀──── telemetry side-channel (stop criteria, iter count) ────▶
-                     loading screen polls arco_planner_telemetry.json
-```
-
-## Modules
-
-- **Mapping**: Spatial data structures (grids, graphs, occupancy) and obstacle-query interfaces
-- **Planning**: Path search (A*, route planning) and sampling methods (RRT*, SST)
-- **Guidance / control**: Trajectory shaping (interpolation, primitives) and
-  feedback control (PID, Pure Pursuit, path-following MPC)
-
-## Current Algorithm Status
+## Algorithm status
 
 | Algorithm | Status | Notes |
 |-----------|--------|-------|
-| A* | ✅ Done | Grid and graph-based, configurable heuristics |
-| Route Planning | ✅ Done | A* integration for road networks with waypoint smoothing |
-| RRT* | ✅ Done | Asymptotically optimal sampling-based planner |
-| SST | ✅ Done | Stable Sparse Trees for kinodynamic planning |
-| D* Lite | ⏸️ Stub | Dynamic replanning (API exists, not implemented) |
+| A* | Done | Grid and graph search |
+| Route planning | Done | A* on road networks |
+| RRT* | Done | Asymptotically optimal sampling |
+| SST | Done | Sparse-tree geometric planning |
+| D* Lite | Stub | Not planned — see [ROADMAP](docs/ROADMAP.md) |
 
-## Repository Layout
+## Repository layout
 
 ```text
 .
-├── docs                   ← algorithm notes and design docs
-├── src/arco
-│   ├── guidance
-│   │   ├── control        ← feedback controllers (PID, Pure Pursuit, MPC)
-│   │   ├── interpolation  ← path smoothing (B-spline) and trajectory generation
-│   │   ├── primitive      ← kinematic exploration primitives (Dubins)
-│   │   └── vehicle.py     ← vehicle kinematic models
-│   ├── mapping
-│   │   ├── graph          ← graph topology hierarchy (weighted, cartesian, road)
-│   │   ├── grid           ← discrete grid structures (Manhattan, Euclidean)
-│   │   ├── occupancy.py   ← continuous-space obstacle interface
-│   │   └── kdtree.py      ← KDTree-based occupancy implementation
-│   ├── planning
-│   │   ├── discrete       ← graph-search planners (A*, route planning)
-│   │   └── continuous     ← sampling-based planners (RRT*, SST)
-│   └── tools
-│       ├── arcosim        ← real-time and static image CLI (pygame / matplotlib)
-│       ├── examples       ← example modules run by arcosim --image
-│       ├── map            ← scenario YAML and JSON config files
-│       └── simulator      ← simulator modules run by arcosim
-└── tests                  ← mirrored test layout
+├── docs/                 algorithm notes and design docs
+├── map/                  arcosim scenario YAML files
+├── scripts/              local CI helpers
+├── src/arco/
+│   ├── config/           shared YAML + palette helpers
+│   ├── control/          PID, Pure Pursuit, MPC, tracking
+│   ├── guidance/         interpolation, primitives, vehicles
+│   ├── kinematics/       RR / RRP arm models
+│   ├── mapping/          grids, graphs, occupancy
+│   ├── middleware/       in-process typed bus
+│   ├── pipeline/         pipeline node runner
+│   ├── planning/         discrete + continuous planners
+│   └── simulator/        arcosim CLI, scenes, rendering
+├── tests/                mirrored unit tests
+└── tools/                demos and recorded media
 ```
 
 ## Installation
@@ -121,68 +68,37 @@ cd arco
 pip install -e ".[dev]"
 ```
 
-Path-following MPC (CasADi + IPOPT) is an optional extra:
+Optional extras:
 
 ```bash
-pip install -e ".[mpc]"
-# or: pip install "arco[mpc]"
+pip install -e ".[mpc]"     # CasADi path-following / joint-space MPC
+pip install -e ".[tools]"   # pygame + OpenGL for arcosim
 ```
 
-> ARCO requires Python 3.10+. See [docs/STACK.md](docs/STACK.md) for the full
-> tech stack and optional dependency groups.
+Python 3.10+. See [docs/STACK.md](docs/STACK.md) for details.
 
 ## Development
 
-### Run tests
-
 ```bash
 pytest tests/ -v
+bash scripts/check_formatting.sh
+bash scripts/run_tests.sh
 ```
 
-### Format code
+Local examples:
 
 ```bash
-python -m black --target-version py312 --line-length 79 src/
-python -m isort --line-length 79 src/
-```
-
-### Run local CI gates
-
-```bash
-bash scripts/pre_push.sh
-```
-
-### Local examples
-
-```bash
-# Static image generation (arcosim --image)
 arcosim map/astar.yml --image --record output/astar.png
-arcosim map/city.yml  --image --record output/city.png
-
-# Real-time simulation (arcosim — requires pygame)
 arcosim map/city.yml
-arcosim map/vehicle.yml
 ```
-
-## CI and Merge Policy
-
-GitHub Actions workflows run for pull requests and can be configured as required checks for merge protection on main.
-
-Recommended required checks:
-
-- Tests / Run unit tests
-- Generate Images / generate-images
 
 ## Contributing
 
-Before contributing, follow [CONTRIBUTING.md](CONTRIBUTING.md) and the conventions in [docs/guidelines.md](docs/guidelines.md).
+Follow [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/guidelines.md](docs/guidelines.md).
 
 ## References
 
-Theory notes are under [docs](docs/). Core references:
-
 - Hart, Nilsson, Raphael (1968). A Formal Basis for the Heuristic Determination of Minimum Cost Paths.
-- Stentz (1994). Optimal and Efficient Path Planning for Partially-Known Environments.
 - LaValle (1998). Rapidly-Exploring Random Trees: A New Tool for Path Planning.
 - LaValle (2006). Planning Algorithms. Cambridge University Press.
 - Karaman, Frazzoli (2011). Sampling-based Algorithms for Optimal Motion Planning.

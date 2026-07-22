@@ -168,37 +168,44 @@ Different planners require different map types:
 ### Grid-based Planning (A*)
 
 ```python
-from arco.mapping import EuclideanGrid
 from arco.planning import AStar
+import numpy as np
 
-# Create grid
-grid = EuclideanGrid(shape=(100, 100))
-grid.data[40:60, 40:60] = 1  # Obstacle
-
-# Plan path
-planner = AStar(grid)
-path = planner.plan(start=0, goal=9999)
+grid = np.zeros((100, 100), dtype=np.uint8)
+grid[40:60, 40:60] = 1  # Obstacle
+planner = AStar(grid, grid_type="euclidean")
+path = planner.search(start=(0, 0), goal=(99, 99))
 ```
+
+For a typed grid object, use `AStarPlanner` with `EuclideanGrid` /
+`ManhattanGrid` directly.
 
 ### Road Network Planning
 
 ```python
 from arco.mapping.graph import load_road_graph
 from arco.planning.discrete import RouteRouter
+import numpy as np
 
-# Load road network
 graph = load_road_graph("map/city.json")
 
-# Plan route
-router = RouteRouter(graph)
+# Returns None if start/goal are off-road or no path exists
+router = RouteRouter(graph, activation_radius=50.0)
 result = router.plan(
     start_position=np.array([100.0, 200.0]),
-    goal_position=np.array([800.0, 900.0])
+    goal_position=np.array([800.0, 900.0]),
 )
 
-# Get full path with waypoints
-path = graph.full_edge_geometry(result.path[0], result.path[1])
+if result is not None:
+    print(f"Path nodes: {result.path}")
+    print(f"Start node: {result.start_node}, distance: {result.start_distance:.2f}")
+    for a, b in zip(result.path[:-1], result.path[1:]):
+        waypoints = graph.full_edge_geometry(a, b)
 ```
+
+`RouteResult` fields: `path`, `start_node`, `goal_node`, `start_projection`,
+`goal_projection`, `start_distance`, `goal_distance`. Edge-case coverage lives
+in `tests/planning/discrete/`.
 
 ### Continuous Planning (RRT*, SST)
 

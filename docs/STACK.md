@@ -78,18 +78,19 @@ python -m isort --line-length 79 src/
 
 ## Local CI validation
 
-The master local validation script runs all required CI gates:
-
-```bash
-bash scripts/pre_push.sh
-```
-
-Individual gates:
+Run the same gates CI uses:
 
 | Script | What it checks |
 |--------|----------------|
 | `scripts/check_formatting.sh` | black + isort (blocking), pydocstyle (warning) |
 | `scripts/run_tests.sh` | pytest unit tests |
-| `scripts/run_examples.sh` | `arcosim --image` headless image generation |
-| `scripts/run_smoke_tests.sh` | arcosim short headless recordings |
-| `scripts/generate_videos.sh` | arcosim full-length simulation videos |
+| `scripts/run_smoke_test.sh <scenario>` | short headless `arcosim` recording |
+| `scripts/generate_videos.sh` | full-length simulation videos |
+
+```bash
+bash scripts/check_formatting.sh
+bash scripts/run_tests.sh
+for s in astar city rr vehicle ppp rrp occ; do
+  bash scripts/run_smoke_test.sh "$s"
+done
+```

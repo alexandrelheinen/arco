@@ -88,12 +88,9 @@ The YAML files for the built-in scenarios live in `map/`.
 
 ---
 
-## Running the full CI validation locally
-
-The `scripts/pre_push.sh` script exercises both tools as part of the local CI
-gate:
+## Running smoke validation locally
 
 ```bash
-# Full validation (requires xvfb + ffmpeg for smoke/video gates)
-bash scripts/pre_push.sh
+# Short headless recording (requires xvfb + ffmpeg)
+bash scripts/run_smoke_test.sh city
 ```

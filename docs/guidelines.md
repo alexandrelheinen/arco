@@ -242,30 +242,29 @@ formatting or unit tests:
 bash scripts/install_hooks.sh
 ```
 
-The hook (`hooks/pre-push`) runs gates 1 and 2 automatically on every
-`git push`.  Before pushing **any** branch, also run the full validation
-script to catch simulator-level issues:
+The hook (`hooks/pre-push`) runs formatting and unit tests automatically on
+every `git push`. Before pushing **any** branch, also run smoke tests to
+catch simulator-level import/runtime issues:
 
 ```bash
-# Full validation (requires xvfb + ffmpeg for smoke tests and videos)
-bash scripts/pre_push.sh
+bash scripts/check_formatting.sh
+bash scripts/run_tests.sh
+# Requires xvfb + ffmpeg:
+for s in astar city rr vehicle ppp rrp occ; do
+  bash scripts/run_smoke_test.sh "$s"
+done
 ```
-
-`scripts/pre_push.sh` runs **all five CI gates** in the same order as the
-GitHub workflows.  All gates are mandatory — none may be skipped:
 
 | Gate | Script | What it checks |
 |------|--------|----------------|
 | 1 | `scripts/check_formatting.sh` | `black` + `isort` (blocking), `pydocstyle` (warning) |
 | 2 | `scripts/run_tests.sh` | `pytest` unit tests |
-| 3 | `scripts/run_examples.sh` | `arcosim --image` headless image generation for every scenario |
-| 4 | `scripts/run_smoke_tests.sh` | `arcosim` short headless recording for every simulator |
-| 5 | `scripts/generate_videos.sh` | `arcosim` full-length simulation videos |
+| 3 | `scripts/run_smoke_test.sh <scenario>` | short headless `arcosim` recording |
+| 4 | `scripts/generate_videos.sh` | full-length simulation videos (release) |
 
-> **⚠️ Do not skip any gate.**  
-> The smoke tests are the only local gate that imports and executes every
-> simulator module.  Skipping them is how import-time errors in simulator
-> files escape the local validation loop and fail in CI.
+> **⚠️ Do not skip smoke tests.**  
+> They are the only local gate that imports and executes every simulator
+> module. Skipping them is how import-time errors escape into CI.
 
 All GitHub workflow checks (push **and** release) must pass before a pull
 request is merged.  If a workflow fails, investigate with GitHub MCP tools
@@ -303,13 +302,13 @@ sections added/removed), you **must** audit every consumer before pushing.
    import importlib, sys
    modules = [
        'arco.config.palette',
-       'arco.tools.simulator.main.city',
-       'arco.tools.simulator.main.vehicle',
-       'arco.tools.simulator.main.rr',
-       'arco.tools.simulator.scenes.sparse',
-       'arco.tools.simulator.scenes.rrt',
-       'arco.tools.simulator.scenes.sst',
-       'arco.tools.simulator.scenes.astar',
+       'arco.simulator.main.city',
+       'arco.simulator.main.vehicle',
+       'arco.simulator.main.rr',
+       'arco.simulator.scenes.sparse',
+       'arco.simulator.scenes.rrt',
+       'arco.simulator.scenes.sst',
+       'arco.simulator.scenes.astar',
    ]
    for m in modules:
        importlib.import_module(m)
@@ -369,8 +368,9 @@ simulator `scenes/`, standalone `examples/`, tests, and any other consumer —
 > ```bash
 > grep -rn "ClassName(" src/ tests/
 > ```
-> and verify *every* hit is updated.  Then run `scripts/pre_push.sh` (or at
-> minimum `scripts/run_smoke_tests.sh`) to confirm no runtime crashes survive.
+> and verify *every* hit is updated.  Then run smoke tests
+> (`scripts/run_smoke_test.sh <scenario>` for each scenario) to confirm no
+> runtime crashes survive.
 
 This check is **mandatory** before any commit that touches a public API.
 
