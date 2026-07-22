@@ -199,15 +199,18 @@ Identified for cleanup / non-use by library consumers:
 
 | Symbol / area | Why it is irrelevant to the public library interface |
 |---------------|------------------------------------------------------|
-| `arco.guidance.control.*` | Deprecated re-export shims; import `arco.control` |
-| `arco.mapping.graph.OrientedGraph` | Unused empty subclass; not part of the live hierarchy |
 | `arco.planning.continuous.telemetry` | Internal loading-screen IPC side-channel |
-| `arco.config.load_config` internals | Shared YAML loader for package configs, not a user feature API |
-| Documented-but-missing `load_map_config` | Stale docstring / broken `__main__` import in graph generator |
+| `arco.config.load_config` | Shared YAML loader for package configs, not a feature API |
 | `arco.simulator.*` | Application layer (`arcosim` CLI); not a stable library API |
 | `MPCController` | Deprecated stub; use `DubinsPathFollowingMPC` |
 | `DStarLite` / `DStarPlanner` | Intentional non-feature stubs (kept only as API placeholders) |
 | `BSplineInterpolator` body | Stub pass-through; symbol kept, algorithm not shipped |
+
+Removed in the cleanup (were listed as non-interface above):
+
+- `arco.guidance.control.*` deprecated shims
+- `arco.mapping.graph.OrientedGraph` unused empty subclass
+- Documented-but-missing `load_map_config`
 
 ---
 

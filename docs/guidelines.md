@@ -10,12 +10,13 @@ This document is the single authoritative reference for coding conventions in th
 - **Use folders with `__init__.py` instead of `_`-separated suffixes.** If several files share a common suffix (e.g. `oriented_graph.py`, `weighted_graph.py`), turn that suffix into a sub-package and drop it from the filenames:
   ```
   mapping/graph/
-      __init__.py     ← re-exports Graph, OrientedGraph, WeightedGraph
+      __init__.py     ← re-exports Graph, WeightedGraph, CartesianGraph
       base.py         ← Graph
-      oriented.py     ← OrientedGraph
       weighted.py     ← WeightedGraph
+      cartesian.py    ← CartesianGraph
   ```
-  The public import path then becomes `arco.mapping.graph.oriented`, `arco.mapping.graph.weighted`, etc.
+  The public import path then becomes `arco.mapping.graph.weighted`,
+  `arco.mapping.graph.cartesian`, etc.
 - **`__init__.py` files are re-export-only.** They must not contain class or function definitions; they only import and expose the public API of the package.
 - Add sub-folders to better group classes that depend on each other or are closely related.
 
