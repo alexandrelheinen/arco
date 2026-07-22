@@ -150,7 +150,7 @@ def _draw_race_vehicle(
     heading: float,
     color: tuple[int, int, int],
 ) -> None:
-    """Draw a race agent: 2×-enlarged body with a brighter fill color.
+    """Draw a race agent as a bright oriented rectangle (not a disc).
 
     Args:
         x: Vehicle x position in world meters.
@@ -159,7 +159,12 @@ def _draw_race_vehicle(
         color: Base RGB body color in ``[0, 255]``.
     """
     renderer_gl.draw_oriented_rect(
-        x, y, VEH_HALF_L, VEH_HALF_W, heading, *_brighten_rgb(color)
+        x,
+        y,
+        VEH_HALF_L,
+        VEH_HALF_W,
+        heading,
+        *_brighten_rgb(color, mix=0.65),
     )
 
 
@@ -648,19 +653,13 @@ def run_race(
                     if len(pred) < 2:
                         return
                     # Brighten the predicted fan so it reads against the
-                    # already-drawn optimized route underneath.
+                    # already-drawn optimized route underneath.  No tip disc:
+                    # racers stay oriented rectangles only.
                     bright = _brighten_rgb(color, mix=0.70)
                     renderer_gl.draw_path(
                         [(float(p[0]), float(p[1])) for p in pred],
                         *bright,
                         width=PREDICTED_TRACE_WIDTH,
-                    )
-                    tip = pred[-1]
-                    renderer_gl.draw_disc(
-                        float(tip[0]),
-                        float(tip[1]),
-                        LOOKAHEAD_DISC_R,
-                        *bright,
                     )
 
                 if use_mpc:

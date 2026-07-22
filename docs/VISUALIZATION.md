@@ -64,10 +64,10 @@ City race notes when `simulator.tracker: mpc`:
 - Scenario YAML may set `simulator.mpc.horizon.{step_count,dt}` (city default
   is **120 × 0.05 s = 6.0 s**) so the predicted horizon is long enough to read
   on the 600 m map video.
-- The race renderer draws each racer's **MPC predicted XY polyline** (plus a
-  bright tip disc) instead of a Pure-Pursuit carrot.
-- Race glyphs use a 2×-enlarged body (`6.0 × 2.8` m half-extents) and a
-  thicker past-trace width (`3.0` px).
+- The race renderer draws each racer's **MPC predicted XY polyline** (no tip
+  disc) instead of a Pure-Pursuit carrot.
+- Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) with
+  a thicker past-trace width (`3.0` px).
 
 ---
 
