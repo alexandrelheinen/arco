@@ -8,6 +8,7 @@ autonomous navigation building blocks: mapping, planning, and guidance/control.
 ## Documentation
 
 - [Docs index](docs/README.md)
+- [Public API reference](docs/API.md)
 - [Coding guidelines](docs/guidelines.md) (authoritative)
 - [Tech stack](docs/STACK.md)
 - [Mapping](docs/MAPPING.md) · [Planning](docs/PLANNING.md) · [Guidance](docs/GUIDANCE.md)
