@@ -97,8 +97,8 @@ assert occ.is_occupied(np.array([5.1, 5.1]))
 | Symbol | Module | Role |
 |--------|--------|------|
 | `DiscretePlanner` | `planning/discrete/base.py` | ABC: `plan(start, goal)` |
-| `AStarPlanner` | `planning/discrete/astar.py` | A* on any graph/grid; `plan`, `plan_with_diagnostics` |
-| `AStar` | `planning/discrete/api.py` | Numpy-grid wrapper; `search(start, goal)` |
+| `AStarPlanner` | `planning/discrete/astar.py` | A* on any graph/grid; `plan`, `plan_with_diagnostics`. Occupied start → `None`. |
+| `AStar` | `planning/discrete/api.py` | Numpy-grid wrapper; `search(start, goal)`. Raises `ValueError` for unknown `grid_type`. |
 | `RouteRouter` | `planning/discrete/route.py` | Project poses → A* on Cartesian/Road graphs |
 | `RouteResult` | `planning/discrete/route.py` | Named result of `RouteRouter.plan` |
 | `DStarLite` / `DStarPlanner` | stub | Raises `NotImplementedError` (not planned) |
@@ -216,5 +216,6 @@ Removed in the cleanup (were listed as non-interface above):
 
 ## Related docs
 
+- [FAILURE_MODES.md](FAILURE_MODES.md) — constructor and planning failure contracts
 - [ROADMAP.md](ROADMAP.md) — shipped vs won't-do features
 - Layer overviews: [MAPPING.md](MAPPING.md), [PLANNING.md](PLANNING.md), [GUIDANCE.md](GUIDANCE.md)

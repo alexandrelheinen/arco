@@ -20,6 +20,7 @@
 ## Project
 - [README](../README.md)
 - [Public API reference](API.md) — user-facing classes and non-interface inventory
+- [Failure modes](FAILURE_MODES.md) — invalid inputs and unsatisfiable plans
 - [Tech stack](STACK.md)
 - [Coding guidelines](guidelines.md) (authoritative)
 - [Contributing](../CONTRIBUTING.md)
