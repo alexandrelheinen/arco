@@ -4,62 +4,55 @@ The guidance layer in ARCO provides components for trajectory shaping and feedba
 
 ## Architecture
 
-The guidance layer is organized into three sub-packages:
+Guidance owns interpolation, primitives, and vehicle models. Feedback
+controllers live in `arco.control` (re-exported from `arco.guidance` for
+convenience).
 
 ```
 src/arco/guidance/
-├── __init__.py
-├── control/          ← Feedback controllers and tracking loops
-├── interpolation/    ← Path smoothing and trajectory generation
+├── interpolation/    ← Path smoothing
 ├── primitive/        ← Kinematic exploration primitives
 └── vehicle.py        ← Vehicle kinematic models
+
+src/arco/control/
+├── pid.py / pure_pursuit.py / tracking.py
+└── mpc/              ← Path-following and joint-space MPC
 ```
 
 ## Components
 
-### Control (`arco.guidance.control`)
+### Control (`arco.control`)
 
 Feedback controllers that generate control inputs to track a reference trajectory.
 
 #### Implemented Controllers
 
-- **PIDController** (`control/pid.py`): Proportional-Integral-Derivative controller
+- **PIDController** (`arco.control.pid`): Proportional-Integral-Derivative controller
   - Classic feedback control for setpoint tracking
   - Configurable gains (Kp, Ki, Kd)
   - Derivative filtering and anti-windup
 
-- **PurePursuitController** (`control/pure_pursuit.py`): Geometric path tracking
-  - "Carrot-following" algorithm for smooth path tracking
+- **PurePursuitController** (`arco.control.pure_pursuit`): Geometric path tracking
   - Look-ahead distance determines aggressiveness
   - Works well for car-like vehicles
 
-- **DubinsPathFollowingMPC** (`control/mpc/`): Receding-horizon contouring NMPC
+- **DubinsPathFollowingMPC** (`arco.control.mpc`): Receding-horizon contouring NMPC
   - Jointly optimizes lateral error, heading, speed, and obstacle clearance
   - CasADi + IPOPT backend via optional extra: `pip install arco[mpc]`
-  - Soft directional obstacle barriers (same philosophy as `TrajectoryOptimizer`)
-  - Paired with `MPCTrackingLoop` (no APF blend; avoidance is inside the NLP)
+  - Soft directional obstacle barriers
+  - Paired with `MPCTrackingLoop`
   - Enable in SE(2) races with `simulator.tracker: mpc`
-    (`map/vehicle.yml`, `map/city.yml` — RRT* / SST / A* each keep their
-    own planned waypoint reference; MPC does not replace the global planner)
-  - City race may override `simulator.mpc.horizon` (default **6.0 s**) and
-    draws the predicted XY polyline so anticipation is visible in videos
+  - City race may override `simulator.mpc.horizon` (default **6.0 s**)
 
-- **JointSpaceMPC** (`control/mpc/joint_space.py`): N-DOF carrot-tracking NMPC
+- **JointSpaceMPC** (`arco.control.mpc.joint_space`): N-DOF carrot-tracking NMPC
   - Drop-in for `JointSpaceTracker` (`reset` / `step` API)
-  - Soft C-space obstacle barriers; used by PPP / RRP when `tracker: mpc`
-  - Factory: `build_joint_tracker(..., tracker="mpc")`
+  - Used by PPP / RRP when `tracker: mpc`
 
-- **MPCTrackingLoop** (`control/mpc/tracking_loop.py`): Drop-in metrics parallel
-  to `TrackingLoop` for the MPC tracker (`build_vehicle_mpc_sim` factory)
+- **MPCTrackingLoop** / **TrackingLoop**: integration loops for MPC and Pure Pursuit
 
-- **TrackingLoop** (`control/tracking.py`): Pure Pursuit integration framework
-  - Optional APF repulsion for reactive avoidance (legacy / baseline)
+- **MPCController**: Deprecated scalar stub — use `DubinsPathFollowingMPC`
 
-- **MPCController** (`control/mpc/controller.py`): Deprecated scalar stub
-  - Emits `DeprecationWarning`; use `DubinsPathFollowingMPC` instead
-
-PID / Pure Pursuit inherit from the `Controller` abstract base class
-(`control/base.py`). Path-following MPC uses the separate `MPCTracker` ABC.
+PID / Pure Pursuit inherit from `Controller`. Path-following MPC uses `MPCTracker`.
 
 ### Interpolation (`arco.guidance.interpolation`)
 
@@ -67,12 +60,11 @@ Converts discrete waypoint paths into smooth, continuous trajectories.
 
 #### Implemented Interpolators
 
-- **BSplineInterpolator** (`interpolation/bspline.py`): B-spline curve fitting
-  - Smooth C² continuous curves through waypoints
-  - Configurable degree (cubic by default)
-  - Parameterized by arc length for uniform speed profiles
+- **BSplineInterpolator** (`interpolation/bspline.py`): currently a pass-through
+  stub (`interpolate(path)` returns `path` unchanged). Intended for C² B-spline
+  smoothing via scipy once implemented.
 
-All interpolators inherit from the `Interpolator` abstract base class (`interpolation/base.py`).
+All interpolators inherit from `Interpolator` (`interpolation/base.py`).
 
 ### Primitives (`arco.guidance.primitive`)
 
@@ -107,18 +99,14 @@ from arco.guidance.interpolation import BSplineInterpolator
 from arco.planning import AStar
 import numpy as np
 
-# 1. Plan discrete path
-grid = ...  # Grid object
-planner = AStar(grid)
-path = planner.plan(start, goal)  # List of waypoints
+# 1. Plan discrete path (AStar wraps a numpy occupancy grid)
+grid = np.zeros((20, 20), dtype=np.uint8)
+planner = AStar(grid, grid_type="euclidean")
+path = planner.search(start=(0, 0), goal=(19, 19))
 
-# 2. Smooth with B-spline
+# 2. Smooth with B-spline (currently a pass-through stub)
 interpolator = BSplineInterpolator(degree=3)
-smooth_trajectory = interpolator.fit(np.array(path))
-
-# 3. Sample at uniform intervals
-t_samples = np.linspace(0, 1, 100)
-trajectory_points = [interpolator.evaluate(t) for t in t_samples]
+smooth_path = interpolator.interpolate(path)
 ```
 
 ### Pure Pursuit Control Workflow

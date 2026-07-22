@@ -14,7 +14,9 @@ The planning layer in ARCO provides algorithms for finding feasible paths throug
 - **TrajectoryOptimizer**: Two-stage trajectory refinement for time-optimal execution (see [planning_optimizer.md](planning_optimizer.md))
 
 ## Stub Implementations (Won't Do)
-- **D\* Lite**: Dynamic replanning stub exists but full implementation is not planned (see [planning_dstar.md](planning_dstar.md))
+- **D\* Lite**: Stub (`DStarLite` in `planning.discrete.api`) raises
+  `NotImplementedError`. Full implementation is not planned — see
+  [ROADMAP.md](ROADMAP.md).
 
 ## Directory Structure
 ```

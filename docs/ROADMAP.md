@@ -44,27 +44,23 @@ See [GUIDANCE.md](GUIDANCE.md) for details.
 
 See [VISUALIZATION.md](VISUALIZATION.md) for details.
 
-### Entity model (`arco.tools.entity`)
-- Canonical typed hierarchy for all physical entities in an ARCO scene
+### Entity model (`arco.simulator.entity`)
+- Canonical typed hierarchy for physical entities in an ARCO scene
 - `Entity` ABC → `Agent` (`DubinsAgent`, `CartesianAgent`), `Link`, `Joint`
   (`RevoluteJoint`, `PrismaticJoint`), `EndEffector`, `Object`
-- Two geometry descriptors: `BoxGeometry` (rectangle/cuboid) and `SphereGeometry`
-  (circle/sphere); both JSON-serialisable
-- `KinematicChain` — assembles Links, Joints, and an EndEffector into a
-  manipulator description
-- Formats evaluated and rationale documented in [entity_formats.md](entity_formats.md)
+- Geometry descriptors: `BoxGeometry`, `SphereGeometry` (JSON-serialisable)
+- `KinematicChain` — Links, Joints, and an EndEffector
+- Format research note: [entity_formats.md](entity_formats.md)
 
 See [ENTITY_MODEL.md](ENTITY_MODEL.md) for details.
 
-### Viewer (`arco.tools.viewer`)
-- Unified rendering engine shared by all examples and the static image mode of `arcosim`
-- `SceneSnapshot` — JSON-serialisable snapshot of a single planning result
-  (obstacles, tree, found path, pruned path, trajectory, executed trace, metrics)
-- `FrameRenderer` — renders any `SceneSnapshot` onto a matplotlib axes (2-D or 3-D)
-- `StandardLayout` — composes workspace and C-space panels into a publication-ready figure
-- `draw_grid`, `draw_graph`, `draw_road` — lower-level layer helpers
-- Algorithm code writes a `SceneSnapshot`; the viewer reads it — no
-  algorithm-specific rendering code
+### Viewer (`arco.simulator.viewer`)
+- `SceneSnapshot` — JSON-serialisable planning result snapshot
+- `FrameRenderer` — renders a `SceneSnapshot` onto a matplotlib axes
+- `StandardLayout` — workspace / C-space figure composition
+- `draw_grid`, `draw_graph`, `draw_road` — layer helpers
+- Not yet the exclusive render path for all `arcosim` mains (OpenGL/pygame
+  paths still dominate)
 
 ### Middleware and pipeline (`arco.middleware`, `arco.pipeline`)
 - `Bus` ABC + `InMemoryBus` — typed, thread-safe, bounded message bus
@@ -79,5 +75,5 @@ See [ENTITY_MODEL.md](ENTITY_MODEL.md) for details.
 
 | Feature | Decision |
 |---------|----------|
-| **D\* Lite** | Stub exists (`DStarLite` in `planning.discrete.api`), full implementation not planned. Route planning with A* covers the main use case; incremental replanning is not required. See [planning_dstar.md](planning_dstar.md). |
+| **D\* Lite** | Stub exists (`DStarLite` in `planning.discrete.api`), full implementation not planned. Route planning with A* covers the main use case; incremental replanning is not required. |
 | **IPC / pub-sub middleware** | Full IPC across processes is not planned. The in-process `arco.middleware` bus (implemented) is sufficient for the single-process pipeline. |

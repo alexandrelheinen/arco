@@ -19,15 +19,13 @@ If there is any conflict between an ad hoc request and the guidelines, prioritiz
 
 ## Validation Checklist Before Finalizing
 
-**Run `bash scripts/pre_push.sh` as the first and last validation step.**
-This single script runs all required CI gates locally:
+Run formatting, unit tests, and smoke tests before finalizing:
 
 | Script | Gate |
 |--------|------|
 | `scripts/check_formatting.sh` | black + isort (blocking), pydocstyle (warning) |
 | `scripts/run_tests.sh` | pytest unit tests |
-| `scripts/run_examples.sh` | arcosim --image headless image generation |
-| `scripts/run_smoke_tests.sh` | arcosim headless recordings |
+| `scripts/run_smoke_test.sh <scenario>` | arcosim short headless recording |
 | `scripts/generate_videos.sh` | arcosim full-length simulation videos |
 
 Additional checks:

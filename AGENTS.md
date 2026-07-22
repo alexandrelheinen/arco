@@ -23,9 +23,9 @@ Follow [docs/guidelines.md](docs/guidelines.md) as the authoritative standard fo
 - When changing behavior, update tests in the mirrored tests structure.
 - When adding public APIs, include type annotations and Google-style docstrings.
 - Prefer project-local conventions over generic defaults.
-- **Run `bash scripts/pre_push.sh` before pushing.** This is the single
-  command that mirrors every required CI gate (formatting, tests, examples,
-  smoke tests, videos). All gates are mandatory — nothing may be skipped.
+- Before pushing, run `bash scripts/check_formatting.sh`,
+  `bash scripts/run_tests.sh`, and smoke tests via
+  `bash scripts/run_smoke_test.sh <scenario>` for each scenario.
   Smoke tests are the only local gate that imports every simulator module at
   startup, and skipping them allows import-time `KeyError` / `ImportError`
   regressions to escape into CI (see §12 of docs/guidelines.md).
