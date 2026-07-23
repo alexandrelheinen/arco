@@ -11,6 +11,7 @@
 - [RRT*](planning_rrt.md)
 - [SST](planning_sst.md)
 - [Trajectory optimizer](planning_optimizer.md)
+- [Contouring NMPC (NMPCC-style)](control_mpcc.md)
 
 ## Tools and design
 - [Visualization (`arcosim`)](VISUALIZATION.md)

@@ -36,10 +36,12 @@ Feedback controllers that generate control inputs to track a reference trajector
   - Look-ahead distance determines aggressiveness
   - Works well for car-like vehicles
 
-- **DubinsPathFollowingMPC** (`arco.control.mpc`): Receding-horizon contouring NMPC
-  - Jointly optimizes lateral error, heading, speed, and obstacle clearance
+- **DubinsPathFollowingMPC** (`arco.control.mpc`): Receding-horizon
+  **contouring NMPC** (NMPCC-style).  Full mathematical description:
+  [control_mpcc.md](control_mpcc.md).
+  - Jointly optimizes contouring / lag / heading / speed / clearance
   - CasADi + IPOPT backend via optional extra: `pip install arco[mpc]`
-  - Soft directional obstacle barriers
+  - Soft directional obstacle barriers (not hard road tubes)
   - Paired with `MPCTrackingLoop`
   - Enable in SE(2) races with `simulator.tracker: mpc`
   - City race may override `simulator.mpc.horizon` (default **3.6 s**,

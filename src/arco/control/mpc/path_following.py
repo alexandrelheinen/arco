@@ -263,12 +263,15 @@ class PathFollowingMPCConfig:
 
 
 class DubinsPathFollowingMPC(MPCTracker):
-    """Receding-horizon contouring MPC for Dubins / unicycle vehicles.
+    """Receding-horizon contouring NMPC (NMPCC-style) for Dubins vehicles.
 
-    Jointly optimizes lateral error, heading, speed, control effort, and
-    directional obstacle clearance under discrete-Euler unicycle dynamics
-    matching :meth:`~arco.guidance.vehicle.DubinsVehicle.step` saturation
-    semantics.
+    Jointly optimizes lateral (contouring) error, lag / progress, heading,
+    speed, control effort, and directional obstacle clearance under
+    discrete-Euler unicycle dynamics matching
+    :meth:`~arco.guidance.vehicle.DubinsVehicle.step` saturation semantics.
+
+    Mathematical formulation, symbols, and differences from classical
+    racing MPCC are documented in ``docs/control_mpcc.md``.
     """
 
     _OBSTACLE_SAMPLE_COUNT = 5
