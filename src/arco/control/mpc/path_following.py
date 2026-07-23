@@ -178,6 +178,67 @@ class PathFollowingMPCConfig:
             max_solver_iter_count=self.max_solver_iter_count,
         )
 
+    def with_weight_overrides(
+        self,
+        *,
+        contour: float | None = None,
+        heading: float | None = None,
+        progress: float | None = None,
+        control: float | None = None,
+        obstacle: float | None = None,
+        terminal: float | None = None,
+        slack: float | None = None,
+    ) -> PathFollowingMPCConfig:
+        """Return a copy with optional cost-weight overrides applied.
+
+        Args:
+            contour: Optional lateral / contouring weight.
+            heading: Optional heading-error weight.
+            progress: Optional speed-tracking weight.
+            control: Optional control-effort weight.
+            obstacle: Optional obstacle-barrier weight.
+            terminal: Optional terminal cost weight.
+            slack: Optional slack penalty weight.
+
+        Returns:
+            A new :class:`PathFollowingMPCConfig` with the requested
+            weight fields replaced; other fields are unchanged.
+        """
+        return PathFollowingMPCConfig(
+            horizon_step_count=self.horizon_step_count,
+            dt=self.dt,
+            cruise_speed=self.cruise_speed,
+            weight_contour=(
+                float(contour) if contour is not None else self.weight_contour
+            ),
+            weight_heading=(
+                float(heading) if heading is not None else self.weight_heading
+            ),
+            weight_progress=(
+                float(progress)
+                if progress is not None
+                else self.weight_progress
+            ),
+            weight_control=(
+                float(control) if control is not None else self.weight_control
+            ),
+            weight_obstacle=(
+                float(obstacle)
+                if obstacle is not None
+                else self.weight_obstacle
+            ),
+            obstacle_barrier_power=self.obstacle_barrier_power,
+            weight_terminal=(
+                float(terminal)
+                if terminal is not None
+                else self.weight_terminal
+            ),
+            weight_slack=(
+                float(slack) if slack is not None else self.weight_slack
+            ),
+            max_solver_iter_count=self.max_solver_iter_count,
+        )
+
 
 class DubinsPathFollowingMPC(MPCTracker):
     """Receding-horizon contouring MPC for Dubins / unicycle vehicles.
@@ -303,8 +364,11 @@ class DubinsPathFollowingMPC(MPCTracker):
             s_hint=self._progress,
             window=project_window,
         )
-        # Keep the contouring progress close to the geometric projection.
-        self._progress = 0.7 * self._progress + 0.3 * s_proj
+        # Blend toward the geometric projection, but never rewind contouring
+        # progress.  Driving past a sharp corner with large e_ψ used to pull
+        # s backward via this filter and start the city A* junction orbit.
+        blended = 0.7 * self._progress + 0.3 * s_proj
+        self._progress = float(max(blended, self._progress))
         self._progress = float(
             np.clip(self._progress, 0.0, self._reference.total_length)
         )
@@ -610,7 +674,12 @@ class DubinsPathFollowingMPC(MPCTracker):
             opti.subject_to(X[2, k + 1] == theta + omega * dt)
             opti.subject_to(X[3, k + 1] == v_next)
             opti.subject_to(X[4, k + 1] == omega_next)
-            opti.subject_to(S[0, k + 1] == s_k + v * ca.cos(e_head) * dt)
+            # Contouring progress must not reverse when |e_ψ| > 90°.
+            # With ṡ = v cos(e_ψ) a recovery / wider arc drove s backward,
+            # which is the limit-cycle that trapped the city A* racer.
+            opti.subject_to(
+                S[0, k + 1] == s_k + v * ca.fmax(ca.cos(e_head), 0.0) * dt
+            )
 
             opti.subject_to(
                 opti.bounded(limits.min_speed, v_next, limits.max_speed)

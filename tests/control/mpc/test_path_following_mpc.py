@@ -256,3 +256,55 @@ def test_path_following_config_with_horizon_overrides() -> None:
     assert abs(longer.dt - 0.05) < 1e-12
     assert longer.weight_contour == cfg.weight_contour
     assert cfg.horizon_step_count == 20
+
+
+def test_path_following_config_with_weight_overrides() -> None:
+    cfg = PathFollowingMPCConfig.create_from_config()
+    soft = cfg.with_weight_overrides(contour=4.0, heading=2.5, control=0.4)
+    assert abs(soft.weight_contour - 4.0) < 1e-12
+    assert abs(soft.weight_heading - 2.5) < 1e-12
+    assert abs(soft.weight_control - 0.4) < 1e-12
+    assert soft.horizon_step_count == cfg.horizon_step_count
+    assert abs(cfg.weight_contour - 10.0) < 1e-12
+
+
+def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
+    """Wider recovery arcs must not drive contouring progress backward.
+
+    With the old ṡ = v cos(e_ψ) law, |e_ψ| > 90° reversed s and created the
+    city A* junction limit cycle. Progress may stall, but not decrease.
+    """
+    path = [(float(i), 0.0) for i in range(30)]
+    cfg = _cfg(cruise_speed=0.5, weight_contour=2.0, weight_heading=1.0)
+    mpc = DubinsPathFollowingMPC(vehicle_limits=_limits(), config=cfg)
+    mpc.set_reference(path)
+
+    vehicle = DubinsVehicle(
+        x=5.0,
+        y=0.0,
+        heading=math.pi,  # pointed opposite the path tangent
+        max_speed=1.0,
+        min_speed=0.05,
+        max_turn_rate=1.2,
+        max_acceleration=1.5,
+        max_turn_rate_dot=2.0,
+    )
+    vehicle._speed = 0.5
+
+    # Seed progress near mid-path so a reverse step would be visible.
+    mpc._progress = 5.0
+    progress_values = [5.0]
+    dt = cfg.dt
+    for _ in range(40):
+        result = mpc.step(
+            vehicle.pose,
+            speed=vehicle.speed,
+            turn_rate=vehicle.turn_rate,
+            dt=dt,
+        )
+        progress_values.append(result.progress)
+        vehicle.step(result.speed_cmd, result.turn_rate_cmd, dt)
+
+    # Allow tiny numerical wobble, but no sustained regression.
+    assert min(progress_values) >= 5.0 - 1e-3
+    assert progress_values[-1] >= progress_values[0] - 1e-3

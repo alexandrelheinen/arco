@@ -38,6 +38,7 @@ from scipy.spatial import Delaunay as _Delaunay
 
 from arco.config.palette import annotation_rgb, layer_rgb, obstacle_rgb, ui_rgb
 from arco.simulator import renderer_gl
+from arco.simulator.sim.city_race_style import make_city_vehicle_config
 from arco.simulator.sim.scene import RaceScene
 from arco.simulator.sim.tracking import VehicleConfig
 
@@ -228,8 +229,9 @@ def _make_road_dots(
 def _make_vehicle_config(obs_cfg: dict[str, Any]) -> VehicleConfig:
     """Build a VehicleConfig scaled to the world defined in *obs_cfg*.
 
-    Parameters are chosen so a small 50 cm robotic car navigates 10 m-wide
-    neighborhood roads at a realistic pace.
+    Soft turn-rate / acceleration limits deliberately undershoot the
+    sharpest A* grid kinks on 30 m-wide roads so the recorded race shows
+    slight path deviation instead of a snap-turn junction orbit.
 
     Args:
         obs_cfg: Parsed city ``world`` configuration dict.
@@ -237,17 +239,8 @@ def _make_vehicle_config(obs_cfg: dict[str, Any]) -> VehicleConfig:
     Returns:
         :class:`~sim.tracking.VehicleConfig` ready for both racers.
     """
-    return VehicleConfig(
-        max_speed=25.0,
-        min_speed=0.0,
-        cruise_speed=18.0,
-        lookahead_distance=35.0,
-        goal_radius=20.0,
-        max_turn_rate=math.radians(60.0),
-        max_acceleration=4.9,
-        max_turn_rate_dot=math.radians(3600.0),
-        curvature_gain=0.0,
-    )
+    del obs_cfg  # Layout-independent; limits live in city_race_style.
+    return make_city_vehicle_config()
 
 
 def _grid_index_to_world_center(

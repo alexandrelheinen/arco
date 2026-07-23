@@ -62,9 +62,10 @@ arcosim map/city.yml --static --record output/city.png
 City race notes when `simulator.tracker: mpc`:
 
 - Scenario YAML may set `simulator.mpc.horizon.{step_count,dt}` (city default
-  is **72 × 0.05 s = 3.6 s**, ~64.8 m at 18 m/s ≈ half a block).  The prior
-  full-block 6.0 s horizon overshot sharp A* grid corners and could trap the
-  purple racer in a junction loop on the release video.
+  is **72 × 0.05 s = 3.6 s**, ~50 m at the soft 14 m/s cruise ≈ half a block).
+  City also softens `simulator.mpc.weights` and vehicle turn limits so sharp
+  A* grid kinks produce a visible lateral understeer instead of a snap-turn
+  junction orbit (see v0.3.3 `arcosim_city.mp4`).
 - The race renderer draws each racer's **MPC predicted XY polyline** (no tip
   disc) instead of a Pure-Pursuit carrot.
 - Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) with
