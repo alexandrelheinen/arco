@@ -1,8 +1,13 @@
-"""Tests for the arcosim CLI fast-record / dispatch wiring."""
+"""Tests for the arcosim CLI fast-record / dispatch wiring.
+
+These tests must not import pygame: CI unit jobs install ``arco`` without the
+display extras.  ``arco.simulator.__main__`` lazy-imports scenario mains.
+"""
 
 from __future__ import annotations
 
 import sys
+import types
 from typing import Any
 
 import pytest
@@ -31,12 +36,18 @@ def test_parse_args_fast_record_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     assert args.fast_record is True
 
 
+def test_apply_fast_record_sets_simulator_flag() -> None:
+    cfg: dict[str, Any] = {"scenario": "city", "planner": {}}
+    arcosim_main._apply_fast_record(cfg)
+    assert cfg["simulator"]["fast_record"] is True
+
+
 def test_dispatch_sets_simulator_fast_record(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, Any] = {}
 
-    class _FakeModule:
+    class _FakeCity:
         @staticmethod
         def main(
             cfg: dict[str, Any], save_path: str | None, duration: float
@@ -45,12 +56,10 @@ def test_dispatch_sets_simulator_fast_record(
             captured["save_path"] = save_path
             captured["duration"] = duration
 
-    monkeypatch.setattr(
-        arcosim_main.simulator,
-        "city",
-        _FakeModule(),
-        raising=False,
-    )
+    fake_main = types.ModuleType("arco.simulator.main")
+    fake_main.city = _FakeCity()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "arco.simulator.main", fake_main)
+
     cfg: dict[str, Any] = {"scenario": "city", "planner": {}}
     arcosim_main._dispatch(cfg, "/tmp/out.mp4", 45.0, fast_record=True)
     assert cfg["simulator"]["fast_record"] is True
