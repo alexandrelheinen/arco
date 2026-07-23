@@ -18,8 +18,6 @@ import os
 import sys
 from typing import Any
 
-import arco.simulator.main as simulator
-
 logger = logging.getLogger(__name__)
 
 # Optional-dependency guard for yaml
@@ -65,6 +63,21 @@ def _load_map(path: str) -> dict[str, Any]:
     return cfg
 
 
+def _apply_fast_record(cfg: dict[str, Any]) -> None:
+    """Set ``simulator.fast_record`` on a loaded scenario config.
+
+    Args:
+        cfg: Mutable scenario dictionary (must already contain ``scenario``).
+    """
+    # Scenes read simulator.fast_record to skip tree-reveal pacing in
+    # headless release / CI recordings (see docs/VISUALIZATION.md).
+    sim = cfg.setdefault("simulator", {})
+    if not isinstance(sim, dict):
+        cfg["simulator"] = {"fast_record": True}
+    else:
+        sim["fast_record"] = True
+
+
 def _dispatch(
     cfg: dict[str, Any],
     save_path: str | None,
@@ -73,13 +86,12 @@ def _dispatch(
     fast_record: bool = False,
 ) -> None:
     if fast_record:
-        # Scenes read simulator.fast_record to skip tree-reveal pacing in
-        # headless release / CI recordings (see docs/VISUALIZATION.md).
-        sim = cfg.setdefault("simulator", {})
-        if not isinstance(sim, dict):
-            cfg["simulator"] = {"fast_record": True}
-        else:
-            sim["fast_record"] = True
+        _apply_fast_record(cfg)
+    # Lazy import: scenario mains pull pygame/OpenGL.  Keeping this inside
+    # dispatch lets unit tests import parse_args / _apply_fast_record without
+    # the display stack (headless CI unit jobs omit pygame).
+    import arco.simulator.main as simulator
+
     scenario = cfg["scenario"]
     submodule = getattr(simulator, scenario, None)
     if not submodule:
@@ -118,7 +130,10 @@ def parse_args() -> argparse.Namespace:
         "--output",
         "-o",
         default=None,
-        help="Destination of the output file. If not provided, display interactively (default: none).",
+        help=(
+            "Destination of the output file. If not provided, display "
+            "interactively (default: none)."
+        ),
     )
     parser.add_argument(
         "--record-duration",
