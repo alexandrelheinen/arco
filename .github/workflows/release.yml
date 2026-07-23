@@ -10,6 +10,9 @@ jobs:
   # One parallel job per simulator scenario.  Each job generates a single
   # MP4 and uploads it as a workflow artifact so the publish job can
   # collect and attach all files to the release in one step.
+  #
+  # Wall-clock ≈ max(matrix) ≈ city.  Release mode uses the reduced-budget
+  # city preview map + --fast-record (skip tree-reveal pacing).
   # -----------------------------------------------------------------------
   generate-video:
     name: Generate ${{ matrix.scenario }} video
@@ -30,23 +33,37 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install system dependencies
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg xvfb libgl1 libglib2.0-0
 
-      - name: Install package with simulator and MPC dependencies
-        # mpc (CasADi) is required when map YAMLs set simulator.tracker: mpc
-        # (vehicle, ppp, rrp). Without it, arcosim raises ImportError at race start.
-        run: pip install -e ".[tools,pygame,mpc]"
+      - name: Install package with simulator dependencies
+        # CasADi (mpc) only for scenarios whose map YAML sets tracker: mpc.
+        run: |
+          set -euo pipefail
+          case "${{ matrix.scenario }}" in
+            city|vehicle|ppp|rrp)
+              pip install -e ".[tools,pygame,mpc]"
+              ;;
+            *)
+              pip install -e ".[tools,pygame]"
+              ;;
+          esac
 
       - name: Generate video
+        # Duration 30 s with --fast-record ≈ the old 60 s clips that spent
+        # half the budget on cheap tree-reveal frames.  All frames are now
+        # race/tracking (MPC-heavy for city/vehicle/ppp/rrp).
         run: |
           bash scripts/generate_videos.sh \
+            --release \
             --only ${{ matrix.scenario }} \
             --out-dir /tmp/sim_videos \
-            --duration 60
+            --duration 30
 
       - name: Upload video artifact
         uses: actions/upload-artifact@v4

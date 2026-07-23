@@ -85,7 +85,7 @@ Run the same gates CI uses:
 | `scripts/check_formatting.sh` | black + isort (blocking), pydocstyle (warning) |
 | `scripts/run_tests.sh` | pytest unit tests |
 | `scripts/run_smoke_test.sh <scenario>` | short headless `arcosim` recording |
-| `scripts/generate_videos.sh` | full-length simulation videos |
+| `scripts/generate_videos.sh` | full-length simulation videos (`--release` for CI) |
 
 ```bash
 bash scripts/check_formatting.sh

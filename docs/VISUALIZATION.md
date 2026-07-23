@@ -37,6 +37,9 @@ arcosim map/city.yml --record output/city.mp4
 # Limit recording duration
 arcosim map/city.yml --record output/city.mp4 --record-duration 30
 
+# Fast headless recording: skip animated planner-tree reveal
+arcosim map/city.yml -o output/city.mp4 -d 60 --fast-record
+
 # Static image mode — opens matplotlib window
 arcosim map/city.yml --image
 
@@ -58,6 +61,20 @@ arcosim map/city.yml --static --record output/city.png
 | `rr`     | RR robot arm kinematics |
 | `rrp`    | RRP robot arm kinematics |
 | `vehicle`| Vehicle trajectory with tracking controller |
+
+### Release / CI video generation
+
+`scripts/generate_videos.sh --release` (used by `.github/workflows/release.yml`):
+
+- Remaps logical scenario `city` → `map/city_mpc_preview.yml` (reduced RRT*/SST/A*
+  sample budgets) while still writing `arcosim_city.mp4`.
+- Passes `--fast-record` so recordings skip tree-reveal pacing and spend the
+  duration budget on the race / tracking phase.
+- Uses **30 s** clips (not 60 s): with fast-record every frame is
+  race/tracking; 30 s matches the race portion of the former 60 s videos
+  that spent ~half the time revealing trees.
+- Caches pip and installs CasADi (`arco[mpc]`) only for scenarios whose YAML
+  sets `tracker: mpc` (`city`, `vehicle`, `ppp`, `rrp`).
 
 City race notes when `simulator.tracker: mpc`:
 

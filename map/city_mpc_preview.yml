@@ -1,5 +1,7 @@
-# Preview map for MPC city race video (reduced planner budgets).
-# Same world/tracker as city.yml; not used by release matrix.
+# Preview / release map for the city race (reduced planner budgets).
+# Same world/tracker as city.yml.  Release Videos uses this file via
+# ``scripts/generate_videos.sh --release`` while publishing as
+# ``arcosim_city.mp4`` (see .github/workflows/release.yml).
 scenario: city
 planner:
   step_size:

@@ -213,6 +213,7 @@ def run_race(
     dt: float = 0.1,
     record: str = "",
     record_duration: float = 90.0,
+    fast_record: bool = False,
 ) -> None:
     """Run the three-vehicle cul-de-sac race.
 
@@ -230,9 +231,21 @@ def run_race(
         dt: Simulation timestep in seconds.
         record: Output MP4 file path.  Empty string means interactive mode.
         record_duration: Maximum headless recording length in seconds.
+        fast_record: When recording, skip animated tree reveal and start the
+            race immediately so the duration budget is spent on tracking.
     """
     recording = bool(record)
     max_record_frames = int(fps * record_duration)
+    # Also honor YAML ``simulator.fast_record`` when the caller did not pass
+    # the flag explicitly (arcosim --fast-record mutates the scene config).
+    sim_cfg_early = getattr(scene, "_sim_cfg", None)
+    if not isinstance(sim_cfg_early, dict):
+        sim_cfg_early = (getattr(scene, "_cfg", {}) or {}).get("simulator", {})
+    if not isinstance(sim_cfg_early, dict):
+        sim_cfg_early = {}
+    fast_record = bool(fast_record) or (
+        recording and bool(sim_cfg_early.get("fast_record", False))
+    )
 
     # OpenGL requires a real (or virtual) display.  For headless recording
     # use xvfb-run.
@@ -308,12 +321,15 @@ def run_race(
     )
 
     # Pacing: reveal all trees in parallel, finishing together at ~half-time.
+    # Fast-record spends the whole duration on racing (no reveal budget).
     half_frames = (
         max(1, max_record_frames // 2) if recording else max(1, fps * 8)
     )
     nodes_per_frame = max(
-        1, max(rrt_total, sst_total, astar_total) // half_frames
+        1, max(rrt_total, sst_total, astar_total, 1) // half_frames
     )
+    if fast_record:
+        nodes_per_frame = max(rrt_total, sst_total, astar_total, 1)
 
     # ---------------------------------------------------------------------------
     # Mutable simulation state
@@ -329,6 +345,11 @@ def run_race(
     sst_revealed = 0
     astar_revealed = 0
     hold = 0
+    if fast_record:
+        rrt_revealed = rrt_total
+        sst_revealed = sst_total
+        astar_revealed = astar_total
+        _bg_stage_idx = len(_bg_stages) - 1
 
     rrt_vehicle = None
     sst_vehicle = None
@@ -352,9 +373,7 @@ def run_race(
 
     # CityScene stores simulator config in _sim_cfg; VehicleScene keeps
     # the full YAML under _cfg["simulator"].
-    sim_cfg = getattr(scene, "_sim_cfg", None)
-    if not isinstance(sim_cfg, dict):
-        sim_cfg = (getattr(scene, "_cfg", {}) or {}).get("simulator", {})
+    sim_cfg = sim_cfg_early
     tracker_mode = str(sim_cfg.get("tracker", "pure_pursuit"))
 
     def _start_racing() -> None:
@@ -507,12 +526,17 @@ def run_race(
                     )
                     if both_done:
                         hold += 1
-                        if hold >= _HOLD_FRAMES or (
-                            recording and record_frames >= half_frames
+                        if (
+                            fast_record
+                            or hold >= _HOLD_FRAMES
+                            or (recording and record_frames >= half_frames)
                         ):
                             phase = "racing"
                             _start_racing()
-                            logger.info("Switched to racing phase.")
+                            logger.info(
+                                "Switched to racing phase%s.",
+                                " (fast-record)" if fast_record else "",
+                            )
 
                 elif phase == "racing":
                     race_time += dt
@@ -853,10 +877,13 @@ def run_race(
 
 def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     sim_cfg = load_config("simulator")
+    scene_sim_cfg = cfg.get("simulator", {})
+    if not isinstance(scene_sim_cfg, dict):
+        scene_sim_cfg = {}
     scene = CityScene(
         cfg.get("planner", {}),
         cfg.get("world", {}),
-        sim_cfg=cfg.get("simulator", {}),
+        sim_cfg=scene_sim_cfg,
     )
     run_race(
         scene,
@@ -864,4 +891,5 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
         dt=sim_cfg["timestep"],
         record=save_path,
         record_duration=sim_duration,
+        fast_record=bool(scene_sim_cfg.get("fast_record", False)),
     )

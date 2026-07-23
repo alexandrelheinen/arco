@@ -134,6 +134,7 @@ def run_sim(
     zoom: bool = False,
     record: str = "",
     record_duration: float = 60.0,
+    fast_record: bool = False,
 ) -> None:
     """Run the unified two-phase simulator loop for *scene*.
 
@@ -159,9 +160,12 @@ def run_sim(
         record: Output MP4 file path for a headless recording.  Empty string
             means interactive mode (opens a window).
         record_duration: Maximum recording length in seconds.
+        fast_record: When recording, skip animated background reveal and start
+            tracking immediately.
     """
     recording = bool(record)
     max_record_frames = int(fps * record_duration)
+    fast_record = bool(fast_record) and recording
 
     # OpenGL requires a real (or virtual) display — do not set
     # SDL_VIDEODRIVER=dummy.  For headless recording use xvfb-run.
@@ -207,6 +211,8 @@ def run_sim(
     nodes_per_frame = (
         max(1, background_total // half_frames) if background_total > 0 else 0
     )
+    if fast_record and background_total > 0:
+        nodes_per_frame = background_total
 
     # Camera filter starts at the first waypoint (or world origin).
     waypoints = scene.waypoints
@@ -248,6 +254,8 @@ def run_sim(
     phase = "background" if background_total > 0 else "tracking"
     revealed = 0
     hold = 0
+    if fast_record and background_total > 0:
+        revealed = background_total
 
     vehicle = None
     veh_loop = None
@@ -364,13 +372,18 @@ def run_sim(
                         )
                     else:
                         hold += 1
-                        transition = hold >= _HOLD_FRAMES or (
-                            recording and record_frames >= half_frames
+                        transition = (
+                            fast_record
+                            or hold >= _HOLD_FRAMES
+                            or (recording and record_frames >= half_frames)
                         )
                         if transition:
                             phase = "tracking"
                             _start_tracking()
-                            logger.info("Switched to tracking phase.")
+                            logger.info(
+                                "Switched to tracking phase%s.",
+                                " (fast-record)" if fast_record else "",
+                            )
                 elif phase == "tracking" and not veh_finished:
                     if vehicle is not None and veh_loop is not None:
                         veh_loop.step(waypoints, dt=dt)
