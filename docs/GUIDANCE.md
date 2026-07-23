@@ -45,9 +45,15 @@ Feedback controllers that generate control inputs to track a reference trajector
   - City race may override `simulator.mpc.horizon` (default **3.6 s**,
     ~half a city block) and uses **progress-first contouring**: a free
     lateral deadzone plus a lag penalty so the NMPC may widen sharp A*
-    kinks as long as arc-length progress advances
+    kinks as long as arc-length progress advances.  Planners ignore
+    vehicle dynamics, so forcing zero lateral error on their polylines
+    is pointless — the tracker treats the plan as a soft guide.
   - Contouring progress uses `ṡ = v max(cos e_ψ, 0)` so recovery arcs do
     not reverse the path parameter (the limit-cycle behind city A* loops)
+  - Trajectory evolution under progress-first: on straights the car stays
+    near the reference; on planner kinks sharper than `R_min = v/ω_max`
+    it cuts a feasible Dubins arc (visible `e_lat` inside the deadzone)
+    while `s` keeps increasing — instead of snap-turning or orbiting
 
 - **JointSpaceMPC** (`arco.control.mpc.joint_space`): N-DOF carrot-tracking NMPC
   - Drop-in for `JointSpaceTracker` (`reset` / `step` API)

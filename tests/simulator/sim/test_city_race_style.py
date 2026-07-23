@@ -118,25 +118,26 @@ def test_path_following_mpc_config_honors_weight_overrides() -> None:
             "mpc": {
                 "horizon": {"step_count": 72, "dt": 0.05},
                 "weights": {
-                    "contour": 2.0,
-                    "heading": 2.0,
-                    "control": 0.4,
-                    "lag": 8.0,
-                    "contour_deadzone": 6.0,
+                    "contour": 1.5,
+                    "heading": 1.5,
+                    "control": 0.5,
+                    "lag": 10.0,
+                    "contour_deadzone": 8.0,
                 },
             },
         },
         default_horizon_step_count=72,
         default_horizon_dt=0.05,
     )
-    assert abs(cfg.weight_contour - 2.0) < 1e-12
-    assert abs(cfg.weight_heading - 2.0) < 1e-12
-    assert abs(cfg.weight_control - 0.4) < 1e-12
-    assert abs(cfg.weight_lag - 8.0) < 1e-12
-    assert abs(cfg.contour_deadzone - 6.0) < 1e-12
+    assert abs(cfg.weight_contour - 1.5) < 1e-12
+    assert abs(cfg.weight_heading - 1.5) < 1e-12
+    assert abs(cfg.weight_control - 0.5) < 1e-12
+    assert abs(cfg.weight_lag - 10.0) < 1e-12
+    assert abs(cfg.contour_deadzone - 8.0) < 1e-12
 
 
-def test_city_map_yaml_declares_half_block_horizon() -> None:
+def test_city_map_yaml_declares_progress_first_contouring() -> None:
+    """City YAML prefers advancing s over fitting dynamics-blind plans."""
     root = Path(__file__).resolve().parents[3]
     for name in ("city.yml", "city_mpc_preview.yml"):
         data = yaml.safe_load((root / "map" / name).read_text())
@@ -147,7 +148,8 @@ def test_city_map_yaml_declares_half_block_horizon() -> None:
             < 1e-12
         )
         weights = data["simulator"]["mpc"]["weights"]
-        assert float(weights["contour"]) < 10.0
-        assert float(weights["heading"]) < 5.0
-        assert float(weights["lag"]) > 0.0
-        assert float(weights["contour_deadzone"]) > 0.0
+        assert float(weights["contour"]) <= 2.0
+        assert float(weights["heading"]) <= 2.0
+        assert float(weights["lag"]) >= 8.0
+        # Free band at least ~half the 15 m road half-width.
+        assert float(weights["contour_deadzone"]) >= 8.0

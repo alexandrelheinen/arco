@@ -261,17 +261,17 @@ def test_path_following_config_with_horizon_overrides() -> None:
 def test_path_following_config_with_weight_overrides() -> None:
     cfg = PathFollowingMPCConfig.create_from_config()
     soft = cfg.with_weight_overrides(
-        contour=2.0,
-        heading=2.0,
-        control=0.4,
-        lag=8.0,
-        contour_deadzone=6.0,
+        contour=1.5,
+        heading=1.5,
+        control=0.5,
+        lag=10.0,
+        contour_deadzone=8.0,
     )
-    assert abs(soft.weight_contour - 2.0) < 1e-12
-    assert abs(soft.weight_heading - 2.0) < 1e-12
-    assert abs(soft.weight_control - 0.4) < 1e-12
-    assert abs(soft.weight_lag - 8.0) < 1e-12
-    assert abs(soft.contour_deadzone - 6.0) < 1e-12
+    assert abs(soft.weight_contour - 1.5) < 1e-12
+    assert abs(soft.weight_heading - 1.5) < 1e-12
+    assert abs(soft.weight_control - 0.5) < 1e-12
+    assert abs(soft.weight_lag - 10.0) < 1e-12
+    assert abs(soft.contour_deadzone - 8.0) < 1e-12
     assert soft.horizon_step_count == cfg.horizon_step_count
     assert abs(cfg.weight_contour - 10.0) < 1e-12
     assert abs(cfg.weight_lag) < 1e-12
