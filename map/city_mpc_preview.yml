@@ -37,4 +37,5 @@ simulator:
       control: 0.5
       progress: 4.0
       lag: 4.0
+      obstacle: 120.0
       contour_deadzone: 2.5

@@ -164,3 +164,4 @@ def test_city_map_yaml_declares_lane_aware_progress_first() -> None:
         # Free band ≪ road half-width (15 m) and planner clearance (8 m).
         deadzone = float(weights["contour_deadzone"])
         assert 1.0 <= deadzone <= 4.0
+        assert float(weights["obstacle"]) >= 100.0
