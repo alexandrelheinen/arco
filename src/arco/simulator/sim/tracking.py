@@ -9,7 +9,7 @@ list of (x, y) waypoints.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -286,21 +286,10 @@ def build_vehicle_mpc_sim(
         max_turn_rate_dot=cfg.max_turn_rate_dot,
     )
     # VehicleConfig.cruise_speed is the authoritative cruise for the sim;
-    # MPC weights / horizon come from mpc_cfg.
-    effective_mpc_cfg = PathFollowingMPCConfig(
-        horizon_step_count=mpc_cfg.horizon_step_count,
-        dt=mpc_cfg.dt,
-        cruise_speed=cfg.cruise_speed,
-        weight_contour=mpc_cfg.weight_contour,
-        weight_heading=mpc_cfg.weight_heading,
-        weight_progress=mpc_cfg.weight_progress,
-        weight_control=mpc_cfg.weight_control,
-        weight_obstacle=mpc_cfg.weight_obstacle,
-        obstacle_barrier_power=mpc_cfg.obstacle_barrier_power,
-        weight_terminal=mpc_cfg.weight_terminal,
-        weight_slack=mpc_cfg.weight_slack,
-        max_solver_iter_count=mpc_cfg.max_solver_iter_count,
-    )
+    # all other MPC fields (including lag / contour_deadzone) come from
+    # mpc_cfg.  A manual field copy previously dropped progress-first keys,
+    # so city YAML deadzone/lag never reached the race NMPC.
+    effective_mpc_cfg = replace(mpc_cfg, cruise_speed=cfg.cruise_speed)
     tracker = DubinsPathFollowingMPC(
         vehicle_limits=limits,
         config=effective_mpc_cfg,

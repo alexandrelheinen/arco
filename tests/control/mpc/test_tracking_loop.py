@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 casadi = pytest.importorskip("casadi")
@@ -85,3 +87,39 @@ def test_build_vehicle_mpc_sim_factory() -> None:
     assert abs(vehicle.x - 0.0) < 1e-12
     metrics = loop.step(path, dt=0.05)
     assert "mpc_solver_success" in metrics
+
+
+def test_build_vehicle_mpc_sim_preserves_progress_first_weights() -> None:
+    """City YAML lag / deadzone must reach the race NMPC instance.
+
+    ``build_vehicle_mpc_sim`` used to reconstruct PathFollowingMPCConfig
+    without ``weight_lag`` / ``contour_deadzone``, silently disabling
+    progress-first contouring for every city racer.
+    """
+    path = [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0)]
+    cfg = VehicleConfig(
+        max_speed=16.0,
+        min_speed=0.0,
+        cruise_speed=12.0,
+        lookahead_distance=28.0,
+        goal_radius=20.0,
+        max_turn_rate=math.radians(40.0),
+        max_acceleration=2.5,
+        max_turn_rate_dot=math.radians(90.0),
+    )
+    mpc_cfg = PathFollowingMPCConfig.create_from_config().with_weight_overrides(
+        contour=8.0,
+        heading=4.0,
+        progress=4.0,
+        lag=4.0,
+        control=0.5,
+        obstacle=120.0,
+        contour_deadzone=2.5,
+    )
+    _vehicle, loop = build_vehicle_mpc_sim(path, cfg, mpc_cfg)
+    live = loop.tracker.config
+    assert abs(live.cruise_speed - 12.0) < 1e-12
+    assert abs(live.weight_lag - 4.0) < 1e-12
+    assert abs(live.contour_deadzone - 2.5) < 1e-12
+    assert abs(live.weight_contour - 8.0) < 1e-12
+    assert abs(live.weight_obstacle - 120.0) < 1e-12

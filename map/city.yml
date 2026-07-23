@@ -69,4 +69,5 @@ simulator:
       control: 0.5  # [] control effort — prefer smooth ω
       progress: 4.0  # [] track v_ref (incl. curve-limited corner speed)
       lag: 4.0  # [] behind-schedule progress (do not overpower braking)
+      obstacle: 120.0  # [] keep the topological lane clear of buildings
       contour_deadzone: 2.5  # [m] free |e_lat| band (widen inside the lane)
