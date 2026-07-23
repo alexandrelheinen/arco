@@ -57,6 +57,43 @@ def test_reference_path_tangent_and_curvature_straight() -> None:
     assert abs(path.heading(4.0)) < 1e-9
 
 
+def test_reference_path_curvature_detects_sharp_l_kink() -> None:
+    """A 90° polyline corner must produce usable κ for ``v_curve`` braking.
+
+    The previous skip-one finite difference reported κ≈0 at the vertex of
+    ``(0,0)→(50,0)→(50,50)`` because ``h[i-1]`` and ``h[i+1]`` cancelled.
+    """
+    path = ReferencePath([(0.0, 0.0), (50.0, 0.0), (50.0, 50.0)])
+    kappa_corner = abs(path.curvature(50.0))
+    # Spread over ds_cap=20 m → |κ| = (π/2) / 20 ≈ 0.0785.
+    assert kappa_corner > 0.05
+    # Approach preview must expose the corner κ well before the vertex so
+    # the NMPC can decelerate (city soft a_max needs tens of meters).
+    kappa_approach = abs(path.curvature(20.0))
+    assert kappa_approach > 0.05
+
+
+def test_reference_path_curvature_grid_corner_limits_city_speed() -> None:
+    """A* 15 m grid corners yield κ that brakes soft city ω to lane-safe v."""
+    path = ReferencePath(
+        [
+            (0.0, 0.0),
+            (15.0, 0.0),
+            (30.0, 0.0),
+            (45.0, 0.0),
+            (60.0, 0.0),
+            (60.0, 15.0),
+            (60.0, 30.0),
+        ]
+    )
+    kappa = abs(path.curvature(60.0))
+    omega = math.radians(40.0)
+    v_curve = omega / max(kappa, 1e-6)
+    # R = v/ω = 1/κ; with consecutive turn / 15 m, R ≈ 9.5 m < 15 m lane.
+    assert v_curve / omega < 15.0
+    assert v_curve < 12.0
+
+
 def test_reference_path_total_length() -> None:
     path = ReferencePath([(0.0, 0.0), (3.0, 4.0)])
     assert abs(path.total_length - 5.0) < 1e-9

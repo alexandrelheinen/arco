@@ -26,14 +26,15 @@ world:
   seed: 42
 simulator:
   tracker: mpc
-  # Match city.yml: half-block horizon + progress-first contouring.
+  # Match city.yml: half-block horizon + lane-aware progress-first.
   mpc:
     horizon:
       step_count: 72
       dt: 0.05
     weights:
-      contour: 1.5
-      heading: 1.5
+      contour: 8.0
+      heading: 4.0
       control: 0.5
-      lag: 10.0
-      contour_deadzone: 8.0
+      progress: 4.0
+      lag: 4.0
+      contour_deadzone: 2.5
