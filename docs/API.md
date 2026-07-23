@@ -142,7 +142,7 @@ non-positive `step_size`. Occupied start/goal yields `None` (no exception).
 | `PIDController` | Classic PID |
 | `PurePursuitController` | Geometric look-ahead tracker |
 | `TrackingLoop` | Pure Pursuit integration (+ optional APF) |
-| `DubinsPathFollowingMPC` | CasADi contouring NMPC (`arco[mpc]`) |
+| `DubinsPathFollowingMPC` | CasADi contouring NMPC / NMPCC-style (`arco[mpc]`; see [control_mpcc.md](control_mpcc.md)) |
 | `MPCTrackingLoop` | Metrics loop for path-following MPC |
 | `ReferencePath` / `PathFollowingMPCConfig` / `DubinsVehicleLimits` | MPC inputs |
 | `JointSpaceMPC` / `JointSpaceMPCConfig` | N-DOF carrot NMPC |
