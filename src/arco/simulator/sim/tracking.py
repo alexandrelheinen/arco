@@ -38,10 +38,11 @@ def path_following_mpc_config_from_simulator(
 ) -> PathFollowingMPCConfig:
     """Build path-following MPC config from global defaults + scenario YAML.
 
-    Reads optional ``simulator.mpc.horizon.{step_count,dt}`` overrides from
-    *sim_cfg*.  When those keys are absent, *default_horizon_** values (if
-    provided) replace the global ``mpc.yml`` horizon — used by the city demo
-    to keep a longer anticipation window without changing other scenarios.
+    Reads optional ``simulator.mpc.horizon.{step_count,dt}`` and
+    ``simulator.mpc.weights.*`` overrides from *sim_cfg*.  When horizon
+    keys are absent, *default_horizon_** values (if provided) replace the
+    global ``mpc.yml`` horizon — used by the city demo to keep a longer
+    anticipation window without changing other scenarios.
 
     Args:
         sim_cfg: Scenario ``simulator`` dict (may be ``None`` / empty).
@@ -61,14 +62,55 @@ def path_following_mpc_config_from_simulator(
     horizon = (
         mpc.get("horizon") if isinstance(mpc.get("horizon"), dict) else {}
     )
+    weights = (
+        mpc.get("weights") if isinstance(mpc.get("weights"), dict) else {}
+    )
     step_count = horizon.get("step_count", default_horizon_step_count)
     dt = horizon.get("dt", default_horizon_dt)
-    if step_count is None and dt is None:
-        return cfg
-    return cfg.with_horizon_overrides(
-        step_count=None if step_count is None else int(step_count),
-        dt=None if dt is None else float(dt),
-    )
+    if step_count is not None or dt is not None:
+        cfg = cfg.with_horizon_overrides(
+            step_count=None if step_count is None else int(step_count),
+            dt=None if dt is None else float(dt),
+        )
+    if weights:
+        cfg = cfg.with_weight_overrides(
+            contour=(
+                None
+                if weights.get("contour") is None
+                else float(weights["contour"])
+            ),
+            heading=(
+                None
+                if weights.get("heading") is None
+                else float(weights["heading"])
+            ),
+            progress=(
+                None
+                if weights.get("progress") is None
+                else float(weights["progress"])
+            ),
+            control=(
+                None
+                if weights.get("control") is None
+                else float(weights["control"])
+            ),
+            obstacle=(
+                None
+                if weights.get("obstacle") is None
+                else float(weights["obstacle"])
+            ),
+            terminal=(
+                None
+                if weights.get("terminal") is None
+                else float(weights["terminal"])
+            ),
+            slack=(
+                None
+                if weights.get("slack") is None
+                else float(weights["slack"])
+            ),
+        )
+    return cfg
 
 
 @dataclass

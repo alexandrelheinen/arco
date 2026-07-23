@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import yaml
 
 from arco.control.mpc import PathFollowingMPCConfig
 from arco.simulator.sim.city_race_style import (
+    CITY_CRUISE_SPEED,
+    CITY_MAX_ACCELERATION,
+    CITY_MAX_SPEED,
+    CITY_MAX_TURN_RATE_DEG,
+    CITY_MAX_TURN_RATE_DOT_DEG,
     DEFAULT_CITY_HORIZON_DT,
     DEFAULT_CITY_HORIZON_STEP_COUNT,
     LOOKAHEAD_DISC_R,
@@ -15,6 +21,7 @@ from arco.simulator.sim.city_race_style import (
     PREDICTED_TRACE_WIDTH,
     VEH_HALF_L,
     VEH_HALF_W,
+    make_city_vehicle_config,
 )
 from arco.simulator.sim.tracking import (
     path_following_mpc_config_from_simulator,
@@ -39,8 +46,7 @@ def test_city_race_traces_are_thicker_and_prediction_visible() -> None:
 def test_city_default_horizon_is_half_block() -> None:
     """City horizon is 60% of the prior 6.0 s / 120-step setting.
 
-    72 × 0.05 s = 3.6 s ≈ 64.8 m at 18 m/s cruise — about half of
-    ``mean_edge_length`` (120 m).
+    72 × 0.05 s = 3.6 s ≈ half of ``mean_edge_length`` (120 m) at soft cruise.
     """
     assert DEFAULT_CITY_HORIZON_STEP_COUNT == 72
     assert abs(DEFAULT_CITY_HORIZON_DT - 0.05) < 1e-12
@@ -57,6 +63,27 @@ def test_city_default_horizon_is_half_block() -> None:
         )
         < 1e-12
     )
+
+
+def test_city_vehicle_dynamics_are_soft_for_visible_understeer() -> None:
+    """City racers cannot snap-turn onto A* polyline kinks.
+
+    R_min = cruise / ω_max ≈ 14 / (π/6) ≈ 26.7 m exceeds the 15 m road
+    half-width, so sharp corners must understeer with visible e_lat.
+    """
+    assert CITY_CRUISE_SPEED == 14.0
+    assert CITY_MAX_SPEED == 18.0
+    assert CITY_MAX_TURN_RATE_DEG == 30.0
+    assert CITY_MAX_ACCELERATION == 2.5
+    # Prior ω̇ was 3600°/s² (effectively unlimited); keep a finite yaw accel.
+    assert CITY_MAX_TURN_RATE_DOT_DEG == 90.0
+    cfg = make_city_vehicle_config()
+    assert abs(cfg.cruise_speed - CITY_CRUISE_SPEED) < 1e-12
+    assert abs(cfg.max_turn_rate - math.radians(30.0)) < 1e-12
+    assert abs(cfg.max_turn_rate_dot - math.radians(90.0)) < 1e-12
+    assert abs(cfg.max_acceleration - 2.5) < 1e-12
+    r_min = cfg.cruise_speed / cfg.max_turn_rate
+    assert r_min > 15.0  # road half-width
 
 
 def test_path_following_mpc_config_uses_city_defaults_without_yaml() -> None:
@@ -84,6 +111,23 @@ def test_path_following_mpc_config_honors_yaml_override() -> None:
     assert abs(cfg.dt - 0.04) < 1e-12
 
 
+def test_path_following_mpc_config_honors_weight_overrides() -> None:
+    cfg = path_following_mpc_config_from_simulator(
+        {
+            "tracker": "mpc",
+            "mpc": {
+                "horizon": {"step_count": 72, "dt": 0.05},
+                "weights": {"contour": 4.0, "heading": 2.5, "control": 0.4},
+            },
+        },
+        default_horizon_step_count=72,
+        default_horizon_dt=0.05,
+    )
+    assert abs(cfg.weight_contour - 4.0) < 1e-12
+    assert abs(cfg.weight_heading - 2.5) < 1e-12
+    assert abs(cfg.weight_control - 0.4) < 1e-12
+
+
 def test_city_map_yaml_declares_half_block_horizon() -> None:
     root = Path(__file__).resolve().parents[3]
     for name in ("city.yml", "city_mpc_preview.yml"):
@@ -94,3 +138,6 @@ def test_city_map_yaml_declares_half_block_horizon() -> None:
             abs(float(horizon["dt"]) * int(horizon["step_count"]) - 3.6)
             < 1e-12
         )
+        weights = data["simulator"]["mpc"]["weights"]
+        assert float(weights["contour"]) < 10.0
+        assert float(weights["heading"]) < 5.0

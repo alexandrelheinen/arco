@@ -43,7 +43,10 @@ Feedback controllers that generate control inputs to track a reference trajector
   - Paired with `MPCTrackingLoop`
   - Enable in SE(2) races with `simulator.tracker: mpc`
   - City race may override `simulator.mpc.horizon` (default **3.6 s**,
-    ~half a city block / 60% of the prior 6.0 s setting)
+    ~half a city block) and softens vehicle dynamics / contour weights so
+    sharp A* kinks understeer visibly instead of orbiting the junction
+  - Contouring progress uses `ṡ = v max(cos e_ψ, 0)` so recovery arcs do
+    not reverse the path parameter (the limit-cycle behind city A* loops)
 
 - **JointSpaceMPC** (`arco.control.mpc.joint_space`): N-DOF carrot-tracking NMPC
   - Drop-in for `JointSpaceTracker` (`reset` / `step` API)
