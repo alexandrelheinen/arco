@@ -43,8 +43,9 @@ Feedback controllers that generate control inputs to track a reference trajector
   - Paired with `MPCTrackingLoop`
   - Enable in SE(2) races with `simulator.tracker: mpc`
   - City race may override `simulator.mpc.horizon` (default **3.6 s**,
-    ~half a city block) and softens vehicle dynamics / contour weights so
-    sharp A* kinks understeer visibly instead of orbiting the junction
+    ~half a city block) and uses **progress-first contouring**: a free
+    lateral deadzone plus a lag penalty so the NMPC may widen sharp A*
+    kinks as long as arc-length progress advances
   - Contouring progress uses `ṡ = v max(cos e_ψ, 0)` so recovery arcs do
     not reverse the path parameter (the limit-cycle behind city A* loops)
 

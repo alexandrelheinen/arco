@@ -117,15 +117,23 @@ def test_path_following_mpc_config_honors_weight_overrides() -> None:
             "tracker": "mpc",
             "mpc": {
                 "horizon": {"step_count": 72, "dt": 0.05},
-                "weights": {"contour": 4.0, "heading": 2.5, "control": 0.4},
+                "weights": {
+                    "contour": 2.0,
+                    "heading": 2.0,
+                    "control": 0.4,
+                    "lag": 8.0,
+                    "contour_deadzone": 6.0,
+                },
             },
         },
         default_horizon_step_count=72,
         default_horizon_dt=0.05,
     )
-    assert abs(cfg.weight_contour - 4.0) < 1e-12
-    assert abs(cfg.weight_heading - 2.5) < 1e-12
+    assert abs(cfg.weight_contour - 2.0) < 1e-12
+    assert abs(cfg.weight_heading - 2.0) < 1e-12
     assert abs(cfg.weight_control - 0.4) < 1e-12
+    assert abs(cfg.weight_lag - 8.0) < 1e-12
+    assert abs(cfg.contour_deadzone - 6.0) < 1e-12
 
 
 def test_city_map_yaml_declares_half_block_horizon() -> None:
@@ -141,3 +149,5 @@ def test_city_map_yaml_declares_half_block_horizon() -> None:
         weights = data["simulator"]["mpc"]["weights"]
         assert float(weights["contour"]) < 10.0
         assert float(weights["heading"]) < 5.0
+        assert float(weights["lag"]) > 0.0
+        assert float(weights["contour_deadzone"]) > 0.0

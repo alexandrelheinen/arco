@@ -53,15 +53,16 @@ world:
 # follows that arbitrary reference (no replanning inside the tracker).
 simulator:
   tracker: mpc  # "pure_pursuit" (PP+APF) or "mpc" (CasADi path-following NMPC)
-  # City horizon ~ half a block: 3.6 s / ~50 m at the soft 14 m/s cruise
-  # (mean_edge_length = 120 m). Soft contour/heading weights let the NMPC
-  # understeer on sharp A* grid kinks instead of snapping into a junction
-  # orbit. Global mpc.yml default remains 1.0 s / stiff weights.
+  # Progress-first contouring: free lateral band + lag reward so the NMPC
+  # may widen sharp A* kinks as long as arc-length progress advances.
+  # Global mpc.yml default remains stiff (deadzone=0, lag=0).
   mpc:
     horizon:
       step_count: 72  # [] prediction steps
       dt: 0.05  # [s] prediction model step
     weights:
-      contour: 4.0  # [] lateral tracking (default 10) — allow visible slip
-      heading: 2.5  # [] heading tracking (default 5)
-      control: 0.4  # [] control effort (default 0.1) — prefer smooth ω
+      contour: 2.0  # [] excess-lateral weight outside the deadzone
+      heading: 2.0  # [] heading tracking
+      control: 0.4  # [] control effort — prefer smooth ω
+      lag: 8.0  # [] behind-schedule progress penalty (prefer advancing s)
+      contour_deadzone: 6.0  # [m] free |e_lat| band (~40% of road half-width)

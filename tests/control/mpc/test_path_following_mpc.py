@@ -260,12 +260,22 @@ def test_path_following_config_with_horizon_overrides() -> None:
 
 def test_path_following_config_with_weight_overrides() -> None:
     cfg = PathFollowingMPCConfig.create_from_config()
-    soft = cfg.with_weight_overrides(contour=4.0, heading=2.5, control=0.4)
-    assert abs(soft.weight_contour - 4.0) < 1e-12
-    assert abs(soft.weight_heading - 2.5) < 1e-12
+    soft = cfg.with_weight_overrides(
+        contour=2.0,
+        heading=2.0,
+        control=0.4,
+        lag=8.0,
+        contour_deadzone=6.0,
+    )
+    assert abs(soft.weight_contour - 2.0) < 1e-12
+    assert abs(soft.weight_heading - 2.0) < 1e-12
     assert abs(soft.weight_control - 0.4) < 1e-12
+    assert abs(soft.weight_lag - 8.0) < 1e-12
+    assert abs(soft.contour_deadzone - 6.0) < 1e-12
     assert soft.horizon_step_count == cfg.horizon_step_count
     assert abs(cfg.weight_contour - 10.0) < 1e-12
+    assert abs(cfg.weight_lag) < 1e-12
+    assert abs(cfg.contour_deadzone) < 1e-12
 
 
 def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
@@ -308,3 +318,56 @@ def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
     # Allow tiny numerical wobble, but no sustained regression.
     assert min(progress_values) >= 5.0 - 1e-3
     assert progress_values[-1] >= progress_values[0] - 1e-3
+
+
+def test_mpc_progress_first_accepts_lateral_slip_to_advance() -> None:
+    """Lag + deadzone prefer advancing s over hugging a sharp kink.
+
+    On a right-angle path with limited turn rate, progress-first weights
+    should keep arc-length increasing even while |e_lat| stays inside /
+    near the free band — the opposite of stiff contouring that stalls.
+    """
+    path = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (4.0, 8.0)]
+    cfg = _cfg(
+        cruise_speed=0.8,
+        weight_contour=2.0,
+        weight_heading=1.0,
+        weight_progress=0.5,
+        weight_lag=12.0,
+        contour_deadzone=0.8,
+        weight_terminal=2.0,
+        horizon_step_count=16,
+    )
+    # Tight turn rate so the corner cannot be tracked without slip.
+    limits = _limits(max_turn_rate=0.35, max_acceleration=1.0)
+    mpc = DubinsPathFollowingMPC(vehicle_limits=limits, config=cfg)
+    mpc.set_reference(path)
+    vehicle = DubinsVehicle(
+        x=0.0,
+        y=0.0,
+        heading=0.0,
+        max_speed=1.0,
+        min_speed=0.05,
+        max_turn_rate=0.35,
+        max_acceleration=1.0,
+        max_turn_rate_dot=2.0,
+    )
+    vehicle._speed = cfg.cruise_speed
+
+    dt = cfg.dt
+    progresses: list[float] = []
+    max_abs_lat = 0.0
+    for _ in range(160):
+        result = mpc.step(
+            vehicle.pose,
+            speed=vehicle.speed,
+            turn_rate=vehicle.turn_rate,
+            dt=dt,
+        )
+        progresses.append(result.progress)
+        max_abs_lat = max(max_abs_lat, abs(result.cross_track_error))
+        vehicle.step(result.speed_cmd, result.turn_rate_cmd, dt)
+
+    assert progresses[-1] > progresses[0] + 2.0
+    # Must have used some of the free band / allowed slip near the corner.
+    assert max_abs_lat > 0.15

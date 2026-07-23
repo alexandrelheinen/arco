@@ -89,6 +89,9 @@ def path_following_mpc_config_from_simulator(
                 if weights.get("progress") is None
                 else float(weights["progress"])
             ),
+            lag=(
+                None if weights.get("lag") is None else float(weights["lag"])
+            ),
             control=(
                 None
                 if weights.get("control") is None
@@ -108,6 +111,11 @@ def path_following_mpc_config_from_simulator(
                 None
                 if weights.get("slack") is None
                 else float(weights["slack"])
+            ),
+            contour_deadzone=(
+                None
+                if weights.get("contour_deadzone") is None
+                else float(weights["contour_deadzone"])
             ),
         )
     return cfg
