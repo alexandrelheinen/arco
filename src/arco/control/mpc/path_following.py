@@ -82,14 +82,20 @@ class PathFollowingMPCConfig:
         horizon_step_count: Prediction horizon length (steps).
         dt: Discretization step for the prediction model (s).
         cruise_speed: Nominal progress speed on straights (m/s).
-        weight_contour: Lateral (contouring) error weight.
+        weight_contour: Lateral (contouring) error weight applied outside
+            :attr:`contour_deadzone`.
         weight_heading: Heading error weight.
         weight_progress: Speed-tracking weight toward cruise / curve limit.
+        weight_lag: Penalty on falling behind virtual arc-length progress
+            ``s0 + v_cruise · t``.  Prefer advancing ``s`` over hugging the
+            path when non-zero.
         weight_control: Control-effort weight on ``(a, ω̇)``.
         weight_obstacle: Soft obstacle-barrier weight.
         obstacle_barrier_power: Barrier exponent.
         weight_terminal: Terminal contouring / heading weight.
         weight_slack: Soft constraint slack weight.
+        contour_deadzone: Lateral free band (m).  Contouring cost is zero
+            for ``|e_lat| ≤ contour_deadzone`` and quadratic on the excess.
         max_solver_iter_count: IPOPT iteration budget.
     """
 
@@ -99,11 +105,13 @@ class PathFollowingMPCConfig:
     weight_contour: float = 10.0
     weight_heading: float = 5.0
     weight_progress: float = 1.0
+    weight_lag: float = 0.0
     weight_control: float = 0.1
     weight_obstacle: float = 50.0
     obstacle_barrier_power: float = 4.0
     weight_terminal: float = 20.0
     weight_slack: float = 1.0
+    contour_deadzone: float = 0.0
     max_solver_iter_count: int = 50
 
     @staticmethod
@@ -135,10 +143,12 @@ class PathFollowingMPCConfig:
             weight_contour=float(weights.get("contour", 10.0)),
             weight_heading=float(weights.get("heading", 5.0)),
             weight_progress=float(weights.get("progress", 1.0)),
+            weight_lag=float(weights.get("lag", 0.0)),
             weight_control=float(weights.get("control", 0.1)),
             weight_obstacle=float(weights.get("obstacle", 50.0)),
             weight_terminal=float(weights.get("terminal", 20.0)),
             weight_slack=float(weights.get("slack", 1.0)),
+            contour_deadzone=float(weights.get("contour_deadzone", 0.0)),
             obstacle_barrier_power=float(barrier.get("power", 4.0)),
             max_solver_iter_count=int(solver.get("max_iter_count", 50)),
         )
@@ -170,11 +180,13 @@ class PathFollowingMPCConfig:
             weight_contour=self.weight_contour,
             weight_heading=self.weight_heading,
             weight_progress=self.weight_progress,
+            weight_lag=self.weight_lag,
             weight_control=self.weight_control,
             weight_obstacle=self.weight_obstacle,
             obstacle_barrier_power=self.obstacle_barrier_power,
             weight_terminal=self.weight_terminal,
             weight_slack=self.weight_slack,
+            contour_deadzone=self.contour_deadzone,
             max_solver_iter_count=self.max_solver_iter_count,
         )
 
@@ -184,10 +196,12 @@ class PathFollowingMPCConfig:
         contour: float | None = None,
         heading: float | None = None,
         progress: float | None = None,
+        lag: float | None = None,
         control: float | None = None,
         obstacle: float | None = None,
         terminal: float | None = None,
         slack: float | None = None,
+        contour_deadzone: float | None = None,
     ) -> PathFollowingMPCConfig:
         """Return a copy with optional cost-weight overrides applied.
 
@@ -195,10 +209,12 @@ class PathFollowingMPCConfig:
             contour: Optional lateral / contouring weight.
             heading: Optional heading-error weight.
             progress: Optional speed-tracking weight.
+            lag: Optional behind-schedule arc-length lag weight.
             control: Optional control-effort weight.
             obstacle: Optional obstacle-barrier weight.
             terminal: Optional terminal cost weight.
             slack: Optional slack penalty weight.
+            contour_deadzone: Optional free lateral band (m).
 
         Returns:
             A new :class:`PathFollowingMPCConfig` with the requested
@@ -219,6 +235,7 @@ class PathFollowingMPCConfig:
                 if progress is not None
                 else self.weight_progress
             ),
+            weight_lag=(float(lag) if lag is not None else self.weight_lag),
             weight_control=(
                 float(control) if control is not None else self.weight_control
             ),
@@ -235,6 +252,11 @@ class PathFollowingMPCConfig:
             ),
             weight_slack=(
                 float(slack) if slack is not None else self.weight_slack
+            ),
+            contour_deadzone=(
+                float(contour_deadzone)
+                if contour_deadzone is not None
+                else self.contour_deadzone
             ),
             max_solver_iter_count=self.max_solver_iter_count,
         )
@@ -643,9 +665,19 @@ class DubinsPathFollowingMPC(MPCTracker):
             v_ref = ca.fmin(cruise_p, v_curve)
             v_ref = ca.fmax(limits.min_speed, ca.fmin(limits.max_speed, v_ref))
 
-            cost += cfg.weight_contour * e_lat**2
+            # Free lateral band: only the excess beyond the deadzone is
+            # penalized, so the solver may widen a sharp corner as long as
+            # arc-length progress (lag term below) keeps advancing.
+            e_lat_excess = ca.fmax(ca.fabs(e_lat) - cfg.contour_deadzone, 0.0)
+            cost += cfg.weight_contour * e_lat_excess**2
             cost += cfg.weight_heading * e_head_cost
             cost += cfg.weight_progress * (v_ref - v) ** 2
+            s_target = ca.fmin(
+                s0 + cruise_p * float(k) * dt,
+                self._reference.total_length,
+            )
+            # Penalize being behind schedule only — being ahead is fine.
+            cost += cfg.weight_lag * ca.fmax(s_target - s_k, 0.0) ** 2
             cost += cfg.weight_control * (a**2 + omega_dot**2)
             cost += cfg.weight_slack * slack[0, k] ** 2
 
@@ -718,7 +750,13 @@ class DubinsPathFollowingMPC(MPCTracker):
         ) * ca.cos(th_ref_n)
         e_head_n = theta_n - th_ref_n
         e_head_n_cost = ca.sin(e_head_n) ** 2 + (1.0 - ca.cos(e_head_n)) ** 2
-        cost += cfg.weight_terminal * (e_lat_n**2 + e_head_n_cost)
+        e_lat_n_excess = ca.fmax(ca.fabs(e_lat_n) - cfg.contour_deadzone, 0.0)
+        cost += cfg.weight_terminal * (e_lat_n_excess**2 + e_head_n_cost)
+        s_target_n = ca.fmin(
+            s0 + cruise_p * float(n) * dt,
+            self._reference.total_length,
+        )
+        cost += cfg.weight_lag * ca.fmax(s_target_n - s_n, 0.0) ** 2
         cost += cfg.weight_slack * slack[0, n] ** 2
         opti.subject_to(slack[0, n] >= 0)
         opti.subject_to(

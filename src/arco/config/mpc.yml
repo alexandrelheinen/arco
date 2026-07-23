@@ -9,6 +9,10 @@ weights:
   contour: 10.0
   heading: 5.0
   progress: 1.0
+  # lag / contour_deadzone default to 0 → classic stiff path hugging.
+  # City race overrides these to prefer advancing s over minimizing e_lat.
+  lag: 0.0
+  contour_deadzone: 0.0
   control: 0.1
   obstacle: 50.0
   terminal: 20.0
