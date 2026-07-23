@@ -27,10 +27,14 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     """Parse CLI arguments and launch the vehicle benchmark race."""
     sim_cfg = load_config("simulator")
     scene = VehicleScene(cfg)
+    yaml_sim = cfg.get("simulator", {})
+    if not isinstance(yaml_sim, dict):
+        yaml_sim = {}
     run_race(
         scene,
         fps=sim_cfg["fps"],
         dt=sim_cfg["timestep"],
         record=save_path,
         record_duration=sim_duration,
+        fast_record=bool(yaml_sim.get("fast_record", False)),
     )

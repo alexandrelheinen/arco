@@ -2,7 +2,7 @@
 
 Usage::
 
-    arcosim path/to/scenario.yml [--record PATH] [--record-duration SECONDS]]
+    arcosim path/to/scenario.yml [-o PATH] [-d SECONDS] [--fast-record]
     arcosim path/to/scenario.yml --static [--record PATH]
 
 Requires the ``tools`` optional dependency group::
@@ -66,8 +66,20 @@ def _load_map(path: str) -> dict[str, Any]:
 
 
 def _dispatch(
-    cfg: dict[str, Any], save_path: str | None, record_duration: float
+    cfg: dict[str, Any],
+    save_path: str | None,
+    record_duration: float,
+    *,
+    fast_record: bool = False,
 ) -> None:
+    if fast_record:
+        # Scenes read simulator.fast_record to skip tree-reveal pacing in
+        # headless release / CI recordings (see docs/VISUALIZATION.md).
+        sim = cfg.setdefault("simulator", {})
+        if not isinstance(sim, dict):
+            cfg["simulator"] = {"fast_record": True}
+        else:
+            sim["fast_record"] = True
     scenario = cfg["scenario"]
     submodule = getattr(simulator, scenario, None)
     if not submodule:
@@ -115,6 +127,15 @@ def parse_args() -> argparse.Namespace:
         default=360.0,
         help="Maximum recording length in seconds (default: 360 s).",
     )
+    parser.add_argument(
+        "--fast-record",
+        action="store_true",
+        help=(
+            "Headless release mode: skip animated planner-tree reveal and "
+            "spend the recording budget on the race / tracking phase.  "
+            "Sets simulator.fast_record in the loaded YAML config."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -124,17 +145,17 @@ def main() -> None:
     Parses CLI arguments, validates the scenario YAML file, and dispatches
     to the matching simulator handler.
 
-    Unknown flags are forwarded verbatim to the underlying simulator so that
-    scenario-specific options (e.g. ``--fps``, ``--dt``, ``--camera``) can be
-    passed through without needing to be declared here.
-
     Raises:
         SystemExit: On any validation error or missing dependencies.
     """
-    # Delegate to the appropriate handler
     args = parse_args()
     cfg = _load_map(args.scenario_file)
-    _dispatch(cfg, args.output, args.record_duration)
+    _dispatch(
+        cfg,
+        args.output,
+        args.record_duration,
+        fast_record=bool(args.fast_record),
+    )
 
 
 if __name__ == "__main__":

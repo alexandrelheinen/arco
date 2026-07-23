@@ -39,6 +39,9 @@ from arco.simulator.sim import run_sim
 
 def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     sim_cfg = load_config("simulator")
+    yaml_sim = cfg.get("simulator", {})
+    if not isinstance(yaml_sim, dict):
+        yaml_sim = {}
     scene = AStarScene(
         cfg.get("graph", {}),
         cfg.get("vehicle", {}),
@@ -51,4 +54,5 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
         zoom=0.5,
         record=save_path,
         record_duration=sim_duration,
+        fast_record=bool(yaml_sim.get("fast_record", False)),
     )
