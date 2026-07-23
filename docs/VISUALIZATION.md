@@ -63,10 +63,11 @@ City race notes when `simulator.tracker: mpc`:
 
 - Scenario YAML may set `simulator.mpc.horizon.{step_count,dt}` (city default
   is **72 × 0.05 s = 3.6 s**, ~50 m at the soft 14 m/s cruise ≈ half a block).
-  City also uses **progress-first contouring** (`contour_deadzone: 6 m`,
-  `lag: 8`) plus soft vehicle turn limits so sharp A* grid kinks produce a
-  visible lateral understeer while arc-length progress keeps advancing
-  (see v0.3.3 `arcosim_city.mp4` for the prior orbit failure mode).
+  City also uses **progress-first contouring** (`contour_deadzone: 8 m`,
+  `lag: 10`) plus soft vehicle turn limits: planners ignore dynamics, so the
+  tracker treats sharp A* / RRT* / SST polylines as a soft guide and widens
+  infeasible kinks while `s` advances (see `tools/mpc_progress_first_demo.py`
+  and v0.3.3 `arcosim_city.mp4` for the prior orbit failure mode).
 - The race renderer draws each racer's **MPC predicted XY polyline** (no tip
   disc) instead of a Pure-Pursuit carrot.
 - Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) with

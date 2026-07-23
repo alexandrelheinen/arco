@@ -53,16 +53,17 @@ world:
 # follows that arbitrary reference (no replanning inside the tracker).
 simulator:
   tracker: mpc  # "pure_pursuit" (PP+APF) or "mpc" (CasADi path-following NMPC)
-  # Progress-first contouring: free lateral band + lag reward so the NMPC
-  # may widen sharp A* kinks as long as arc-length progress advances.
+  # Progress-first contouring.  Global planners (RRT*/SST/A*) ignore vehicle
+  # dynamics, so the online tracker must not force-fit sharp polyline kinks:
+  # free lateral band + lag reward let the NMPC widen corners while s advances.
   # Global mpc.yml default remains stiff (deadzone=0, lag=0).
   mpc:
     horizon:
       step_count: 72  # [] prediction steps
       dt: 0.05  # [s] prediction model step
     weights:
-      contour: 2.0  # [] excess-lateral weight outside the deadzone
-      heading: 2.0  # [] heading tracking
-      control: 0.4  # [] control effort — prefer smooth ω
-      lag: 8.0  # [] behind-schedule progress penalty (prefer advancing s)
-      contour_deadzone: 6.0  # [m] free |e_lat| band (~40% of road half-width)
+      contour: 1.5  # [] excess-lateral weight outside the deadzone
+      heading: 1.5  # [] heading tracking (soft — plan has no yaw continuity)
+      control: 0.5  # [] control effort — prefer smooth ω
+      lag: 10.0  # [] behind-schedule progress penalty (prefer advancing s)
+      contour_deadzone: 8.0  # [m] free |e_lat| band (~half road half-width)
