@@ -1,13 +1,14 @@
-"""Compare stiff path-hugging vs progress-first contouring on a sharp corner.
+"""Compare stiff vs lane-aware progress-first contouring on a sharp corner.
 
 Global planners ignore vehicle dynamics, so a polyline kink sharper than
-``R_min = v / ω_max`` is not executable.  This demo shows how the executed
-trajectory evolves under:
+``R_min = v / ω_max`` is not executable at cruise.  This demo shows how
+the executed trajectory evolves under:
 
 1. **Stiff** contouring (``deadzone=0``, ``lag=0``, high contour weight) —
    the classic fit that stalls / orbits at infeasible corners.
-2. **Progress-first** contouring (city defaults: free lateral band + lag) —
-   the car widens the corner with visible ``e_lat`` while ``s`` advances.
+2. **Lane-aware progress-first** (city defaults: small free band + lag) —
+   the car slows / widens inside the lane while ``s`` advances — without
+   treating half the road width as free space into the walls.
 
 Output::
 
@@ -122,14 +123,14 @@ def main() -> Path:
         horizon_step_count=24,
         dt=0.05,
         cruise_speed=cruise,
-        weight_contour=1.5,
-        weight_heading=1.5,
-        weight_progress=1.0,
-        weight_lag=10.0,
+        weight_contour=8.0,
+        weight_heading=4.0,
+        weight_progress=4.0,
+        weight_lag=4.0,
         weight_control=0.5,
         weight_obstacle=0.0,
-        weight_terminal=4.0,
-        contour_deadzone=3.0,  # scaled free band (~city 8 m)
+        weight_terminal=8.0,
+        contour_deadzone=1.2,  # scaled free band (~city 2.5 m)
         max_solver_iter_count=60,
     )
 
@@ -155,7 +156,9 @@ def main() -> Path:
         label="plan (no dynamics)",
     )
     ax.plot(a["x"], a["y"], color="#ef5350", lw=2.0, label="stiff contouring")
-    ax.plot(b["x"], b["y"], color="#26a69a", lw=2.2, label="progress-first")
+    ax.plot(
+        b["x"], b["y"], color="#26a69a", lw=2.2, label="lane-aware progress-first"
+    )
     circ = plt.Circle(
         (20.0 - r_min, 0.0),
         r_min,
@@ -184,7 +187,7 @@ def main() -> Path:
         b["progress"],
         color="#26a69a",
         lw=1.8,
-        label="progress-first s(t)",
+        label="lane-aware s(t)",
     )
     ax.set_title("Arc-length progress", color="white", fontsize=10)
     ax.legend(
@@ -203,9 +206,9 @@ def main() -> Path:
         b["lat"],
         color="#26a69a",
         lw=1.8,
-        label="progress-first |e_lat|",
+        label="lane-aware |e_lat|",
     )
-    ax.axhline(3.0, color="#80cbc4", ls="--", lw=1.0, label="deadzone (demo)")
+    ax.axhline(1.2, color="#80cbc4", ls="--", lw=1.0, label="deadzone (demo)")
     ax.set_title("Lateral error", color="white", fontsize=10)
     ax.legend(
         fontsize=7,
@@ -217,7 +220,7 @@ def main() -> Path:
     ax.set_ylabel("|e_lat| [m]", color="#b0bec5")
 
     fig.suptitle(
-        "Progress-first: widen infeasible planner kinks, keep s advancing",
+        "Lane-aware progress-first: widen kinks inside the corridor, keep s advancing",
         color="white",
         fontsize=11,
     )

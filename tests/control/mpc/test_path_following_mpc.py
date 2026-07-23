@@ -371,3 +371,75 @@ def test_mpc_progress_first_accepts_lateral_slip_to_advance() -> None:
     assert progresses[-1] > progresses[0] + 2.0
     # Must have used some of the free band / allowed slip near the corner.
     assert max_abs_lat > 0.15
+
+
+def test_mpc_lane_aware_corner_stays_inside_road_budget() -> None:
+    """City-scale L-kink: widen inside a small deadzone, not into walls.
+
+    With corrected polyline κ (braking) + lane-aware weights, max |e_lat|
+    must stay well below the 15 m road half-width while s still advances.
+    """
+    path = [
+        (0.0, 0.0),
+        (40.0, 0.0),
+        (40.0, 40.0),
+        (40.0, 80.0),
+    ]
+    road_half_width = 15.0
+    deadzone = 2.5
+    cfg = _cfg(
+        cruise_speed=12.0,
+        weight_contour=8.0,
+        weight_heading=4.0,
+        weight_progress=4.0,
+        weight_lag=4.0,
+        contour_deadzone=deadzone,
+        weight_control=0.5,
+        weight_obstacle=0.0,
+        weight_terminal=8.0,
+        horizon_step_count=72,
+        dt=0.05,
+        max_solver_iter_count=80,
+    )
+    limits = _limits(
+        max_speed=16.0,
+        min_speed=0.0,
+        max_turn_rate=math.radians(40.0),
+        max_acceleration=2.5,
+        max_turn_rate_dot=math.radians(90.0),
+    )
+    mpc = DubinsPathFollowingMPC(vehicle_limits=limits, config=cfg)
+    mpc.set_reference(path)
+    vehicle = DubinsVehicle(
+        x=0.0,
+        y=0.0,
+        heading=0.0,
+        max_speed=limits.max_speed,
+        min_speed=limits.min_speed,
+        max_turn_rate=limits.max_turn_rate,
+        max_acceleration=limits.max_acceleration,
+        max_turn_rate_dot=limits.max_turn_rate_dot,
+    )
+    vehicle._speed = cfg.cruise_speed
+
+    dt = cfg.dt
+    progresses: list[float] = []
+    max_abs_lat = 0.0
+    for _ in range(int(20.0 / dt)):
+        result = mpc.step(
+            vehicle.pose,
+            speed=vehicle.speed,
+            turn_rate=vehicle.turn_rate,
+            dt=dt,
+        )
+        progresses.append(result.progress)
+        max_abs_lat = max(max_abs_lat, abs(result.cross_track_error))
+        vehicle.step(result.speed_cmd, result.turn_rate_cmd, dt)
+        if result.progress >= 70.0:
+            break
+
+    assert progresses[-1] > 50.0
+    # Stay inside the navigable lane budget (clearance to buildings).
+    assert max_abs_lat < road_half_width - 4.0
+    # May use the free band, but must not treat half the road as free.
+    assert max_abs_lat < 2.0 * deadzone + 3.0

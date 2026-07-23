@@ -29,31 +29,36 @@ PAST_TRACE_WIDTH: float = 3.0
 PREDICTED_TRACE_WIDTH: float = 4.0
 
 # Default city-demo prediction horizon when scenario YAML omits an override.
-# 72 × 0.05 s = 3.6 s (~50 m at the soft city cruise of 14 m/s) — about half
+# 72 × 0.05 s = 3.6 s (~43 m at the soft city cruise of 12 m/s) — about half
 # a city block (mean_edge_length = 120 m).
 DEFAULT_CITY_HORIZON_STEP_COUNT: int = 72
 DEFAULT_CITY_HORIZON_DT: float = 0.05
 
-# Soft city-racer dynamics.  Prior limits (ω=60°/s, ω̇≈∞ at 3600°/s², a=4.9,
-# cruise=18) let the NMPC snap onto A* polyline kinks; when that overshoots,
-# contouring progress reversed and the car orbited the junction.  These
-# softer bounds raise the minimum turn radius above the road half-width so
-# sharp corners produce a visible lateral understeer instead of a limit cycle.
-CITY_MAX_SPEED: float = 18.0
-CITY_CRUISE_SPEED: float = 14.0
-CITY_MAX_TURN_RATE_DEG: float = 30.0
+# Soft but lane-viable city-racer dynamics.  Prior snap limits (ω=60°/s,
+# ω̇≈∞, a=4.9, cruise=18) let the NMPC nail A* kinks then reverse progress.
+# The first soft pass (ω=30°/s, cruise=14 → R_min≈27 m) made understeer
+# visible but *forced* corner cuts outside the 15 m road half-width when
+# curve-speed limiting failed.  These bounds keep turns soft while a
+# corrected polyline κ + small contour deadzone let the car slow and widen
+# *inside* the navigable lane.
+CITY_MAX_SPEED: float = 16.0
+CITY_CRUISE_SPEED: float = 12.0
+CITY_MAX_TURN_RATE_DEG: float = 40.0
 CITY_MAX_ACCELERATION: float = 2.5
 CITY_MAX_TURN_RATE_DOT_DEG: float = 90.0
 CITY_LOOKAHEAD_DISTANCE: float = 28.0
 CITY_GOAL_RADIUS: float = 20.0
+# City road half-width (m); used by tests / docs as the lane budget.
+CITY_ROAD_HALF_WIDTH: float = 15.0
 
 
 def make_city_vehicle_config() -> "VehicleConfig":
-    """Return soft city-race vehicle / controller limits.
+    """Return soft, lane-viable city-race vehicle / controller limits.
 
     Returns:
         :class:`~arco.simulator.sim.tracking.VehicleConfig` with turn
-        radius larger than the city road half-width at cruise.
+        rate and cruise chosen so curve-limited corner radii fit inside
+        the city road half-width.
     """
     # Local import avoids a cycle with tracking helpers used by scenes.
     from arco.simulator.sim.tracking import VehicleConfig

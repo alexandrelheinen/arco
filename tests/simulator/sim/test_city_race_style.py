@@ -14,6 +14,7 @@ from arco.simulator.sim.city_race_style import (
     CITY_MAX_SPEED,
     CITY_MAX_TURN_RATE_DEG,
     CITY_MAX_TURN_RATE_DOT_DEG,
+    CITY_ROAD_HALF_WIDTH,
     DEFAULT_CITY_HORIZON_DT,
     DEFAULT_CITY_HORIZON_STEP_COUNT,
     LOOKAHEAD_DISC_R,
@@ -65,25 +66,30 @@ def test_city_default_horizon_is_half_block() -> None:
     )
 
 
-def test_city_vehicle_dynamics_are_soft_for_visible_understeer() -> None:
-    """City racers cannot snap-turn onto A* polyline kinks.
+def test_city_vehicle_dynamics_are_soft_but_lane_viable() -> None:
+    """City racers stay soft, but curve-limited corners fit the road.
 
-    R_min = cruise / ω_max ≈ 14 / (π/6) ≈ 26.7 m exceeds the 15 m road
-    half-width, so sharp corners must understeer with visible e_lat.
+    Cruise ``R_min`` may still exceed half-width (visible understeer if the
+    car does not slow), but a 90° / 15 m A* grid corner yields
+    ``R = 1/κ < road_half_width`` once ``v_curve = ω/|κ|`` engages.
     """
-    assert CITY_CRUISE_SPEED == 14.0
-    assert CITY_MAX_SPEED == 18.0
-    assert CITY_MAX_TURN_RATE_DEG == 30.0
+    assert CITY_CRUISE_SPEED == 12.0
+    assert CITY_MAX_SPEED == 16.0
+    assert CITY_MAX_TURN_RATE_DEG == 40.0
     assert CITY_MAX_ACCELERATION == 2.5
-    # Prior ω̇ was 3600°/s² (effectively unlimited); keep a finite yaw accel.
     assert CITY_MAX_TURN_RATE_DOT_DEG == 90.0
+    assert CITY_ROAD_HALF_WIDTH == 15.0
     cfg = make_city_vehicle_config()
     assert abs(cfg.cruise_speed - CITY_CRUISE_SPEED) < 1e-12
-    assert abs(cfg.max_turn_rate - math.radians(30.0)) < 1e-12
+    assert abs(cfg.max_turn_rate - math.radians(40.0)) < 1e-12
     assert abs(cfg.max_turn_rate_dot - math.radians(90.0)) < 1e-12
     assert abs(cfg.max_acceleration - 2.5) < 1e-12
-    r_min = cfg.cruise_speed / cfg.max_turn_rate
-    assert r_min > 15.0  # road half-width
+    # Soft: still cannot snap-turn a kink at full cruise.
+    assert cfg.cruise_speed / cfg.max_turn_rate > CITY_ROAD_HALF_WIDTH
+    # Lane-viable at a grid corner once curve speed limiting engages.
+    kappa_grid_corner = (math.pi / 2.0) / 15.0
+    r_corner = 1.0 / kappa_grid_corner
+    assert r_corner < CITY_ROAD_HALF_WIDTH
 
 
 def test_path_following_mpc_config_uses_city_defaults_without_yaml() -> None:
@@ -118,26 +124,28 @@ def test_path_following_mpc_config_honors_weight_overrides() -> None:
             "mpc": {
                 "horizon": {"step_count": 72, "dt": 0.05},
                 "weights": {
-                    "contour": 1.5,
-                    "heading": 1.5,
+                    "contour": 8.0,
+                    "heading": 4.0,
                     "control": 0.5,
-                    "lag": 10.0,
-                    "contour_deadzone": 8.0,
+                    "progress": 4.0,
+                    "lag": 4.0,
+                    "contour_deadzone": 2.5,
                 },
             },
         },
         default_horizon_step_count=72,
         default_horizon_dt=0.05,
     )
-    assert abs(cfg.weight_contour - 1.5) < 1e-12
-    assert abs(cfg.weight_heading - 1.5) < 1e-12
+    assert abs(cfg.weight_contour - 8.0) < 1e-12
+    assert abs(cfg.weight_heading - 4.0) < 1e-12
     assert abs(cfg.weight_control - 0.5) < 1e-12
-    assert abs(cfg.weight_lag - 10.0) < 1e-12
-    assert abs(cfg.contour_deadzone - 8.0) < 1e-12
+    assert abs(cfg.weight_progress - 4.0) < 1e-12
+    assert abs(cfg.weight_lag - 4.0) < 1e-12
+    assert abs(cfg.contour_deadzone - 2.5) < 1e-12
 
 
-def test_city_map_yaml_declares_progress_first_contouring() -> None:
-    """City YAML prefers advancing s over fitting dynamics-blind plans."""
+def test_city_map_yaml_declares_lane_aware_progress_first() -> None:
+    """City YAML widens kinks inside the lane, not into walls."""
     root = Path(__file__).resolve().parents[3]
     for name in ("city.yml", "city_mpc_preview.yml"):
         data = yaml.safe_load((root / "map" / name).read_text())
@@ -148,8 +156,11 @@ def test_city_map_yaml_declares_progress_first_contouring() -> None:
             < 1e-12
         )
         weights = data["simulator"]["mpc"]["weights"]
-        assert float(weights["contour"]) <= 2.0
-        assert float(weights["heading"]) <= 2.0
-        assert float(weights["lag"]) >= 8.0
-        # Free band at least ~half the 15 m road half-width.
-        assert float(weights["contour_deadzone"]) >= 8.0
+        # Contour outside the band must dominate wall-seeking freedom.
+        assert float(weights["contour"]) >= 6.0
+        assert float(weights["heading"]) >= 3.0
+        assert float(weights["lag"]) >= 2.0
+        assert float(weights["lag"]) <= 6.0
+        # Free band ≪ road half-width (15 m) and planner clearance (8 m).
+        deadzone = float(weights["contour_deadzone"])
+        assert 1.0 <= deadzone <= 4.0

@@ -53,17 +53,20 @@ world:
 # follows that arbitrary reference (no replanning inside the tracker).
 simulator:
   tracker: mpc  # "pure_pursuit" (PP+APF) or "mpc" (CasADi path-following NMPC)
-  # Progress-first contouring.  Global planners (RRT*/SST/A*) ignore vehicle
-  # dynamics, so the online tracker must not force-fit sharp polyline kinks:
-  # free lateral band + lag reward let the NMPC widen corners while s advances.
-  # Global mpc.yml default remains stiff (deadzone=0, lag=0).
+  # Lane-aware progress-first contouring.  Global planners ignore vehicle
+  # dynamics, so the tracker may widen sharp polyline kinks — but only inside
+  # a small free band (≪ road half-width / clearance).  A large deadzone ate
+  # the planner's obstacle clearance and drove cars into walls.  Lag still
+  # prefers advancing s over nailing the kink; contour outside the band keeps
+  # the topological lane.  Global mpc.yml remains stiff (deadzone=0, lag=0).
   mpc:
     horizon:
       step_count: 72  # [] prediction steps
       dt: 0.05  # [s] prediction model step
     weights:
-      contour: 1.5  # [] excess-lateral weight outside the deadzone
-      heading: 1.5  # [] heading tracking (soft — plan has no yaw continuity)
+      contour: 8.0  # [] excess-lateral weight outside the deadzone
+      heading: 4.0  # [] heading tracking (plan has no yaw continuity)
       control: 0.5  # [] control effort — prefer smooth ω
-      lag: 10.0  # [] behind-schedule progress penalty (prefer advancing s)
-      contour_deadzone: 8.0  # [m] free |e_lat| band (~half road half-width)
+      progress: 4.0  # [] track v_ref (incl. curve-limited corner speed)
+      lag: 4.0  # [] behind-schedule progress (do not overpower braking)
+      contour_deadzone: 2.5  # [m] free |e_lat| band (widen inside the lane)

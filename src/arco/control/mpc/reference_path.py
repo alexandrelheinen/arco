@@ -67,25 +67,66 @@ class ReferencePath:
             cumulative, headings
         )
 
-    @staticmethod
+    # Spread a sharp polyline turn over at most this arc length (m) when
+    # forming κ for speed limiting.  Long collinear segments must not dilute
+    # a 90° kink into κ≈0 (else ``v_curve = ω/|κ|`` never brakes).
+    _CURVATURE_DS_CAP_M: float = 20.0
+    # Backward horizon (m) over which an upcoming corner κ is visible so the
+    # NMPC can decelerate before the kink (≈ cruise² / (2 a) at city soft
+    # limits).
+    _CURVATURE_PREVIEW_DS_M: float = 40.0
+
+    @classmethod
     def _finite_difference_curvature(
-        cumulative: np.ndarray, headings: np.ndarray
+        cls,
+        cumulative: np.ndarray,
+        headings: np.ndarray,
     ) -> np.ndarray:
-        """Estimate curvature via wrapped heading finite differences."""
+        """Estimate curvature from consecutive segment heading changes.
+
+        Each interior vertex uses the turn between its incoming and outgoing
+        headings, spread over ``min(ds_in, ds_out, ds_cap)``.  A skip-one
+        finite difference (``h[i+1] - h[i-1]``) can report ``κ ≈ 0`` on a
+        90° L-kink when those headings cancel, which disabled curve-speed
+        limiting on city A*/RRT* polylines.  A backward max-preview then
+        keeps the corner ``κ`` visible on the approach so braking starts
+        before the vertex.
+        """
         kappa = np.zeros_like(headings)
-        for i in range(1, len(headings) - 1):
-            ds = cumulative[i + 1] - cumulative[i - 1]
+        n = len(headings)
+        ds_cap = float(cls._CURVATURE_DS_CAP_M)
+        for i in range(1, n - 1):
+            ds_in = float(cumulative[i] - cumulative[i - 1])
+            ds_out = float(cumulative[i + 1] - cumulative[i])
+            ds = min(ds_in, ds_out, ds_cap)
             if ds < 1e-12:
                 continue
             dtheta = math.atan2(
-                math.sin(headings[i + 1] - headings[i - 1]),
-                math.cos(headings[i + 1] - headings[i - 1]),
+                math.sin(headings[i] - headings[i - 1]),
+                math.cos(headings[i] - headings[i - 1]),
             )
             kappa[i] = dtheta / ds
-        if len(kappa) >= 2:
+        if n >= 2:
             kappa[0] = kappa[1]
             kappa[-1] = kappa[-2]
-        return kappa
+
+        preview = float(cls._CURVATURE_PREVIEW_DS_M)
+        if preview <= 0.0 or n < 2:
+            return kappa
+        previewed = kappa.copy()
+        for i in range(n):
+            s_i = float(cumulative[i])
+            best = float(previewed[i])
+            best_abs = abs(best)
+            for j in range(i + 1, n):
+                if float(cumulative[j]) - s_i > preview:
+                    break
+                cand = float(kappa[j])
+                if abs(cand) > best_abs:
+                    best = cand
+                    best_abs = abs(cand)
+            previewed[i] = best
+        return previewed
 
     @property
     def total_length(self) -> float:
