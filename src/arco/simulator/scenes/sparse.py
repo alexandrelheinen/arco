@@ -950,8 +950,21 @@ class CityScene(RaceScene):
                         width=3.0,
                     )
         else:
-            # Racing: full backdrop (road dots + buildings) so the obstacle
-            # field stays visible, then trajectory-style routes.
+            # Racing: keep the warm SDF road field (not a flat black void),
+            # then road dots + buildings + trajectory-style routes.
+            if self._sdf_tex_id is None:
+                self._sdf_tex_id = renderer_gl.bake_sdf_texture(
+                    self._occ,
+                    x_min,
+                    x_max,
+                    y_min,
+                    y_max,
+                    _C_BG,
+                    _C_SDF_NEAR,
+                )
+            renderer_gl.draw_sdf_background(
+                self._sdf_tex_id, x_min, x_max, y_min, y_max
+            )
             renderer_gl.draw_obstacle_points(
                 self._road_dots, *_c(_C_ROAD_DOT), point_size=3.0
             )

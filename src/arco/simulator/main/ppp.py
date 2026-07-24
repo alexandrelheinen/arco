@@ -105,6 +105,12 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 )
 
 from arco.config import load_config
+from arco.config.palette import (
+    annotation_rgb,
+    layer_float,
+    obstacle_float,
+    ui_rgb,
+)
 from arco.simulator.scenes.ppp import BOUNDS as _SCENE_BOUNDS
 from arco.simulator.scenes.ppp import PPPScene
 from arco.simulator.scenes.ppp import is_wall as _is_wall_box
@@ -208,17 +214,17 @@ _DEFAULT_SCREEN_H = 800
 _HOLD_SECS: float = 2.0
 _POST_FINISH_SECS: float = 3.0
 
-# Camera defaults
-_CAM_AZIM: float = math.radians(40)
-_CAM_ELEV: float = math.radians(28)
-_CAM_DIST: float = 72.0
+# Camera defaults — slightly lower / closer for wall readability.
+_CAM_AZIM: float = math.radians(35)
+_CAM_ELEV: float = math.radians(24)
+_CAM_DIST: float = 62.0
 _WS_CENTER: tuple[float, float, float] = (
     (_SCENE_BOUNDS[0][0] + _SCENE_BOUNDS[0][1]) / 2.0,
     (_SCENE_BOUNDS[1][0] + _SCENE_BOUNDS[1][1]) / 2.0,
     (_SCENE_BOUNDS[2][0] + _SCENE_BOUNDS[2][1]) / 4.0,
 )
 _CAM_ROT_SPEED: float = math.radians(50)
-_CAM_AUTO_ROT: float = math.radians(7)  # slow orbit for recording
+_CAM_AUTO_ROT: float = math.radians(5)  # slow orbit for recording
 _CAM_ZOOM_STEP: float = 0.03
 
 # Small positive epsilon used to guard against division by zero in
@@ -226,34 +232,41 @@ _CAM_ZOOM_STEP: float = 0.03
 # as zero-length).
 _EPSILON: float = 1e-3
 
-# OpenGL colors (float 0-1)
-_C_TRAIL_RRT = (0.60, 0.80, 1.00)  # brighter variant of _C_RRT — blue
-_C_TRAIL_SST = (0.35, 0.85, 0.45)  # brighter variant of _C_SST — green
-_C_LA_RRT = (0.90, 0.95, 1.00)
-_C_LA_SST = (0.70, 1.00, 0.75)
-_BG = (18 / 255, 22 / 255, 32 / 255, 1.0)
-_C_WALL = (0.68, 0.31, 0.17)
-_C_WALL_EDGE = (0.38, 0.17, 0.09)
-_C_BOX = (0.56, 0.41, 0.23)
-_C_BOX_EDGE = (0.31, 0.23, 0.13)
-_C_GRID = (0.15, 0.17, 0.22)
-_C_RRT = (0.05, 0.05, 0.25)  # raw RRT* path — dark blue
-_C_RRT_PRUNED: tuple[float, float, float] = (0.55, 0.72, 1.00)  # accent blue
-_C_SST = (0.05, 0.22, 0.08)  # raw SST path — dark green
-_C_SST_PRUNED: tuple[float, float, float] = (0.45, 1.00, 0.60)  # accent green
-_C_TRAJ_RRT: tuple[float, float, float] = (0.38, 0.52, 0.88)  # medium blue
-_C_TRAJ_SST: tuple[float, float, float] = (0.18, 0.68, 0.38)  # medium green
-_C_START = (0.22, 0.86, 0.33)
-_C_GOAL = (0.86, 0.30, 0.86)
+# OpenGL colors from the shared palette (float 0-1).
+_C_TRAIL_RRT = layer_float("rrt", "vehicle")
+_C_TRAIL_SST = layer_float("sst", "vehicle")
+_C_LA_RRT = layer_float("rrt", "trajectory")
+_C_LA_SST = layer_float("sst", "trajectory")
+_bg = ui_rgb("background")
+_BG = (_bg[0] / 255.0, _bg[1] / 255.0, _bg[2] / 255.0, 1.0)
+_obs = obstacle_float()
+_C_WALL = (_obs[0] * 1.15, _obs[1] * 0.85, _obs[2] * 0.75)
+_C_WALL_EDGE = (_obs[0] * 0.65, _obs[1] * 0.45, _obs[2] * 0.40)
+_C_BOX = (_obs[0] * 0.95, _obs[1] * 0.90, _obs[2] * 0.70)
+_C_BOX_EDGE = (_obs[0] * 0.55, _obs[1] * 0.50, _obs[2] * 0.40)
+_C_GRID = (
+    _bg[0] / 255.0 + 0.04,
+    _bg[1] / 255.0 + 0.04,
+    _bg[2] / 255.0 + 0.05,
+)
+_C_RRT = layer_float("rrt", "path")
+_C_RRT_PRUNED = layer_float("rrt", "pruned")
+_C_SST = layer_float("sst", "path")
+_C_SST_PRUNED = layer_float("sst", "pruned")
+_C_TRAJ_RRT = layer_float("rrt", "trajectory")
+_C_TRAJ_SST = layer_float("sst", "trajectory")
+_ann = annotation_rgb(dark_bg=True)
+_C_START = (_ann[0] / 255.0, _ann[1] / 255.0, _ann[2] / 255.0)
+_C_GOAL = layer_float("rrt", "vehicle")
 
 # HUD colors (pygame RGB int 0-255)
-_HC_RRT = (51, 51, 102)  # dark blue
-_HC_SST = (30, 100, 50)  # dark green
-_HC_HUD = (220, 220, 220)
-_HC_DIM = (120, 120, 130)
-_HC_SHADOW = (25, 30, 42)
-_HC_WINNER = (255, 215, 50)
-_HC_TIE = (200, 200, 80)
+_HC_RRT = ui_rgb("hud_text")
+_HC_SST = ui_rgb("hud_text")
+_HC_HUD = ui_rgb("hud_text")
+_HC_DIM = ui_rgb("hud_dim")
+_HC_SHADOW = ui_rgb("hud_shadow")
+_HC_WINNER = ui_rgb("hud_winner")
+_HC_TIE = ui_rgb("hud_tie")
 
 # End-effector half-dimensions (meters)
 _EFF_HXY: float = 0.25
@@ -1200,7 +1213,7 @@ def run_race(
             if phase in ("race", "done"):
                 if len(rrt_trail) >= 2:
                     glDisable(GL_LIGHTING)
-                    glLineWidth(5.0)
+                    glLineWidth(3.5)
                     glColor3f(*_C_TRAIL_RRT)
                     glBegin(GL_LINE_STRIP)
                     for _pt in rrt_trail:
@@ -1210,7 +1223,7 @@ def run_race(
                     glEnable(GL_LIGHTING)
                 if len(sst_trail) >= 2:
                     glDisable(GL_LIGHTING)
-                    glLineWidth(5.0)
+                    glLineWidth(3.5)
                     glColor3f(*_C_TRAIL_SST)
                     glBegin(GL_LINE_STRIP)
                     for _pt in sst_trail:
@@ -1245,8 +1258,8 @@ def run_race(
                         _draw_lookahead_3d(rrt_carrot, *_C_LA_RRT)
                     if sst_path and not sst_done:
                         _draw_lookahead_3d(sst_carrot, *_C_LA_SST)
-                _draw_effector(rrt_robot.q, *_C_RRT)
-                _draw_effector(sst_robot.q, *_C_SST)
+                _draw_effector(rrt_robot.q, *_C_TRAIL_RRT)
+                _draw_effector(sst_robot.q, *_C_TRAIL_SST)
 
             # --- 2-D HUD overlay ----------------------------------------
             _blit_overlay(

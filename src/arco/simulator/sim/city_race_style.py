@@ -22,11 +22,12 @@ VEH_HALF_W: float = 3.6
 # Small Pure-Pursuit carrot disc only (meters).  Never used as the racer glyph.
 LOOKAHEAD_DISC_R: float = 1.5
 
-# Past executed trajectory line width in pixels (thicker than the prior 1.5).
-PAST_TRACE_WIDTH: float = 3.0
+# Past executed trajectory line width in pixels — softer than the route so
+# the planned lane stays readable under three overlapping racers.
+PAST_TRACE_WIDTH: float = 2.5
 
-# MPC predicted-horizon polyline width in pixels (thicker than the route).
-PREDICTED_TRACE_WIDTH: float = 4.0
+# MPC predicted-horizon polyline width in pixels (slightly thicker than past).
+PREDICTED_TRACE_WIDTH: float = 3.5
 
 # Default city-demo prediction horizon when scenario YAML omits an override.
 # 72 × 0.05 s = 3.6 s (~43 m at the soft city cruise of 12 m/s) — about half

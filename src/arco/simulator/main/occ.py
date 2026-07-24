@@ -33,7 +33,13 @@ import sys
 import numpy as np
 import pygame
 
-from arco.config import layer_rgb, load_config
+from arco.config import load_config
+from arco.config.palette import (
+    annotation_rgb,
+    layer_rgb,
+    obstacle_rgb,
+    ui_rgb,
+)
 from arco.control import ActuatorArray
 from arco.control.rigid_body import CircleBody, SquareBody
 from arco.mapping import KDTreeOccupancy
@@ -43,10 +49,22 @@ from arco.simulator.sim.video import VideoWriter
 logger = logging.getLogger(__name__)
 
 
+_C_RRT_PATH: tuple[int, int, int] = layer_rgb("rrt", "path")
+_C_SST_PATH: tuple[int, int, int] = layer_rgb("sst", "path")
 _C_RRT_PRUNED: tuple[int, int, int] = layer_rgb("rrt", "pruned")
 _C_SST_PRUNED: tuple[int, int, int] = layer_rgb("sst", "pruned")
+_C_RRT_BODY: tuple[int, int, int] = layer_rgb("rrt", "vehicle")
+_C_SST_BODY: tuple[int, int, int] = layer_rgb("sst", "vehicle")
+_C_RRT_ACT: tuple[int, int, int] = layer_rgb("rrt", "pruned")
+_C_SST_ACT: tuple[int, int, int] = layer_rgb("sst", "pruned")
+_C_OBSTACLE: tuple[int, int, int] = obstacle_rgb()
+_C_BG: tuple[int, int, int] = ui_rgb("background")
+_C_DIVIDER: tuple[int, int, int] = ui_rgb("hud_dim")
+_C_HUD: tuple[int, int, int] = ui_rgb("hud_text")
+_C_HUD_DIM: tuple[int, int, int] = ui_rgb("hud_dim")
+_C_MARKER: tuple[int, int, int] = annotation_rgb(dark_bg=True)
 _WIDTH: int = 1280
-_HEIGHT: int = 1024
+_HEIGHT: int = 720
 
 # ---------------------------------------------------------------------------
 # Coordinate helpers
@@ -107,7 +125,7 @@ def _draw_obstacle(
     obs: list[float],
     origin: tuple[float, float],
     scale: float,
-    color: tuple[int, int, int] = (180, 60, 60),
+    color: tuple[int, int, int] | None = None,
 ) -> None:
     """Draw an AABB obstacle as a filled rectangle.
 
@@ -116,14 +134,15 @@ def _draw_obstacle(
         obs: ``[x_min, y_min, x_max, y_max]``.
         origin: Screen origin in pixels.
         scale: Pixels per metre.
-        color: RGB fill color.
+        color: RGB fill color (defaults to palette obstacle).
     """
+    fill = _C_OBSTACLE if color is None else color
     xmin, ymin, xmax, ymax = obs
     tl = _world_to_screen((xmin, ymax), origin, scale)
     br = _world_to_screen((xmax, ymin), origin, scale)
     rect = pygame.Rect(tl[0], tl[1], br[0] - tl[0], br[1] - tl[1])
-    pygame.draw.rect(surface, color, rect)
-    pygame.draw.rect(surface, (0, 0, 0), rect, 2)
+    pygame.draw.rect(surface, fill, rect)
+    pygame.draw.rect(surface, _C_DIVIDER, rect, 2)
 
 
 def _draw_path(
@@ -221,12 +240,15 @@ def _draw_pose_marker(
         label: Optional text label.
     """
     sc = _world_to_screen((float(pose[0]), float(pose[1])), origin, scale)
-    pygame.draw.circle(surface, color, sc, 8, 2)
+    pygame.draw.circle(surface, color, sc, 10, 2)
     # Heading arrow
-    length = 20
+    length = 22
     ex = sc[0] + int(length * math.cos(float(pose[2])))
     ey = sc[1] - int(length * math.sin(float(pose[2])))
     pygame.draw.line(surface, color, sc, (ex, ey), 2)
+    if label:
+        font = pygame.font.SysFont("monospace", 12, bold=True)
+        surface.blit(font.render(label, True, color), (sc[0] + 12, sc[1] - 14))
 
 
 # ---------------------------------------------------------------------------
@@ -390,8 +412,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--height",
         type=int,
-        default=640,
-        help="Window height (default: 640)",
+        default=720,
+        help="Window height (default: 720)",
     )
     return p.parse_args()
 
@@ -407,7 +429,7 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
 
     pygame.init()
     flags = pygame.DOUBLEBUF
-    screen = pygame.display.set_mode((1280, 1024), flags)
+    screen = pygame.display.set_mode((_WIDTH, _HEIGHT), flags)
     pygame.display.set_caption("OCC - Piano Movers")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("monospace", 14)
@@ -625,12 +647,12 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
                     sst_wp_idx = min(sst_wp_idx + 1, len(sst_waypoints))
 
         # Draw
-        screen.fill((40, 40, 40))
+        screen.fill(_C_BG)
 
         # Divider
         pygame.draw.line(
             screen,
-            (120, 120, 120),
+            _C_DIVIDER,
             (panel_w, 0),
             (panel_w, panel_h),
             2,
@@ -642,7 +664,10 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
             acts_s,
             raw_path_s,
             pruned_path_s,
+            path_color,
             pruned_color,
+            body_color,
+            act_color,
             label,
         ) in enumerate(
             [
@@ -652,7 +677,10 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
                     rrt_acts,
                     scene.rrt_raw_path,
                     scene.rrt_path,
+                    _C_RRT_PATH,
                     _C_RRT_PRUNED,
+                    _C_RRT_BODY,
+                    _C_RRT_ACT,
                     "RRT*",
                 ),
                 (
@@ -661,19 +689,25 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
                     sst_acts,
                     scene.sst_raw_path,
                     scene.sst_path,
+                    _C_SST_PATH,
                     _C_SST_PRUNED,
+                    _C_SST_BODY,
+                    _C_SST_ACT,
                     "SST",
                 ),
             ]
         ):
+            # Soft method-tint strip under the panel title.
+            tint = pygame.Surface((panel_w, 36), pygame.SRCALPHA)
+            tint.fill((*body_color, 40))
+            screen.blit(tint, (panel_idx * panel_w, 0))
+
             # Obstacles
             for obs in obstacles:
                 _draw_obstacle(screen, obs, origin, scale)
 
             # Raw path (dense, pre-pruning) as dim thin line.
-            _draw_path(
-                screen, raw_path_s, origin, scale, (100, 180, 255), width=1
-            )
+            _draw_path(screen, raw_path_s, origin, scale, path_color, width=1)
             # Pruned waypoints as accent squares (nodes only, no edges).
             _draw_waypoints_screen(
                 screen, pruned_path_s, origin, scale, pruned_color
@@ -681,21 +715,19 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
 
             # Start/goal markers
             _draw_pose_marker(
-                screen, start_pose, origin, scale, (0, 200, 80), "S"
+                screen, start_pose, origin, scale, _C_MARKER, "S"
             )
-            _draw_pose_marker(
-                screen, goal_pose, origin, scale, (200, 200, 0), "G"
-            )
+            _draw_pose_marker(screen, goal_pose, origin, scale, _C_MARKER, "G")
 
             # Actuators
             positions = acts_s.actuator_positions(body_s)
-            _draw_actuators(screen, positions, origin, scale)
+            _draw_actuators(screen, positions, origin, scale, color=act_color)
 
             # Body
-            _draw_body(screen, body_s, origin, scale, (60, 120, 220))
+            _draw_body(screen, body_s, origin, scale, body_color)
 
             # Label
-            lbl = title_font.render(label, True, (240, 240, 240))
+            lbl = title_font.render(label, True, _C_HUD)
             screen.blit(lbl, (panel_idx * panel_w + 10, 10))
 
         # Status bar
@@ -703,7 +735,7 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
         info = font.render(
             f"{status} | SPACE=pause  R=restart  Q=quit",
             True,
-            (180, 180, 180),
+            _C_HUD_DIM,
         )
         screen.blit(info, (10, panel_h - 24))
 
