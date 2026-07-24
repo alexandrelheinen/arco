@@ -596,9 +596,7 @@ class DubinsPathFollowingMPC(MPCTracker):
         # corner cuts that leave the path centerline), then path preview.
         pts: list[np.ndarray] = [np.array([px, py], dtype=float)]
         for fwd in (8.0, 18.0):
-            pts.append(
-                np.array([px + fwd * cth, py + fwd * sth], dtype=float)
-            )
+            pts.append(np.array([px + fwd * cth, py + fwd * sth], dtype=float))
         for lat in (-8.0, 8.0):
             pts.append(
                 np.array(
