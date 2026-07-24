@@ -108,12 +108,21 @@ from arco.config import load_config
 from arco.config.palette import (
     annotation_rgb,
     layer_float,
+    layer_rgb,
     obstacle_float,
     ui_rgb,
 )
+from arco.simulator import renderer_gl
 from arco.simulator.scenes.ppp import BOUNDS as _SCENE_BOUNDS
 from arco.simulator.scenes.ppp import PPPScene
 from arco.simulator.scenes.ppp import is_wall as _is_wall_box
+from arco.simulator.sim.layout import (
+    ScreenLayout,
+    build_compact_planner_sections,
+    draw_sidebar_panel,
+    make_chrome_surface,
+    scenario_phase_title,
+)
 from arco.simulator.sim.loading import run_with_loading_screen
 from arco.simulator.sim.tracking import build_joint_tracker
 from arco.simulator.sim.video import VideoWriter
@@ -259,9 +268,9 @@ _ann = annotation_rgb(dark_bg=True)
 _C_START = (_ann[0] / 255.0, _ann[1] / 255.0, _ann[2] / 255.0)
 _C_GOAL = layer_float("rrt", "vehicle")
 
-# HUD colors (pygame RGB int 0-255)
-_HC_RRT = ui_rgb("hud_text")
-_HC_SST = ui_rgb("hud_text")
+# HUD colors (pygame RGB int 0-255) — method colors restored for the legend.
+_HC_RRT = layer_rgb("rrt", "vehicle")
+_HC_SST = layer_rgb("sst", "vehicle")
 _HC_HUD = ui_rgb("hud_text")
 _HC_DIM = ui_rgb("hud_dim")
 _HC_SHADOW = ui_rgb("hud_shadow")
@@ -357,6 +366,18 @@ def _gl_init(sw: int, sh: int) -> None:
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
     glMultMatrixf(_perspective_matrix(45.0, sw / max(sh, 1), 0.1, 1000.0))
+    glMatrixMode(GL_MODELVIEW)
+
+
+def _set_perspective(aspect: float) -> None:
+    """Refresh the perspective projection for the current content aspect.
+
+    Args:
+        aspect: Viewport width / height.
+    """
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    glMultMatrixf(_perspective_matrix(45.0, max(aspect, 1e-3), 0.1, 1000.0))
     glMatrixMode(GL_MODELVIEW)
 
 
@@ -1006,9 +1027,9 @@ def run_race(
     pygame.display.set_caption(scene.title)
 
     font = pygame.font.SysFont("monospace", 14)
+    title_font = pygame.font.SysFont("monospace", 16, bold=True)
     big_font = pygame.font.SysFont("monospace", 40, bold=True)
-    hint_surf = _hint_surface(font)
-
+    layout = ScreenLayout(sw, sh)
     camera = Camera3D()
     rrt_path = scene.rrt_path  # pruned waypoints
     sst_path = scene.sst_path  # pruned waypoints
@@ -1180,8 +1201,10 @@ def run_race(
                     if recording and post_timer >= _POST_FINISH_SECS:
                         running = False
 
-            # --- 3-D render (OpenGL) ------------------------------------
+            # --- 3-D render (OpenGL, content column only) --------------
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            layout.setup_content_viewport()
+            _set_perspective(layout.content_w / max(layout.content_h, 1))
             _set_camera(camera)
 
             _draw_floor_grid(scene.bounds[0][1], scene.bounds[1][1])
@@ -1261,37 +1284,73 @@ def run_race(
                 _draw_effector(rrt_robot.q, *_C_TRAIL_RRT)
                 _draw_effector(sst_robot.q, *_C_TRAIL_SST)
 
-            # --- 2-D HUD overlay ----------------------------------------
-            _blit_overlay(
-                _status_surface(
-                    font,
-                    rrt_metrics,
-                    sst_metrics,
-                    phase,
-                    max(0.0, _HOLD_SECS - hold_timer),
-                ),
-                8,
-                8,
-                sw,
-                sh,
+            # --- Shared chrome + sidebar (full window) -----------------
+            layout.reset_viewport()
+            if phase == "show":
+                footer = (
+                    f"[ PAUSED ]"
+                    if paused
+                    else f"Path reveal  ·  race in {max(0.0, _HOLD_SECS - hold_timer):.1f} s"
+                )
+            elif phase == "race":
+                footer = "[ PAUSED ]" if paused else "Race"
+            else:
+                footer = "Press  R  to restart   |   Q  to quit"
+            chrome = make_chrome_surface(
+                layout,
+                scenario_phase_title("ppp", phase),
+                footer,
+                title_font,
+                font,
+                method_colors=(_HC_RRT, _HC_SST),
             )
-            _blit_overlay(
-                hint_surf,
-                (sw - hint_surf.get_width()) // 2,
-                sh - hint_surf.get_height() - 6,
-                sw,
-                sh,
-            )
+            renderer_gl.blit_overlay(chrome, 0, 0, sw, sh)
+
+            if phase == "show":
+                sections = build_compact_planner_sections(
+                    [
+                        ("RRT*", _HC_RRT, rrt_metrics),
+                        ("SST", _HC_SST, sst_metrics),
+                    ]
+                )
+            else:
+                sections = [
+                    (
+                        [
+                            "STANDINGS",
+                            f"  {'PAUSED' if paused else 'live'}",
+                        ],
+                        _HC_HUD,
+                    ),
+                    (
+                        [
+                            "RRT*",
+                            f"  {'GOAL' if rrt_done else 'racing'}",
+                        ],
+                        _HC_RRT,
+                    ),
+                    (
+                        [
+                            "SST",
+                            f"  {'GOAL' if sst_done else 'racing'}",
+                        ],
+                        _HC_SST,
+                    ),
+                ]
+            draw_sidebar_panel(layout, font, sections, sw, sh)
+
             if winner:
                 w_color = _HC_TIE if winner == "TIE!" else _HC_WINNER
                 ban = _banner_surface(big_font, winner, w_color)
-                _blit_overlay(
-                    ban,
-                    (sw - ban.get_width()) // 2,
-                    (sh - ban.get_height()) // 2,
-                    sw,
-                    sh,
+                bx = (
+                    layout.content_x
+                    + (layout.content_w - ban.get_width()) // 2
                 )
+                by = (
+                    layout.header_h
+                    + (layout.content_h - ban.get_height()) // 2
+                )
+                renderer_gl.blit_overlay(ban, bx, by, sw, sh)
 
             pygame.display.flip()
 

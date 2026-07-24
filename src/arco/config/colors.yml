@@ -42,3 +42,9 @@ ui:
   hud_shadow: [40, 40, 50]          # [] text drop shadow (RGB 0-255)
   hud_winner: [255, 215, 50]        # [] winner banner text (RGB 0-255)
   hud_tie: [200, 200, 80]           # [] tie banner text (RGB 0-255)
+  # Shared arcosim chrome (header / footer / sidebar frame).
+  chrome_bar: [16, 18, 26]          # [] header + footer fill (RGB 0-255)
+  chrome_sidebar: [12, 14, 22]      # [] left legend column fill (RGB 0-255)
+  chrome_border: [70, 88, 120]      # [] hairline separators (RGB 0-255)
+  chrome_title: [228, 232, 242]     # [] header title text (RGB 0-255)
+  chrome_hint: [120, 132, 156]      # [] footer hint text (RGB 0-255)

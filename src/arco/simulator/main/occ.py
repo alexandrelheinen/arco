@@ -44,6 +44,12 @@ from arco.control import ActuatorArray
 from arco.control.rigid_body import CircleBody, SquareBody
 from arco.mapping import KDTreeOccupancy
 from arco.simulator.scenes.occ import OCCScene
+from arco.simulator.sim.layout import (
+    ScreenLayout,
+    make_chrome_surface,
+    paint_sidebar_panel,
+    scenario_phase_title,
+)
 from arco.simulator.sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
@@ -433,7 +439,9 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     pygame.display.set_caption("OCC - Piano Movers")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("monospace", 14)
-    title_font = pygame.font.SysFont("monospace", 18, bold=True)
+    title_font = pygame.font.SysFont("monospace", 16, bold=True)
+    panel_label_font = pygame.font.SysFont("monospace", 18, bold=True)
+    layout = ScreenLayout(_WIDTH, _HEIGHT)
 
     # Build scene with loading screen feedback
     scene = OCCScene(cfg)
@@ -458,9 +466,11 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     x_range = [float(v) for v in env_cfg.get("x_range", [-4, 4])]
     y_range = [float(v) for v in env_cfg.get("y_range", [-3, 3])]
 
-    # Compute scale and origin for one panel (we split width in half)
-    panel_w = _WIDTH // 2
-    panel_h = _HEIGHT
+    # Dual panels live inside the chrome content rect (not the full window).
+    content_x = layout.content_x
+    content_y = layout.header_h
+    panel_w = layout.content_w // 2
+    panel_h = layout.content_h
     x_span = x_range[1] - x_range[0]
     y_span = y_range[1] - y_range[0]
     scale = min(
@@ -470,12 +480,12 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     cx_world = (x_range[0] + x_range[1]) / 2.0
     cy_world = (y_range[0] + y_range[1]) / 2.0
     left_origin = (
-        panel_w // 2 - int(cx_world * scale),
-        panel_h // 2 + int(cy_world * scale),
+        content_x + panel_w // 2 - int(cx_world * scale),
+        content_y + panel_h // 2 + int(cy_world * scale),
     )
     right_origin = (
-        panel_w + panel_w // 2 - int(cx_world * scale),
-        panel_h // 2 + int(cy_world * scale),
+        content_x + panel_w + panel_w // 2 - int(cx_world * scale),
+        content_y + panel_h // 2 + int(cy_world * scale),
     )
 
     # Path tracking state
@@ -646,15 +656,21 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
                 if dist < goal_tol:
                     sst_wp_idx = min(sst_wp_idx + 1, len(sst_waypoints))
 
-        # Draw
+        # Draw — content panels inside shared chrome.
         screen.fill(_C_BG)
+        pygame.draw.rect(
+            screen,
+            _C_BG,
+            pygame.Rect(content_x, content_y, layout.content_w, panel_h),
+        )
 
-        # Divider
+        # Divider between RRT* / SST panels (content-relative).
+        mid_x = content_x + panel_w
         pygame.draw.line(
             screen,
             _C_DIVIDER,
-            (panel_w, 0),
-            (panel_w, panel_h),
+            (mid_x, content_y),
+            (mid_x, content_y + panel_h),
             2,
         )
 
@@ -697,10 +713,11 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
                 ),
             ]
         ):
+            panel_left = content_x + panel_idx * panel_w
             # Soft method-tint strip under the panel title.
             tint = pygame.Surface((panel_w, 36), pygame.SRCALPHA)
             tint.fill((*body_color, 40))
-            screen.blit(tint, (panel_idx * panel_w, 0))
+            screen.blit(tint, (panel_left, content_y))
 
             # Obstacles
             for obs in obstacles:
@@ -727,17 +744,47 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
             _draw_body(screen, body_s, origin, scale, body_color)
 
             # Label
-            lbl = title_font.render(label, True, _C_HUD)
-            screen.blit(lbl, (panel_idx * panel_w + 10, 10))
+            lbl = panel_label_font.render(label, True, _C_HUD)
+            screen.blit(lbl, (panel_left + 10, content_y + 10))
 
-        # Status bar
-        status = "PAUSED" if paused else "RUNNING"
-        info = font.render(
-            f"{status} | SPACE=pause  R=restart  Q=quit",
-            True,
-            _C_HUD_DIM,
+        phase_key = "paused" if paused else "running"
+        footer = (
+            "PAUSED  ·  SPACE resume  ·  R restart  ·  Q quit"
+            if paused
+            else "RUNNING  ·  SPACE pause  ·  R restart  ·  Q quit"
         )
-        screen.blit(info, (10, panel_h - 24))
+        chrome = make_chrome_surface(
+            layout,
+            scenario_phase_title("occ", phase_key),
+            footer,
+            title_font,
+            font,
+            method_colors=(_C_RRT_BODY, _C_SST_BODY),
+        )
+        screen.blit(chrome, (0, 0))
+        paint_sidebar_panel(
+            screen,
+            layout,
+            font,
+            [
+                (
+                    [
+                        "RRT*",
+                        "  left panel",
+                        "  path + PD track",
+                    ],
+                    _C_RRT_BODY,
+                ),
+                (
+                    [
+                        "SST",
+                        "  right panel",
+                        "  path + PD track",
+                    ],
+                    _C_SST_BODY,
+                ),
+            ],
+        )
 
         pygame.display.flip()
 

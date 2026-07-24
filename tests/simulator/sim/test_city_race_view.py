@@ -10,6 +10,15 @@ from arco.simulator.sim.city_race_view import (
 )
 
 
+def test_phase_chrome_title_matches_shared_helper() -> None:
+    from arco.simulator.sim.city_race_view import phase_chrome_title
+    from arco.simulator.sim.layout import scenario_phase_title
+
+    assert phase_chrome_title("racing") == scenario_phase_title(
+        "city", "racing"
+    )
+
+
 def test_pack_centroid_is_mean_of_positions() -> None:
     cx, cy = pack_centroid([(0.0, 0.0), (10.0, 20.0), (20.0, 10.0)])
     assert abs(cx - 10.0) < 1e-12
