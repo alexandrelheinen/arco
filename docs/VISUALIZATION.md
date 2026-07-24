@@ -92,6 +92,11 @@ City race notes when `simulator.tracker: mpc`:
 - Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) over
   the warm SDF road field: dim planned underlay (`2.0` px @ 0.35 α), bold
   executed past trails (`4.5` px), and prediction polylines (`3.5` px).
+- **Presentation (race phase):** follow-cam zooms to the pack (~200 m window,
+  smoothed chase), a corner **minimap** keeps the full 600 m city, the sidebar
+  switches to **standings** (place / gap / speed), and the header title flips
+  from planning reveal → race · follow cam.  Planning reveal still uses the
+  full bird's-eye map.
 
 ---
 

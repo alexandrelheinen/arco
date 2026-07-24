@@ -704,8 +704,8 @@ class CityScene(RaceScene):
 
     @property
     def title(self) -> str:
-        """Window caption."""
-        return "RRT* vs SST vs A* — neighborhood race"
+        """Window caption (chrome overrides with phase-specific titles)."""
+        return "City — RRT* / SST / A*"
 
     @property
     def bg_color(self) -> tuple[int, int, int]:
