@@ -56,6 +56,7 @@ from arco.config.palette import layer_rgb, ui_rgb
 from arco.simulator import renderer_gl
 from arco.simulator.scenes import RaceScene
 from arco.simulator.scenes.sparse import CityScene
+from arco.simulator.sim.camera import CameraFilter
 from arco.simulator.sim.city_race_style import (
     DEFAULT_CITY_HORIZON_DT,
     DEFAULT_CITY_HORIZON_STEP_COUNT,
@@ -64,6 +65,16 @@ from arco.simulator.sim.city_race_style import (
     PREDICTED_TRACE_WIDTH,
     VEH_HALF_L,
     VEH_HALF_W,
+)
+from arco.simulator.sim.city_race_view import (
+    MINIMAP_PAD_PX,
+    MINIMAP_SIZE_PX,
+    RACE_CAMERA_NATURAL_FREQUENCY,
+    build_race_standings,
+    make_minimap_surface,
+    pack_centroid,
+    phase_chrome_title,
+    race_view_bounds,
 )
 from arco.simulator.sim.layout import (
     ScreenLayout,
@@ -220,10 +231,10 @@ def run_race(
     Phase 1 — **planning reveal**: all exploration trees grow on screen
     simultaneously. The race does not start until every tree is fully drawn.
 
-    Phase 2 — **racing**: all vehicles follow their respective planned paths
-    from a shared start.  The first to arrive is declared the winner.  The
-    simulation continues for :data:`_POST_FINISH_SECS` after the last
-    vehicle reaches the goal, then exits.
+    Phase 2 — **racing**: follow-cam on the pack (corner minimap keeps the
+    full city), standings HUD, vehicles tracking their planned paths from a
+    shared start.  The first to arrive wins.  The simulation continues for
+    :data:`_POST_FINISH_SECS` after the last vehicle reaches the goal.
 
     Args:
         scene: Fully built city race scene.
@@ -287,12 +298,19 @@ def run_race(
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
     glDisable(GL_LIGHTING)
 
-    # World bounds and projection (full fixed view — no follow camera for race).
+    # Full-world bounds for planning reveal; race uses a smoothed follow-cam.
     wpts = scene.world_points
     _all_x = [p[0] for p in wpts]
     _all_y = [p[1] for p in wpts]
     x_min, x_max = min(_all_x), max(_all_x)
     y_min, y_max = min(_all_y), max(_all_y)
+    world_cx = 0.5 * (x_min + x_max)
+    world_cy = 0.5 * (y_min + y_max)
+    race_camera = CameraFilter(
+        world_cx,
+        world_cy,
+        natural_frequency=RACE_CAMERA_NATURAL_FREQUENCY,
+    )
 
     cfg = scene.vehicle_config
     rrt_wps = scene.rrt_waypoints
@@ -427,6 +445,15 @@ def run_race(
                     astar_wps, cfg, occ
                 )
             logger.info("Race started (tracker=%s).", tracker_mode)
+        # Snap follow-cam to the shared start so the first race frames
+        # are already zoomed on the pack (not a slow fly-in from map center).
+        start_xy = None
+        for wps in (rrt_wps, sst_wps, astar_wps):
+            if wps:
+                start_xy = (float(wps[0][0]), float(wps[0][1]))
+                break
+        if start_xy is not None:
+            race_camera.reset(start_xy[0], start_xy[1])
 
     def _restart() -> None:
         nonlocal phase, rrt_revealed, sst_revealed, astar_revealed, hold
@@ -627,9 +654,35 @@ def run_race(
             glClearColor(bg[0] / 255.0, bg[1] / 255.0, bg[2] / 255.0, 1.0)
             glClear(GL_COLOR_BUFFER_BIT)
 
-            # World-space GL (content viewport only)
+            # World-space GL (content viewport only).  Planning = full map;
+            # race / done = follow-cam window around the pack.
+            view_x0, view_x1, view_y0, view_y1 = x_min, x_max, y_min, y_max
+            pack_positions: list[tuple[float, float]] = []
+            if phase in ("racing", "done"):
+                for veh in (rrt_vehicle, sst_vehicle, astar_vehicle):
+                    if veh is not None:
+                        pack_positions.append((float(veh.x), float(veh.y)))
+                if pack_positions:
+                    tx, ty = pack_centroid(pack_positions)
+                    if not paused:
+                        race_camera.update(tx, ty, dt)
+                    view_x0, view_x1, view_y0, view_y1 = race_view_bounds(
+                        race_camera.x,
+                        race_camera.y,
+                        pack_positions,
+                        world_x_min=x_min,
+                        world_x_max=x_max,
+                        world_y_min=y_min,
+                        world_y_max=y_max,
+                    )
+
             renderer_gl.setup_2d_projection(
-                x_min, x_max, y_min, y_max, layout.content_w, layout.content_h
+                view_x0,
+                view_x1,
+                view_y0,
+                view_y1,
+                layout.content_w,
+                layout.content_h,
             )
             layout.setup_content_viewport()
 
@@ -771,7 +824,11 @@ def run_race(
                 footer_text = "Press  R  to restart   |   Q  to quit"
 
             chrome_surf = make_chrome_surface(
-                layout, scene.title, footer_text, title_font, font
+                layout,
+                phase_chrome_title(phase),
+                footer_text,
+                title_font,
+                font,
             )
             renderer_gl.blit_overlay(chrome_surf, 0, 0, sw, sh)
 
@@ -783,14 +840,76 @@ def run_race(
                     astar_revealed=astar_revealed,
                 )
             else:
-                sidebar_sections = scene.sidebar_content(
-                    phase=phase,
-                    race_time=race_time,
-                    rrt_finish=rrt_finish_time,
-                    sst_finish=sst_finish_time,
-                    astar_finish=astar_finish_time,
+                race_entries: list[
+                    tuple[str, tuple[int, int, int], float | None, float]
+                ] = []
+                if rrt_vehicle is not None:
+                    race_entries.append(
+                        (
+                            "RRT*",
+                            _C_RRT_HUD,
+                            rrt_finish_time,
+                            float(rrt_vehicle.speed),
+                        )
+                    )
+                if astar_vehicle is not None:
+                    race_entries.append(
+                        (
+                            "A*",
+                            _C_ASTAR_HUD,
+                            astar_finish_time,
+                            float(astar_vehicle.speed),
+                        )
+                    )
+                if sst_vehicle is not None:
+                    race_entries.append(
+                        (
+                            "SST",
+                            _C_SST_HUD,
+                            sst_finish_time,
+                            float(sst_vehicle.speed),
+                        )
+                    )
+                sidebar_sections = build_race_standings(
+                    race_entries, race_time
                 )
             draw_sidebar_panel(layout, font, sidebar_sections, sw, sh)
+
+            if phase in ("racing", "done") and pack_positions:
+                start_xy = (
+                    (float(rrt_wps[0][0]), float(rrt_wps[0][1]))
+                    if rrt_wps
+                    else pack_positions[0]
+                )
+                goal_xy = (
+                    (float(rrt_wps[-1][0]), float(rrt_wps[-1][1]))
+                    if rrt_wps
+                    else pack_positions[0]
+                )
+                markers: list[tuple[float, float, tuple[int, int, int]]] = []
+                if rrt_vehicle is not None:
+                    markers.append((rrt_vehicle.x, rrt_vehicle.y, _C_RRT_VEH))
+                if sst_vehicle is not None:
+                    markers.append((sst_vehicle.x, sst_vehicle.y, _C_SST_VEH))
+                if astar_vehicle is not None:
+                    markers.append(
+                        (astar_vehicle.x, astar_vehicle.y, _C_ASTAR_VEH)
+                    )
+                minimap = make_minimap_surface(
+                    world_bounds=(x_min, x_max, y_min, y_max),
+                    view_bounds=(view_x0, view_x1, view_y0, view_y1),
+                    markers=markers,
+                    start=start_xy,
+                    goal=goal_xy,
+                )
+                mx = (
+                    layout.content_x
+                    + layout.content_w
+                    - MINIMAP_SIZE_PX
+                    - MINIMAP_PAD_PX
+                )
+                my = sh - layout.footer_h - MINIMAP_SIZE_PX - MINIMAP_PAD_PX
+                renderer_gl.blit_overlay(minimap, mx, my, sw, sh)
 
             if phase in ("racing", "done"):
                 if rrt_finished or sst_finished or astar_finished:
