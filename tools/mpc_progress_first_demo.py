@@ -130,7 +130,7 @@ def main() -> Path:
         weight_control=0.5,
         weight_obstacle=0.0,
         weight_terminal=8.0,
-        contour_deadzone=1.2,  # matches city free band (widen a little)
+        contour_deadzone=1.2,  # scaled free band (~city 2.5 m)
         max_solver_iter_count=60,
     )
 
