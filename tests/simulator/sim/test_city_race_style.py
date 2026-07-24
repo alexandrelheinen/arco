@@ -77,12 +77,12 @@ def test_city_vehicle_dynamics_are_soft_but_lane_viable() -> None:
     assert CITY_MAX_SPEED == 16.0
     assert CITY_MAX_TURN_RATE_DEG == 40.0
     assert CITY_MAX_ACCELERATION == 2.5
-    assert CITY_MAX_TURN_RATE_DOT_DEG == 55.0
+    assert CITY_MAX_TURN_RATE_DOT_DEG == 90.0
     assert CITY_ROAD_HALF_WIDTH == 15.0
     cfg = make_city_vehicle_config()
     assert abs(cfg.cruise_speed - CITY_CRUISE_SPEED) < 1e-12
     assert abs(cfg.max_turn_rate - math.radians(40.0)) < 1e-12
-    assert abs(cfg.max_turn_rate_dot - math.radians(55.0)) < 1e-12
+    assert abs(cfg.max_turn_rate_dot - math.radians(90.0)) < 1e-12
     assert abs(cfg.max_acceleration - 2.5) < 1e-12
     # Soft: still cannot snap-turn a kink at full cruise.
     assert cfg.cruise_speed / cfg.max_turn_rate > CITY_ROAD_HALF_WIDTH
@@ -124,28 +124,28 @@ def test_path_following_mpc_config_honors_weight_overrides() -> None:
             "mpc": {
                 "horizon": {"step_count": 72, "dt": 0.05},
                 "weights": {
-                    "contour": 18.0,
-                    "heading": 6.0,
-                    "control": 4.0,
-                    "progress": 3.0,
-                    "lag": 2.0,
-                    "contour_deadzone": 1.2,
+                    "contour": 8.0,
+                    "heading": 4.0,
+                    "control": 0.5,
+                    "progress": 4.0,
+                    "lag": 4.0,
+                    "contour_deadzone": 2.5,
                 },
             },
         },
         default_horizon_step_count=72,
         default_horizon_dt=0.05,
     )
-    assert abs(cfg.weight_contour - 18.0) < 1e-12
-    assert abs(cfg.weight_heading - 6.0) < 1e-12
-    assert abs(cfg.weight_control - 4.0) < 1e-12
-    assert abs(cfg.weight_progress - 3.0) < 1e-12
-    assert abs(cfg.weight_lag - 2.0) < 1e-12
-    assert abs(cfg.contour_deadzone - 1.2) < 1e-12
+    assert abs(cfg.weight_contour - 8.0) < 1e-12
+    assert abs(cfg.weight_heading - 4.0) < 1e-12
+    assert abs(cfg.weight_control - 0.5) < 1e-12
+    assert abs(cfg.weight_progress - 4.0) < 1e-12
+    assert abs(cfg.weight_lag - 4.0) < 1e-12
+    assert abs(cfg.contour_deadzone - 2.5) < 1e-12
 
 
-def test_city_map_yaml_declares_stiff_lane_aware_contouring() -> None:
-    """City YAML allows a little widen, but not zigzags or wall cuts."""
+def test_city_map_yaml_declares_lane_aware_progress_first() -> None:
+    """City YAML widens kinks inside the lane, not into walls."""
     root = Path(__file__).resolve().parents[3]
     for name in ("city.yml", "city_mpc_preview.yml"):
         data = yaml.safe_load((root / "map" / name).read_text())
@@ -156,12 +156,12 @@ def test_city_map_yaml_declares_stiff_lane_aware_contouring() -> None:
             < 1e-12
         )
         weights = data["simulator"]["mpc"]["weights"]
-        assert float(weights["contour"]) >= 12.0
-        assert float(weights["heading"]) >= 4.0
-        assert float(weights["control"]) >= 2.0
-        assert float(weights["lag"]) >= 1.0
-        assert float(weights["lag"]) <= 3.0
+        # Contour outside the band must dominate wall-seeking freedom.
+        assert float(weights["contour"]) >= 6.0
+        assert float(weights["heading"]) >= 3.0
+        assert float(weights["lag"]) >= 2.0
+        assert float(weights["lag"]) <= 6.0
         # Free band ≪ road half-width (15 m) and planner clearance (8 m).
         deadzone = float(weights["contour_deadzone"])
-        assert 0.5 <= deadzone <= 2.0
-        assert float(weights["obstacle"]) >= 200.0
+        assert 1.0 <= deadzone <= 4.0
+        assert float(weights["obstacle"]) >= 100.0

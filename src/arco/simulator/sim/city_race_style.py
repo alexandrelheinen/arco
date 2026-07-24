@@ -45,9 +45,7 @@ CITY_MAX_SPEED: float = 16.0
 CITY_CRUISE_SPEED: float = 12.0
 CITY_MAX_TURN_RATE_DEG: float = 40.0
 CITY_MAX_ACCELERATION: float = 2.5
-# Lower ω̇ max damps left/right hunting on jagged A* polylines while still
-# allowing a single smooth widen of a corner inside the lane.
-CITY_MAX_TURN_RATE_DOT_DEG: float = 55.0
+CITY_MAX_TURN_RATE_DOT_DEG: float = 90.0
 CITY_LOOKAHEAD_DISTANCE: float = 28.0
 CITY_GOAL_RADIUS: float = 20.0
 # City road half-width (m); used by tests / docs as the lane budget.

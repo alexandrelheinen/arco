@@ -226,9 +226,9 @@ Weights map to `PathFollowingMPCConfig` / YAML `simulator.mpc.weights`:
 | \(d_{\mathrm{dz}}\) | `contour_deadzone` |
 
 Default global `mpc.yml` is **stiff** (\(d_{\mathrm{dz}}=0\), \(w_{\mathrm{lag}}=0\)).
-City overrides are **stiffened lane-aware** (small deadzone ≈ 1.2 m, high
-\(w_u\) / \(w_c\) / \(w_{\mathrm{obs}}\), mild lag) so corners may open a
-little without zigzag hunting or wall cuts.
+City overrides are **lane-aware progress-first** (deadzone ≈ 2.5 m,
+moderate lag / contour / obstacle, light control) so corners may widen
+inside the lane without over-constraining \(\dot\omega\).
 
 ### Soft obstacle barriers
 
@@ -317,16 +317,16 @@ limits = DubinsVehicleLimits(
     min_speed=0.0,
     max_turn_rate=0.70,       # rad/s (~40 deg/s)
     max_acceleration=2.5,
-    max_turn_rate_dot=0.96,   # rad/s² (~55 deg/s²)
+    max_turn_rate_dot=1.57,   # rad/s² (~90 deg/s²)
 )
 cfg = PathFollowingMPCConfig.create_from_config().with_weight_overrides(
-    contour=18.0,
-    heading=6.0,
-    control=4.0,
-    progress=3.0,
-    lag=2.0,
-    obstacle=280.0,
-    contour_deadzone=1.2,
+    contour=8.0,
+    heading=4.0,
+    control=0.5,
+    progress=4.0,
+    lag=4.0,
+    obstacle=120.0,
+    contour_deadzone=2.5,
 )
 mpc = DubinsPathFollowingMPC(vehicle_limits=limits, config=cfg)
 mpc.set_reference([(0.0, 0.0), (40.0, 0.0), (40.0, 40.0)])

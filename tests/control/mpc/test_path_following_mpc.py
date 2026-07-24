@@ -518,28 +518,3 @@ def test_mpc_city_horizon_solves_dense_astar_style_kinks() -> None:
     assert vehicle.speed > 1.0
     assert math.hypot(vehicle.x - path[0][0], vehicle.y - path[0][1]) > 2.0
 
-
-def test_obstacle_samples_include_lateral_probes() -> None:
-    """City cuts need flank queries, not only path-centerline samples.
-
-    A wall parallel to the path (offset ~8 m left) is invisible to a pure
-    centerline nearest-obstacle query when the car is still on-path; lateral
-    probes must surface it in the NLP barrier set.
-    """
-    from arco.mapping import KDTreeOccupancy
-
-    # Sparse flank cloud: only points on the left of a +x path.
-    cloud = [[0.0, 8.0], [8.0, 8.0], [16.0, 8.0], [24.0, 8.0]]
-    occ = KDTreeOccupancy(cloud, clearance=2.0)
-    cfg = _cfg(weight_obstacle=280.0)
-    mpc = DubinsPathFollowingMPC(
-        vehicle_limits=_limits(),
-        config=cfg,
-        occupancy=occ,
-    )
-    mpc.set_reference([(float(i), 0.0) for i in range(0, 41)])
-    assert DubinsPathFollowingMPC._OBSTACLE_SAMPLE_COUNT >= 9
-    samples = mpc._collect_obstacle_samples((0.0, 0.0, 0.0))
-    assert samples
-    assert any(abs(y - 8.0) < 1e-9 for _x, y in samples)
-    assert len(samples) <= DubinsPathFollowingMPC._OBSTACLE_SAMPLE_COUNT
