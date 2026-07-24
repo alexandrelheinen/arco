@@ -54,13 +54,10 @@ arcosim map/city.yml --static --record output/city.png
 
 | Scenario | Description |
 |----------|-------------|
-| `astar`  | A* grid search with obstacle map |
-| `city`   | Route planning on the city road network |
-| `occ`    | Object-centric control in obstacle field |
-| `ppp`    | PPP robot arm kinematics |
-| `rr`     | RR robot arm kinematics |
-| `rrp`    | RRP robot arm kinematics |
-| `vehicle`| Vehicle trajectory with tracking controller |
+| `city`   | Neighborhood race — RRT* / SST / A* with shared NMPCC |
+| `ppp`    | PPP gantry warehouse — joint-space MPC |
+| `rrp`    | RRP SCARA arm — joint-space MPC |
+| `occ`    | Piano-movers — multi-actuator object transport |
 
 ### Release / CI video generation
 
@@ -74,7 +71,7 @@ arcosim map/city.yml --static --record output/city.png
   race/tracking; 30 s matches the race portion of the former 60 s videos
   that spent ~half the time revealing trees.
 - Caches pip and installs CasADi (`arco[mpc]`) only for scenarios whose YAML
-  sets `tracker: mpc` (`city`, `vehicle`, `ppp`, `rrp`).
+  sets `tracker: mpc` (`city`, `ppp`, `rrp`).
 
 City race notes when `simulator.tracker: mpc`:
 

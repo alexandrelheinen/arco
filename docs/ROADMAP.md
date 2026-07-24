@@ -40,7 +40,7 @@ See [GUIDANCE.md](GUIDANCE.md) for details.
 ### Tools
 - `arcosim` — unified CLI for real-time simulation and static image generation
   (`--image` mode) from scenario YAML files (pygame/PyOpenGL + matplotlib)
-- Built-in scenarios: `astar`, `city`, `occ`, `ppp`, `rr`, `rrp`, `vehicle`
+- Built-in scenarios: `city`, `ppp`, `rrp`, `occ`
 
 See [VISUALIZATION.md](VISUALIZATION.md) for details.
 

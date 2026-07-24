@@ -1,13 +1,10 @@
 """Simulator scenarios handlers."""
 
-from . import astar, city, occ, ppp, rr, rrp, vehicle
+from . import city, occ, ppp, rrp
 
 __all__ = [
-    "astar",
     "city",
     "occ",
     "ppp",
-    "rr",
     "rrp",
-    "vehicle",
 ]

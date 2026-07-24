@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        scenario: [astar, city, rr, vehicle, ppp, rrp, occ]
+        scenario: [city, ppp, rrp, occ]
       fail-fast: false
 
     permissions:
@@ -51,7 +51,7 @@ jobs:
 
       - name: Install package with pygame and MPC
         # CasADi is required when map YAMLs set simulator.tracker: mpc
-        # (city, vehicle, ppp, rrp). Without it, smoke fails at race start.
+        # (city, ppp, rrp). Without it, smoke fails at race start.
         run: pip install -e ".[tools,mpc]"
 
       - name: Run smoke test

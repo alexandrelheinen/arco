@@ -15,7 +15,7 @@ set -euo pipefail
 TAG="${1:?Usage: $0 <tag> <videos_dir>}"
 VIDEOS_DIR="${2:?Usage: $0 <tag> <videos_dir>}"
 
-SCENARIOS=(astar city ppp rr vehicle rrp occ)
+SCENARIOS=(city ppp rrp occ)
 
 echo "=== Publishing videos to release ${TAG} ==="
 echo "Source directory: $VIDEOS_DIR"

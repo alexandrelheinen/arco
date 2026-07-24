@@ -14,7 +14,7 @@
 #   --out-dir <path>        Output directory (default: /tmp/arco_videos)
 #   --duration <seconds>    Recording duration per scenario (default: 60)
 #   --only <name,...>       Comma-separated list of scenario names to run
-#                           (default: all primary scenarios). E.g. --only ppp,rr
+#                           (default: all primary scenarios). E.g. --only ppp,city
 #   --release               Release mode: use reduced city planner budgets
 #                           (map/city_mpc_preview.yml → arcosim_city.mp4) and
 #                           pass --fast-record to skip tree-reveal pacing.
@@ -36,7 +36,7 @@ DRY_RUN=0
 
 # Primary release / smoke scenario names (basename of map/*.yml).
 # Preview / alternate maps are not listed here; --release remaps city.
-PRIMARY_SCENARIOS=(astar city ppp rr vehicle rrp occ)
+PRIMARY_SCENARIOS=(city ppp rrp occ)
 
 # Parse optional args
 while [[ $# -gt 0 ]]; do
