@@ -234,13 +234,14 @@ Change **one family at a time**; keep the other racers on the same pipeline.
 
 ---
 
-## City baseline vs aggressive stiffen
+## City defaults vs aggressive stiffen (do not re-apply)
 
-Historical reference for the shared city tracker (same for blue / green /
-purple):
+**Current city defaults** (restored lane-viable / progress-first column)
+are shared by blue / green / purple.  The right-hand column is the
+v0.3.5 over-stiff retune — kept only as an anti-pattern.
 
-| Knob | Lane-viable baseline (post κ-floor) | Aggressive stiffen (v0.3.5 retune) |
-|------|--------------------------------------|-------------------------------------|
+| Knob | Current (lane-viable) | Aggressive stiffen (avoid) |
+|------|------------------------|----------------------------|
 | `contour` | 8 | 18 |
 | `heading` | 4 | 6 |
 | `control` | 0.5 | 4 |
@@ -249,16 +250,16 @@ purple):
 | `obstacle` | 120 | 280 |
 | `contour_deadzone` | 2.5 m | 1.2 m |
 | `CITY_MAX_TURN_RATE_DOT_DEG` | 90 | 55 |
+| Obstacle NLP samples | pose + path preview (5) | + forward/flank probes (9) |
 | Horizon | 72 × 0.05 s | same |
 
 Raising `control` / obstacle / contour together while cutting \(\dot\omega\)
 and the deadzone often yields **solver “convergence” with poor tracking**:
 understeer into corners, then lateral hunting, then soft-barrier
-penetration.  Prefer returning toward the lane-viable column, then nudge
-one knob.
+penetration.  Nudge **one** knob at a time from the current column.
 
-Keep the **κ floor / preview** (`ReferencePath`) when reverting weights:
-that fix is about NLP solvability on dense A\* stubs, not about stiffness.
+Keep the **κ floor / preview** (`ReferencePath`): that fix is about NLP
+solvability on dense A\* stubs, not about stiffness.
 
 ---
 

@@ -171,8 +171,10 @@ CasADi + IPOPT NLPs solved each control step (optional `arco[mpc]` extra).
 Path-following MPC is an **NMPCC-style contouring controller**: path
 parameter \(s\), lateral / lag split, Dubins dynamics, soft obstacle
 barriers.  Full equations and naming vs classical MPCC:
-[control_mpcc.md](control_mpcc.md).  Joint-space MPC tracks a carrot in
-configuration space with soft obstacle barriers.
+[control_mpcc.md](control_mpcc.md).  Post-plan tunable knobs (YAML weights,
+horizon, vehicle limits, κ floors):
+[control_tracking_params.md](control_tracking_params.md).  Joint-space MPC
+tracks a carrot in configuration space with soft obstacle barriers.
 
 Dominant cost: NLP construction + IPOPT solve per tick.
 

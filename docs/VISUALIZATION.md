@@ -86,7 +86,8 @@ City race notes when `simulator.tracker: mpc`:
   infeasible kinks **inside the road corridor** while `s` advances (see
   `tools/mpc_progress_first_demo.py`).  A prior 8 m deadzone ate the
   planner clearance; an over-stiff retune (`control`/`obstacle` too high,
-  ω̇ too low) understeered then hunted — avoid that.
+  ω̇ too low) understeered then hunted — avoid that.  Full post-plan
+  parameter inventory: [control_tracking_params.md](control_tracking_params.md).
 - The race renderer draws each racer's **MPC predicted XY polyline** (no tip
   disc) instead of a Pure-Pursuit carrot.
 - Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) with
