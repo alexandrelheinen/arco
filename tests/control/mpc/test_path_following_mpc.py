@@ -526,7 +526,7 @@ def test_obstacle_samples_include_lateral_probes() -> None:
     centerline nearest-obstacle query when the car is still on-path; lateral
     probes must surface it in the NLP barrier set.
     """
-    from arco.mapping.occupancy import KDTreeOccupancy
+    from arco.mapping import KDTreeOccupancy
 
     # Sparse flank cloud: only points on the left of a +x path.
     cloud = [[0.0, 8.0], [8.0, 8.0], [16.0, 8.0], [24.0, 8.0]]
