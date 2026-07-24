@@ -53,21 +53,19 @@ world:
 # follows that arbitrary reference (no replanning inside the tracker).
 simulator:
   tracker: mpc  # "pure_pursuit" (PP+APF) or "mpc" (CasADi path-following NMPC)
-  # Lane-aware progress-first contouring.  Global planners ignore vehicle
-  # dynamics, so the tracker may widen sharp polyline kinks — but only inside
-  # a small free band (≪ road half-width / clearance).  A large deadzone ate
-  # the planner's obstacle clearance and drove cars into walls.  Lag still
-  # prefers advancing s over nailing the kink; contour outside the band keeps
-  # the topological lane.  Global mpc.yml remains stiff (deadzone=0, lag=0).
+  # Lane-aware progress-first contouring (stiffened).  Planners ignore
+  # dynamics: allow a *small* free band to open sharp kinks, but keep high
+  # control / contour / obstacle weights so the car does not zigzag or cut
+  # through buildings.  Global mpc.yml remains classic stiff (deadzone=0).
   mpc:
     horizon:
       step_count: 72  # [] prediction steps
       dt: 0.05  # [s] prediction model step
     weights:
-      contour: 8.0  # [] excess-lateral weight outside the deadzone
-      heading: 4.0  # [] heading tracking (plan has no yaw continuity)
-      control: 0.5  # [] control effort — prefer smooth ω
-      progress: 4.0  # [] track v_ref (incl. curve-limited corner speed)
-      lag: 4.0  # [] behind-schedule progress (do not overpower braking)
-      obstacle: 120.0  # [] keep the topological lane clear of buildings
-      contour_deadzone: 2.5  # [m] free |e_lat| band (widen inside the lane)
+      contour: 18.0  # [] excess-lateral weight outside the deadzone
+      heading: 6.0  # [] heading tracking (soft vs polyline yaw jumps)
+      control: 4.0  # [] penalize a / ω̇ — kill zigzag hunting
+      progress: 3.0  # [] track v_ref (incl. curve-limited corner speed)
+      lag: 2.0  # [] mild progress preference (do not force wall cuts)
+      obstacle: 280.0  # [] keep the topological lane clear of buildings
+      contour_deadzone: 1.2  # [m] free |e_lat| band (widen a little, not weave)

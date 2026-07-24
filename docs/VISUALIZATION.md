@@ -80,13 +80,13 @@ City race notes when `simulator.tracker: mpc`:
 
 - Scenario YAML may set `simulator.mpc.horizon.{step_count,dt}` (city default
   is **72 × 0.05 s = 3.6 s**, ~43 m at the soft 12 m/s cruise ≈ half a block).
-  City uses **lane-aware progress-first** (`contour_deadzone: 2.5 m`,
-  `lag: 4`, stronger contour outside the band) plus soft but lane-viable
-  turn limits: planners ignore dynamics, so the tracker widens infeasible
-  kinks **inside the road corridor** while `s` advances (see
+  City uses **stiffened lane-aware contouring** (`contour_deadzone: 1.2 m`,
+  `control: 4`, `contour: 18`, `obstacle: 280`, mild `lag: 2`) plus a
+  softer ω̇ limit (55 °/s²): planners ignore dynamics, so the tracker may
+  open a sharp kink **a little** inside the road corridor, but high
+  control / contour / obstacle weights kill zigzags and wall cuts (see
   `tools/mpc_progress_first_demo.py`).  A prior 8 m deadzone ate the
-  planner clearance and drove cars into walls; v0.3.3 orbits came from
-  reversing contouring progress.
+  planner clearance; low `control` let A* polylines hunt left/right.
 - The race renderer draws each racer's **MPC predicted XY polyline** (no tip
   disc) instead of a Pure-Pursuit carrot.
 - Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) with

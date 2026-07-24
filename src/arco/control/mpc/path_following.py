@@ -274,7 +274,10 @@ class DubinsPathFollowingMPC(MPCTracker):
     racing MPCC are documented in ``docs/control_mpcc.md``.
     """
 
-    _OBSTACLE_SAMPLE_COUNT = 5
+    # Nearest-obstacle parameter slots fed to the NLP.  Pose + path preview
+    # + lateral / forward probes around the vehicle (city A* cuts need denser
+    # barriers than a pure centerline sample).
+    _OBSTACLE_SAMPLE_COUNT = 9
     _PATH_INTERP_COUNT = 200
 
     def __init__(
@@ -586,17 +589,34 @@ class DubinsPathFollowingMPC(MPCTracker):
             self._occupancy, "nearest_obstacle"
         ):
             return []
-        samples: list[tuple[float, float]] = []
-        pts = [np.array([pose[0], pose[1]], dtype=float)]
+        px, py, theta = pose
+        cth = float(np.cos(theta))
+        sth = float(np.sin(theta))
+        # Query centers: vehicle, forward cone, left/right flanks (catches
+        # corner cuts that leave the path centerline), then path preview.
+        pts: list[np.ndarray] = [np.array([px, py], dtype=float)]
+        for fwd in (8.0, 18.0):
+            pts.append(
+                np.array([px + fwd * cth, py + fwd * sth], dtype=float)
+            )
+        for lat in (-8.0, 8.0):
+            pts.append(
+                np.array(
+                    [px - lat * sth, py + lat * cth],
+                    dtype=float,
+                )
+            )
         if self._reference is not None:
             look_ahead = self._look_ahead_distance()
-            for alpha in np.linspace(0.0, 1.0, self._OBSTACLE_SAMPLE_COUNT):
+            path_samples = max(3, self._OBSTACLE_SAMPLE_COUNT - 4)
+            for alpha in np.linspace(0.0, 1.0, path_samples):
                 s = min(
                     self._progress + alpha * look_ahead,
                     self._reference.total_length,
                 )
                 x_ref, y_ref = self._reference.position(s)
                 pts.append(np.array([x_ref, y_ref], dtype=float))
+        samples: list[tuple[float, float]] = []
         seen: set[tuple[float, float]] = set()
         for pt in pts:
             _dist, nearest = self._occupancy.nearest_obstacle(pt)
@@ -605,6 +625,8 @@ class DubinsPathFollowingMPC(MPCTracker):
                 continue
             seen.add(key)
             samples.append((float(nearest[0]), float(nearest[1])))
+            if len(samples) >= self._OBSTACLE_SAMPLE_COUNT:
+                break
         return samples
 
     def _build_nlp(self, obstacle_count: int) -> dict[str, Any]:
