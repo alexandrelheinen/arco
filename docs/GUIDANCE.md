@@ -38,7 +38,8 @@ Feedback controllers that generate control inputs to track a reference trajector
 
 - **DubinsPathFollowingMPC** (`arco.control.mpc`): Receding-horizon
   **contouring NMPC** (NMPCC-style).  Full mathematical description:
-  [control_mpcc.md](control_mpcc.md).
+  [control_mpcc.md](control_mpcc.md).  Tunable knobs after planning
+  (horizon, weights, dynamics, κ floors): [control_tracking_params.md](control_tracking_params.md).
   - Jointly optimizes contouring / lag / heading / speed / clearance
   - CasADi + IPOPT backend via optional extra: `pip install arco[mpc]`
   - Soft directional obstacle barriers (not hard road tubes)

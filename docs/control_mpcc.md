@@ -299,7 +299,9 @@ dynamically feasible trajectory in that corridor:
 4. Keep \(s\) non-decreasing under large heading error.
 
 See `map/city.yml` (`simulator.mpc.*`) and `make_city_vehicle_config()` for
-the soft but lane-viable Dubins limits.
+the soft but lane-viable Dubins limits.  A full inventory of post–path-planning
+knobs (horizon, weights, actuator limits, κ floors, obstacle samples) is in
+[control_tracking_params.md](control_tracking_params.md).
 
 ---
 
