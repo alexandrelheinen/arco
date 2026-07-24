@@ -59,10 +59,6 @@ Feedback controllers that generate control inputs to track a reference trajector
     on planner kinks it slows to a lane-feasible radius, widens within
     the deadzone, and keeps `s` increasing — instead of snap-turning,
     orbiting, or cutting into walls
-  - Tunable knobs after planning:
-    [control_tracking_params.md](control_tracking_params.md) (when present)
-    or `map/city.yml` + `make_city_vehicle_config()`
-
 - **JointSpaceMPC** (`arco.control.mpc.joint_space`): N-DOF carrot-tracking NMPC
   - Drop-in for `JointSpaceTracker` (`reset` / `step` API)
   - Used by PPP / RRP when `tracker: mpc`
