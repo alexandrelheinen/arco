@@ -443,3 +443,77 @@ def test_mpc_lane_aware_corner_stays_inside_road_budget() -> None:
     assert max_abs_lat < road_half_width - 4.0
     # May use the free band, but must not treat half the road as free.
     assert max_abs_lat < 2.0 * deadzone + 3.0
+
+
+def test_mpc_city_horizon_solves_dense_astar_style_kinks() -> None:
+    """Same tracker as RRT*/SST must move on a dense A*-like polyline.
+
+    v0.3.5 city release: purple (A*) path existed but IPOPT ``solve_failed``
+    on every step (Dirac κ from ~1 m stubs + horizon 72) → permanent
+    ``speed_cmd=0``.  RRT*/SST used the identical MPC factory and moved.
+    """
+    # Stair-step corridor with short stubs at each 90° corner (optimizer-like).
+    path: list[tuple[float, float]] = [(0.0, 0.0)]
+    x = 0.0
+    y = 0.0
+    for i in range(6):
+        x += 12.0
+        path.append((x, y))
+        path.append((x + 1.2, y))  # short stub
+        y += 12.0
+        path.append((x + 1.2, y))
+        x += 1.2
+    path.append((x + 20.0, y))
+
+    cfg = _cfg(
+        cruise_speed=12.0,
+        weight_contour=8.0,
+        weight_heading=4.0,
+        weight_progress=4.0,
+        weight_lag=4.0,
+        contour_deadzone=2.5,
+        weight_control=0.5,
+        weight_obstacle=0.0,
+        weight_terminal=8.0,
+        horizon_step_count=72,
+        dt=0.05,
+        max_solver_iter_count=80,
+    )
+    limits = _limits(
+        max_speed=16.0,
+        min_speed=0.0,
+        max_turn_rate=math.radians(40.0),
+        max_acceleration=2.5,
+        max_turn_rate_dot=math.radians(90.0),
+    )
+    mpc = DubinsPathFollowingMPC(vehicle_limits=limits, config=cfg)
+    mpc.set_reference(path)
+    vehicle = DubinsVehicle(
+        x=path[0][0],
+        y=path[0][1],
+        heading=0.0,
+        max_speed=limits.max_speed,
+        min_speed=limits.min_speed,
+        max_turn_rate=limits.max_turn_rate,
+        max_acceleration=limits.max_acceleration,
+        max_turn_rate_dot=limits.max_turn_rate_dot,
+    )
+    # Match race start: vehicle begins at rest.
+    vehicle._speed = 0.0
+
+    dt = 0.1
+    success_count = 0
+    for _ in range(25):
+        result = mpc.step(
+            vehicle.pose,
+            speed=vehicle.speed,
+            turn_rate=vehicle.turn_rate,
+            dt=dt,
+        )
+        if result.solver_success:
+            success_count += 1
+        vehicle.step(result.speed_cmd, result.turn_rate_cmd, dt)
+
+    assert success_count >= 20
+    assert vehicle.speed > 1.0
+    assert math.hypot(vehicle.x - path[0][0], vehicle.y - path[0][1]) > 2.0

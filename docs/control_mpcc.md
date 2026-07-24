@@ -56,14 +56,19 @@ At each interior vertex, the turn between consecutive outgoing headings is
 
 \[
 \Delta\psi_i = \mathrm{wrap}\bigl(\psi_i - \psi_{i-1}\bigr),\qquad
-\kappa_i = \frac{\Delta\psi_i}{\min(\Delta s_{\mathrm{in}},\,\Delta s_{\mathrm{out}},\, s_{\mathrm{cap}})},
+\Delta s_i = \min(\Delta s_{\mathrm{in}},\,\Delta s_{\mathrm{out}},\, s_{\mathrm{cap}}),
 \]
 
-with \(s_{\mathrm{cap}} = 20\,\mathrm{m}\).  A backward max-preview
-(\(40\,\mathrm{m}\)) then exposes upcoming corner \(\kappa\) on the approach
-so the NMPC can brake before the kink.  (A skip-one finite difference
+and for non-trivial turns \(\Delta s_i \leftarrow \max(\Delta s_i,\, s_{\mathrm{floor}})\)
+with \(s_{\mathrm{cap}} = 20\,\mathrm{m}\) and \(s_{\mathrm{floor}} = 8\,\mathrm{m}\),
+then \(\kappa_i = \Delta\psi_i / \Delta s_i\).  A backward max-preview
+(\(40\,\mathrm{m}\)) exposes upcoming corner \(\kappa\) on the approach, and
+\(|\kappa|\) is clipped to \(\kappa_{\max} = 0.35\,\mathrm{m}^{-1}\) so
+short A*/optimizer stubs cannot create Dirac \(\kappa\) that makes
+long-horizon IPOPT solves fail (city purple racer stuck at
+\(v_{\mathrm{cmd}}=0\)).  A skip-one finite difference
 \(\psi_{i+1}-\psi_{i-1}\) can report \(\kappa \approx 0\) on a \(90^\circ\)
-L-corner and disable braking.)
+L-corner and disable braking — that is why consecutive headings are used.
 
 ---
 

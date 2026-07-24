@@ -71,6 +71,14 @@ class ReferencePath:
     # forming κ for speed limiting.  Long collinear segments must not dilute
     # a 90° kink into κ≈0 (else ``v_curve = ω/|κ|`` never brakes).
     _CURVATURE_DS_CAP_M: float = 20.0
+    # Minimum spreading length (m) for a non-trivial turn.  Optimizer stubs
+    # and A* grid corners can be ~1 m; ``Δψ/ds`` then yields Dirac-like κ
+    # (|κ|≳1) that makes long-horizon ``v_curve`` NLPs fail (city purple
+    # racer stuck at speed 0 after ``solve_failed``).  Floor near half a
+    # city road half-width keeps braking meaningful without killing IPOPT.
+    _CURVATURE_DS_FLOOR_M: float = 8.0
+    # Hard cap on |κ| (1/m) after preview — safety net for the NLP.
+    _CURVATURE_ABS_MAX: float = 0.35
     # Backward horizon (m) over which an upcoming corner κ is visible so the
     # NMPC can decelerate before the kink (≈ cruise² / (2 a) at city soft
     # limits).
@@ -85,16 +93,18 @@ class ReferencePath:
         """Estimate curvature from consecutive segment heading changes.
 
         Each interior vertex uses the turn between its incoming and outgoing
-        headings, spread over ``min(ds_in, ds_out, ds_cap)``.  A skip-one
-        finite difference (``h[i+1] - h[i-1]``) can report ``κ ≈ 0`` on a
-        90° L-kink when those headings cancel, which disabled curve-speed
-        limiting on city A*/RRT* polylines.  A backward max-preview then
-        keeps the corner ``κ`` visible on the approach so braking starts
-        before the vertex.
+        headings, spread over ``min(ds_in, ds_out, ds_cap)`` and, for
+        non-trivial turns, at least ``ds_floor`` so short polyline stubs do
+        not create Dirac κ.  A skip-one finite difference
+        (``h[i+1] - h[i-1]``) can report ``κ ≈ 0`` on a 90° L-kink when
+        those headings cancel, which disabled curve-speed limiting on city
+        A*/RRT* polylines.  A backward max-preview then keeps the corner
+        ``κ`` visible on the approach so braking starts before the vertex.
         """
         kappa = np.zeros_like(headings)
         n = len(headings)
         ds_cap = float(cls._CURVATURE_DS_CAP_M)
+        ds_floor = float(cls._CURVATURE_DS_FLOOR_M)
         for i in range(1, n - 1):
             ds_in = float(cumulative[i] - cumulative[i - 1])
             ds_out = float(cumulative[i + 1] - cumulative[i])
@@ -105,6 +115,8 @@ class ReferencePath:
                 math.sin(headings[i] - headings[i - 1]),
                 math.cos(headings[i] - headings[i - 1]),
             )
+            if abs(dtheta) > 1e-6:
+                ds = max(ds, ds_floor)
             kappa[i] = dtheta / ds
         if n >= 2:
             kappa[0] = kappa[1]
@@ -112,20 +124,25 @@ class ReferencePath:
 
         preview = float(cls._CURVATURE_PREVIEW_DS_M)
         if preview <= 0.0 or n < 2:
-            return kappa
-        previewed = kappa.copy()
-        for i in range(n):
-            s_i = float(cumulative[i])
-            best = float(previewed[i])
-            best_abs = abs(best)
-            for j in range(i + 1, n):
-                if float(cumulative[j]) - s_i > preview:
-                    break
-                cand = float(kappa[j])
-                if abs(cand) > best_abs:
-                    best = cand
-                    best_abs = abs(cand)
-            previewed[i] = best
+            previewed = kappa
+        else:
+            previewed = kappa.copy()
+            for i in range(n):
+                s_i = float(cumulative[i])
+                best = float(previewed[i])
+                best_abs = abs(best)
+                for j in range(i + 1, n):
+                    if float(cumulative[j]) - s_i > preview:
+                        break
+                    cand = float(kappa[j])
+                    if abs(cand) > best_abs:
+                        best = cand
+                        best_abs = abs(cand)
+                previewed[i] = best
+
+        k_max = float(cls._CURVATURE_ABS_MAX)
+        if k_max > 0.0:
+            previewed = np.clip(previewed, -k_max, k_max)
         return previewed
 
     @property
