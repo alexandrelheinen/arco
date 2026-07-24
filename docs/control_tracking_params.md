@@ -165,12 +165,13 @@ Not YAML today; class attributes / logic on `DubinsPathFollowingMPC`:
 
 | Item | Role |
 |------|------|
-| `_OBSTACLE_SAMPLE_COUNT` | Max nearest-obstacle samples fed into the NLP |
-| Query centers | Vehicle pose, forward offsets, lateral flanks, path preview along look-ahead |
+| `_OBSTACLE_SAMPLE_COUNT` | Max nearest-obstacle samples fed into the NLP (city: 5) |
+| Query centers | Vehicle pose + path preview along look-ahead (current default) |
 | Occupancy `clearance` | Usually `world.obstacle_clearance` from the map YAML |
 
-More / wider probes catch flank cuts the centerline misses, but increase
-barrier conflict with contouring when weights are already extreme.
+Optional forward / flank probes can catch cuts the centerline misses, but
+increase barrier conflict with contouring when weights are already high —
+prefer tuning weights before densifying samples.
 
 ---
 
