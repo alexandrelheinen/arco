@@ -22,12 +22,16 @@ VEH_HALF_W: float = 3.6
 # Small Pure-Pursuit carrot disc only (meters).  Never used as the racer glyph.
 LOOKAHEAD_DISC_R: float = 1.5
 
-# Past executed trajectory line width in pixels — softer than the route so
-# the planned lane stays readable under three overlapping racers.
-PAST_TRACE_WIDTH: float = 2.5
+# Past executed trajectory line width in pixels — bold hero trail so the
+# race path reads clearly over the dimmed planned route.
+PAST_TRACE_WIDTH: float = 4.5
 
-# MPC predicted-horizon polyline width in pixels (slightly thicker than past).
+# MPC predicted-horizon polyline width in pixels (between plan and past).
 PREDICTED_TRACE_WIDTH: float = 3.5
+
+# Planned route underlay during the race phase (dimmed so past traces pop).
+PLANNED_ROUTE_WIDTH: float = 2.0
+PLANNED_ROUTE_ALPHA: float = 0.35
 
 # Default city-demo prediction horizon when scenario YAML omits an override.
 # 72 × 0.05 s = 3.6 s (~43 m at the soft city cruise of 12 m/s) — about half
@@ -39,9 +43,9 @@ DEFAULT_CITY_HORIZON_DT: float = 0.05
 # ω̇≈∞, a=4.9, cruise=18) let the NMPC nail A* kinks then reverse progress.
 # The first soft pass (ω=30°/s, cruise=14 → R_min≈27 m) made understeer
 # visible but *forced* corner cuts outside the 15 m road half-width when
-# curve-speed limiting failed.  These bounds keep turns soft while a
-# corrected polyline κ + small contour deadzone let the car slow and widen
-# *inside* the navigable lane.
+# curve-speed limiting failed.  These bounds keep turns soft while
+# corrected polyline κ + lag/progress (deadzone=0) let the car slow and
+# trade contour cost for progress *inside* the navigable lane.
 CITY_MAX_SPEED: float = 16.0
 CITY_CRUISE_SPEED: float = 12.0
 CITY_MAX_TURN_RATE_DEG: float = 40.0

@@ -19,6 +19,8 @@ from arco.simulator.sim.city_race_style import (
     DEFAULT_CITY_HORIZON_STEP_COUNT,
     LOOKAHEAD_DISC_R,
     PAST_TRACE_WIDTH,
+    PLANNED_ROUTE_ALPHA,
+    PLANNED_ROUTE_WIDTH,
     PREDICTED_TRACE_WIDTH,
     VEH_HALF_L,
     VEH_HALF_W,
@@ -40,9 +42,12 @@ def test_city_race_vehicle_is_visible_rectangle() -> None:
 
 
 def test_city_race_traces_are_thicker_and_prediction_visible() -> None:
-    assert PAST_TRACE_WIDTH >= 2.0
-    assert PREDICTED_TRACE_WIDTH >= PAST_TRACE_WIDTH
+    # Executed past trail is the visual hero over a dim planned underlay.
+    assert PAST_TRACE_WIDTH >= 4.0
     assert PREDICTED_TRACE_WIDTH >= 3.0
+    assert PREDICTED_TRACE_WIDTH < PAST_TRACE_WIDTH
+    assert PLANNED_ROUTE_WIDTH < PAST_TRACE_WIDTH
+    assert 0.0 < PLANNED_ROUTE_ALPHA < 0.6
 
 
 def test_city_default_horizon_is_half_block() -> None:
@@ -130,7 +135,7 @@ def test_path_following_mpc_config_honors_weight_overrides() -> None:
                     "control": 0.5,
                     "progress": 4.0,
                     "lag": 4.0,
-                    "contour_deadzone": 2.5,
+                    "contour_deadzone": 0.0,
                 },
             },
         },
@@ -142,11 +147,11 @@ def test_path_following_mpc_config_honors_weight_overrides() -> None:
     assert abs(cfg.weight_control - 0.5) < 1e-12
     assert abs(cfg.weight_progress - 4.0) < 1e-12
     assert abs(cfg.weight_lag - 4.0) < 1e-12
-    assert abs(cfg.contour_deadzone - 2.5) < 1e-12
+    assert abs(cfg.contour_deadzone) < 1e-12
 
 
-def test_city_map_yaml_declares_lane_aware_progress_first() -> None:
-    """City YAML widens kinks inside the lane, not into walls."""
+def test_city_map_yaml_declares_progress_first_zero_deadzone() -> None:
+    """City YAML keeps lag/progress but no flat lateral cost band."""
     root = Path(__file__).resolve().parents[3]
     for name in ("city.yml", "city_mpc_preview.yml"):
         data = yaml.safe_load((root / "map" / name).read_text())
@@ -157,12 +162,11 @@ def test_city_map_yaml_declares_lane_aware_progress_first() -> None:
             < 1e-12
         )
         weights = data["simulator"]["mpc"]["weights"]
-        # Contour outside the band must dominate wall-seeking freedom.
+        # Contour must dominate wall-seeking freedom; lag still advances s.
         assert float(weights["contour"]) >= 6.0
         assert float(weights["heading"]) >= 3.0
         assert float(weights["lag"]) >= 2.0
         assert float(weights["lag"]) <= 6.0
-        # Free band ≪ road half-width (15 m) and planner clearance (8 m).
-        deadzone = float(weights["contour_deadzone"])
-        assert 1.0 <= deadzone <= 4.0
+        # Flat |e_lat| bands zero the lateral gradient → equal-cost chatter.
+        assert abs(float(weights["contour_deadzone"])) < 1e-12
         assert float(weights["obstacle"]) >= 100.0

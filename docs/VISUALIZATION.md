@@ -77,18 +77,21 @@ City race notes when `simulator.tracker: mpc`:
 
 - Scenario YAML may set `simulator.mpc.horizon.{step_count,dt}` (city default
   is **72 × 0.05 s = 3.6 s**, ~43 m at the soft 12 m/s cruise ≈ half a block).
-  City uses **lane-aware progress-first** (`contour_deadzone: 2.5 m`,
-  `lag: 4`, `control: 0.5`, `obstacle: 120`) plus soft but lane-viable
-  turn limits (ω̇ 90 °/s²): planners ignore dynamics, so the tracker widens
-  infeasible kinks **inside the road corridor** while `s` advances (see
-  `tools/mpc_progress_first_demo.py`).  A prior 8 m deadzone ate the
-  planner clearance; an over-stiff retune (`control`/`obstacle` too high,
-  ω̇ too low) understeered then hunted — avoid that.  Full post-plan
-  parameter inventory: [control_tracking_params.md](control_tracking_params.md).
+  City uses **progress-first** contouring with **`contour_deadzone: 0`**
+  (`lag: 4`, `control: 0.5`, `obstacle: 120`) plus soft but lane-viable
+  turn limits (ω̇ 90 °/s²): planners ignore dynamics, so lag/progress trade
+  against contour to widen infeasible kinks **inside the road corridor**
+  while `s` advances (see `tools/mpc_progress_first_demo.py`).  A non-zero
+  deadzone flat-zones the lateral cost (zero gradient → equal-cost left/right
+  chatter / wobble); a prior 8 m band also ate planner clearance.  An
+  over-stiff retune (`control`/`obstacle` too high, ω̇ too low) understeered
+  then hunted — avoid that.  Full post-plan parameter inventory:
+  [control_tracking_params.md](control_tracking_params.md).
 - The race renderer draws each racer's **MPC predicted XY polyline** (no tip
   disc) instead of a Pure-Pursuit carrot.
-- Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) with
-  soft past / prediction traces (`2.5` / `3.5` px) over the warm SDF road field.
+- Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) over
+  the warm SDF road field: dim planned underlay (`2.0` px @ 0.35 α), bold
+  executed past trails (`4.5` px), and prediction polylines (`3.5` px).
 
 ---
 
