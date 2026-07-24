@@ -114,7 +114,7 @@ active_nodes, active_parent, path = planner.get_tree(start, goal)
 # path: solution path or None
 ```
 
-Use `arcosim map/occ.yml` or the city/vehicle scenarios for visualization.
+Use `arcosim map/city.yml` or `arcosim map/occ.yml` for visualization.
 
 ## Resources
 - [Original SST Paper](https://arxiv.org/abs/1407.2896)

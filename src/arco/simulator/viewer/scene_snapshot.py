@@ -17,7 +17,7 @@ The snapshot stores every visual layer described in the issue:
 Example
 -------
 >>> snap = SceneSnapshot(
-...     scenario="rr",
+...     scenario="city",
 ...     start=[0.0, 0.0],
 ...     goal=[1.57, -0.5],
 ...     found_path=[[0.0, 0.0], [0.78, -0.25], [1.57, -0.5]],
@@ -45,7 +45,7 @@ class SceneSnapshot:
     found no path).
 
     Attributes:
-        scenario: Scenario identifier string, e.g. ``"rr"`` or ``"city"``.
+        scenario: Scenario identifier string, e.g. ``"city"`` or ``"ppp"``.
         planner: Planner name, e.g. ``"rrt"`` or ``"sst"``.
         start: Start state as a flat list of floats.
         goal: Goal state as a flat list of floats.

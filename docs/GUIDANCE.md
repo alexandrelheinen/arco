@@ -172,7 +172,7 @@ The guidance layer operates downstream of the planning layer:
 3. **Control**: Tracks trajectories with feedback control
 
 A typical workflow combines route planning (A*) → B-spline interpolation →
-Pure Pursuit control, as demonstrated in the `city` and `vehicle` scenarios
+Pure Pursuit control (legacy alternative to MPC in SE(2) races)
 (see [VISUALIZATION.md](VISUALIZATION.md)).
 
 ## References

@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        scenario: [astar, city, ppp, rr, vehicle, rrp, occ]
+        scenario: [city, ppp, rrp, occ]
       fail-fast: false
 
     permissions:
@@ -46,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${{ matrix.scenario }}" in
-            city|vehicle|ppp|rrp)
+            city|ppp|rrp)
               pip install -e ".[tools,pygame,mpc]"
               ;;
             *)
@@ -57,7 +57,7 @@ jobs:
       - name: Generate video
         # Duration 30 s with --fast-record ≈ the old 60 s clips that spent
         # half the budget on cheap tree-reveal frames.  All frames are now
-        # race/tracking (MPC-heavy for city/vehicle/ppp/rrp).
+        # race/tracking (MPC-heavy for city/ppp/rrp).
         run: |
           bash scripts/generate_videos.sh \
             --release \

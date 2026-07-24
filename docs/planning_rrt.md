@@ -101,7 +101,7 @@ nodes, parent, path = planner.get_tree(start, goal)
 # path: solution path or None
 ```
 
-Use `arcosim map/occ.yml` or the city/vehicle scenarios for visualization.
+Use `arcosim map/city.yml` or `arcosim map/occ.yml` for visualization.
 
 ## Resources
 - [Planning Algorithms, Ch. 5.5-5.6](http://planning.cs.uiuc.edu/ch5.pdf)

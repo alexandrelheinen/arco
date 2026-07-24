@@ -22,7 +22,7 @@ set -euo pipefail
 
 RESULTS_DIR="${1:?Usage: $0 <results_dir>}"
 
-SCENARIOS=(astar city rr vehicle ppp rrp occ)
+SCENARIOS=(city ppp rrp occ)
 
 if [ -z "${PR_NUMBER:-}" ]; then
     echo "No PR_NUMBER set – skipping comment."

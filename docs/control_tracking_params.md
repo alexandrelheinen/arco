@@ -42,10 +42,10 @@ feeds planner polylines **directly** into the online tracker.
 
 | Parameter | Where | Effect |
 |-----------|--------|--------|
-| `simulator.tracker` | Scenario YAML (`map/city.yml`, `map/vehicle.yml`, …) | `"mpc"` → CasADi contouring NMPC; `"pure_pursuit"` → PP + optional APF |
+| `simulator.tracker` | Scenario YAML (`map/city.yml`, …) | `"mpc"` → CasADi contouring NMPC; `"pure_pursuit"` → PP + optional APF |
 
-City and vehicle demos default to `mpc`.  Switching tracker changes the
-whole online law; weights below apply only when `tracker: mpc`.
+City defaults to `mpc`.  Switching tracker changes the whole online law;
+weights below apply only when `tracker: mpc`.
 
 ---
 

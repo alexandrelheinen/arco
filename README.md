@@ -89,8 +89,8 @@ bash scripts/run_tests.sh
 Local examples:
 
 ```bash
-arcosim map/astar.yml --image --record output/astar.png
 arcosim map/city.yml
+arcosim map/ppp.yml --image --record output/ppp.png
 ```
 
 ## Contributing

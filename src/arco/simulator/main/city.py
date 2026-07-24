@@ -297,7 +297,7 @@ def run_race(
     cfg = scene.vehicle_config
     rrt_wps = scene.rrt_waypoints
     sst_wps = scene.sst_waypoints
-    # A* is optional — VehicleScene only has RRT* and SST.
+    # A* waypoints are optional on RaceScene subclasses that omit A*.
     astar_wps: list[tuple[float, float]] = getattr(
         scene, "astar_waypoints", []
     )
@@ -371,8 +371,7 @@ def run_race(
 
     paused = False
 
-    # CityScene stores simulator config in _sim_cfg; VehicleScene keeps
-    # the full YAML under _cfg["simulator"].
+    # CityScene stores simulator config in _sim_cfg.
     sim_cfg = sim_cfg_early
     tracker_mode = str(sim_cfg.get("tracker", "pure_pursuit"))
 

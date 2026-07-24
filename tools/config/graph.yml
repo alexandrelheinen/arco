@@ -1,0 +1,10 @@
+# Default procedural road-graph parameters for tools/graph/generator.py
+graph:
+  seed: 42
+  type: ring
+  width: 50
+  height: 50
+  mean_edge_length: 7
+  hole_count: 3
+  hole_radius: 4
+  curvature: 0.1

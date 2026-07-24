@@ -304,12 +304,10 @@ sections added/removed), you **must** audit every consumer before pushing.
    modules = [
        'arco.config.palette',
        'arco.simulator.main.city',
-       'arco.simulator.main.vehicle',
-       'arco.simulator.main.rr',
+       'arco.simulator.main.ppp',
+       'arco.simulator.main.rrp',
+       'arco.simulator.main.occ',
        'arco.simulator.scenes.sparse',
-       'arco.simulator.scenes.rrt',
-       'arco.simulator.scenes.sst',
-       'arco.simulator.scenes.astar',
    ]
    for m in modules:
        importlib.import_module(m)
@@ -330,7 +328,7 @@ time, before any simulation runs.
 
 ## 13. Tests That Import Display-Only Modules
 
-Some simulator entry points (e.g. `ppp.py`, `rrp.py`, `rr.py`, `occ.py`)
+Some simulator entry points (e.g. `ppp.py`, `rrp.py`, `occ.py`)
 import `pygame` and/or `OpenGL` at module level.  These modules are **not**
 installed in the CI test-runner environment (which has no display libraries).
 

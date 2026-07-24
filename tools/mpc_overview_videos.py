@@ -4,7 +4,7 @@
 Scenarios (representative of the ARCO simulator stack, headless matplotlib):
 
 1. ``mpc_overview_dubins.mp4`` — SE(2) Dubins path-following MPC through a
-   warehouse pinch (same role as ``map/vehicle.yml`` race tracking).
+   warehouse pinch (SE(2) race-tracking demo, same role as city NMPCC).
 2. ``mpc_overview_ppp.mp4`` — 3-DOF Cartesian gantry (PPP) with
    :class:`JointSpaceMPC` through barrier boxes.
 3. ``mpc_overview_rrp.mp4`` — RRP / SCARA-like arm with
