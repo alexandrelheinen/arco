@@ -134,8 +134,10 @@ def build_race_standings(
     for name, color, speed in active:
         ordered.append((name, color, None, speed))
 
+    from arco.config.palette import ui_rgb
+
     leader_time = finished[0][2] if finished else None
-    header_color = (200, 210, 230)
+    header_color = ui_rgb("chrome_title")
     sections: list[tuple[list[str], tuple[int, int, int]]] = [
         (
             [
@@ -189,16 +191,24 @@ def make_minimap_surface(
     """
     import pygame
 
+    from arco.config.palette import ui_rgb
+
     wx0, wx1, wy0, wy1 = world_bounds
     world_w = max(wx1 - wx0, 1e-6)
     world_h = max(wy1 - wy0, 1e-6)
     pad = 8
     inner = max(size_px - 2 * pad, 8)
 
+    bar = ui_rgb("chrome_bar")
+    border = ui_rgb("chrome_border")
+    mark = ui_rgb("chrome_title")
     surf = pygame.Surface((size_px, size_px), pygame.SRCALPHA)
-    surf.fill((8, 10, 16, 210))
+    surf.fill((bar[0], bar[1], bar[2], 210))
     pygame.draw.rect(
-        surf, (55, 70, 100, 255), pygame.Rect(0, 0, size_px, size_px), 1
+        surf,
+        (border[0], border[1], border[2], 255),
+        pygame.Rect(0, 0, size_px, size_px),
+        1,
     )
 
     def _to_px(x: float, y: float) -> tuple[int, int]:
@@ -218,12 +228,12 @@ def make_minimap_surface(
         _to_px(vx1, vy1),
         _to_px(vx0, vy1),
     ]
-    pygame.draw.polygon(surf, (180, 190, 210, 90), corners, 1)
+    pygame.draw.polygon(surf, (mark[0], mark[1], mark[2], 90), corners, 1)
 
     sx, sy = _to_px(start[0], start[1])
     gx, gy = _to_px(goal[0], goal[1])
-    pygame.draw.circle(surf, (240, 240, 240), (sx, sy), 3)
-    pygame.draw.circle(surf, (240, 240, 240), (gx, gy), 3, 1)
+    pygame.draw.circle(surf, mark, (sx, sy), 3)
+    pygame.draw.circle(surf, mark, (gx, gy), 3, 1)
 
     for x, y, color in markers:
         px, py = _to_px(x, y)
@@ -235,14 +245,14 @@ def make_minimap_surface(
 def phase_chrome_title(phase: str) -> str:
     """Return the header title for the current city presentation phase.
 
+    Deprecated alias for :func:`scenario_phase_title` — kept for tests.
+
     Args:
         phase: ``background``, ``racing``, or ``done``.
 
     Returns:
         Short title string for the chrome header.
     """
-    if phase == "background":
-        return "City — planning reveal"
-    if phase == "racing":
-        return "City — race · follow cam"
-    return "City — race complete"
+    from arco.simulator.sim.layout import scenario_phase_title
+
+    return scenario_phase_title("city", phase)

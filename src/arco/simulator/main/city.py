@@ -73,13 +73,14 @@ from arco.simulator.sim.city_race_view import (
     build_race_standings,
     make_minimap_surface,
     pack_centroid,
-    phase_chrome_title,
     race_view_bounds,
 )
 from arco.simulator.sim.layout import (
     ScreenLayout,
+    build_compact_planner_sections,
     draw_sidebar_panel,
     make_chrome_surface,
+    scenario_phase_title,
 )
 from arco.simulator.sim.loading import run_with_loading_screen
 from arco.simulator.sim.tracking import (
@@ -823,21 +824,48 @@ def run_race(
             else:  # done
                 footer_text = "Press  R  to restart   |   Q  to quit"
 
+            method_colors = (_C_RRT_VEH, _C_ASTAR_VEH, _C_SST_VEH)
             chrome_surf = make_chrome_surface(
                 layout,
-                phase_chrome_title(phase),
+                scenario_phase_title("city", phase),
                 footer_text,
                 title_font,
                 font,
+                method_colors=method_colors,
             )
             renderer_gl.blit_overlay(chrome_surf, 0, 0, sw, sh)
 
             if phase == "background":
-                sidebar_sections = scene.sidebar_content(
-                    phase="background",
-                    rrt_revealed=rrt_revealed,
-                    sst_revealed=sst_revealed,
-                    astar_revealed=astar_revealed,
+                sidebar_sections = build_compact_planner_sections(
+                    [
+                        (
+                            "RRT*",
+                            _C_RRT_HUD,
+                            {
+                                **rrt_metrics,
+                                "nodes": rrt_revealed,
+                                "steps": int(rrt_metrics.get("steps", 0)),
+                            },
+                        ),
+                        (
+                            "A*",
+                            _C_ASTAR_HUD,
+                            {
+                                **astar_metrics,
+                                "nodes": astar_revealed,
+                                "steps": int(astar_metrics.get("steps", 0)),
+                            },
+                        ),
+                        (
+                            "SST",
+                            _C_SST_HUD,
+                            {
+                                **sst_metrics,
+                                "nodes": sst_revealed,
+                                "steps": int(sst_metrics.get("steps", 0)),
+                            },
+                        ),
+                    ]
                 )
             else:
                 race_entries: list[

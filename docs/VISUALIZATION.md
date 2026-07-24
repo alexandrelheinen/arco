@@ -59,6 +59,19 @@ arcosim map/city.yml --static --record output/city.png
 | `rrp`    | RRP SCARA arm — joint-space MPC |
 | `occ`    | Piano-movers — multi-actuator object transport |
 
+### Shared presentation chrome
+
+All four scenarios compose the same shell via
+`arco.simulator.sim.layout.ScreenLayout`:
+
+- **Header** — left-aligned phase title (`City · race`, `PPP · path reveal`, …)
+  plus a thin **method accent stripe** (RRT* / SST / A* colors from the palette)
+- **Sidebar** — compact planner summary or race standings with method accent bars
+- **Footer** — controls / phase hint
+- **Content** — scenario viewport (city follow-cam, PPP/RRP 3-D, OCC dual panels)
+
+Chrome colors live under `ui.chrome_*` in `src/arco/config/colors.yml`.
+
 ### Release / CI video generation
 
 `scripts/generate_videos.sh --release` (used by `.github/workflows/release.yml`):
