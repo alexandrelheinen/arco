@@ -94,6 +94,28 @@ def test_reference_path_curvature_grid_corner_limits_city_speed() -> None:
     assert v_curve < 12.0
 
 
+def test_reference_path_curvature_floors_short_stub_turns() -> None:
+    """Sub-meter corner stubs must not create Dirac κ for the NMPC.
+
+    City A* / optimizer polylines often keep ~1 m segments at 90° kinks.
+    Without a ds floor, |κ|≳1 and long-horizon ``v_curve`` solves fail,
+    leaving the purple racer at ``speed_cmd=0`` after ``solve_failed``.
+    """
+    path = ReferencePath(
+        [
+            (0.0, 0.0),
+            (10.0, 0.0),
+            (11.2, 0.0),  # short stub into the corner
+            (11.2, 1.2),
+            (11.2, 20.0),
+        ]
+    )
+    kappa = abs(path.curvature(11.2))
+    assert kappa <= ReferencePath._CURVATURE_ABS_MAX + 1e-9
+    # Still large enough to pull cruise down (not the old κ≈0 bug).
+    assert kappa > 0.05
+
+
 def test_reference_path_total_length() -> None:
     path = ReferencePath([(0.0, 0.0), (3.0, 4.0)])
     assert abs(path.total_length - 5.0) < 1e-9
