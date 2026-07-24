@@ -83,7 +83,7 @@ Globals: `config/mpc.yml` → `weights` (city overrides only listed keys)
 | YAML key | Config field | Role |
 |----------|--------------|------|
 | `contour` | `weight_contour` | Quadratic penalty on **excess** lateral error outside the deadzone |
-| `contour_deadzone` | `contour_deadzone` | Free band \(\lvert e_{\mathrm{lat}}\rvert \le d_{\mathrm{dz}}\) (m); cost is zero inside |
+| `contour_deadzone` | `contour_deadzone` | Free band \(\lvert e_{\mathrm{lat}}\rvert \le d_{\mathrm{dz}}\) (m); cost is zero inside. **City keeps this at 0** — flats zero the lateral gradient and invite equal-cost left/right chatter |
 | `heading` | `weight_heading` | Heading error vs path tangent |
 | `progress` | `weight_progress` | Track `v_ref` (cruise capped by curve speed) |
 | `lag` | `weight_lag` | Penalty for falling behind virtual progress \(s_0 + v_{\mathrm{cruise}} t\) |
@@ -104,6 +104,9 @@ Barrier shape (not a YAML weight, but couples to `obstacle`):
   understeer, then overshoot when contour finally wins → weave / wall hits.
 - **`contour` high + `contour_deadzone` tiny** → hunts the polyline; on
   jagged A\* paths this looks like zigzag.
+- **`contour_deadzone` > 0** → flat zero-cost band; two commands with the
+  same lateral cost can alternate (wobble / chatter). Prefer `0` and let
+  lag/progress trade against contour for kink widening.
 - **`heading` high** on discontinuous planner yaw → left/right chasing.
 - **`lag` / `progress` high** → prefers advancing \(s\) and holding
   `v_ref`; helps progress-first widening, but can pull through a soft
@@ -112,8 +115,9 @@ Barrier shape (not a YAML weight, but couples to `obstacle`):
   road tube.  Sparse point-cloud samples can still miss a face or fight
   contouring.
 
-City values are scenario YAML; global `mpc.yml` stays classic stiff
-(`contour_deadzone: 0`, `lag: 0`) for non-city demos.
+City values are scenario YAML (`contour_deadzone: 0`, non-zero `lag`);
+global `mpc.yml` stays classic stiff (`contour_deadzone: 0`, `lag: 0`)
+for non-city demos.
 
 ---
 
@@ -225,7 +229,8 @@ Change **one family at a time**; keep the other racers on the same pipeline.
 
 1. **Actuator authority** — `control`, `max_turn_rate`, `max_turn_rate_dot`,
    `max_acceleration` (can the car physically follow a corner?).
-2. **Lane band** — `contour`, `contour_deadzone` (how hard to hug vs widen).
+2. **Lane band** — `contour` first; keep `contour_deadzone = 0` unless you
+   have a strong reason (flats chatter).
 3. **Heading** — reduce if A\*/grid paths zigzag the steer command.
 4. **Progress law** — `progress`, `lag` (advance \(s\) vs nail geometry).
 5. **Soft obstacles** — `obstacle`, barrier power, sample probes
@@ -237,27 +242,28 @@ Change **one family at a time**; keep the other racers on the same pipeline.
 
 ## City defaults vs aggressive stiffen (do not re-apply)
 
-**Current city defaults** (restored lane-viable / progress-first column)
-are shared by blue / green / purple.  The right-hand column is the
-v0.3.5 over-stiff retune — kept only as an anti-pattern.
+**Current city defaults** (progress-first, zero deadzone) are shared by
+blue / green / purple.  The right-hand column is the v0.3.5 over-stiff
+retune — kept only as an anti-pattern.
 
-| Knob | Current (lane-viable) | Aggressive stiffen (avoid) |
-|------|------------------------|----------------------------|
+| Knob | Current (progress-first) | Aggressive stiffen (avoid) |
+|------|--------------------------|----------------------------|
 | `contour` | 8 | 18 |
 | `heading` | 4 | 6 |
 | `control` | 0.5 | 4 |
 | `progress` | 4 | 3 |
 | `lag` | 4 | 2 |
 | `obstacle` | 120 | 280 |
-| `contour_deadzone` | 2.5 m | 1.2 m |
+| `contour_deadzone` | **0 m** | 1.2 m (still a flat band) |
 | `CITY_MAX_TURN_RATE_DOT_DEG` | 90 | 55 |
 | Obstacle NLP samples | pose + path preview (5) | + forward/flank probes (9) |
 | Horizon | 72 × 0.05 s | same |
 
 Raising `control` / obstacle / contour together while cutting \(\dot\omega\)
-and the deadzone often yields **solver “convergence” with poor tracking**:
-understeer into corners, then lateral hunting, then soft-barrier
-penetration.  Nudge **one** knob at a time from the current column.
+often yields **solver “convergence” with poor tracking**: understeer into
+corners, then lateral hunting, then soft-barrier penetration.  A non-zero
+deadzone adds equal-cost chatter inside the flat band.  Nudge **one** knob
+at a time from the current column.
 
 Keep the **κ floor / preview** (`ReferencePath`): that fix is about NLP
 solvability on dense A\* stubs, not about stiffness.

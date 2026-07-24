@@ -126,7 +126,7 @@ Heading stage cost uses a smooth \(2\pi\)-periodic surrogate
 \ell_\psi(e_\psi) = \sin^2 e_\psi + (1-\cos e_\psi)^2.
 \]
 
-**Deadzone (lane-aware free band).**  Only excess lateral error is penalized:
+**Deadzone (optional free band).**  Only excess lateral error is penalized:
 
 \[
 e_{c,k}^{+}
@@ -136,9 +136,10 @@ e_{c,k}^{+}
 d_{\mathrm{dz}} = \texttt{contour\_deadzone}.
 \]
 
-With \(d_{\mathrm{dz}}=0\) this is classical stiff contouring.  City uses a
-*small* \(d_{\mathrm{dz}}\) (\(\ll\) road half-width) so corners may widen
-**inside** the navigable lane without treating clearance as free space.
+With \(d_{\mathrm{dz}}=0\) this is classical quadratic contouring (city
+default).  A non-zero band creates a flat zero-cost / zero-gradient plateau
+where left and right commands share the same lateral cost and can chatter;
+prefer lag/progress tradeoffs for kink widening instead of a free band.
 
 ---
 
@@ -226,9 +227,9 @@ Weights map to `PathFollowingMPCConfig` / YAML `simulator.mpc.weights`:
 | \(d_{\mathrm{dz}}\) | `contour_deadzone` |
 
 Default global `mpc.yml` is **stiff** (\(d_{\mathrm{dz}}=0\), \(w_{\mathrm{lag}}=0\)).
-City overrides are **lane-aware progress-first** (deadzone ≈ 2.5 m,
-moderate lag / contour / obstacle, light control) so corners may widen
-inside the lane without over-constraining \(\dot\omega\).
+City overrides are **progress-first** (\(d_{\mathrm{dz}}=0\), moderate lag /
+contour / obstacle, light control): kink widening comes from the lag vs
+contour tradeoff, not from a flat lateral band.
 
 ### Soft obstacle barriers
 
@@ -328,7 +329,7 @@ cfg = PathFollowingMPCConfig.create_from_config().with_weight_overrides(
     progress=4.0,
     lag=4.0,
     obstacle=120.0,
-    contour_deadzone=2.5,
+    contour_deadzone=0.0,
 )
 mpc = DubinsPathFollowingMPC(vehicle_limits=limits, config=cfg)
 mpc.set_reference([(0.0, 0.0), (40.0, 0.0), (40.0, 40.0)])

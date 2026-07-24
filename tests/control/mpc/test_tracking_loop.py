@@ -90,7 +90,7 @@ def test_build_vehicle_mpc_sim_factory() -> None:
 
 
 def test_build_vehicle_mpc_sim_preserves_progress_first_weights() -> None:
-    """City YAML lag / deadzone must reach the race NMPC instance.
+    """City YAML lag / zero-deadzone must reach the race NMPC instance.
 
     ``build_vehicle_mpc_sim`` used to reconstruct PathFollowingMPCConfig
     without ``weight_lag`` / ``contour_deadzone``, silently disabling
@@ -114,12 +114,12 @@ def test_build_vehicle_mpc_sim_preserves_progress_first_weights() -> None:
         lag=4.0,
         control=0.5,
         obstacle=120.0,
-        contour_deadzone=2.5,
+        contour_deadzone=0.0,
     )
     _vehicle, loop = build_vehicle_mpc_sim(path, cfg, mpc_cfg)
     live = loop.tracker.config
     assert abs(live.cruise_speed - 12.0) < 1e-12
     assert abs(live.weight_lag - 4.0) < 1e-12
-    assert abs(live.contour_deadzone - 2.5) < 1e-12
+    assert abs(live.contour_deadzone) < 1e-12
     assert abs(live.weight_contour - 8.0) < 1e-12
     assert abs(live.weight_obstacle - 120.0) < 1e-12

@@ -38,7 +38,11 @@ from scipy.spatial import Delaunay as _Delaunay
 
 from arco.config.palette import annotation_rgb, layer_rgb, obstacle_rgb, ui_rgb
 from arco.simulator import renderer_gl
-from arco.simulator.sim.city_race_style import make_city_vehicle_config
+from arco.simulator.sim.city_race_style import (
+    PLANNED_ROUTE_ALPHA,
+    PLANNED_ROUTE_WIDTH,
+    make_city_vehicle_config,
+)
 from arco.simulator.sim.scene import RaceScene
 from arco.simulator.sim.tracking import VehicleConfig
 
@@ -819,9 +823,9 @@ class CityScene(RaceScene):
         heatmap, road markings, buildings, barriers, exploration trees, raw
         planned paths, and optimized trajectories.
 
-        When *racing* is ``True`` only the adjusted (optimized) trajectories
-        and the start/goal markers are rendered, giving a clean view of the
-        routes the vehicles are tracking.
+        When *racing* is ``True`` the warm SDF road field stays on, with
+        road dots, buildings, and **dimmed** planned routes so the live
+        executed traces (drawn by the race loop) remain the visual hero.
 
         Args:
             rrt_revealed: Number of RRT* tree nodes to display (ignored when
@@ -830,8 +834,8 @@ class CityScene(RaceScene):
                 *racing* is ``True``).
             astar_revealed: Number of A* tree nodes to display (ignored when
                 *racing* is ``True``).
-            racing: When ``True``, collapse the view to only the adjusted
-                trajectories and start/goal markers.
+            racing: When ``True``, keep the SDF backdrop and dim planned
+                routes for the race overlay.
         """
         x_min, x_max = self._bounds[0]
         y_min, y_max = self._bounds[1]
@@ -976,14 +980,16 @@ class CityScene(RaceScene):
                 renderer_gl.draw_path(
                     rrt_route,
                     *_c(_C_RRT_TRAJ),
-                    width=3.0,
+                    width=PLANNED_ROUTE_WIDTH,
+                    alpha=PLANNED_ROUTE_ALPHA,
                 )
             sst_route = self._sst_traj_states or self._sst_path
             if sst_route:
                 renderer_gl.draw_path(
                     sst_route,
                     *_c(_C_SST_TRAJ),
-                    width=3.0,
+                    width=PLANNED_ROUTE_WIDTH,
+                    alpha=PLANNED_ROUTE_ALPHA,
                 )
 
             astar_route = self._astar_traj_states or self._astar_path
@@ -991,7 +997,8 @@ class CityScene(RaceScene):
                 renderer_gl.draw_path(
                     astar_route,
                     *_c(_C_ASTAR_TRAJ),
-                    width=3.0,
+                    width=PLANNED_ROUTE_WIDTH,
+                    alpha=PLANNED_ROUTE_ALPHA,
                 )
 
         # Start/goal markers — always visible.
