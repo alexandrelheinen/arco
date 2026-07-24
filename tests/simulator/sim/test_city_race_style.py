@@ -40,8 +40,9 @@ def test_city_race_vehicle_is_visible_rectangle() -> None:
 
 
 def test_city_race_traces_are_thicker_and_prediction_visible() -> None:
-    assert PAST_TRACE_WIDTH >= 3.0
-    assert PREDICTED_TRACE_WIDTH >= 4.0
+    assert PAST_TRACE_WIDTH >= 2.0
+    assert PREDICTED_TRACE_WIDTH >= PAST_TRACE_WIDTH
+    assert PREDICTED_TRACE_WIDTH >= 3.0
 
 
 def test_city_default_horizon_is_half_block() -> None:

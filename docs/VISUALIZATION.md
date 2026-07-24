@@ -88,7 +88,7 @@ City race notes when `simulator.tracker: mpc`:
 - The race renderer draws each racer's **MPC predicted XY polyline** (no tip
   disc) instead of a Pure-Pursuit carrot.
 - Race glyphs stay **oriented rectangles** (`8.0 × 3.6` m half-extents) with
-  a thicker past-trace width (`3.0` px).
+  soft past / prediction traces (`2.5` / `3.5` px) over the warm SDF road field.
 
 ---
 

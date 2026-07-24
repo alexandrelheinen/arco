@@ -108,6 +108,12 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 )
 
 from arco.config import load_config
+from arco.config.palette import (
+    annotation_rgb,
+    layer_float,
+    obstacle_float,
+    ui_rgb,
+)
 from arco.simulator.scenes.rrp import RRPScene
 from arco.simulator.sim.loading import run_with_loading_screen
 from arco.simulator.sim.tracking import build_joint_tracker
@@ -195,48 +201,55 @@ _DEFAULT_SCREEN_H = 800
 _HOLD_SECS: float = 2.0
 _POST_FINISH_SECS: float = 3.0
 
-_CAM_AZIM: float = math.radians(50)
-_CAM_ELEV: float = math.radians(35)
-_CAM_DIST: float = 7.0
+_CAM_AZIM: float = math.radians(48)
+_CAM_ELEV: float = math.radians(28)
+_CAM_DIST: float = 5.8
 _WS_CENTER: tuple[float, float, float] = (0.0, 0.0, 2.0)
 _CAM_ROT_SPEED: float = math.radians(50)
-_CAM_AUTO_ROT: float = math.radians(7)
+_CAM_AUTO_ROT: float = math.radians(5)
 _CAM_ZOOM_STEP: float = 0.03
 
 _EPSILON: float = 1e-3
 
-# OpenGL float colours
-_BG = (18 / 255, 22 / 255, 32 / 255, 1.0)
-_C_PILLAR = (0.56, 0.41, 0.23)
-_C_PILLAR_EDGE = (0.31, 0.23, 0.13)
-_C_SLAB = (0.42, 0.55, 0.62)
-_C_SLAB_EDGE = (0.22, 0.32, 0.38)
-_C_GRID = (0.15, 0.17, 0.22)
-_C_RRT = (0.05, 0.05, 0.25)
-_C_RRT_PRUNED: tuple[float, float, float] = (0.55, 0.72, 1.00)  # accent blue
-_C_SST = (0.05, 0.22, 0.08)
-_C_SST_PRUNED: tuple[float, float, float] = (0.45, 1.00, 0.60)  # accent green
-_C_TRAJ_RRT: tuple[float, float, float] = (0.38, 0.52, 0.88)  # medium blue
-_C_TRAJ_SST: tuple[float, float, float] = (0.18, 0.68, 0.38)  # medium green
-_C_TRAIL_RRT = (0.60, 0.80, 1.00)
-_C_TRAIL_SST = (0.35, 0.85, 0.45)
-_C_LA_RRT = (0.90, 0.95, 1.00)
-_C_LA_SST = (0.70, 1.00, 0.75)
-_C_START = (0.22, 0.86, 0.33)
-_C_GOAL = (0.86, 0.30, 0.86)
-_C_LINK1_RRT = (0.40, 0.55, 0.95)
-_C_LINK2_RRT = (0.55, 0.70, 1.00)
-_C_LINK1_SST = (0.25, 0.78, 0.40)
-_C_LINK2_SST = (0.40, 0.92, 0.55)
+# OpenGL float colours from the shared palette.
+_bg = ui_rgb("background")
+_BG = (_bg[0] / 255.0, _bg[1] / 255.0, _bg[2] / 255.0, 1.0)
+_obs = obstacle_float()
+_C_PILLAR = (_obs[0] * 1.05, _obs[1] * 0.95, _obs[2] * 0.75)
+_C_PILLAR_EDGE = (_obs[0] * 0.60, _obs[1] * 0.50, _obs[2] * 0.40)
+_C_SLAB = (0.38, 0.48, 0.58)
+_C_SLAB_EDGE = (0.22, 0.30, 0.38)
+_C_GRID = (
+    _bg[0] / 255.0 + 0.04,
+    _bg[1] / 255.0 + 0.04,
+    _bg[2] / 255.0 + 0.05,
+)
+_C_RRT = layer_float("rrt", "path")
+_C_RRT_PRUNED = layer_float("rrt", "pruned")
+_C_SST = layer_float("sst", "path")
+_C_SST_PRUNED = layer_float("sst", "pruned")
+_C_TRAJ_RRT = layer_float("rrt", "trajectory")
+_C_TRAJ_SST = layer_float("sst", "trajectory")
+_C_TRAIL_RRT = layer_float("rrt", "vehicle")
+_C_TRAIL_SST = layer_float("sst", "vehicle")
+_C_LA_RRT = layer_float("rrt", "trajectory")
+_C_LA_SST = layer_float("sst", "trajectory")
+_ann = annotation_rgb(dark_bg=True)
+_C_START = (_ann[0] / 255.0, _ann[1] / 255.0, _ann[2] / 255.0)
+_C_GOAL = layer_float("rrt", "vehicle")
+_C_LINK1_RRT = layer_float("rrt", "vehicle")
+_C_LINK2_RRT = layer_float("rrt", "pruned")
+_C_LINK1_SST = layer_float("sst", "vehicle")
+_C_LINK2_SST = layer_float("sst", "pruned")
 
 # HUD colors (pygame RGB int 0-255)
-_HC_RRT = (51, 51, 102)
-_HC_SST = (30, 100, 50)
-_HC_HUD = (220, 220, 220)
-_HC_DIM = (120, 120, 130)
-_HC_SHADOW = (25, 30, 42)
-_HC_WINNER = (255, 215, 50)
-_HC_TIE = (200, 200, 80)
+_HC_RRT = ui_rgb("hud_text")
+_HC_SST = ui_rgb("hud_text")
+_HC_HUD = ui_rgb("hud_text")
+_HC_DIM = ui_rgb("hud_dim")
+_HC_SHADOW = ui_rgb("hud_shadow")
+_HC_WINNER = ui_rgb("hud_winner")
+_HC_TIE = ui_rgb("hud_tie")
 
 
 # ---------------------------------------------------------------------------
@@ -554,7 +567,7 @@ def _draw_grid_xy(r_max: float) -> None:
     Args:
         r_max: Draw grid lines within ±*r_max* in both X and Y.
     """
-    spacing = 0.5
+    spacing = 1.0
     glDisable(GL_LIGHTING)
     glColor3f(*_C_GRID)
     glBegin(GL_LINES)
@@ -1182,7 +1195,7 @@ def run_race(
                 ):
                     if len(trail) >= 2:
                         glDisable(GL_LIGHTING)
-                        glLineWidth(5.0)
+                        glLineWidth(3.5)
                         glColor3f(*col)
                         glBegin(GL_LINE_STRIP)
                         for _pt in trail:
