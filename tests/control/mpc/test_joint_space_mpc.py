@@ -54,6 +54,18 @@ def test_joint_space_mpc_avoids_box() -> None:
     assert min_clearance >= 0.8 * occ.clearance
 
 
+def test_joint_space_mpc_rejects_dt_mismatch() -> None:
+    cfg = JointSpaceMPCConfig(horizon_step_count=8, dt=0.05)
+    mpc = JointSpaceMPC(
+        max_vel=np.array([1.0, 1.0]),
+        max_acc=np.array([2.0, 2.0]),
+        config=cfg,
+    )
+    mpc.reset(np.zeros(2))
+    with pytest.raises(ValueError, match="config.dt"):
+        mpc.step(np.array([0.5, 0.0]), dt=0.1)
+
+
 def test_build_joint_tracker_mpc_factory() -> None:
     from arco.simulator.sim.tracking import build_joint_tracker
 

@@ -3,7 +3,7 @@
 
 horizon:
   step_count: 20
-  dt: 0.05
+  dt: 0.1  # default path-following model step; must match control period
 
 weights:
   # Lateral contouring error (quadratic outside contour_deadzone).
