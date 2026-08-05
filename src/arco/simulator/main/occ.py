@@ -50,6 +50,7 @@ from arco.simulator.sim.layout import (
     paint_sidebar_panel,
     scenario_phase_title,
 )
+from arco.simulator.sim.tracking import resolve_sim_timestep
 from arco.simulator.sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
@@ -430,7 +431,7 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     env_cfg: dict = cfg.get("environment", {})
     ctrl_cfg: dict = cfg.get("control", {})
     sim_cfg: dict = load_config("simulator")
-    dt = sim_cfg["timestep"]
+    dt = resolve_sim_timestep(cfg, global_sim_cfg=sim_cfg)
     fps = sim_cfg["fps"]
 
     pygame.init()

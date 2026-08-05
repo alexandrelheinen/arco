@@ -8,7 +8,7 @@ APF repulsion with a short-horizon CasADi/IPOPT solve.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
@@ -84,6 +84,32 @@ class JointSpaceMPCConfig:
             weight_obstacle=float(weights.get("obstacle", 60.0)),
             obstacle_barrier_power=float(barrier.get("power", 4.0)),
             max_solver_iter_count=int(solver.get("max_iter_count", 40)),
+        )
+
+    def with_horizon_overrides(
+        self,
+        *,
+        step_count: int | None = None,
+        dt: float | None = None,
+    ) -> JointSpaceMPCConfig:
+        """Return a copy with optional horizon overrides applied.
+
+        Args:
+            step_count: Optional new prediction horizon length (steps).
+            dt: Optional new discretization step (s).
+
+        Returns:
+            A new :class:`JointSpaceMPCConfig` with the requested horizon
+            fields replaced; other fields are unchanged.
+        """
+        return replace(
+            self,
+            horizon_step_count=(
+                self.horizon_step_count
+                if step_count is None
+                else int(step_count)
+            ),
+            dt=self.dt if dt is None else float(dt),
         )
 
 
@@ -178,6 +204,13 @@ class JointSpaceMPC:
             raise ValueError(
                 f"target_q length {target.shape[0]} != DOF {self._dof}."
             )
+        if abs(dt - self.config.dt) > 1e-9:
+            raise ValueError(
+                f"JointSpaceMPC step dt ({dt}) must equal config.dt "
+                f"({self.config.dt}); mismatch causes the same closed-loop "
+                "zigzag as path-following MPC model dt ≠ control period."
+            )
+
         if not np.all(np.isfinite(self.q)) or not np.all(np.isfinite(target)):
             return self._safe_decelerate(dt)
 

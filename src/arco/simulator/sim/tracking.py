@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from arco.mapping.occupancy import Occupancy
 
+from arco.config import load_config
 from arco.control.joint_tracker import JointSpaceTracker
 from arco.control.mpc import (
     DubinsPathFollowingMPC,
@@ -27,6 +28,39 @@ from arco.control.mpc import (
 from arco.control.pure_pursuit import PurePursuitController
 from arco.control.tracking import TrackingLoop
 from arco.guidance.vehicle import DubinsVehicle
+
+# PPP / RRP joint-space MPC defaults when scenario YAML omits overrides.
+# These scenarios use a finer 0.05 s control period than the global
+# simulator.yml timestep (0.1 s); horizon dt MUST match that period.
+DEFAULT_JOINT_HORIZON_STEP_COUNT: int = 12
+DEFAULT_JOINT_HORIZON_DT: float = 0.05
+
+
+def resolve_sim_timestep(
+    cfg: dict[str, Any],
+    *,
+    global_sim_cfg: dict[str, Any] | None = None,
+) -> float:
+    """Return the simulation/control period from scenario or global config.
+
+    Reads ``simulator.timestep`` or legacy ``simulator.dt`` from *cfg*
+    first, then falls back to ``timestep`` in the global ``simulator.yml``.
+
+    Args:
+        cfg: Full scenario configuration dict (e.g. loaded map YAML).
+        global_sim_cfg: Optional pre-loaded global simulator config.
+
+    Returns:
+        Control period in seconds.
+    """
+    sim = cfg.get("simulator", {})
+    if isinstance(sim, dict):
+        if sim.get("timestep") is not None:
+            return float(sim["timestep"])
+        if sim.get("dt") is not None:
+            return float(sim["dt"])
+    global_sim = global_sim_cfg or load_config("simulator")
+    return float(global_sim["timestep"])
 
 
 def path_following_mpc_config_from_simulator(
@@ -111,6 +145,62 @@ def path_following_mpc_config_from_simulator(
                 None
                 if weights.get("contour_deadzone") is None
                 else float(weights["contour_deadzone"])
+            ),
+        )
+    return cfg
+
+
+def joint_space_mpc_config_from_simulator(
+    sim_cfg: dict[str, Any] | None = None,
+    *,
+    default_horizon_step_count: int | None = None,
+    default_horizon_dt: float | None = None,
+) -> JointSpaceMPCConfig:
+    """Build joint-space MPC config from global defaults + scenario YAML.
+
+    Reads optional ``simulator.mpc.horizon.{step_count,dt}`` and
+    ``simulator.mpc.weights.*`` overrides from *sim_cfg*.  When horizon
+    keys are absent, *default_horizon_** values (if provided) replace the
+    global ``mpc.yml`` joint-space horizon.
+
+    Args:
+        sim_cfg: Scenario ``simulator`` dict (may be ``None`` / empty).
+        default_horizon_step_count: Horizon steps when YAML omits
+            ``mpc.horizon.step_count``.
+        default_horizon_dt: Horizon ``dt`` when YAML omits
+            ``mpc.horizon.dt``.
+
+    Returns:
+        Configured :class:`JointSpaceMPCConfig`.
+    """
+    cfg = JointSpaceMPCConfig.create_from_config()
+    sim = sim_cfg if isinstance(sim_cfg, dict) else {}
+    mpc = sim.get("mpc") if isinstance(sim.get("mpc"), dict) else {}
+    horizon = (
+        mpc.get("horizon") if isinstance(mpc.get("horizon"), dict) else {}
+    )
+    weights = (
+        mpc.get("weights") if isinstance(mpc.get("weights"), dict) else {}
+    )
+    step_count = horizon.get("step_count", default_horizon_step_count)
+    dt = horizon.get("dt", default_horizon_dt)
+    if step_count is not None or dt is not None:
+        cfg = cfg.with_horizon_overrides(
+            step_count=None if step_count is None else int(step_count),
+            dt=None if dt is None else float(dt),
+        )
+    if weights:
+        cfg = replace(
+            cfg,
+            weight_tracking=float(
+                weights.get("tracking", cfg.weight_tracking)
+            ),
+            weight_velocity=float(
+                weights.get("velocity", cfg.weight_velocity)
+            ),
+            weight_control=float(weights.get("control", cfg.weight_control)),
+            weight_obstacle=float(
+                weights.get("obstacle", cfg.weight_obstacle)
             ),
         )
     return cfg

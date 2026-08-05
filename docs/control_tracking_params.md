@@ -289,6 +289,14 @@ footprint collisions.
 | Contouring NLP | `src/arco/control/mpc/path_following.py` |
 | Path κ / progress | `src/arco/control/mpc/reference_path.py` |
 | Math formulation | [control_mpcc.md](control_mpcc.md) |
+| PPP / RRP joint MPC horizon | `map/ppp.yml`, `map/rrp.yml` (`timestep` + `mpc.horizon.dt`) |
+| Joint-space NLP | `src/arco/control/mpc/joint_space.py` |
+
+**PPP / RRP:** these scenarios override the global 0.1 s simulator timestep
+with **0.05 s** (gantry / arm tuning).  The joint-space MPC horizon
+`dt` must match that control period — wired via
+`resolve_sim_timestep` and `joint_space_mpc_config_from_simulator` in
+`tracking.py`.  **OCC** has no MPC; it uses the global 0.1 s period.
 
 ---
 

@@ -69,5 +69,5 @@ control:
   k_rep: 5.0      # [N/m²] APF repulsion stiffness; d0 = 4 × standoff
 
 simulator:
-  dt: 0.1         # [s] simulation time step
+  timestep: 0.1         # [s] simulation time step (matches global simulator.yml)
   race_speed: 0.1 # [m/s] speed for path following

@@ -124,7 +124,12 @@ from arco.simulator.sim.layout import (
     scenario_phase_title,
 )
 from arco.simulator.sim.loading import run_with_loading_screen
-from arco.simulator.sim.tracking import build_joint_tracker
+from arco.simulator.sim.tracking import (
+    DEFAULT_JOINT_HORIZON_STEP_COUNT,
+    build_joint_tracker,
+    joint_space_mpc_config_from_simulator,
+    resolve_sim_timestep,
+)
 from arco.simulator.sim.video import VideoWriter
 
 logger = logging.getLogger(__name__)
@@ -1008,6 +1013,11 @@ def run_race(
     proportional_gain = float(sim_cfg.get("proportional_gain", 2.0))
     repulsion_gain = float(sim_cfg.get("repulsion_gain", 0.0))
     tracker_mode = str(sim_cfg.get("tracker", "pure_pursuit"))
+    mpc_cfg = joint_space_mpc_config_from_simulator(
+        sim_cfg,
+        default_horizon_step_count=DEFAULT_JOINT_HORIZON_STEP_COUNT,
+        default_horizon_dt=dt,
+    )
 
     pygame.init()
     sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
@@ -1057,6 +1067,7 @@ def run_race(
         occupancy=scene.occ,
         repulsion_gain=repulsion_gain,
         tracker=tracker_mode,
+        mpc_cfg=mpc_cfg,
     )
     rrt_robot.reset(scene.start)
     sst_robot = build_joint_tracker(
@@ -1066,6 +1077,7 @@ def run_race(
         occupancy=scene.occ,
         repulsion_gain=repulsion_gain,
         tracker=tracker_mode,
+        mpc_cfg=mpc_cfg,
     )
     sst_robot.reset(scene.start)
     rrt_carrot_dist = 0.0
@@ -1375,12 +1387,14 @@ def run_race(
 
 def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     sim_cfg = load_config("simulator")
+    dt = resolve_sim_timestep(cfg, global_sim_cfg=sim_cfg)
 
     scene = PPPScene(cfg)
     run_race(
         scene,
         cfg,
         fps=sim_cfg["fps"],
+        dt=dt,
         record=save_path,
         record_duration=sim_duration,
     )

@@ -244,7 +244,7 @@ def test_mpc_solver_failure_safe_stop(straight_path) -> None:
 def test_path_following_config_from_yaml() -> None:
     cfg = PathFollowingMPCConfig.create_from_config(cruise_speed=0.42)
     assert cfg.horizon_step_count == 20
-    assert abs(cfg.dt - 0.05) < 1e-12
+    assert abs(cfg.dt - 0.1) < 1e-12
     assert abs(cfg.cruise_speed - 0.42) < 1e-12
     assert cfg.weight_obstacle > 0.0
     # Lag is structural in the MPCC formulation — must default positive.

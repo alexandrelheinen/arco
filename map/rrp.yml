@@ -81,6 +81,13 @@ planner:
 # Simulator parameters
 # ---------------------------------------------------------------------------
 simulator:
+  # Finer control period than the global simulator.yml (0.1 s); MPC horizon
+  # dt MUST equal this timestep (same rule as city path-following MPCC).
+  timestep: 0.05  # [s] simulation / control period
   # Online tracker: "pure_pursuit" (P+APF) or "mpc" (joint-space CasADi NMPC).
   tracker: mpc
+  mpc:
+    horizon:
+      step_count: 12  # [] prediction steps (0.6 s preview at dt = 0.05)
+      dt: 0.05  # [s] prediction model step == simulator timestep
   race_speed: 0.6  # [m/s] speed for end-effector path following
