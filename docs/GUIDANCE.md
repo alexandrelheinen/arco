@@ -37,31 +37,31 @@ Feedback controllers that generate control inputs to track a reference trajector
   - Works well for car-like vehicles
 
 - **DubinsPathFollowingMPC** (`arco.control.mpc`): Receding-horizon
-  **contouring NMPC** (NMPCC-style).  Full mathematical description:
+  **contouring MPCC**.  Full mathematical description:
   [control_mpcc.md](control_mpcc.md).  Tunable knobs after planning
-  (horizon, weights, dynamics, κ floors): [control_tracking_params.md](control_tracking_params.md).
-  - Jointly optimizes contouring / lag / heading / speed / clearance
+  (horizon, weights, dynamics, κ shaping): [control_tracking_params.md](control_tracking_params.md).
+  - Classical MPCC structure: virtual progress speed `v_s` as a decision
+    variable (`ṡ = v_s ≥ 0`), contouring / lag error split at `p(s)`,
+    **linear** progress reward, `v_s` hard-capped by the curve-limited
+    cruise `min(v_cruise, ω_max/|κ(s)|)`
+  - Lag coupling is structural (`weight_lag > 0` enforced): it glues the
+    virtual progress to the vehicle, so no projection blending or
+    progress-monotonicity constraints are needed inside the NLP
   - CasADi + IPOPT backend via optional extra: `pip install arco[mpc]`
+  - Cubic B-spline reference interpolants and a straight runway extension
+    past the goal keep IPOPT convergent at polyline kinks and at the end
+    of the path
+  - Anti-stall: a parked warm start is replaced by a reference-rollout
+    initial guess so the solver can escape stopped equilibria at sharp
+    kinks (turn in place, then drive)
   - Soft directional obstacle barriers (not hard road tubes)
   - Paired with `MPCTrackingLoop`
-  - Enable in SE(2) races with `simulator.tracker: mpc`
-  - City race may override `simulator.mpc.horizon` (default **3.6 s**,
-    ~half a city block) and uses **progress-first contouring** with
-    **`contour_deadzone = 0`**: moderate lag/progress trade against a
-    strictly quadratic lateral cost so the NMPC may widen sharp A* kinks
-    **inside the navigable lane** while `s` advances.  Flat deadzone bands
-    zero the lateral gradient and invite equal-cost left/right chatter.
-    Planners ignore vehicle dynamics; the tracker treats the plan as a
-    topological lane guide, not free space into buildings.  Polyline
-    curvature uses consecutive heading turns + approach preview so
-    `v_curve = ω/|κ|` brakes before 90° kinks (κ floor keeps dense A*
-    stubs IPOPT-solvable).
-  - Contouring progress uses `ṡ = v max(cos e_ψ, 0)` so recovery arcs do
-    not reverse the path parameter (the limit-cycle behind city A* loops)
-  - Trajectory evolution: on straights the car stays near the reference;
-    on planner kinks it slows to a lane-feasible radius, trades contour
-    cost for progress, and keeps `s` increasing — instead of snap-turning,
-    orbiting, or cutting into walls
+  - Enable in SE(2) races with `simulator.tracker: mpc`; the model dt
+    must equal the control period (city: 50 × 0.1 s = 5.0 s preview)
+  - Trajectory evolution: on straights the car holds cruise near the
+    reference; before kinks the capped progress speed brakes it to a
+    lane-feasible corner speed, and `s` keeps increasing — no
+    snap-turning, orbiting, parked stalls, or wall cuts
 - **JointSpaceMPC** (`arco.control.mpc.joint_space`): N-DOF carrot-tracking NMPC
   - Drop-in for `JointSpaceTracker` (`reset` / `step` API)
   - Used by PPP / RRP when `tracker: mpc`

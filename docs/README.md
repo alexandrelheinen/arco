@@ -11,7 +11,7 @@
 - [RRT*](planning_rrt.md)
 - [SST](planning_sst.md)
 - [Trajectory optimizer](planning_optimizer.md)
-- [Contouring NMPC (NMPCC-style)](control_mpcc.md)
+- [Contouring MPCC path following](control_mpcc.md)
 - [Post–path-planning tracking parameters](control_tracking_params.md)
 
 ## Tools and design
