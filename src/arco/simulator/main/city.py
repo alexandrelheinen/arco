@@ -57,6 +57,7 @@ from arco.simulator import renderer_gl
 from arco.simulator.scenes import RaceScene
 from arco.simulator.scenes.sparse import CityScene
 from arco.simulator.sim.camera import CameraFilter
+from arco.simulator.sim.car_sprite import draw_car_sprite, reset_texture_cache
 from arco.simulator.sim.city_race_style import (
     DEFAULT_CITY_HORIZON_DT,
     DEFAULT_CITY_HORIZON_STEP_COUNT,
@@ -162,7 +163,7 @@ def _draw_race_vehicle(
     heading: float,
     color: tuple[int, int, int],
 ) -> None:
-    """Draw a race agent as a bright oriented rectangle (not a disc).
+    """Draw a race agent as a GTA2-style top-down car sprite.
 
     Args:
         x: Vehicle x position in world meters.
@@ -170,14 +171,7 @@ def _draw_race_vehicle(
         heading: Vehicle heading in radians.
         color: Base RGB body color in ``[0, 255]``.
     """
-    renderer_gl.draw_oriented_rect(
-        x,
-        y,
-        VEH_HALF_L,
-        VEH_HALF_W,
-        heading,
-        *_brighten_rgb(color, mix=0.65),
-    )
+    draw_car_sprite(x, y, heading, VEH_HALF_L, VEH_HALF_W, color)
 
 
 def _draw_winner_banner(
@@ -1018,6 +1012,8 @@ def run_race(
     finally:
         if writer is not None:
             writer.close()
+        # Sprite textures die with the GL context — drop the cached ids.
+        reset_texture_cache()
         pygame.quit()
 
 
