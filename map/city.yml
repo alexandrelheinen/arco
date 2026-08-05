@@ -53,22 +53,18 @@ world:
 # follows that arbitrary reference (no replanning inside the tracker).
 simulator:
   tracker: mpc  # "pure_pursuit" (PP+APF) or "mpc" (CasADi path-following NMPC)
-  # Progress-first contouring with a strictly quadratic lateral cost.
-  # Global planners ignore vehicle dynamics; lag/progress still prefer
-  # advancing s over nailing sharp polyline kinks.  A non-zero
-  # contour_deadzone creates a flat |e_lat| ≤ d_dz band (zero cost / zero
-  # gradient) where left/right commands share the same cost and chatter —
-  # that flat zone is a common source of race wobble.  Keep d_dz = 0.
-  # Global mpc.yml is also deadzone=0 (and lag=0).
+  # MPCC tuning.  horizon.dt MUST equal the simulator timestep (0.1 s):
+  # the first predicted state is the command target, so a shorter model dt
+  # makes the plant overshoot the plan every tick (historical zigzag bug).
   mpc:
     horizon:
-      step_count: 72  # [] prediction steps
-      dt: 0.05  # [s] prediction model step
+      step_count: 50  # [] prediction steps (5.0 s preview at dt = 0.1)
+      dt: 0.1  # [s] prediction model step == simulator timestep
     weights:
-      contour: 8.0  # [] lateral contouring weight (quadratic in |e_lat|)
-      heading: 4.0  # [] heading tracking (plan has no yaw continuity)
-      control: 0.5  # [] control effort — prefer smooth ω
-      progress: 4.0  # [] track v_ref (incl. curve-limited corner speed)
-      lag: 4.0  # [] behind-schedule progress (do not overpower braking)
+      contour: 10.0  # [] lateral contouring weight (quadratic in |e_lat|)
+      heading: 1.0  # [] heading alignment (small; emerges from contour+lag)
+      control: 0.3  # [] control effort — prefer smooth a / ω̇
+      progress: 8.0  # [] linear progress reward (v_s is capped by v_ref)
+      lag: 6.0  # [] lag error — glues virtual progress s to the vehicle
       obstacle: 120.0  # [] keep the topological lane clear of buildings
       contour_deadzone: 0.0  # [m] no flat lateral band (avoids equal-cost chatter)

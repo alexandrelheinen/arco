@@ -55,15 +55,16 @@ jobs:
           esac
 
       - name: Generate video
-        # Duration 30 s with --fast-record ≈ the old 60 s clips that spent
-        # half the budget on cheap tree-reveal frames.  All frames are now
-        # race/tracking (MPC-heavy for city/ppp/rrp).
+        # 45 s at 30 fps × 0.1 s sim steps = 135 simulated seconds — enough
+        # for every racer (A* needs ~115 s on its windy grid route) to
+        # reach the goal on camera.  --fast-record skips tree-reveal
+        # pacing so all frames are race/tracking (MPC-heavy).
         run: |
           bash scripts/generate_videos.sh \
             --release \
             --only ${{ matrix.scenario }} \
             --out-dir /tmp/sim_videos \
-            --duration 30
+            --duration 45
 
       - name: Upload video artifact
         uses: actions/upload-artifact@v4

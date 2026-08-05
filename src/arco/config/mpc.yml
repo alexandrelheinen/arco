@@ -1,4 +1,4 @@
-# Path-following MPC defaults for DubinsPathFollowingMPC.
+# Path-following MPCC defaults for DubinsPathFollowingMPC.
 # Non-SI unit suffixes are not used; all quantities are SI.
 
 horizon:
@@ -6,23 +6,27 @@ horizon:
   dt: 0.05
 
 weights:
+  # Lateral contouring error (quadratic outside contour_deadzone).
   contour: 10.0
-  heading: 5.0
+  # Heading alignment (small: heading emerges from contour + lag).
+  heading: 2.0
+  # Linear progress reward per meter of advancement (the virtual progress
+  # speed is hard-capped by the curve-limited reference speed).
   progress: 1.0
-  # lag / contour_deadzone default to 0 → classic stiff path hugging.
-  # City race overrides these to prefer advancing s over minimizing e_lat.
-  lag: 0.0
+  # Lag error — structural in MPCC: couples the virtual progress s to the
+  # vehicle position.  Must be strictly positive.
+  lag: 4.0
+  # contour_deadzone defaults to 0 → classic stiff path hugging.
   contour_deadzone: 0.0
   control: 0.1
   obstacle: 50.0
   terminal: 20.0
-  slack: 1.0
 
 obstacle_barrier:
   power: 4.0
 
 solver:
-  max_iter_count: 50
+  max_iter_count: 80
 
 # Joint-space carrot-tracking MPC (PPP / RRP / N-DOF).
 joint_space:
@@ -38,4 +42,3 @@ joint_space:
     power: 4.0
   solver:
     max_iter_count: 40
-

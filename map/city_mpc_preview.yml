@@ -28,16 +28,16 @@ world:
   seed: 42
 simulator:
   tracker: mpc
-  # Match city.yml: half-block horizon + progress-first, deadzone=0.
+  # Match city.yml: MPCC with horizon dt == simulator timestep.
   mpc:
     horizon:
-      step_count: 72
-      dt: 0.05
+      step_count: 50
+      dt: 0.1
     weights:
-      contour: 8.0
-      heading: 4.0
-      control: 0.5
-      progress: 4.0
-      lag: 4.0
+      contour: 10.0
+      heading: 1.0
+      control: 0.3
+      progress: 8.0
+      lag: 6.0
       obstacle: 120.0
       contour_deadzone: 0.0

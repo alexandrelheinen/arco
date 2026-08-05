@@ -34,10 +34,14 @@ PLANNED_ROUTE_WIDTH: float = 2.0
 PLANNED_ROUTE_ALPHA: float = 0.35
 
 # Default city-demo prediction horizon when scenario YAML omits an override.
-# 72 × 0.05 s = 3.6 s (~43 m at the soft city cruise of 12 m/s) — about half
-# a city block (mean_edge_length = 120 m).
-DEFAULT_CITY_HORIZON_STEP_COUNT: int = 72
-DEFAULT_CITY_HORIZON_DT: float = 0.05
+# The horizon dt MUST equal the simulator timestep (0.1 s): the MPC's first
+# predicted state is the command target, so a model dt shorter than the
+# control period makes the plant travel twice as far per tick as planned —
+# the historical source of the race zigzag.  50 × 0.1 s = 5.0 s (~60 m at
+# the city cruise of 12 m/s), longer than the 4.8 s full-stop braking time
+# from cruise so corners are always previewed in time.
+DEFAULT_CITY_HORIZON_STEP_COUNT: int = 50
+DEFAULT_CITY_HORIZON_DT: float = 0.1
 
 # Soft but lane-viable city-racer dynamics.  Prior snap limits (ω=60°/s,
 # ω̇≈∞, a=4.9, cruise=18) let the NMPC nail A* kinks then reverse progress.

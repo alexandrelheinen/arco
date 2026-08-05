@@ -4,8 +4,8 @@ Global planners ignore vehicle dynamics, so a polyline kink sharper than
 ``R_min = v / ω_max`` is not executable at cruise.  This demo shows how
 the executed trajectory evolves under:
 
-1. **Stiff** contouring (``deadzone=0``, ``lag=0``, high contour weight) —
-   the classic fit that stalls / orbits at infeasible corners.
+1. **Stiff** contouring (``deadzone=0``, low progress, high contour
+   weight) — the classic fit that slows hard at infeasible corners.
 2. **Lane-aware progress-first** (city defaults: small free band + lag) —
    the car slows / widens inside the lane while ``s`` advances — without
    treating half the road width as free space into the walls.
@@ -111,8 +111,8 @@ def main() -> Path:
         cruise_speed=cruise,
         weight_contour=12.0,
         weight_heading=6.0,
-        weight_progress=2.0,
-        weight_lag=0.0,
+        weight_progress=0.5,
+        weight_lag=8.0,
         weight_control=0.05,
         weight_obstacle=0.0,
         weight_terminal=20.0,
@@ -157,7 +157,11 @@ def main() -> Path:
     )
     ax.plot(a["x"], a["y"], color="#ef5350", lw=2.0, label="stiff contouring")
     ax.plot(
-        b["x"], b["y"], color="#26a69a", lw=2.2, label="lane-aware progress-first"
+        b["x"],
+        b["y"],
+        color="#26a69a",
+        lw=2.2,
+        label="lane-aware progress-first",
     )
     circ = plt.Circle(
         (20.0 - r_min, 0.0),

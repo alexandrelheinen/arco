@@ -79,10 +79,12 @@ class ReferencePath:
     _CURVATURE_DS_FLOOR_M: float = 8.0
     # Hard cap on |κ| (1/m) after preview — safety net for the NLP.
     _CURVATURE_ABS_MAX: float = 0.35
-    # Backward horizon (m) over which an upcoming corner κ is visible so the
-    # NMPC can decelerate before the kink (≈ cruise² / (2 a) at city soft
-    # limits).
-    _CURVATURE_PREVIEW_DS_M: float = 40.0
+    # Backward horizon (m) over which an upcoming corner κ is visible on
+    # the approach.  Kept short: the MPCC's receding horizon (several
+    # seconds) already previews corner speed caps and plans braking, so a
+    # long κ preview only double-counts the conservatism and drags cruise
+    # down everywhere between corners.
+    _CURVATURE_PREVIEW_DS_M: float = 12.0
 
     @classmethod
     def _finite_difference_curvature(

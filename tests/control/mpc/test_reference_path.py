@@ -63,14 +63,27 @@ def test_reference_path_curvature_detects_sharp_l_kink() -> None:
     The previous skip-one finite difference reported κ≈0 at the vertex of
     ``(0,0)→(50,0)→(50,50)`` because ``h[i-1]`` and ``h[i+1]`` cancelled.
     """
-    path = ReferencePath([(0.0, 0.0), (50.0, 0.0), (50.0, 50.0)])
+    path = ReferencePath(
+        [
+            (0.0, 0.0),
+            (10.0, 0.0),
+            (20.0, 0.0),
+            (30.0, 0.0),
+            (40.0, 0.0),
+            (50.0, 0.0),
+            (50.0, 50.0),
+        ]
+    )
     kappa_corner = abs(path.curvature(50.0))
     # Spread over ds_cap=20 m → |κ| = (π/2) / 20 ≈ 0.0785.
     assert kappa_corner > 0.05
-    # Approach preview must expose the corner κ well before the vertex so
-    # the NMPC can decelerate (city soft a_max needs tens of meters).
-    kappa_approach = abs(path.curvature(20.0))
+    # A short approach preview keeps the corner κ visible just before the
+    # vertex; longer-range braking is planned by the MPCC horizon itself.
+    kappa_approach = abs(path.curvature(40.0))
     assert kappa_approach > 0.05
+    # Far from the corner, κ must relax back to ~0 so cruise is not
+    # dragged down along the whole straight.
+    assert abs(path.curvature(20.0)) < 0.01
 
 
 def test_reference_path_curvature_grid_corner_limits_city_speed() -> None:

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yaml
 
+from arco.config import load_config
 from arco.control.mpc import PathFollowingMPCConfig
 from arco.simulator.sim.city_race_style import (
     CITY_CRUISE_SPEED,
@@ -50,26 +51,20 @@ def test_city_race_traces_are_thicker_and_prediction_visible() -> None:
     assert 0.0 < PLANNED_ROUTE_ALPHA < 0.6
 
 
-def test_city_default_horizon_is_half_block() -> None:
-    """City horizon is 60% of the prior 6.0 s / 120-step setting.
+def test_city_default_horizon_matches_simulator_timestep() -> None:
+    """City MPC model dt must equal the 0.1 s simulator timestep.
 
-    72 × 0.05 s = 3.6 s ≈ half of ``mean_edge_length`` (120 m) at soft cruise.
+    The MPC's first predicted state is the command target; a model dt
+    shorter than the control period makes the plant travel further per
+    tick than planned (the historical race zigzag).  40 × 0.1 s = 4.0 s
+    of preview (~48 m at 12 m/s cruise) covers corner braking distance.
     """
-    assert DEFAULT_CITY_HORIZON_STEP_COUNT == 72
-    assert abs(DEFAULT_CITY_HORIZON_DT - 0.05) < 1e-12
-    assert (
-        abs(DEFAULT_CITY_HORIZON_STEP_COUNT * DEFAULT_CITY_HORIZON_DT - 3.6)
-        < 1e-12
-    )
-    # Explicitly 60% of the previous full-block horizon (120 steps / 6.0 s).
-    assert DEFAULT_CITY_HORIZON_STEP_COUNT == int(120 * 0.6)
-    assert (
-        abs(
-            DEFAULT_CITY_HORIZON_STEP_COUNT * DEFAULT_CITY_HORIZON_DT
-            - 6.0 * 0.6
-        )
-        < 1e-12
-    )
+    sim_cfg = load_config("simulator")
+    assert abs(DEFAULT_CITY_HORIZON_DT - float(sim_cfg["timestep"])) < 1e-12
+    assert DEFAULT_CITY_HORIZON_STEP_COUNT == 50
+    # Preview must exceed the full-stop braking time from cruise.
+    preview_s = DEFAULT_CITY_HORIZON_STEP_COUNT * DEFAULT_CITY_HORIZON_DT
+    assert preview_s > CITY_CRUISE_SPEED / CITY_MAX_ACCELERATION
 
 
 def test_city_vehicle_dynamics_are_soft_but_lane_viable() -> None:
@@ -106,8 +101,8 @@ def test_path_following_mpc_config_uses_city_defaults_without_yaml() -> None:
         default_horizon_step_count=DEFAULT_CITY_HORIZON_STEP_COUNT,
         default_horizon_dt=DEFAULT_CITY_HORIZON_DT,
     )
-    assert city_cfg.horizon_step_count == 72
-    assert abs(city_cfg.dt - 0.05) < 1e-12
+    assert city_cfg.horizon_step_count == 50
+    assert abs(city_cfg.dt - 0.1) < 1e-12
 
 
 def test_path_following_mpc_config_honors_yaml_override() -> None:
@@ -150,23 +145,27 @@ def test_path_following_mpc_config_honors_weight_overrides() -> None:
     assert abs(cfg.contour_deadzone) < 1e-12
 
 
-def test_city_map_yaml_declares_progress_first_zero_deadzone() -> None:
-    """City YAML keeps lag/progress but no flat lateral cost band."""
+def test_city_map_yaml_declares_mpcc_tuning() -> None:
+    """City YAML: horizon dt == sim timestep, MPCC weights sane."""
     root = Path(__file__).resolve().parents[3]
+    sim_cfg = load_config("simulator")
     for name in ("city.yml", "city_mpc_preview.yml"):
         data = yaml.safe_load((root / "map" / name).read_text())
         horizon = data["simulator"]["mpc"]["horizon"]
-        assert int(horizon["step_count"]) == 72
-        assert (
-            abs(float(horizon["dt"]) * int(horizon["step_count"]) - 3.6)
-            < 1e-12
-        )
+        # Model step must match the closed-loop control period.
+        assert abs(float(horizon["dt"]) - float(sim_cfg["timestep"])) < 1e-12
+        # Enough preview to brake from cruise before a sharp corner.
+        preview_s = float(horizon["dt"]) * int(horizon["step_count"])
+        braking_s = CITY_CRUISE_SPEED / CITY_MAX_ACCELERATION
+        assert preview_s > braking_s
         weights = data["simulator"]["mpc"]["weights"]
-        # Contour must dominate wall-seeking freedom; lag still advances s.
-        assert float(weights["contour"]) >= 6.0
-        assert float(weights["heading"]) >= 3.0
-        assert float(weights["lag"]) >= 2.0
-        assert float(weights["lag"]) <= 6.0
+        # Contour dominates; lag is structural (couples s to the vehicle).
+        assert float(weights["contour"]) >= 8.0
+        assert float(weights["lag"]) >= 4.0
+        assert float(weights["progress"]) > 0.0
+        # Heading stays a light alignment term (tracking emerges from
+        # contour + lag; heavy heading tracking fights kinked references).
+        assert float(weights["heading"]) <= 2.0
         # Flat |e_lat| bands zero the lateral gradient → equal-cost chatter.
         assert abs(float(weights["contour_deadzone"])) < 1e-12
         assert float(weights["obstacle"]) >= 100.0

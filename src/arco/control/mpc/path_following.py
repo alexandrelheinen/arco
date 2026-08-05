@@ -1,10 +1,10 @@
-"""DubinsPathFollowingMPC: SE(2) unicycle contouring NMPC."""
+"""DubinsPathFollowingMPC: SE(2) unicycle contouring NMPC (MPCC)."""
 
 from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Optional, Sequence
 
 import numpy as np
@@ -76,24 +76,35 @@ class DubinsVehicleLimits:
 
 @dataclass
 class PathFollowingMPCConfig:
-    """Tunable weights and horizon for Dubins path-following MPC.
+    """Tunable weights and horizon for Dubins path-following MPCC.
+
+    The controller is a Model Predictive Contouring Controller: the path
+    parameter ``s`` advances with its own *virtual progress speed*
+    decision variable, and the position error is split into a lateral
+    **contouring** error and a longitudinal **lag** error, both evaluated
+    at the reference point ``p(s_k)``.
 
     Attributes:
         horizon_step_count: Prediction horizon length (steps).
-        dt: Discretization step for the prediction model (s).
+        dt: Discretization step for the prediction model (s).  Must match
+            the closed-loop control period for the first predicted state
+            to be a valid command target.
         cruise_speed: Nominal progress speed on straights (m/s).
         weight_contour: Lateral (contouring) error weight applied outside
             :attr:`contour_deadzone`.
-        weight_heading: Heading error weight.
-        weight_progress: Speed-tracking weight toward cruise / curve limit.
-        weight_lag: Penalty on falling behind virtual arc-length progress
-            ``s0 + v_cruise · t``.  Prefer advancing ``s`` over hugging the
-            path when non-zero.
+        weight_heading: Heading alignment weight (smooth 2π-periodic cost).
+        weight_progress: Linear progress reward per meter of arc-length
+            advancement.  The virtual speed is hard-capped by the
+            curve-limited reference speed, so this only decides how
+            strongly advancement pays against tracking costs.
+        weight_lag: Lag-error weight.  Structural in MPCC: it couples the
+            virtual progress ``s`` to the vehicle position.  Larger values
+            keep ``p(s)`` glued to the vehicle; ``0`` decouples ``s`` and
+            is rejected at construction time.
         weight_control: Control-effort weight on ``(a, ω̇)``.
         weight_obstacle: Soft obstacle-barrier weight.
         obstacle_barrier_power: Barrier exponent.
         weight_terminal: Terminal contouring / heading weight.
-        weight_slack: Soft constraint slack weight.
         contour_deadzone: Lateral free band (m).  Contouring cost is zero
             for ``|e_lat| ≤ contour_deadzone`` and quadratic on the excess.
         max_solver_iter_count: IPOPT iteration budget.
@@ -103,16 +114,15 @@ class PathFollowingMPCConfig:
     dt: float = 0.05
     cruise_speed: float = 0.36
     weight_contour: float = 10.0
-    weight_heading: float = 5.0
+    weight_heading: float = 2.0
     weight_progress: float = 1.0
-    weight_lag: float = 0.0
+    weight_lag: float = 4.0
     weight_control: float = 0.1
     weight_obstacle: float = 50.0
     obstacle_barrier_power: float = 4.0
     weight_terminal: float = 20.0
-    weight_slack: float = 1.0
     contour_deadzone: float = 0.0
-    max_solver_iter_count: int = 50
+    max_solver_iter_count: int = 80
 
     @staticmethod
     def create_from_config(
@@ -141,16 +151,15 @@ class PathFollowingMPCConfig:
             dt=float(horizon.get("dt", 0.05)),
             cruise_speed=cruise,
             weight_contour=float(weights.get("contour", 10.0)),
-            weight_heading=float(weights.get("heading", 5.0)),
+            weight_heading=float(weights.get("heading", 2.0)),
             weight_progress=float(weights.get("progress", 1.0)),
-            weight_lag=float(weights.get("lag", 0.0)),
+            weight_lag=float(weights.get("lag", 4.0)),
             weight_control=float(weights.get("control", 0.1)),
             weight_obstacle=float(weights.get("obstacle", 50.0)),
             weight_terminal=float(weights.get("terminal", 20.0)),
-            weight_slack=float(weights.get("slack", 1.0)),
             contour_deadzone=float(weights.get("contour_deadzone", 0.0)),
             obstacle_barrier_power=float(barrier.get("power", 4.0)),
-            max_solver_iter_count=int(solver.get("max_iter_count", 50)),
+            max_solver_iter_count=int(solver.get("max_iter_count", 80)),
         )
 
     def with_horizon_overrides(
@@ -169,25 +178,14 @@ class PathFollowingMPCConfig:
             A new :class:`PathFollowingMPCConfig` with the requested
             horizon fields replaced; other fields are unchanged.
         """
-        return PathFollowingMPCConfig(
+        return replace(
+            self,
             horizon_step_count=(
                 int(step_count)
                 if step_count is not None
                 else self.horizon_step_count
             ),
             dt=float(dt) if dt is not None else self.dt,
-            cruise_speed=self.cruise_speed,
-            weight_contour=self.weight_contour,
-            weight_heading=self.weight_heading,
-            weight_progress=self.weight_progress,
-            weight_lag=self.weight_lag,
-            weight_control=self.weight_control,
-            weight_obstacle=self.weight_obstacle,
-            obstacle_barrier_power=self.obstacle_barrier_power,
-            weight_terminal=self.weight_terminal,
-            weight_slack=self.weight_slack,
-            contour_deadzone=self.contour_deadzone,
-            max_solver_iter_count=self.max_solver_iter_count,
         )
 
     def with_weight_overrides(
@@ -200,30 +198,26 @@ class PathFollowingMPCConfig:
         control: float | None = None,
         obstacle: float | None = None,
         terminal: float | None = None,
-        slack: float | None = None,
         contour_deadzone: float | None = None,
     ) -> PathFollowingMPCConfig:
         """Return a copy with optional cost-weight overrides applied.
 
         Args:
             contour: Optional lateral / contouring weight.
-            heading: Optional heading-error weight.
-            progress: Optional speed-tracking weight.
-            lag: Optional behind-schedule arc-length lag weight.
+            heading: Optional heading-alignment weight.
+            progress: Optional virtual-progress speed-tracking weight.
+            lag: Optional lag-error weight (must stay positive).
             control: Optional control-effort weight.
             obstacle: Optional obstacle-barrier weight.
             terminal: Optional terminal cost weight.
-            slack: Optional slack penalty weight.
             contour_deadzone: Optional free lateral band (m).
 
         Returns:
             A new :class:`PathFollowingMPCConfig` with the requested
             weight fields replaced; other fields are unchanged.
         """
-        return PathFollowingMPCConfig(
-            horizon_step_count=self.horizon_step_count,
-            dt=self.dt,
-            cruise_speed=self.cruise_speed,
+        return replace(
+            self,
             weight_contour=(
                 float(contour) if contour is not None else self.weight_contour
             ),
@@ -244,38 +238,44 @@ class PathFollowingMPCConfig:
                 if obstacle is not None
                 else self.weight_obstacle
             ),
-            obstacle_barrier_power=self.obstacle_barrier_power,
             weight_terminal=(
                 float(terminal)
                 if terminal is not None
                 else self.weight_terminal
-            ),
-            weight_slack=(
-                float(slack) if slack is not None else self.weight_slack
             ),
             contour_deadzone=(
                 float(contour_deadzone)
                 if contour_deadzone is not None
                 else self.contour_deadzone
             ),
-            max_solver_iter_count=self.max_solver_iter_count,
         )
 
 
 class DubinsPathFollowingMPC(MPCTracker):
-    """Receding-horizon contouring NMPC (NMPCC-style) for Dubins vehicles.
+    """Receding-horizon contouring NMPC (MPCC) for Dubins vehicles.
 
-    Jointly optimizes lateral (contouring) error, lag / progress, heading,
-    speed, control effort, and directional obstacle clearance under
-    discrete-Euler unicycle dynamics matching
-    :meth:`~arco.guidance.vehicle.DubinsVehicle.step` saturation semantics.
+    Follows the Lam / Liniger MPCC structure: the path parameter ``s`` is
+    advanced by a bounded **virtual progress speed** decision variable,
+    and the position error at ``p(s_k)`` is split into a lateral
+    contouring error and a longitudinal lag error.  The lag term couples
+    the virtual progress to the vehicle, so no projection heuristics or
+    monotonicity constraints are needed inside the NLP.
 
     Mathematical formulation, symbols, and differences from classical
     racing MPCC are documented in ``docs/control_mpcc.md``.
+
+    Raises:
+        ValueError: If ``config.weight_lag`` is not strictly positive —
+            with a zero lag weight the virtual progress decouples from
+            the vehicle and the contouring errors lose meaning.
     """
 
     _OBSTACLE_SAMPLE_COUNT = 5
-    _PATH_INTERP_COUNT = 200
+    # Reference resampling resolution (m) and sample-count bounds.  The
+    # previous fixed 200-sample grid smeared corners on ~900 m city paths.
+    _PATH_INTERP_RESOLUTION_M = 2.0
+    _PATH_INTERP_MIN_COUNT = 200
+    _PATH_INTERP_MAX_COUNT = 1500
 
     def __init__(
         self,
@@ -284,7 +284,7 @@ class DubinsPathFollowingMPC(MPCTracker):
         config: PathFollowingMPCConfig,
         occupancy: Occupancy | None = None,
     ) -> None:
-        """Initialize the Dubins path-following MPC.
+        """Initialize the Dubins path-following MPCC.
 
         Args:
             vehicle_limits: Speed / turn-rate / acceleration limits.
@@ -293,9 +293,16 @@ class DubinsPathFollowingMPC(MPCTracker):
 
         Raises:
             ImportError: If the optional CasADi dependency is missing.
+            ValueError: If ``config.weight_lag <= 0``.
         """
         # Eager dependency check so missing CasADi fails at construction.
         self._ca = _require_casadi()
+        if config.weight_lag <= 0.0:
+            raise ValueError(
+                "PathFollowingMPCConfig.weight_lag must be > 0: the lag "
+                "error is what couples the virtual progress s to the "
+                "vehicle in the MPCC formulation."
+            )
         self.vehicle_limits = vehicle_limits
         self.config = config
         self._occupancy = occupancy
@@ -304,6 +311,7 @@ class DubinsPathFollowingMPC(MPCTracker):
         self._warm_x: np.ndarray | None = None
         self._warm_u: np.ndarray | None = None
         self._warm_s: np.ndarray | None = None
+        self._warm_vs: np.ndarray | None = None
         self._last_speed_cmd = config.cruise_speed
         self._last_turn_rate_cmd = 0.0
         self._nlp: dict[str, Any] | None = None
@@ -317,21 +325,55 @@ class DubinsPathFollowingMPC(MPCTracker):
     def set_reference(self, waypoints: Sequence[tuple[float, float]]) -> None:
         """Set or replace the reference path.
 
+        The polyline is extended by one prediction-horizon length of
+        straight "runway" along the final tangent so the NLP feasible set
+        has no hard corner at the goal (progress bounds pinching ``S``
+        against its cap caused end-of-path solver failures).
+
         Args:
             waypoints: Ordered ``(x, y)`` waypoints in world frame.
         """
-        self._reference = ReferencePath(waypoints)
+        pts = [(float(x), float(y)) for x, y in waypoints]
+        if len(pts) >= 2:
+            pad = max(
+                2.0,
+                self.config.cruise_speed
+                * self.config.dt
+                * self.config.horizon_step_count,
+            )
+            dx = pts[-1][0] - pts[-2][0]
+            dy = pts[-1][1] - pts[-2][1]
+            norm = math.hypot(dx, dy)
+            if norm > 1e-9:
+                pts.append(
+                    (
+                        pts[-1][0] + pad * dx / norm,
+                        pts[-1][1] + pad * dy / norm,
+                    )
+                )
+        self._reference = ReferencePath(pts)
+        sample_count = int(
+            np.clip(
+                math.ceil(
+                    self._reference.total_length
+                    / self._PATH_INTERP_RESOLUTION_M
+                ),
+                self._PATH_INTERP_MIN_COUNT,
+                self._PATH_INTERP_MAX_COUNT,
+            )
+        )
         (
             self._path_s,
             self._path_x,
             self._path_y,
             self._path_heading,
             self._path_kappa,
-        ) = self._reference.sample(self._PATH_INTERP_COUNT)
+        ) = self._reference.sample(sample_count)
         self._progress = 0.0
         self._warm_x = None
         self._warm_u = None
         self._warm_s = None
+        self._warm_vs = None
         self._nlp = None
 
     def step(
@@ -349,7 +391,8 @@ class DubinsPathFollowingMPC(MPCTracker):
             speed: Current forward speed (m/s).
             turn_rate: Current turn rate (rad/s).
             dt: Control period until the next call (s).  The internal
-                prediction model uses :attr:`PathFollowingMPCConfig.dt`.
+                prediction model uses :attr:`PathFollowingMPCConfig.dt`;
+                configure them equal for consistent closed-loop tracking.
 
         Returns:
             Structured command and solver diagnostics.
@@ -374,10 +417,10 @@ class DubinsPathFollowingMPC(MPCTracker):
             )
 
         # Local projection around the current contouring progress.  A global
-        # nearest-point search can jump backward by a full city-block when the
-        # vehicle cuts a sharp A* corner and sits geometrically closer to an
-        # earlier approach lane — that regression is what starts permanent
-        # circling in the city race.
+        # nearest-point search can jump by a full city block when two road
+        # corridors of the route pass near each other.  Progress never
+        # rewinds: recovery arcs must catch up to s, not reset it (the lag
+        # cost pulls the vehicle forward toward p(s)).
         horizon_m = (
             self.config.cruise_speed
             * self.config.dt
@@ -389,13 +432,12 @@ class DubinsPathFollowingMPC(MPCTracker):
             s_hint=self._progress,
             window=project_window,
         )
-        # Blend toward the geometric projection, but never rewind contouring
-        # progress.  Driving past a sharp corner with large e_ψ used to pull
-        # s backward via this filter and start the city A* junction orbit.
-        blended = 0.7 * self._progress + 0.3 * s_proj
-        self._progress = float(max(blended, self._progress))
         self._progress = float(
-            np.clip(self._progress, 0.0, self._reference.total_length)
+            np.clip(
+                max(s_proj, self._progress),
+                0.0,
+                self._reference.total_length,
+            )
         )
 
         obstacles = self._collect_obstacle_samples(pose)
@@ -454,6 +496,7 @@ class DubinsPathFollowingMPC(MPCTracker):
         self._warm_x = sol["X"]
         self._warm_u = sol["U"]
         self._warm_s = sol["S"]
+        self._warm_vs = sol["VS"]
 
         predicted_xy = _predicted_xy_from_states(sol["X"])
         return MPCStepResult(
@@ -544,7 +587,7 @@ class DubinsPathFollowingMPC(MPCTracker):
             * self.config.horizon_step_count
         )
         # Preview beyond the short prediction horizon at low cruise speeds.
-        return max(horizon_distance * 3.0, 2.0)
+        return max(horizon_distance * 1.5, 2.0)
 
     def _preview_cruise_speed(self, clearance: float) -> float:
         """Reduce cruise when path-ahead clearance is tight.
@@ -607,6 +650,88 @@ class DubinsPathFollowingMPC(MPCTracker):
             samples.append((float(nearest[0]), float(nearest[1])))
         return samples
 
+    def _reference_rollout_init(
+        self,
+        x0_val: np.ndarray,
+        progress: float,
+        preview_cruise: float,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Build an NLP initial guess that rolls forward along the reference.
+
+        The rollout accelerates from the current speed toward the
+        curve-limited reference speed and places the predicted poses on
+        the path itself.  Seeding IPOPT inside this "moving" basin is what
+        lets the solver escape the parked equilibrium at sharp kinks,
+        where a constant-heading or all-stopped guess converges to a
+        full-stop local minimum.
+
+        Args:
+            x0_val: Current state ``(x, y, θ, v, ω)``.
+            progress: Current path progress ``s₀`` (m).
+            preview_cruise: Clearance-limited cruise speed (m/s).
+
+        Returns:
+            ``(X_init, U_init, S_init, VS_init)`` initial-guess arrays.
+        """
+        assert self._reference is not None
+        cfg = self.config
+        limits = self.vehicle_limits
+        n = cfg.horizon_step_count
+        total = self._reference.total_length
+
+        X_init = np.zeros((5, n + 1))
+        U_init = np.zeros((2, n))
+        S_init = np.zeros((1, n + 1))
+        VS_init = np.zeros((1, n))
+        X_init[:, 0] = x0_val
+        S_init[0, 0] = progress
+
+        v = float(np.clip(x0_val[3], limits.min_speed, limits.max_speed))
+        s = float(progress)
+        heading_prev = float(x0_val[2])
+        for k in range(n):
+            kappa = self._reference.curvature(s)
+            v_curve = limits.max_turn_rate / max(abs(kappa), 1e-3)
+            v_target = float(
+                np.clip(
+                    min(preview_cruise, v_curve),
+                    limits.min_speed,
+                    limits.max_speed,
+                )
+            )
+            dv = float(
+                np.clip(
+                    v_target - v,
+                    -limits.max_acceleration * cfg.dt,
+                    limits.max_acceleration * cfg.dt,
+                )
+            )
+            v = v + dv
+            s = min(s + v * cfg.dt, total)
+            x_ref, y_ref = self._reference.position(s)
+            heading_ref = self._reference.heading(s)
+            # Continuous heading guess (unwrap against the previous one).
+            heading_ref = heading_prev + math.atan2(
+                math.sin(heading_ref - heading_prev),
+                math.cos(heading_ref - heading_prev),
+            )
+            omega = float(
+                np.clip(
+                    (heading_ref - heading_prev) / cfg.dt,
+                    -limits.max_turn_rate,
+                    limits.max_turn_rate,
+                )
+            )
+            heading_prev = heading_ref
+            X_init[0, k + 1] = x_ref
+            X_init[1, k + 1] = y_ref
+            X_init[2, k + 1] = heading_ref
+            X_init[3, k + 1] = v
+            X_init[4, k + 1] = omega
+            VS_init[0, k] = v
+            S_init[0, k + 1] = s
+        return X_init, U_init, S_init, VS_init
+
     def _build_nlp(self, obstacle_count: int) -> dict[str, Any]:
         ca = self._ca
         cfg = self.config
@@ -620,19 +745,24 @@ class DubinsPathFollowingMPC(MPCTracker):
         heading_unwrapped = np.unwrap(np.asarray(self._path_heading))
         self._interp_id += 1
         tag = f"mpc{self._interp_id}"
-        fx = ca.interpolant(f"{tag}_x", "linear", [s_grid], self._path_x)
-        fy = ca.interpolant(f"{tag}_y", "linear", [s_grid], self._path_y)
+        # Cubic B-spline interpolants: piecewise-linear reference lookups
+        # have discontinuous gradients exactly at path kinks, which stalls
+        # IPOPT (Maximum_Iterations_Exceeded) right where tracking is
+        # hardest.  Smooth splines also round the polyline at the ~2 m
+        # sample scale, which is desirable for a vehicle-feasible target.
+        fx = ca.interpolant(f"{tag}_x", "bspline", [s_grid], self._path_x)
+        fy = ca.interpolant(f"{tag}_y", "bspline", [s_grid], self._path_y)
         fth = ca.interpolant(
-            f"{tag}_th", "linear", [s_grid], heading_unwrapped
+            f"{tag}_th", "bspline", [s_grid], heading_unwrapped
         )
-        fk = ca.interpolant(f"{tag}_k", "linear", [s_grid], self._path_kappa)
+        fk = ca.interpolant(f"{tag}_k", "bspline", [s_grid], self._path_kappa)
 
         opti = ca.Opti()
         # State: [px, py, theta, v, omega]
         X = opti.variable(5, n + 1)
         U = opti.variable(2, n)  # [a, omega_dot]
-        S = opti.variable(1, n + 1)
-        slack = opti.variable(1, n + 1)
+        S = opti.variable(1, n + 1)  # path parameter (arc length)
+        VS = opti.variable(1, n)  # virtual progress speed ds/dt
 
         x0 = opti.parameter(5)
         s0 = opti.parameter(1)
@@ -643,54 +773,75 @@ class DubinsPathFollowingMPC(MPCTracker):
         opti.subject_to(X[:, 0] == x0)
         opti.subject_to(S[0, 0] == s0)
 
+        def _stage_errors(k: int) -> tuple[Any, Any, Any]:
+            """Contouring / lag / heading errors at stage *k*."""
+            x_ref = fx(S[0, k])
+            y_ref = fy(S[0, k])
+            th_ref = fth(S[0, k])
+            dx = X[0, k] - x_ref
+            dy = X[1, k] - y_ref
+            e_contour = -dx * ca.sin(th_ref) + dy * ca.cos(th_ref)
+            e_lag = dx * ca.cos(th_ref) + dy * ca.sin(th_ref)
+            e_head = X[2, k] - th_ref
+            return e_contour, e_lag, e_head
+
         cost = 0
         for k in range(n):
-            px = X[0, k]
-            py = X[1, k]
-            theta = X[2, k]
             v = X[3, k]
+            theta = X[2, k]
             omega = X[4, k]
             a = U[0, k]
             omega_dot = U[1, k]
-            s_k = S[0, k]
+            v_s = VS[0, k]
 
-            x_ref = fx(s_k)
-            y_ref = fy(s_k)
-            th_ref = fth(s_k)
-            kappa = fk(s_k)
-            e_lat = -(px - x_ref) * ca.sin(th_ref) + (py - y_ref) * ca.cos(
-                th_ref
-            )
-            e_head = theta - th_ref
+            e_contour, e_lag, e_head = _stage_errors(k)
             e_head_cost = ca.sin(e_head) ** 2 + (1.0 - ca.cos(e_head)) ** 2
 
-            v_curve = limits.max_turn_rate / ca.fmax(ca.fabs(kappa), 1e-3)
-            v_ref = ca.fmin(cruise_p, v_curve)
-            v_ref = ca.fmax(limits.min_speed, ca.fmin(limits.max_speed, v_ref))
+            kappa = fk(S[0, k])
+            # Curve-limited progress cap, written as two smooth
+            # inequalities (no fmin/fabs kinks in the constraint set):
+            #   v_s ≤ cruise   and   v_s·|κ| ≤ ω_max  ⇔  v_s ≤ ω_max/|κ|.
+            opti.subject_to(v_s <= cruise_p)
+            opti.subject_to(
+                v_s * ca.sqrt(kappa**2 + 1e-6) <= limits.max_turn_rate
+            )
 
             # Free lateral band: only the excess beyond the deadzone is
-            # penalized, so the solver may widen a sharp corner as long as
-            # arc-length progress (lag term below) keeps advancing.
-            e_lat_excess = ca.fmax(ca.fabs(e_lat) - cfg.contour_deadzone, 0.0)
-            cost += cfg.weight_contour * e_lat_excess**2
+            # penalized.  The zero-deadzone default uses the plain smooth
+            # quadratic (no fabs/fmax kink at e_contour = 0).
+            if cfg.contour_deadzone > 0.0:
+                e_c_excess = ca.fmax(
+                    ca.fabs(e_contour) - cfg.contour_deadzone, 0
+                )
+                cost += cfg.weight_contour * e_c_excess**2
+            else:
+                cost += cfg.weight_contour * e_contour**2
+            cost += cfg.weight_lag * e_lag**2
             cost += cfg.weight_heading * e_head_cost
-            cost += cfg.weight_progress * (v_ref - v) ** 2
-            s_target = ca.fmin(
-                s0 + cruise_p * float(k) * dt,
-                self._reference.total_length,
-            )
-            # Penalize being behind schedule only — being ahead is fine.
-            cost += cfg.weight_lag * ca.fmax(s_target - s_k, 0.0) ** 2
+            # Progress: LINEAR advancement reward (classical MPCC).  A
+            # quadratic (v_s − v_ref)² speed-matching term is a trap: at a
+            # sharp kink v_ref(s) is small, so parking at the kink costs
+            # almost nothing while accelerating away looks expensive over
+            # the horizon — the solver then prefers a permanent full stop.
+            # A linear reward makes advancement pay everywhere; the hard
+            # v_s ≤ v_ref cap above keeps corner braking feed-forward.
+            cost -= cfg.weight_progress * v_s * dt
             cost += cfg.weight_control * (a**2 + omega_dot**2)
-            cost += cfg.weight_slack * slack[0, k] ** 2
 
             if obs is not None:
+                px = X[0, k]
+                py = X[1, k]
                 for j in range(obstacle_count):
                     ox = obs[0, j]
                     oy = obs[1, j]
                     dist = ca.sqrt((px - ox) ** 2 + (py - oy) ** 2 + 1e-9)
-                    bearing = ca.atan2(oy - py, ox - px)
-                    cone = ca.fmax(0.0, ca.cos(theta - bearing))
+                    # Smooth forward-cone factor (no atan2 kinks): the
+                    # projection of the unit obstacle bearing onto the
+                    # vehicle heading, clamped to [0, 1].
+                    fwd = (
+                        ca.cos(theta) * (ox - px) + ca.sin(theta) * (oy - py)
+                    ) / dist
+                    cone = ca.fmax(0.0, fwd)
                     penetration = (clearance_p - dist) / ca.fmax(
                         clearance_p, 1e-6
                     )
@@ -704,17 +855,15 @@ class DubinsPathFollowingMPC(MPCTracker):
 
             v_next = v + a * dt
             omega_next = omega + omega_dot * dt
-            opti.subject_to(X[0, k + 1] == px + v * ca.cos(theta) * dt)
-            opti.subject_to(X[1, k + 1] == py + v * ca.sin(theta) * dt)
+            opti.subject_to(X[0, k + 1] == X[0, k] + v * ca.cos(theta) * dt)
+            opti.subject_to(X[1, k + 1] == X[1, k] + v * ca.sin(theta) * dt)
             opti.subject_to(X[2, k + 1] == theta + omega * dt)
             opti.subject_to(X[3, k + 1] == v_next)
             opti.subject_to(X[4, k + 1] == omega_next)
-            # Contouring progress must not reverse when |e_ψ| > 90°.
-            # With ṡ = v cos(e_ψ) a recovery / wider arc drove s backward,
-            # which is the limit-cycle that trapped the city A* racer.
-            opti.subject_to(
-                S[0, k + 1] == s_k + v * ca.fmax(ca.cos(e_head), 0.0) * dt
-            )
+            # Virtual progress dynamics: s advances with its own bounded
+            # speed decision variable (classical MPCC progress law).
+            opti.subject_to(S[0, k + 1] == S[0, k] + v_s * dt)
+            opti.subject_to(opti.bounded(0.0, v_s, limits.max_speed))
 
             opti.subject_to(
                 opti.bounded(limits.min_speed, v_next, limits.max_speed)
@@ -736,32 +885,21 @@ class DubinsPathFollowingMPC(MPCTracker):
                     limits.max_turn_rate_dot,
                 )
             )
-            opti.subject_to(slack[0, k] >= 0)
             opti.subject_to(
-                opti.bounded(0.0, S[0, k], self._reference.total_length + 1.0)
+                opti.bounded(0.0, S[0, k], self._reference.total_length)
             )
 
-        px_n = X[0, n]
-        py_n = X[1, n]
-        theta_n = X[2, n]
-        s_n = S[0, n]
-        x_ref_n = fx(s_n)
-        y_ref_n = fy(s_n)
-        th_ref_n = fth(s_n)
-        e_lat_n = -(px_n - x_ref_n) * ca.sin(th_ref_n) + (
-            py_n - y_ref_n
-        ) * ca.cos(th_ref_n)
-        e_head_n = theta_n - th_ref_n
+        e_contour_n, e_lag_n, e_head_n = _stage_errors(n)
         e_head_n_cost = ca.sin(e_head_n) ** 2 + (1.0 - ca.cos(e_head_n)) ** 2
-        e_lat_n_excess = ca.fmax(ca.fabs(e_lat_n) - cfg.contour_deadzone, 0.0)
-        cost += cfg.weight_terminal * (e_lat_n_excess**2 + e_head_n_cost)
-        s_target_n = ca.fmin(
-            s0 + cruise_p * float(n) * dt,
-            self._reference.total_length,
-        )
-        cost += cfg.weight_lag * ca.fmax(s_target_n - s_n, 0.0) ** 2
-        cost += cfg.weight_slack * slack[0, n] ** 2
-        opti.subject_to(slack[0, n] >= 0)
+        if cfg.contour_deadzone > 0.0:
+            e_c_n_excess = ca.fmax(
+                ca.fabs(e_contour_n) - cfg.contour_deadzone, 0.0
+            )
+            e_c_n_cost = e_c_n_excess**2
+        else:
+            e_c_n_cost = e_contour_n**2
+        cost += cfg.weight_terminal * (e_c_n_cost + e_head_n_cost)
+        cost += cfg.weight_lag * e_lag_n**2
         opti.subject_to(
             opti.bounded(limits.min_speed, X[3, n], limits.max_speed)
         )
@@ -769,7 +907,7 @@ class DubinsPathFollowingMPC(MPCTracker):
             opti.bounded(-limits.max_turn_rate, X[4, n], limits.max_turn_rate)
         )
         opti.subject_to(
-            opti.bounded(0.0, S[0, n], self._reference.total_length + 1.0)
+            opti.bounded(0.0, S[0, n], self._reference.total_length)
         )
 
         opti.minimize(cost)
@@ -781,6 +919,8 @@ class DubinsPathFollowingMPC(MPCTracker):
                 "ipopt.max_iter": int(cfg.max_solver_iter_count),
                 "ipopt.sb": "yes",
                 "ipopt.tol": 1e-4,
+                "ipopt.acceptable_tol": 1e-2,
+                "ipopt.acceptable_iter": 5,
                 "ipopt.warm_start_init_point": "yes",
             },
         )
@@ -789,7 +929,7 @@ class DubinsPathFollowingMPC(MPCTracker):
             "X": X,
             "U": U,
             "S": S,
-            "slack": slack,
+            "VS": VS,
             "x0": x0,
             "s0": s0,
             "obs": obs,
@@ -829,6 +969,7 @@ class DubinsPathFollowingMPC(MPCTracker):
         X = nlp["X"]
         U = nlp["U"]
         S = nlp["S"]
+        VS = nlp["VS"]
 
         x0_val = np.array(
             [pose[0], pose[1], pose[2], speed, turn_rate], dtype=float
@@ -842,35 +983,48 @@ class DubinsPathFollowingMPC(MPCTracker):
             obs_mat = np.array(obstacles, dtype=float).T
             opti.set_value(nlp["obs"], obs_mat)
 
-        if self._warm_x is not None and self._warm_x.shape == (5, n + 1):
+        # Shifted warm start while the previous solution keeps moving.  A
+        # stalled warm start (near-zero progress over the horizon while
+        # the reference ahead allows motion) would re-seed IPOPT inside
+        # the parked local minimum forever — use a fresh reference rollout
+        # instead so the solver can compare against the moving basin.
+        warm_available = (
+            self._warm_x is not None
+            and self._warm_x.shape == (5, n + 1)
+            and self._warm_vs is not None
+        )
+        warm_ok = False
+        if warm_available:
+            warm_advance = float(self._warm_s[0, -1] - self._warm_s[0, 0])
+            horizon_advance = float(preview_cruise) * cfg.dt * n
+            near_goal = (
+                self._reference.total_length - progress
+            ) < horizon_advance
+            warm_ok = (
+                warm_advance > max(1.0, 0.1 * horizon_advance)
+                or preview_cruise <= limits.min_speed + 1e-9
+                or near_goal
+            )
+        if warm_ok:
             X_init = np.hstack([self._warm_x[:, 1:], self._warm_x[:, -1:]])
             U_init = np.hstack([self._warm_u[:, 1:], self._warm_u[:, -1:]])
             S_init = np.hstack([self._warm_s[:, 1:], self._warm_s[:, -1:]])
+            VS_init = np.hstack([self._warm_vs[:, 1:], self._warm_vs[:, -1:]])
             X_init[:, 0] = x0_val
             S_init[0, 0] = progress
+            # Keep the shifted progress column consistent with s0.
+            S_init[0, 1:] = np.maximum(S_init[0, 1:], progress)
         else:
-            X_init = np.zeros((5, n + 1))
-            U_init = np.zeros((2, n))
-            S_init = np.zeros((1, n + 1))
-            X_init[:, 0] = x0_val
-            S_init[0, 0] = progress
-            v0 = float(np.clip(speed, limits.min_speed, limits.max_speed))
-            for k in range(n):
-                theta = X_init[2, k]
-                X_init[0, k + 1] = X_init[0, k] + v0 * math.cos(theta) * cfg.dt
-                X_init[1, k + 1] = X_init[1, k] + v0 * math.sin(theta) * cfg.dt
-                X_init[2, k + 1] = theta
-                X_init[3, k + 1] = v0
-                X_init[4, k + 1] = 0.0
-                S_init[0, k + 1] = min(
-                    progress + v0 * cfg.dt * (k + 1),
-                    self._reference.total_length,
-                )
+            X_init, U_init, S_init, VS_init = self._reference_rollout_init(
+                x0_val, progress, preview_cruise
+            )
 
+        S_init = np.clip(S_init, 0.0, self._reference.total_length)
+        VS_init = np.clip(VS_init, 0.0, limits.max_speed)
         opti.set_initial(X, X_init)
         opti.set_initial(U, U_init)
         opti.set_initial(S, S_init)
-        opti.set_initial(nlp["slack"], np.zeros((1, n + 1)))
+        opti.set_initial(VS, VS_init)
 
         try:
             sol = opti.solve()
@@ -880,6 +1034,7 @@ class DubinsPathFollowingMPC(MPCTracker):
         X_opt = np.array(sol.value(X), dtype=float)
         U_opt = np.array(sol.value(U), dtype=float)
         S_opt = np.array(sol.value(S), dtype=float).reshape(1, n + 1)
+        VS_opt = np.array(sol.value(VS), dtype=float).reshape(1, n)
         speed_cmd = float(
             np.clip(X_opt[3, 1], limits.min_speed, limits.max_speed)
         )
@@ -914,4 +1069,5 @@ class DubinsPathFollowingMPC(MPCTracker):
             "X": X_opt,
             "U": U_opt,
             "S": S_opt,
+            "VS": VS_opt,
         }
