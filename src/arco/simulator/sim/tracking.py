@@ -107,11 +107,6 @@ def path_following_mpc_config_from_simulator(
                 if weights.get("terminal") is None
                 else float(weights["terminal"])
             ),
-            slack=(
-                None
-                if weights.get("slack") is None
-                else float(weights["slack"])
-            ),
             contour_deadzone=(
                 None
                 if weights.get("contour_deadzone") is None

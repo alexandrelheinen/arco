@@ -46,7 +46,9 @@ class RectOccupancy(Occupancy):
             dist_right = self.x_max - pt[0]
             dist_bottom = pt[1] - self.y_min
             dist_top = self.y_max - pt[1]
-            side = int(np.argmin([dist_left, dist_right, dist_bottom, dist_top]))
+            side = int(
+                np.argmin([dist_left, dist_right, dist_bottom, dist_top])
+            )
             if side == 0:
                 nearest = np.array([self.x_min, pt[1]], dtype=float)
             elif side == 1:

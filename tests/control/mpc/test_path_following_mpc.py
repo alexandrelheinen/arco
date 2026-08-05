@@ -247,6 +247,8 @@ def test_path_following_config_from_yaml() -> None:
     assert abs(cfg.dt - 0.05) < 1e-12
     assert abs(cfg.cruise_speed - 0.42) < 1e-12
     assert cfg.weight_obstacle > 0.0
+    # Lag is structural in the MPCC formulation — must default positive.
+    assert cfg.weight_lag > 0.0
 
 
 def test_path_following_config_with_horizon_overrides() -> None:
@@ -274,8 +276,15 @@ def test_path_following_config_with_weight_overrides() -> None:
     assert abs(soft.contour_deadzone - 8.0) < 1e-12
     assert soft.horizon_step_count == cfg.horizon_step_count
     assert abs(cfg.weight_contour - 10.0) < 1e-12
-    assert abs(cfg.weight_lag) < 1e-12
+    assert cfg.weight_lag > 0.0
     assert abs(cfg.contour_deadzone) < 1e-12
+
+
+def test_zero_lag_weight_is_rejected() -> None:
+    """weight_lag = 0 decouples the virtual progress → invalid MPCC."""
+    cfg = _cfg(weight_lag=0.0)
+    with pytest.raises(ValueError):
+        DubinsPathFollowingMPC(vehicle_limits=_limits(), config=cfg)
 
 
 def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
@@ -320,12 +329,12 @@ def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
     assert progress_values[-1] >= progress_values[0] - 1e-3
 
 
-def test_mpc_progress_first_accepts_lateral_slip_to_advance() -> None:
-    """Lag + deadzone prefer advancing s over hugging a sharp kink.
+def test_mpc_progress_advances_through_sharp_corner() -> None:
+    """The MPCC keeps s advancing through a corner infeasible at cruise.
 
-    On a right-angle path with limited turn rate, progress-first weights
-    should keep arc-length increasing even while |e_lat| stays inside /
-    near the free band — the opposite of stiff contouring that stalls.
+    On a right-angle path with limited turn rate, the virtual-progress /
+    lag split must keep arc-length increasing (no stall or orbit) while
+    lateral error stays inside the road-scale free band.
     """
     path = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (4.0, 8.0)]
     cfg = _cfg(
@@ -369,8 +378,9 @@ def test_mpc_progress_first_accepts_lateral_slip_to_advance() -> None:
         vehicle.step(result.speed_cmd, result.turn_rate_cmd, dt)
 
     assert progresses[-1] > progresses[0] + 2.0
-    # Must have used some of the free band / allowed slip near the corner.
-    assert max_abs_lat > 0.15
+    # Corner negotiated by braking + tight tracking: slip stays inside the
+    # free band instead of exceeding it.
+    assert max_abs_lat < 2.0 * 0.8
 
 
 def test_mpc_lane_aware_corner_stays_inside_road_budget() -> None:
@@ -467,16 +477,16 @@ def test_mpc_city_horizon_solves_dense_astar_style_kinks() -> None:
 
     cfg = _cfg(
         cruise_speed=12.0,
-        weight_contour=8.0,
-        weight_heading=4.0,
-        weight_progress=4.0,
-        weight_lag=4.0,
-        contour_deadzone=2.5,
-        weight_control=0.5,
+        weight_contour=10.0,
+        weight_heading=1.0,
+        weight_progress=8.0,
+        weight_lag=6.0,
+        contour_deadzone=0.0,
+        weight_control=0.3,
         weight_obstacle=0.0,
         weight_terminal=8.0,
-        horizon_step_count=72,
-        dt=0.05,
+        horizon_step_count=50,
+        dt=0.1,
         max_solver_iter_count=80,
     )
     limits = _limits(
@@ -501,7 +511,8 @@ def test_mpc_city_horizon_solves_dense_astar_style_kinks() -> None:
     # Match race start: vehicle begins at rest.
     vehicle._speed = 0.0
 
-    dt = 0.1
+    # Control period equals the model dt (the corrected city wiring).
+    dt = cfg.dt
     success_count = 0
     for _ in range(25):
         result = mpc.step(
@@ -517,4 +528,3 @@ def test_mpc_city_horizon_solves_dense_astar_style_kinks() -> None:
     assert success_count >= 20
     assert vehicle.speed > 1.0
     assert math.hypot(vehicle.x - path[0][0], vehicle.y - path[0][1]) > 2.0
-

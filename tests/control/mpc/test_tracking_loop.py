@@ -107,14 +107,16 @@ def test_build_vehicle_mpc_sim_preserves_progress_first_weights() -> None:
         max_acceleration=2.5,
         max_turn_rate_dot=math.radians(90.0),
     )
-    mpc_cfg = PathFollowingMPCConfig.create_from_config().with_weight_overrides(
-        contour=8.0,
-        heading=4.0,
-        progress=4.0,
-        lag=4.0,
-        control=0.5,
-        obstacle=120.0,
-        contour_deadzone=0.0,
+    mpc_cfg = (
+        PathFollowingMPCConfig.create_from_config().with_weight_overrides(
+            contour=8.0,
+            heading=4.0,
+            progress=4.0,
+            lag=4.0,
+            control=0.5,
+            obstacle=120.0,
+            contour_deadzone=0.0,
+        )
     )
     _vehicle, loop = build_vehicle_mpc_sim(path, cfg, mpc_cfg)
     live = loop.tracker.config
