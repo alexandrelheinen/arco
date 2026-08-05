@@ -33,10 +33,13 @@ from arco.simulator.sim.tracking import (
 
 
 def test_city_race_vehicle_is_visible_rectangle() -> None:
-    # Prior city glyph was 3.0 × 1.4 m; keep a clearly larger rectangle, not
-    # a disc-based racer glyph.
-    assert VEH_HALF_L == 8.0
-    assert VEH_HALF_W == 3.6
+    # Visible car glyph (12 × 5.4 m), but small enough that the sprite's
+    # nose cannot sweep over inner-corner buildings on routes that pass
+    # ~7.7 m from them: tip reach (half-length) must stay well below the
+    # minimum legitimate center clearance.
+    assert VEH_HALF_L == 6.0
+    assert VEH_HALF_W == 2.7
+    assert VEH_HALF_L <= 7.0
     # Lookahead disc is only a small PP carrot, never the vehicle body.
     assert LOOKAHEAD_DISC_R <= 2.0
     assert LOOKAHEAD_DISC_R < min(VEH_HALF_L, VEH_HALF_W)

@@ -34,6 +34,7 @@ from typing import Any
 
 import numpy as np
 import yaml
+from scipy.spatial import cKDTree
 
 from arco.simulator.scenes.sparse import CityScene
 from arco.simulator.sim.city_race_style import (
@@ -61,30 +62,43 @@ def _footprint_overlap(
     x: float,
     y: float,
     heading: float,
-    obstacle_xy: np.ndarray,
+    kdtree: cKDTree,
+    points: np.ndarray,
 ) -> bool:
-    """Whether an obstacle point lies inside the rendered car rectangle.
+    """Whether any building point lies inside the rendered car rectangle.
+
+    Tests **every** point within the footprint circumradius, not just the
+    Euclidean-nearest one — the nearest point can sit off the car's side
+    while a slightly farther point overlaps the long nose.
 
     Args:
         x: Vehicle center x (m).
         y: Vehicle center y (m).
         heading: Vehicle heading (rad).
-        obstacle_xy: Nearest obstacle point ``[x, y]``.
+        kdtree: KD-tree over the building point cloud.
+        points: Building points array of shape ``(N, 2)``.
 
     Returns:
-        ``True`` when the point falls inside the oriented glyph footprint
+        ``True`` when a point falls inside the oriented glyph footprint
         (plus :data:`_FOOTPRINT_MARGIN_M`), i.e. a visual collision.
     """
-    dx = float(obstacle_xy[0]) - x
-    dy = float(obstacle_xy[1]) - y
+    radius = math.hypot(VEH_HALF_L, VEH_HALF_W) + _FOOTPRINT_MARGIN_M + 1e-6
+    idx = kdtree.query_ball_point([x, y], r=radius)
+    if not idx:
+        return False
     cos_h = math.cos(heading)
     sin_h = math.sin(heading)
-    lx = dx * cos_h + dy * sin_h
-    ly = -dx * sin_h + dy * cos_h
-    return (
-        abs(lx) <= VEH_HALF_L + _FOOTPRINT_MARGIN_M
-        and abs(ly) <= VEH_HALF_W + _FOOTPRINT_MARGIN_M
-    )
+    for i in idx:
+        dx = float(points[i][0]) - x
+        dy = float(points[i][1]) - y
+        lx = dx * cos_h + dy * sin_h
+        ly = -dx * sin_h + dy * cos_h
+        if (
+            abs(lx) <= VEH_HALF_L + _FOOTPRINT_MARGIN_M
+            and abs(ly) <= VEH_HALF_W + _FOOTPRINT_MARGIN_M
+        ):
+            return True
+    return False
 
 
 @dataclass
@@ -142,6 +156,8 @@ def _run_racer(
         return report
     cfg = scene.vehicle_config
     occ = scene._occ
+    obstacle_points = np.asarray(occ.points, dtype=float)
+    obstacle_tree = cKDTree(obstacle_points)
     if tracker_mode == "mpc":
         mpc_cfg = path_following_mpc_config_from_simulator(
             scene._sim_cfg,
@@ -165,11 +181,17 @@ def _run_racer(
         report.max_abs_lat = max(report.max_abs_lat, lat)
         if metrics.get("mpc_solver_success") is False:
             report.solver_failures += 1
-        dist, nearest = occ.nearest_obstacle(
+        dist, _nearest = occ.nearest_obstacle(
             np.array([vehicle.x, vehicle.y], dtype=float)
         )
         report.min_clearance = min(report.min_clearance, float(dist))
-        if _footprint_overlap(vehicle.x, vehicle.y, vehicle.heading, nearest):
+        if _footprint_overlap(
+            vehicle.x,
+            vehicle.y,
+            vehicle.heading,
+            obstacle_tree,
+            obstacle_points,
+        ):
             report.collision_count += 1
         if math.hypot(vehicle.x - gx, vehicle.y - gy) < cfg.goal_radius:
             report.finish_time = t

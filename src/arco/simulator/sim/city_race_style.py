@@ -13,11 +13,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from arco.simulator.sim.tracking import VehicleConfig
 
-# Vehicle body half-extents in world meters.
-# Prior city glyph was 3.0 × 1.4 m; ~2.5× keeps a clear rectangle on the map
-# without restoring the old oversized glow blobs.
-VEH_HALF_L: float = 8.0
-VEH_HALF_W: float = 3.6
+# Vehicle body half-extents in world meters (12 × 5.4 m car).
+# Large enough to read clearly in the ~200 m follow-cam window, small
+# enough that the sprite's nose no longer sweeps over inner-corner
+# building points on routes that legitimately pass ~7.7 m from them
+# (the prior 16 m-long glyph visually clipped corners the tracker
+# cleared).  Ratio 20:9 matches the 24 × 12 sprite pixel grid with the
+# rounded nose/tail trimmed.
+VEH_HALF_L: float = 6.0
+VEH_HALF_W: float = 2.7
 
 # Small Pure-Pursuit carrot disc only (meters).  Never used as the racer glyph.
 LOOKAHEAD_DISC_R: float = 1.5
