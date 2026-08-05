@@ -60,16 +60,19 @@ Global fallback: `config/mpc.yml` → `horizon`
 | `step_count` | — | Number of prediction steps \(N\) |
 | `dt` | s | Model step \(\Delta t\).  Horizon duration = \(N \cdot \Delta t\) |
 
-**City today:** \(72 \times 0.05\,\mathrm{s} = 3.6\,\mathrm{s}\) (~half a block at
-soft cruise).
+**City today:** \(50 \times 0.1\,\mathrm{s} = 5.0\,\mathrm{s}\) — longer than the
+4.8 s full-stop braking time from cruise (12 m/s at 2.5 m/s²).
 
 | Raise horizon | Lower horizon |
 |---------------|---------------|
 | Earlier braking / corner open; sees obstacles farther ahead | Faster IPOPT; less anticipation; late reactions at kinks |
 | Larger NLP → slower / more fragile solves | May cut corners the long horizon would have planned around |
 
-Tune **duration** (\(N\cdot\Delta t\)) first; keep \(\Delta t\) near the
-control period unless you have a reason to change discretization.
+**\(\Delta t\) must equal the control period** (the simulator timestep,
+0.1 s).  The first predicted state is the command target: with a model
+\(\Delta t\) shorter than the control period the plant travels further
+per tick than planned — the historical structural source of the city
+race zigzag.  Tune the duration via `step_count` only.
 
 ---
 
@@ -82,15 +85,14 @@ Globals: `config/mpc.yml` → `weights` (city overrides only listed keys)
 
 | YAML key | Config field | Role |
 |----------|--------------|------|
-| `contour` | `weight_contour` | Quadratic penalty on **excess** lateral error outside the deadzone |
+| `contour` | `weight_contour` | Quadratic penalty on lateral (contouring) error |
 | `contour_deadzone` | `contour_deadzone` | Free band \(\lvert e_{\mathrm{lat}}\rvert \le d_{\mathrm{dz}}\) (m); cost is zero inside. **City keeps this at 0** — flats zero the lateral gradient and invite equal-cost left/right chatter |
-| `heading` | `weight_heading` | Heading error vs path tangent |
-| `progress` | `weight_progress` | Track `v_ref` (cruise capped by curve speed) |
-| `lag` | `weight_lag` | Penalty for falling behind virtual progress \(s_0 + v_{\mathrm{cruise}} t\) |
+| `heading` | `weight_heading` | Heading alignment vs path tangent (keep **small**; tracking emerges from contour + lag) |
+| `progress` | `weight_progress` | **Linear** progress reward per meter of arc-length advancement (the virtual speed is hard-capped by the curve-limited cruise) |
+| `lag` | `weight_lag` | Lag error — **structural**: couples the virtual progress \(s\) to the vehicle.  Must be \(> 0\) (rejected otherwise) |
 | `control` | `weight_control` | Effort on \((a, \dot\omega)\) — smoothness vs agility |
 | `obstacle` | `weight_obstacle` | Soft directional obstacle barrier |
 | `terminal` | `weight_terminal` | Terminal contour / heading (usually from `mpc.yml`) |
-| `slack` | `weight_slack` | Soft-constraint slack (usually from `mpc.yml`) |
 
 Barrier shape (not a YAML weight, but couples to `obstacle`):
 
@@ -102,22 +104,24 @@ Barrier shape (not a YAML weight, but couples to `obstacle`):
 
 - **`control` high + `ω̇` low** → car cannot turn into planner kinks →
   understeer, then overshoot when contour finally wins → weave / wall hits.
-- **`contour` high + `contour_deadzone` tiny** → hunts the polyline; on
-  jagged A\* paths this looks like zigzag.
 - **`contour_deadzone` > 0** → flat zero-cost band; two commands with the
-  same lateral cost can alternate (wobble / chatter). Prefer `0` and let
-  lag/progress trade against contour for kink widening.
+  same lateral cost can alternate (wobble / chatter). Prefer `0`.
 - **`heading` high** on discontinuous planner yaw → left/right chasing.
-- **`lag` / `progress` high** → prefers advancing \(s\) and holding
-  `v_ref`; helps progress-first widening, but can pull through a soft
-  barrier if the reference itself cuts a corner.
+  Keep it a light alignment term (~1/10 of `contour`).
+- **`lag` low relative to `progress`** → the virtual point runs ahead of
+  the vehicle and drags it through corner cuts.  Keep `lag` comfortably
+  above zero; it is what glues \(s\) to the car.
+- **`progress` high** → advancement outbids tracking costs at kinks —
+  good for escaping parked equilibria, but past ~`contour`-scale values
+  the car starts trading lateral error for speed.
 - **`obstacle` high** strengthens soft barriers only; it is **not** a hard
   road tube.  Sparse point-cloud samples can still miss a face or fight
   contouring.
 
-City values are scenario YAML (`contour_deadzone: 0`, non-zero `lag`);
-global `mpc.yml` stays classic stiff (`contour_deadzone: 0`, `lag: 0`)
-for non-city demos.
+City values are scenario YAML (`map/city.yml`); global `mpc.yml` keeps
+smaller-scale defaults for the tools demos.  Both use `lag > 0` — a zero
+lag weight decouples the virtual progress and is rejected at
+construction.
 
 ---
 
@@ -156,7 +160,7 @@ inside the MPC — not the planner.
 | `_CURVATURE_DS_CAP_M` | m | Max arc length used to spread a heading turn into \(\kappa\) |
 | `_CURVATURE_DS_FLOOR_M` | m | Min spread for non-trivial turns (avoids Dirac \(\kappa\) on ~1 m A\* stubs → IPOPT failure / stuck \(v=0\)) |
 | `_CURVATURE_ABS_MAX` | 1/m | Hard cap on \(\lvert\kappa\rvert\) after preview |
-| `_CURVATURE_PREVIEW_DS_M` | m | Backward visibility of an upcoming corner \(\kappa\) so braking starts before the kink |
+| `_CURVATURE_PREVIEW_DS_M` | m | Backward visibility of an upcoming corner \(\kappa\) just before the vertex.  Kept **short** (12 m): the MPCC horizon plans braking itself, and a long preview drags cruise down between corners |
 
 These are code constants (not scenario YAML).  Changing them retunes
 braking aggressiveness and NLP solvability for dense polylines.
@@ -240,33 +244,37 @@ Change **one family at a time**; keep the other racers on the same pipeline.
 
 ---
 
-## City defaults vs aggressive stiffen (do not re-apply)
+## City defaults vs the retired formulations (do not re-apply)
 
-**Current city defaults** (progress-first, zero deadzone) are shared by
-blue / green / purple.  The right-hand column is the v0.3.5 over-stiff
-retune — kept only as an anti-pattern.
+**Current city defaults** (MPCC: linear progress reward, structural lag,
+zero deadzone) are shared by blue / green / purple.  The right column is
+the pre-v0.4 coupled-progress NMPC — kept only as an anti-pattern.
 
-| Knob | Current (progress-first) | Aggressive stiffen (avoid) |
-|------|--------------------------|----------------------------|
-| `contour` | 8 | 18 |
-| `heading` | 4 | 6 |
-| `control` | 0.5 | 4 |
-| `progress` | 4 | 3 |
-| `lag` | 4 | 2 |
-| `obstacle` | 120 | 280 |
-| `contour_deadzone` | **0 m** | 1.2 m (still a flat band) |
-| `CITY_MAX_TURN_RATE_DOT_DEG` | 90 | 55 |
-| Obstacle NLP samples | pose + path preview (5) | + forward/flank probes (9) |
-| Horizon | 72 × 0.05 s | same |
+| Knob | Current (MPCC) | Retired coupled-progress (avoid) |
+|------|----------------|----------------------------------|
+| `contour` | 10 | 8 |
+| `heading` | 1 | 4 |
+| `control` | 0.3 | 0.5 |
+| `progress` | 8 (linear reward / m) | 4 (quadratic `v_ref` matching) |
+| `lag` | 6 (lag error, structural) | 4 (behind-schedule penalty) |
+| `obstacle` | 120 | 120 |
+| `contour_deadzone` | **0 m** | 0 m |
+| Horizon | 50 × **0.1 s** (= control period) | 72 × 0.05 s (model ≠ plant step) |
 
-Raising `control` / obstacle / contour together while cutting \(\dot\omega\)
-often yields **solver “convergence” with poor tracking**: understeer into
-corners, then lateral hunting, then soft-barrier penetration.  A non-zero
-deadzone adds equal-cost chatter inside the flat band.  Nudge **one** knob
-at a time from the current column.
+Known failure modes of the retired column, all reproduced and fixed:
 
-Keep the **κ floor / preview** (`ReferencePath`): that fix is about NLP
-solvability on dense A\* stubs, not about stiffness.
+- **Model dt ≠ control period** → structural zigzag (the plant travels
+  2× the plan's first step every tick).
+- **`ṡ = v·max(cos e_ψ, 0)` coupled progress** → junction orbits and
+  circling; required projection blending / no-rewind hacks.
+- **Quadratic `(v_s − v_ref)²` progress** → parked local minimum at sharp
+  kinks (`v_ref` is tiny there, so stopping is nearly free).
+- **Piecewise-linear reference interpolants** → IPOPT
+  `Maximum_Iterations_Exceeded` exactly at kinks.
+
+Run `python tools/city_tracking_report.py` after any retune: it replays
+the full closed-loop race headlessly and gates on finish times and
+footprint collisions.
 
 ---
 
