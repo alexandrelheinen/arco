@@ -331,6 +331,78 @@ def _coerce_astar_cell_size(
     return float(step_size) / 5.0
 
 
+def _min_polyline_clearance(
+    points: list[Any],
+    occ: Any,
+    *,
+    sample_spacing: float = 2.0,
+) -> float:
+    """Minimum obstacle clearance along a polyline, sampled densely.
+
+    Args:
+        points: Ordered waypoints supporting ``[0]`` / ``[1]`` access.
+        occ: Occupancy exposing ``nearest_obstacle(point)``.
+        sample_spacing: Arc-length sampling step in meters.
+
+    Returns:
+        Minimum distance to the obstacle cloud (``inf`` for < 2 points).
+    """
+    if len(points) < 2:
+        return float("inf")
+    min_dist = float("inf")
+    for i in range(len(points) - 1):
+        p0 = np.asarray(points[i][:2], dtype=float)
+        p1 = np.asarray(points[i + 1][:2], dtype=float)
+        seg_len = float(np.linalg.norm(p1 - p0))
+        n_samples = max(1, int(seg_len / sample_spacing))
+        for k in range(n_samples + 1):
+            pt = p0 + (p1 - p0) * (k / max(n_samples, 1))
+            dist, _ = occ.nearest_obstacle(pt)
+            min_dist = min(min_dist, float(dist))
+    return min_dist
+
+
+def _smooth_reference(
+    traj: list[Any],
+    occ: Any,
+    *,
+    iterations: int = 2,
+    clearance_keep_ratio: float = 0.9,
+) -> list[Any]:
+    """Smooth a racer reference, reverting if clearance degrades.
+
+    Sampling planners (RRT*, SST) and grid staircases (A*) leave a
+    high-frequency lateral wiggle in the optimized trajectory.  Tracking
+    that wiggle forces the MPCC's curve-limited progress cap down along
+    the whole route, which reads as a crawling car.  A short moving
+    average removes the wiggle; the clearance guard rejects the smoothed
+    version whenever it cuts a real corner meaningfully closer to the
+    buildings than the original.
+
+    Args:
+        traj: Optimized trajectory waypoints.
+        occ: Occupancy for the clearance guard.
+        iterations: Moving-average passes.
+        clearance_keep_ratio: Minimum acceptable ratio of smoothed to
+            original minimum clearance.
+
+    Returns:
+        Smoothed waypoints (``(x, y)`` tuples), or the original list
+        when smoothing would reduce minimum clearance below the guard.
+    """
+    from arco.guidance.interpolation import MovingAverageInterpolator
+
+    if len(traj) < 3:
+        return traj
+    smoother = MovingAverageInterpolator(iterations=iterations)
+    smoothed = smoother.interpolate(traj)
+    original_clearance = _min_polyline_clearance(traj, occ)
+    smoothed_clearance = _min_polyline_clearance(smoothed, occ)
+    if smoothed_clearance < clearance_keep_ratio * original_clearance:
+        return traj
+    return smoothed
+
+
 def _c(t: tuple[int, int, int]) -> tuple[float, float, float]:
     return (t[0] / 255.0, t[1] / 255.0, t[2] / 255.0)
 
@@ -687,6 +759,7 @@ class CityScene(RaceScene):
             pr = pipeline.run_from_path(path)
             pruned = pr.pruned_path if pr.pruned_path is not None else path
             traj = pr.trajectory if pr.trajectory else list(pruned)
+            traj = _smooth_reference(traj, self._occ)
             setattr(self, path_attr, pruned)
             setattr(self, traj_attr, traj)
             getattr(self, metrics_attr).update(
