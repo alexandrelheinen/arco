@@ -7,6 +7,7 @@ from . import (
     middleware,
     pipeline,
     planning,
+    protocols,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "middleware",
     "pipeline",
     "planning",
+    "protocols",
 ]
