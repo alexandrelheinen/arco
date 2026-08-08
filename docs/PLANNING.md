@@ -22,20 +22,35 @@ The planning layer in ARCO provides algorithms for finding feasible paths throug
 ```
 src/arco/planning/
 ├── __init__.py
+├── cost.py              ← PlannerCost (default distance + heuristic)
 ├── discrete/
 │   ├── __init__.py
-│   ├── base.py          ← DiscretePlanner abstract base
+│   ├── base.py          ← DiscretePlanner (inherits PlannerCost)
 │   ├── astar.py         ← A* planner implementation
 │   ├── dstar.py         ← D* Lite stub
 │   ├── route.py         ← Route planning (A* for road networks)
 │   └── api.py           ← Public API wrappers (AStar, DStarLite)
 └── continuous/
     ├── __init__.py
-    ├── base.py          ← ContinuousPlanner abstract base
+    ├── base.py          ← ContinuousPlanner (inherits PlannerCost)
     ├── rrt.py           ← RRT* planner implementation
     ├── sst.py           ← SST planner implementation
     └── optimizer.py     ← TrajectoryOptimizer (two-stage refinement)
 ```
+
+## Cost Functions
+
+A*, RRT*, and SST share :class:`~arco.planning.cost.PlannerCost` through
+their discrete/continuous bases.  Override `distance` and/or `heuristic`
+on a planner subclass to customize costs without rewriting search loops.
+
+| Method | Default (`PlannerCost`) | Discrete override | Continuous override |
+|---|---|---|---|
+| `distance(a, b)` | Euclidean | `graph.distance` | step-size-normalized Euclidean |
+| `heuristic(a, b)` | same as `distance` | `graph.heuristic` or `distance` | same as continuous `distance` |
+
+A* also accepts an optional `heuristic=` callable in its constructor.
+The trajectory optimizer keeps its own composite cost (weights only).
 
 ## References
 - See [README.md](../README.md) for global references.

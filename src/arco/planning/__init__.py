@@ -8,6 +8,7 @@ from .continuous import (
     TrajectoryPruner,
     TrajectoryResult,
 )
+from .cost import PlannerCost
 from .discrete import (
     AStar,
     AStarPlanner,
@@ -27,6 +28,7 @@ __all__ = [
     "DStarPlanner",
     "DiscretePlanner",
     "PipelineResult",
+    "PlannerCost",
     "PlanningPipeline",
     "RRTPlanner",
     "RouteResult",

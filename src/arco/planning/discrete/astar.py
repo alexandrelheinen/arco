@@ -26,14 +26,16 @@ class AStarPlanner(DiscretePlanner):
     insertion counter (FIFO among equal h). This avoids lexicographic
     comparison of node tuples and reduces zig-zagging in symmetric grids.
 
-    Default heuristic: ``graph.heuristic`` if the graph exposes it,
-    otherwise ``graph.distance``.  Grid subclasses expose a Euclidean
-    ``heuristic`` which is admissible on both Manhattan and Euclidean
-    grids and guides A* toward diagonal/staircase paths instead of the
-    L-shape that arises when all f-scores are tied.
-    """
+    Cost functions come from :class:`~arco.planning.cost.PlannerCost` via
+    :class:`~arco.planning.discrete.base.DiscretePlanner`:
 
-    heuristic: Callable[[Any, Any], float]
+    - :meth:`distance` delegates to ``graph.distance`` (edge cost ``g``).
+    - :meth:`heuristic` uses an optional constructor override, else
+      ``graph.heuristic`` when available, else :meth:`distance`.
+
+    Override those methods in a subclass to customize costs without
+    rewriting the search loop.
+    """
 
     def __init__(
         self,
@@ -47,19 +49,34 @@ class AStarPlanner(DiscretePlanner):
                 and ``distance`` methods. Optionally exposes ``heuristic``
                 and ``is_occupied``.
             heuristic: Optional heuristic callable ``(node, goal) -> float``.
-                Defaults to ``graph.heuristic`` if available, else
+                When set, it overrides :meth:`heuristic`.  Otherwise the
+                discrete base uses ``graph.heuristic`` if available, else
                 ``graph.distance``.
         """
         super().__init__(graph)
+        self._heuristic_override = heuristic
         if heuristic is not None:
-            self.heuristic = heuristic
-            logger.debug("Setting custom heuristic")
+            logger.debug("Setting custom heuristic override")
         elif hasattr(graph, "heuristic"):
-            self.heuristic = graph.heuristic
             logger.debug("Using graph-provided heuristic")
         else:
-            self.heuristic = graph.distance
             logger.debug("Using graph distance as heuristic")
+
+    def heuristic(self, state_a: Any, state_b: Any) -> float:
+        """Return the remaining-cost estimate from *state_a* to *state_b*.
+
+        Args:
+            state_a: Current node.
+            state_b: Goal node.
+
+        Returns:
+            Heuristic cost.  Uses the constructor override when provided;
+            otherwise delegates to
+            :meth:`DiscretePlanner.heuristic`.
+        """
+        if self._heuristic_override is not None:
+            return float(self._heuristic_override(state_a, state_b))
+        return super().heuristic(state_a, state_b)
 
     def plan(self, start: Any, goal: Any) -> Optional[List[Any]]:
         """Plan a path from start to goal using A*.
@@ -143,7 +160,7 @@ class AStarPlanner(DiscretePlanner):
                     self.graph, "is_occupied"
                 ) and self.graph.is_occupied(neighbor):
                     continue
-                tentative_g = g_score[current] + self.graph.distance(
+                tentative_g = g_score[current] + self.distance(
                     current, neighbor
                 )
                 direction_change_penalty = self._turn_penalty(
