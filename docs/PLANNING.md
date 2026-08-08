@@ -52,8 +52,45 @@ on a planner subclass to customize costs without rewriting search loops.
 A* also accepts an optional `heuristic=` callable in its constructor.
 The trajectory optimizer keeps its own composite cost (weights only).
 
+## Extension Points
+
+Structural contracts live in `arco.protocols`.  Library defaults always
+preserve historical behavior; optional overrides are opt-in.
+
+| Hook | Where | Default | Override |
+|---|---|---|---|
+| `distance` / `heuristic` | `PlannerCost` (A*/RRT*/SST) | Euclidean / graph / step-normalized | Subclass or inject `cost=` |
+| `heuristic=` callable | `AStarPlanner` ctor | `graph.heuristic` or `distance` | Pass callable |
+| `sampler=` / `steerer=` / `segment_free=` | `RRTPlanner`, `SSTPlanner` | Uniform AABB, straight-line step, point occupancy samples | Callables / protocols |
+| `cost=` | Continuous planners | Planner's own `PlannerCost` methods | `PlannerCost` instance |
+| `planner=` | `RouteRouter` | Internal `AStarPlanner` | Any discrete planner with `plan` |
+| `simplify_path` / `prefer_straight` | `AStarPlanner` | `True` / `True` | Disable via ctor flags |
+| `publisher=` / `seed=` | Continuous planners | File telemetry / unseeded RNG | Custom sink / seed |
+| `steer=` | `TrajectoryPruner.prune` | Occupancy segment check | Feasibility callable |
+| `feasibility=` / `inverse_kinematics=` | `TrajectoryOptimizer.optimize` | None (geometry-only) | Callables |
+| `cost_terms=` | `TrajectoryOptimizer` | Five default weighted terms | Replace/append terms |
+
+### Guidance primitives and RRT-family planners
+
+`:class:`~arco.guidance.primitive.base.ExplorationPrimitive`` (and
+`DubinsPrimitive`) define a steerer ABC intended for kinodynamic RRT/SST.
+They are **not** auto-wired into `RRTPlanner` / `SSTPlanner`.  Default
+steering remains geometric straight-line extension.
+
+To use a primitive, wrap it as a `steerer=` callable::
+
+    primitive = DubinsPrimitive(...)
+    planner = RRTPlanner(
+        occ,
+        bounds=bounds,
+        steerer=lambda a, b: primitive.steer(a, b)[-1],
+    )
+
+Until a steerer is injected, treating RRT/SST as kinodynamic is incorrect.
+
 ## References
 - See [README.md](../README.md) for global references.
+- See `arco.protocols` for structural typing contracts.
 
 ---
 
