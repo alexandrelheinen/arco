@@ -31,6 +31,7 @@ RRT* extends the basic RRT algorithm with two key improvements:
 - [x] Early stopping option for first-solution mode
 - [x] Configurable step size and sample limits
 - [x] Tree export for visualization via `get_tree(start, goal)` → `(nodes, parent, path)`
+- [x] Overridable `distance` / `heuristic` via `PlannerCost` (step-size-normalized Euclidean by default)
 
 ### Configuration Parameters
 

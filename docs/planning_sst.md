@@ -33,6 +33,7 @@ SST addresses the challenge of kinodynamic planning (planning with dynamics cons
 - [x] Early stopping option
 - [x] Configurable witness radius and step size
 - [x] Tree export for visualization via `get_tree(start, goal)` → `(active_nodes, active_parent, path)`
+- [x] Overridable `distance` / `heuristic` via `PlannerCost` (step-size-normalized Euclidean by default)
 
 ### Configuration Parameters
 

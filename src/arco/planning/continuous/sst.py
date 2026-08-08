@@ -257,9 +257,7 @@ class SSTPlanner(ContinuousPlanner):
             if not self._segment_free(x_selected, x_new):
                 continue
 
-            new_cost = cost[x_selected_idx] + float(
-                np.linalg.norm((x_new - x_selected) / self.step_size)
-            )
+            new_cost = cost[x_selected_idx] + self.distance(x_selected, x_new)
 
             # --- Witness update ------------------------------------------
             w_idx = self._nearest_witness(witnesses, x_new)
@@ -289,9 +287,7 @@ class SSTPlanner(ContinuousPlanner):
             witness_rep[w_idx] = new_idx
 
             # --- Goal check ----------------------------------------------
-            dist_to_goal = float(
-                np.linalg.norm((x_new - goal) / self.step_size)
-            )
+            dist_to_goal = self.distance(x_new, goal)
             if dist_to_goal < _best_dist_to_goal:
                 _best_dist_to_goal = dist_to_goal
             if (
@@ -401,9 +397,7 @@ class SSTPlanner(ContinuousPlanner):
             return None
         return min(
             active,
-            key=lambda i: float(
-                np.linalg.norm((nodes[i] - x_rand) / self.step_size)
-            ),
+            key=lambda i: self.distance(nodes[i], x_rand),
         )
 
     def _steer(self, from_pt: np.ndarray, to_pt: np.ndarray) -> np.ndarray:
@@ -418,7 +412,7 @@ class SSTPlanner(ContinuousPlanner):
             in normalized space.
         """
         delta = to_pt - from_pt
-        dist = float(np.linalg.norm(delta / self.step_size))
+        dist = self.distance(from_pt, to_pt)
         if dist <= 1.0:
             return to_pt.copy()
         return from_pt + delta / dist
@@ -441,7 +435,7 @@ class SSTPlanner(ContinuousPlanner):
         best_idx: Optional[int] = None
         best_dist = math.inf
         for i, w in enumerate(witnesses):
-            d = float(np.linalg.norm((w - point) / self.step_size))
+            d = self.distance(w, point)
             if d < best_dist and d <= self.witness_radius:
                 best_dist = d
                 best_idx = i

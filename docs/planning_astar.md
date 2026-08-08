@@ -13,9 +13,13 @@ A* is a best-first, graph-based search algorithm that finds the shortest path fr
 - Returns optimal path if heuristic is admissible
 
 ## Implementation Features
-- Grid-based, configurable heuristic (default: Manhattan)
+- Grid-based, configurable heuristic (constructor callable or method override)
+- Edge cost via overridable :meth:`~arco.planning.cost.PlannerCost.distance`
+  (defaults to ``graph.distance``)
 - Returns path as a list of coordinates
 - Avoids obstacles (grid cells with value 1)
+- Inherits :class:`~arco.planning.cost.PlannerCost` through
+  :class:`~arco.planning.discrete.base.DiscretePlanner`
 
 ## Example Usage
 ```python

@@ -206,15 +206,11 @@ class RRTPlanner(ContinuousPlanner):
 
             # --- Choose best parent --------------------------------------
             best_parent_idx = nearest_idx
-            best_cost = cost[nearest_idx] + float(
-                np.linalg.norm((x_new - x_nearest) / self.step_size)
-            )
+            best_cost = cost[nearest_idx] + self.distance(x_nearest, x_new)
             for idx in near_idxs:
                 if idx == nearest_idx:
                     continue
-                c = cost[idx] + float(
-                    np.linalg.norm((x_new - nodes[idx]) / self.step_size)
-                )
+                c = cost[idx] + self.distance(nodes[idx], x_new)
                 if c < best_cost and self._segment_free(nodes[idx], x_new):
                     best_cost = c
                     best_parent_idx = idx
@@ -229,9 +225,7 @@ class RRTPlanner(ContinuousPlanner):
             for idx in near_idxs:
                 if idx == best_parent_idx:
                     continue
-                c_through_new = best_cost + float(
-                    np.linalg.norm((nodes[idx] - x_new) / self.step_size)
-                )
+                c_through_new = best_cost + self.distance(x_new, nodes[idx])
                 if c_through_new < cost[idx] and self._segment_free(
                     x_new, nodes[idx]
                 ):
@@ -239,9 +233,7 @@ class RRTPlanner(ContinuousPlanner):
                     cost[idx] = c_through_new
 
             # --- Goal check -----------------------------------------------
-            dist_to_goal = float(
-                np.linalg.norm((x_new - goal) / self.step_size)
-            )
+            dist_to_goal = self.distance(x_new, goal)
             if dist_to_goal < _best_dist_to_goal:
                 _best_dist_to_goal = dist_to_goal
             if (
@@ -364,15 +356,11 @@ class RRTPlanner(ContinuousPlanner):
             near_idxs = self._near(nodes, x_new, radius)
 
             best_parent_idx = nearest_idx
-            best_cost = cost[nearest_idx] + float(
-                np.linalg.norm((x_new - x_nearest) / self.step_size)
-            )
+            best_cost = cost[nearest_idx] + self.distance(x_nearest, x_new)
             for idx in near_idxs:
                 if idx == nearest_idx:
                     continue
-                c = cost[idx] + float(
-                    np.linalg.norm((x_new - nodes[idx]) / self.step_size)
-                )
+                c = cost[idx] + self.distance(nodes[idx], x_new)
                 if c < best_cost and self._segment_free(nodes[idx], x_new):
                     best_cost = c
                     best_parent_idx = idx
@@ -385,18 +373,14 @@ class RRTPlanner(ContinuousPlanner):
             for idx in near_idxs:
                 if idx == best_parent_idx:
                     continue
-                c_through_new = best_cost + float(
-                    np.linalg.norm((nodes[idx] - x_new) / self.step_size)
-                )
+                c_through_new = best_cost + self.distance(x_new, nodes[idx])
                 if c_through_new < cost[idx] and self._segment_free(
                     x_new, nodes[idx]
                 ):
                     parent[idx] = new_idx
                     cost[idx] = c_through_new
 
-            dist_to_goal = float(
-                np.linalg.norm((x_new - goal) / self.step_size)
-            )
+            dist_to_goal = self.distance(x_new, goal)
             if dist_to_goal < _best_dist_to_goal:
                 _best_dist_to_goal = dist_to_goal
             if (
@@ -448,9 +432,7 @@ class RRTPlanner(ContinuousPlanner):
         Returns:
             Index of the nearest node in *nodes*.
         """
-        dists = [
-            float(np.linalg.norm((n - point) / self.step_size)) for n in nodes
-        ]
+        dists = [self.distance(n, point) for n in nodes]
         return int(np.argmin(dists))
 
     def _steer(self, from_pt: np.ndarray, to_pt: np.ndarray) -> np.ndarray:
@@ -468,7 +450,7 @@ class RRTPlanner(ContinuousPlanner):
             in normalized space.
         """
         delta = to_pt - from_pt
-        dist = float(np.linalg.norm(delta / self.step_size))
+        dist = self.distance(from_pt, to_pt)
         if dist <= 1.0:
             return to_pt.copy()
         return from_pt + delta / dist
@@ -478,7 +460,7 @@ class RRTPlanner(ContinuousPlanner):
     ) -> List[int]:
         """Return indices of all nodes within *radius* of *point*.
 
-        Distance is measured in the space normalized by :attr:`step_size`.
+        Distance is measured via :meth:`distance` (step-size-normalized).
 
         Args:
             nodes: Current tree nodes.
@@ -489,9 +471,7 @@ class RRTPlanner(ContinuousPlanner):
             List of node indices within the radius.
         """
         return [
-            i
-            for i, n in enumerate(nodes)
-            if float(np.linalg.norm((n - point) / self.step_size)) <= radius
+            i for i, n in enumerate(nodes) if self.distance(n, point) <= radius
         ]
 
     def _rewire_radius(self, node_count: int) -> float:

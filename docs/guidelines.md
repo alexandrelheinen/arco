@@ -160,6 +160,9 @@ Tunable algorithm parameters belong in `.yml` files under `config/`. The YAML st
 - Planning algorithms accept a **map** object as their first argument.
   - Grid-based planners (`AStarPlanner`, `DStarPlanner`) require a `Grid` subclass.
   - Sampling-based planners (`RRTPlanner`, `SSTPlanner`) require an `Occupancy` subclass.
+- A*, RRT*, and SST inherit :class:`~arco.planning.cost.PlannerCost` (via
+  `DiscretePlanner` / `ContinuousPlanner`).  Override `distance` and/or
+  `heuristic` to customize path cost without rewriting the search loop.
 - The **guidance** layer is applied after planning; it handles interpolation (B-splines) and exploration primitives (Dubins, Reeds-Shepp) for RRT-family algorithms.
 - The `AStarPlanner` uses `graph.heuristic` (Euclidean distance) as the default heuristic, not `graph.distance` (Manhattan). This prevents L-shaped paths on symmetric Manhattan grids.
 

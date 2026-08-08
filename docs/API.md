@@ -22,7 +22,7 @@ from arco.mapping import (
     Occupancy, KDTreeOccupancy,
 )
 from arco.planning import (
-    AStar, AStarPlanner, DiscretePlanner,
+    AStar, AStarPlanner, DiscretePlanner, PlannerCost,
     RouteResult, RouteRouter,
     ContinuousPlanner, RRTPlanner, SSTPlanner,
     TrajectoryOptimizer, TrajectoryResult, TrajectoryPruner,
@@ -96,7 +96,8 @@ assert occ.is_occupied(np.array([5.1, 5.1]))
 
 | Symbol | Module | Role |
 |--------|--------|------|
-| `DiscretePlanner` | `planning/discrete/base.py` | ABC: `plan(start, goal)` |
+| `PlannerCost` | `planning/cost.py` | Shared default `distance` / `heuristic` (override to customize) |
+| `DiscretePlanner` | `planning/discrete/base.py` | Inherits `PlannerCost`; graph-backed costs |
 | `AStarPlanner` | `planning/discrete/astar.py` | A* on any graph/grid; `plan`, `plan_with_diagnostics`. Occupied start → `None`. |
 | `AStar` | `planning/discrete/api.py` | Numpy-grid wrapper; `search(start, goal)`. Raises `ValueError` for unknown `grid_type`. |
 | `RouteRouter` | `planning/discrete/route.py` | Project poses → A* on Cartesian/Road graphs |
@@ -120,7 +121,7 @@ path, expanded, parents = AStarPlanner(g).plan_with_diagnostics((0, 0), (19, 19)
 
 | Symbol | Module | Role |
 |--------|--------|------|
-| `ContinuousPlanner` | `planning/continuous/base.py` | ABC: `plan(start, goal)` |
+| `ContinuousPlanner` | `planning/continuous/base.py` | ABC + `PlannerCost`; step-normalized `distance` |
 | `RRTPlanner` | `planning/continuous/rrt.py` | RRT*; `plan`, `get_tree` |
 | `SSTPlanner` | `planning/continuous/sst.py` | SST; `plan`, `get_tree` |
 | `TrajectoryPruner` | `planning/continuous/pruner.py` | Minimum-hop shortcut pruner |
