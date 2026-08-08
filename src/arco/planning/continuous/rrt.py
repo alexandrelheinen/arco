@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -18,6 +18,10 @@ from .telemetry import (
     StopCriterion,
     write_telemetry,
 )
+
+SamplerFn = Callable[[np.random.Generator], np.ndarray]
+SteererFn = Callable[[np.ndarray, np.ndarray], np.ndarray]
+SegmentFreeFn = Callable[[np.ndarray, np.ndarray], bool]
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +79,9 @@ class RRTPlanner(ContinuousPlanner):
         collision_check_count: int = 10,
         goal_bias: float = 0.05,
         early_stop: bool = True,
+        sampler: Optional[SamplerFn] = None,
+        steerer: Optional[SteererFn] = None,
+        segment_free: Optional[SegmentFreeFn] = None,
     ) -> None:
         """Initialize RRTPlanner.
 
@@ -96,6 +103,14 @@ class RRTPlanner(ContinuousPlanner):
             goal_bias: Probability of sampling the goal directly.
             early_stop: If ``True``, stop at the first node that reaches the
                 goal.  If ``False``, run all iterations to optimize cost.
+            sampler: Optional ``(rng) -> state`` override.  Defaults to
+                uniform sampling in *bounds*.
+            steerer: Optional ``(from, to) -> state`` override.  Defaults to
+                step-size-limited straight-line steering.  Wrap an
+                :class:`~arco.guidance.primitive.base.ExplorationPrimitive`
+                here for kinodynamic expansion.
+            segment_free: Optional ``(a, b) -> bool`` collision override.
+                Defaults to linspace point checks via ``occupancy.is_occupied``.
 
         Raises:
             ValueError: If *bounds* is empty or any element of *step_size*
@@ -115,6 +130,9 @@ class RRTPlanner(ContinuousPlanner):
         self.goal_bias = goal_bias
         self.early_stop = early_stop
         self._dim = len(bounds)
+        self._sampler_override = sampler
+        self._steerer_override = steerer
+        self._segment_free_override = segment_free
 
     # ------------------------------------------------------------------
     # Public API
@@ -186,17 +204,17 @@ class RRTPlanner(ContinuousPlanner):
             if rng.random() < self.goal_bias:
                 x_rand = goal.copy()
             else:
-                x_rand = self._sample(rng)
+                x_rand = self.sample(rng)
 
             # --- Nearest --------------------------------------------------
             nearest_idx = self._nearest(nodes, x_rand)
             x_nearest = nodes[nearest_idx]
 
             # --- Steer ----------------------------------------------------
-            x_new = self._steer(x_nearest, x_rand)
+            x_new = self.steer(x_nearest, x_rand)
 
             # --- Collision check on edge ---------------------------------
-            if not self._segment_free(x_nearest, x_new):
+            if not self.is_segment_free(x_nearest, x_new):
                 continue
 
             # --- Near nodes -----------------------------------------------
@@ -211,7 +229,7 @@ class RRTPlanner(ContinuousPlanner):
                 if idx == nearest_idx:
                     continue
                 c = cost[idx] + self.distance(nodes[idx], x_new)
-                if c < best_cost and self._segment_free(nodes[idx], x_new):
+                if c < best_cost and self.is_segment_free(nodes[idx], x_new):
                     best_cost = c
                     best_parent_idx = idx
 
@@ -226,7 +244,7 @@ class RRTPlanner(ContinuousPlanner):
                 if idx == best_parent_idx:
                     continue
                 c_through_new = best_cost + self.distance(x_new, nodes[idx])
-                if c_through_new < cost[idx] and self._segment_free(
+                if c_through_new < cost[idx] and self.is_segment_free(
                     x_new, nodes[idx]
                 ):
                     parent[idx] = new_idx
@@ -260,7 +278,7 @@ class RRTPlanner(ContinuousPlanner):
         # node may be far enough from the goal that the connecting segment
         # crosses an obstacle — skipping this check is Bug 1 of the city
         # scenario.
-        if self._segment_free(nodes[best_goal_node], goal):
+        if self.is_segment_free(nodes[best_goal_node], goal):
             path.append(goal.copy())
         logger.debug(
             "RRT*: path extracted, %d waypoints, cost=%.3f",
@@ -342,13 +360,13 @@ class RRTPlanner(ContinuousPlanner):
             if rng.random() < self.goal_bias:
                 x_rand = goal.copy()
             else:
-                x_rand = self._sample(rng)
+                x_rand = self.sample(rng)
 
             nearest_idx = self._nearest(nodes, x_rand)
             x_nearest = nodes[nearest_idx]
-            x_new = self._steer(x_nearest, x_rand)
+            x_new = self.steer(x_nearest, x_rand)
 
-            if not self._segment_free(x_nearest, x_new):
+            if not self.is_segment_free(x_nearest, x_new):
                 continue
 
             node_count = len(nodes)
@@ -361,7 +379,7 @@ class RRTPlanner(ContinuousPlanner):
                 if idx == nearest_idx:
                     continue
                 c = cost[idx] + self.distance(nodes[idx], x_new)
-                if c < best_cost and self._segment_free(nodes[idx], x_new):
+                if c < best_cost and self.is_segment_free(nodes[idx], x_new):
                     best_cost = c
                     best_parent_idx = idx
 
@@ -374,7 +392,7 @@ class RRTPlanner(ContinuousPlanner):
                 if idx == best_parent_idx:
                     continue
                 c_through_new = best_cost + self.distance(x_new, nodes[idx])
-                if c_through_new < cost[idx] and self._segment_free(
+                if c_through_new < cost[idx] and self.is_segment_free(
                     x_new, nodes[idx]
                 ):
                     parent[idx] = new_idx
@@ -399,13 +417,54 @@ class RRTPlanner(ContinuousPlanner):
         # Only append the exact goal when the direct segment is free (same
         # fix as in plan() — large goal_tolerance allows the last tree node
         # to be far enough for the segment to cross an obstacle).
-        if self._segment_free(nodes[best_goal_node], goal):
+        if self.is_segment_free(nodes[best_goal_node], goal):
             path.append(goal.copy())
         return nodes, parent, path
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def sample(self, rng: np.random.Generator) -> np.ndarray:
+        """Sample a state, honoring an optional constructor override.
+
+        Args:
+            rng: NumPy random generator.
+
+        Returns:
+            A sampled state array.
+        """
+        if self._sampler_override is not None:
+            return self._sampler_override(rng)
+        return self._sample(rng)
+
+    def steer(self, from_pt: np.ndarray, to_pt: np.ndarray) -> np.ndarray:
+        """Steer toward a target, honoring an optional constructor override.
+
+        Args:
+            from_pt: Origin state.
+            to_pt: Target state.
+
+        Returns:
+            New state after one steering step.
+        """
+        if self._steerer_override is not None:
+            return self._steerer_override(from_pt, to_pt)
+        return self._steer(from_pt, to_pt)
+
+    def is_segment_free(self, a: np.ndarray, b: np.ndarray) -> bool:
+        """Check segment clearance, honoring an optional override.
+
+        Args:
+            a: Segment start.
+            b: Segment end.
+
+        Returns:
+            True if the segment is considered collision-free.
+        """
+        if self._segment_free_override is not None:
+            return bool(self._segment_free_override(a, b))
+        return self._segment_free(a, b)
 
     def _sample(self, rng: np.random.Generator) -> np.ndarray:
         """Sample a random point uniformly within :attr:`bounds`.
