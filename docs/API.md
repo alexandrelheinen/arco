@@ -159,13 +159,30 @@ non-positive `step_size`. Occupied start/goal yields `None` (no exception).
 | Symbol | Role |
 |--------|------|
 | `Interpolator` / `BSplineInterpolator` | Path smoothing (`interpolate`; B-spline is a stub) |
-| `ExplorationPrimitive` / `DubinsPrimitive` | Steering primitives |
+| `ExplorationPrimitive` / `DubinsPrimitive` | Steering primitives (**not** auto-wired into RRT/SST; inject via `steerer=`) |
 | `DubinsVehicle` | Car-like kinematic model |
 
 `arco.guidance` also re-exports `Controller`, `PIDController`,
 `PurePursuitController`, `TrackingLoop`, and deprecated `MPCController` from
 `arco.control` for convenience. Prefer importing controllers from
 `arco.control`.
+
+---
+
+## Protocols (`arco.protocols`)
+
+Structural typing contracts for extension points (no runtime enforcement
+beyond `isinstance` with `@runtime_checkable`).  See
+[PLANNING.md](PLANNING.md) § Extension Points.
+
+| Symbol | Role |
+|--------|------|
+| `DiscreteMap` | `neighbors` / `distance` for A* |
+| `OccupancyLike` | Continuous collision queries |
+| `PlannerLike` / `PrunerLike` / `OptimizerLike` | Pipeline stages |
+| `PathTracker` / `VehicleModel` | Tracking-loop injection |
+| `Sampler` / `Steerer` / `SegmentChecker` | Continuous planner policies |
+| `AvoidanceStrategy` / `TelemetryPublisher` / `CostTerm` | Avoidance, telemetry, optimizer terms |
 
 ---
 

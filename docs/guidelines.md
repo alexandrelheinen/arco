@@ -163,7 +163,13 @@ Tunable algorithm parameters belong in `.yml` files under `config/`. The YAML st
 - A*, RRT*, and SST inherit :class:`~arco.planning.cost.PlannerCost` (via
   `DiscretePlanner` / `ContinuousPlanner`).  Override `distance` and/or
   `heuristic` to customize path cost without rewriting the search loop.
-- The **guidance** layer is applied after planning; it handles interpolation (B-splines) and exploration primitives (Dubins, Reeds-Shepp) for RRT-family algorithms.
+- Optional policy hooks (`sampler=`, `steerer=`, `segment_free=`, `cost=`,
+  telemetry `publisher=`, optimizer `cost_terms=`, tracking avoidance)
+  always default to historical behavior.  See [PLANNING.md](PLANNING.md)
+  § Extension Points and `arco.protocols`.
+- The **guidance** layer provides interpolation and exploration primitives.
+  `ExplorationPrimitive` is **not** auto-wired into RRT/SST; inject it via
+  `steerer=` when kinodynamic expansion is required.
 - The `AStarPlanner` uses `graph.heuristic` (Euclidean distance) as the default heuristic, not `graph.distance` (Manhattan). This prevents L-shaped paths on symmetric Manhattan grids.
 
 

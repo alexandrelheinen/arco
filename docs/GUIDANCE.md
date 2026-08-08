@@ -97,6 +97,12 @@ Kinematic motion primitives for graph exploration and steering.
 
 All primitives inherit from the `ExplorationPrimitive` abstract base class (`primitive/base.py`).
 
+**Wiring status:** RRT* / SST do **not** call `ExplorationPrimitive` by
+default.  Default steering is geometric straight-line extension.  Pass a
+primitive-backed callable via `RRTPlanner(..., steerer=...)` /
+`SSTPlanner(..., steerer=...)` to enable kinodynamic expansion.  See
+[PLANNING.md](PLANNING.md) § Extension Points.
+
 ### Vehicle Models (`arco.guidance.vehicle`)
 
 Kinematic and dynamic models for different vehicle types.
