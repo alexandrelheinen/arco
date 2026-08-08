@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -17,6 +17,10 @@ from .telemetry import (
     StopCriterion,
     write_telemetry,
 )
+
+SamplerFn = Callable[[np.random.Generator], np.ndarray]
+SteererFn = Callable[[np.ndarray, np.ndarray], np.ndarray]
+SegmentFreeFn = Callable[[np.ndarray, np.ndarray], bool]
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +75,9 @@ class SSTPlanner(ContinuousPlanner):
         collision_check_count: int = 10,
         goal_bias: float = 0.05,
         early_stop: bool = True,
+        sampler: Optional[SamplerFn] = None,
+        steerer: Optional[SteererFn] = None,
+        segment_free: Optional[SegmentFreeFn] = None,
     ) -> None:
         """Initialize SSTPlanner.
 
@@ -89,6 +96,12 @@ class SSTPlanner(ContinuousPlanner):
             goal_bias: Probability of sampling the goal directly.
             early_stop: If ``True``, stop at the first node that reaches the
                 goal.  If ``False``, run all iterations to optimize cost.
+            sampler: Optional ``(rng) -> state`` override.  Defaults to
+                uniform sampling in *bounds*.
+            steerer: Optional ``(from, to) -> state`` override.  Defaults to
+                step-size-limited straight-line steering.
+            segment_free: Optional ``(a, b) -> bool`` collision override.
+                Defaults to linspace point checks via ``occupancy.is_occupied``.
 
         Raises:
             ValueError: If *bounds* is empty or any element of *step_size*
@@ -107,6 +120,9 @@ class SSTPlanner(ContinuousPlanner):
         self.collision_check_count = collision_check_count
         self.goal_bias = goal_bias
         self.early_stop = early_stop
+        self._sampler_override = sampler
+        self._steerer_override = steerer
+        self._segment_free_override = segment_free
 
     # ------------------------------------------------------------------
     # Public API
@@ -240,7 +256,7 @@ class SSTPlanner(ContinuousPlanner):
             if rng.random() < self.goal_bias:
                 x_rand = goal.copy()
             else:
-                x_rand = self._sample(rng)
+                x_rand = self.sample(rng)
 
             # --- Select nearest active node to sample --------------------
             # Geometric SST uses nearest-neighbor selection, which allows
@@ -251,10 +267,10 @@ class SSTPlanner(ContinuousPlanner):
             x_selected = nodes[x_selected_idx]
 
             # --- Propagate -----------------------------------------------
-            x_new = self._steer(x_selected, x_rand)
+            x_new = self.steer(x_selected, x_rand)
 
             # --- Collision check -----------------------------------------
-            if not self._segment_free(x_selected, x_new):
+            if not self.is_segment_free(x_selected, x_new):
                 continue
 
             new_cost = cost[x_selected_idx] + self.distance(x_selected, x_new)
@@ -315,7 +331,7 @@ class SSTPlanner(ContinuousPlanner):
         # Only append the exact goal when the direct segment is free.
         # Large goal_tolerance values allow the last tree node to be far
         # enough from the goal that the connecting segment crosses an obstacle.
-        if self._segment_free(nodes[best_goal_node], goal):
+        if self.is_segment_free(nodes[best_goal_node], goal):
             path.append(goal.copy())
         active_nodes, active_parent = self._build_active_output(
             nodes, parent, active
@@ -359,6 +375,47 @@ class SSTPlanner(ContinuousPlanner):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def sample(self, rng: np.random.Generator) -> np.ndarray:
+        """Sample a state, honoring an optional constructor override.
+
+        Args:
+            rng: NumPy random generator.
+
+        Returns:
+            A sampled state array.
+        """
+        if self._sampler_override is not None:
+            return self._sampler_override(rng)
+        return self._sample(rng)
+
+    def steer(self, from_pt: np.ndarray, to_pt: np.ndarray) -> np.ndarray:
+        """Steer toward a target, honoring an optional constructor override.
+
+        Args:
+            from_pt: Origin state.
+            to_pt: Target state.
+
+        Returns:
+            New state after one steering step.
+        """
+        if self._steerer_override is not None:
+            return self._steerer_override(from_pt, to_pt)
+        return self._steer(from_pt, to_pt)
+
+    def is_segment_free(self, a: np.ndarray, b: np.ndarray) -> bool:
+        """Check segment clearance, honoring an optional override.
+
+        Args:
+            a: Segment start.
+            b: Segment end.
+
+        Returns:
+            True if the segment is considered collision-free.
+        """
+        if self._segment_free_override is not None:
+            return bool(self._segment_free_override(a, b))
+        return self._segment_free(a, b)
 
     def _sample(self, rng: np.random.Generator) -> np.ndarray:
         """Sample a random point uniformly within :attr:`bounds`.
