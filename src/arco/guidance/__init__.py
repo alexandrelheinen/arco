@@ -22,7 +22,11 @@ from arco.control import (
     TrackingLoop,
 )
 
-from .interpolation import BSplineInterpolator, Interpolator
+from .interpolation import (
+    BSplineInterpolator,
+    Interpolator,
+    MovingAverageInterpolator,
+)
 from .primitive import DubinsPrimitive, ExplorationPrimitive
 from .vehicle import DubinsVehicle
 
@@ -33,6 +37,7 @@ __all__ = [
     "DubinsVehicle",
     "ExplorationPrimitive",
     "Interpolator",
+    "MovingAverageInterpolator",
     "MPCController",
     "PIDController",
     "PurePursuitController",

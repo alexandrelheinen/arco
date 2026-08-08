@@ -35,7 +35,7 @@ from arco.control import (
     RigidBody, CircleBody, SquareBody,
 )
 from arco.guidance import (
-    BSplineInterpolator, Interpolator,
+    BSplineInterpolator, MovingAverageInterpolator, Interpolator,
     DubinsPrimitive, ExplorationPrimitive,
     DubinsVehicle,
 )
@@ -159,6 +159,7 @@ non-positive `step_size`. Occupied start/goal yields `None` (no exception).
 | Symbol | Role |
 |--------|------|
 | `Interpolator` / `BSplineInterpolator` | Path smoothing (`interpolate`; B-spline is a stub) |
+| `MovingAverageInterpolator` | Moving-average polyline smoother (city references) |
 | `ExplorationPrimitive` / `DubinsPrimitive` | Steering primitives (**not** auto-wired into RRT/SST; inject via `steerer=`) |
 | `DubinsVehicle` | Car-like kinematic model |
 
