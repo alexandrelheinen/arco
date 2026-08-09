@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import numpy as np
 
 from arco.config import load_config
+from arco.control.mpc.costs import obstacle_barrier
 
 if TYPE_CHECKING:
     from arco.mapping.occupancy import Occupancy
@@ -308,12 +309,13 @@ class JointSpaceMPC:
                 for j in range(obstacle_count):
                     diff = q_k - obs[:, j]
                     dist = ca.sqrt(ca.sumsqr(diff) + 1e-9)
-                    penetration = (clearance_p - dist) / ca.fmax(
-                        clearance_p, 1e-6
-                    )
-                    penetration = ca.fmax(0.0, penetration)
-                    cost += cfg.weight_obstacle * (
-                        penetration**cfg.obstacle_barrier_power
+                    # No heading cone in C-space: directional weight ≡ 1.
+                    cost += obstacle_barrier(
+                        dist,
+                        clearance_p,
+                        cfg.weight_obstacle,
+                        cfg.obstacle_barrier_power,
+                        cone_factor=1.0,
                     )
 
             v_next = v_k + a_k * dt
