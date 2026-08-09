@@ -11,6 +11,7 @@ import numpy as np
 
 from arco.config import load_config
 from arco.control.mpc.base import MPCTracker
+from arco.control.mpc.costs import forward_cone_factor, obstacle_barrier
 from arco.control.mpc.reference_path import ReferencePath
 from arco.control.mpc.result import MPCStepResult
 
@@ -835,22 +836,13 @@ class DubinsPathFollowingMPC(MPCTracker):
                     ox = obs[0, j]
                     oy = obs[1, j]
                     dist = ca.sqrt((px - ox) ** 2 + (py - oy) ** 2 + 1e-9)
-                    # Smooth forward-cone factor (no atan2 kinks): the
-                    # projection of the unit obstacle bearing onto the
-                    # vehicle heading, clamped to [0, 1].
-                    fwd = (
-                        ca.cos(theta) * (ox - px) + ca.sin(theta) * (oy - py)
-                    ) / dist
-                    cone = ca.fmax(0.0, fwd)
-                    penetration = (clearance_p - dist) / ca.fmax(
-                        clearance_p, 1e-6
-                    )
-                    penetration = ca.fmax(0.0, penetration)
-                    directional = 0.2 + 0.8 * cone
-                    cost += (
-                        cfg.weight_obstacle
-                        * (penetration**cfg.obstacle_barrier_power)
-                        * directional
+                    cone = forward_cone_factor(px, py, theta, ox, oy)
+                    cost += obstacle_barrier(
+                        dist,
+                        clearance_p,
+                        cfg.weight_obstacle,
+                        cfg.obstacle_barrier_power,
+                        cone,
                     )
 
             v_next = v + a * dt
