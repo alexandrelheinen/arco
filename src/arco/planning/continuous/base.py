@@ -20,23 +20,33 @@ class ContinuousPlanner(PlannerCost, ABC):
     overridden to use step-size-normalized Euclidean distance once a
     subclass sets :attr:`step_size`.
 
+    Pass ``cost=`` to compose an external :class:`PlannerCost` without
+    subclassing the algorithm.  When ``None`` (default), the planner uses
+    its own distance/heuristic methods.
+
     Subclasses must implement :meth:`plan`.
     """
 
-    def __init__(self, occupancy: Occupancy) -> None:
+    def __init__(
+        self,
+        occupancy: Occupancy,
+        cost: Optional[PlannerCost] = None,
+    ) -> None:
         """Initialize the planner with an occupancy map.
 
         Args:
             occupancy: The occupancy map for collision checking.
+            cost: Optional external cost model.  When provided,
+                :meth:`distance` and :meth:`heuristic` delegate to it.
         """
         self.occupancy = occupancy
+        self._cost_model = cost
 
     def distance(self, state_a: Any, state_b: Any) -> float:
         """Return step-size-normalized Euclidean distance.
 
-        Each axis is divided by the corresponding entry of
-        :attr:`step_size` (default ``1.0``) before the L2 norm is taken,
-        so mixed units across dimensions are handled uniformly.
+        When an external ``cost`` model was provided at construction,
+        delegates to that model instead.
 
         Args:
             state_a: Origin state.
@@ -45,10 +55,26 @@ class ContinuousPlanner(PlannerCost, ABC):
         Returns:
             Non-negative normalized distance.
         """
+        if self._cost_model is not None:
+            return float(self._cost_model.distance(state_a, state_b))
         step = np.asarray(getattr(self, "step_size", 1.0), dtype=float)
         a = np.asarray(state_a, dtype=float).reshape(-1)
         b = np.asarray(state_b, dtype=float).reshape(-1)
         return float(np.linalg.norm((b - a) / step))
+
+    def heuristic(self, state_a: Any, state_b: Any) -> float:
+        """Return remaining-cost estimate, honoring an external cost model.
+
+        Args:
+            state_a: Current state.
+            state_b: Goal state.
+
+        Returns:
+            Heuristic cost estimate.
+        """
+        if self._cost_model is not None:
+            return float(self._cost_model.heuristic(state_a, state_b))
+        return self.distance(state_a, state_b)
 
     @abstractmethod
     def plan(
