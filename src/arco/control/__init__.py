@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from arco.control.actuator import ActuatorArray
+from arco.control.avoidance import ArtificialPotentialField
 from arco.control.base import Controller
 from arco.control.joint_tracker import JointSpaceTracker
 from arco.control.mpc import (
@@ -24,6 +25,7 @@ from arco.control.tracking import TrackingLoop
 
 __all__ = [
     "ActuatorArray",
+    "ArtificialPotentialField",
     "CircleBody",
     "Controller",
     "DubinsPathFollowingMPC",

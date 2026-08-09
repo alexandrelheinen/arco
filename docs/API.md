@@ -30,6 +30,7 @@ from arco.planning import (
 )
 from arco.control import (
     Controller, PIDController, PurePursuitController, TrackingLoop,
+    ArtificialPotentialField,
     DubinsPathFollowingMPC, MPCTrackingLoop, ReferencePath,
     JointSpaceMPC, JointSpaceTracker, ActuatorArray,
     RigidBody, CircleBody, SquareBody,
@@ -142,7 +143,8 @@ non-positive `step_size`. Occupied start/goal yields `None` (no exception).
 | `Controller` | ABC: `control(state, reference)` |
 | `PIDController` | Classic PID |
 | `PurePursuitController` | Geometric look-ahead tracker |
-| `TrackingLoop` | Pure Pursuit integration (+ optional APF) |
+| `TrackingLoop` | Path-tracker integration (+ injectable avoidance) |
+| `ArtificialPotentialField` | Default APF turn-rate avoidance (`AvoidanceStrategy`) |
 | `DubinsPathFollowingMPC` | CasADi contouring NMPC / NMPCC-style (`arco[mpc]`; see [control_mpcc.md](control_mpcc.md)) |
 | `MPCTrackingLoop` | Metrics loop for path-following MPC |
 | `ReferencePath` / `PathFollowingMPCConfig` / `DubinsVehicleLimits` | MPC inputs |
