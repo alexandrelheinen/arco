@@ -2,74 +2,83 @@
 
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING, Any, Optional
 
+from .avoidance import ArtificialPotentialField
+
 if TYPE_CHECKING:
-    from arco.guidance.vehicle import DubinsVehicle
     from arco.mapping.occupancy import Occupancy
-
-import numpy as np
-
-from .pure_pursuit import PurePursuitController
+    from arco.protocols.avoidance import AvoidanceStrategy
+    from arco.protocols.path_tracker import PathTracker
+    from arco.protocols.vehicle import VehicleModel
 
 
 class TrackingLoop:
     """Local tracking loop combining a vehicle model and a path controller.
 
-    Closes the feedback loop between a :class:`~arco.guidance.vehicle.DubinsVehicle`
-    kinematic model and a :class:`PurePursuitController`.  Each call to
-    :meth:`step` issues pure pursuit commands to the vehicle and records
-    cross-track error, heading error, pose, speed, and turn rate for later
-    analysis.
+    Closes the feedback loop between a
+    :class:`~arco.protocols.vehicle.VehicleModel`-compatible kinematic
+    model and a :class:`~arco.protocols.path_tracker.PathTracker`-compatible
+    controller.  Each call to :meth:`step` issues tracking commands to the
+    vehicle and records cross-track error, heading error, pose, speed, and
+    turn rate for later analysis.
 
-    When an *occupancy* map and a positive *repulsion_gain* are provided, a
-    reactive obstacle-repulsion correction is blended into the turn-rate
-    command at every step.  The correction is an Artificial Potential Field
-    (APF) lateral force: when the vehicle is within ``2 × clearance`` of the
-    nearest obstacle, a turn-rate bias is added that steers the vehicle away
-    from the obstacle.  The bias magnitude is proportional to
-    ``repulsion_gain × (1/d − 1/d_max)`` where *d* is the obstacle distance
-    and *d_max* = 2 × clearance is the influence radius.  This prevents the
-    vehicle from crashing into obstacles even when the planned trajectory
-    skirts obstacle boundaries.
+    When an *occupancy* map and a positive *repulsion_gain* are provided
+    (and *avoidance* is omitted), a default
+    :class:`~arco.control.avoidance.ArtificialPotentialField` correction is
+    blended into the turn-rate command at every step.  Pass an explicit
+    *avoidance* strategy to replace the inline APF; pass ``None`` with
+    non-positive *repulsion_gain* (or no occupancy) to disable repulsion.
 
     Attributes:
         vehicle: Kinematic vehicle model.
-        controller: Pure pursuit path-tracking controller.
+        controller: Path-tracking controller.
         cruise_speed: Desired forward speed passed to the controller (m/s).
         curvature_gain: Curvature-to-speed scaling factor (m).  Speed is
             modulated as ``v = cruise_speed / (1 + curvature_gain * |κ|)``
-            where *κ* is the pure pursuit curvature from the previous step.
+            where *κ* is the tracker curvature from the previous step.
             A value of ``0.0`` (default) disables modulation.
-        repulsion_gain: Obstacle-repulsion turn-rate gain (rad/m).  A value
-            of ``0.0`` (default) disables repulsion.
+        repulsion_gain: Obstacle-repulsion turn-rate gain (rad/m) used when
+            building the default APF.  A value of ``0.0`` (default)
+            disables repulsion unless a custom *avoidance* is supplied.
     """
 
     def __init__(
         self,
-        vehicle: DubinsVehicle,
-        controller: PurePursuitController,
+        vehicle: "VehicleModel",
+        controller: "PathTracker",
         cruise_speed: float = 1.0,
         curvature_gain: float = 0.0,
         occupancy: Optional["Occupancy"] = None,
         repulsion_gain: float = 0.0,
+        avoidance: Optional["AvoidanceStrategy"] = None,
     ) -> None:
         """Initialize TrackingLoop.
 
         Args:
-            vehicle: Kinematic vehicle model.
-            controller: Pure pursuit path-tracking controller.
+            vehicle: Kinematic vehicle model satisfying
+                :class:`~arco.protocols.vehicle.VehicleModel`.
+            controller: Path tracker satisfying
+                :class:`~arco.protocols.path_tracker.PathTracker`.
             cruise_speed: Desired forward speed (m/s).
             curvature_gain: Speed-modulation gain (m).  Set to ``0.0`` to
                 keep a constant cruise speed.  Positive values slow the
                 vehicle on curves: ``v = cruise_speed / (1 + gain * |κ|)``.
-            occupancy: Optional occupancy map used to compute obstacle
-                repulsion.  When ``None`` (default) or when *repulsion_gain*
-                is ``0.0``, no repulsion correction is applied.
-            repulsion_gain: Obstacle-repulsion turn-rate gain (rad/m).
-                Positive values add a corrective turn when the vehicle
-                approaches obstacles.  Typical range: ``0.5``–``3.0``.
+            occupancy: Optional occupancy map used to build the default
+                APF when *avoidance* is ``None``.  Ignored when a custom
+                *avoidance* is provided.  When ``None`` (default) or when
+                *repulsion_gain* is ``0.0``, no default repulsion is
+                applied.
+            repulsion_gain: Obstacle-repulsion turn-rate gain (rad/m) for
+                the default APF.  Positive values add a corrective turn
+                when the vehicle approaches obstacles.  Typical range:
+                ``0.5``–``3.0``.  Kept for backwards compatibility.
+            avoidance: Optional
+                :class:`~arco.protocols.avoidance.AvoidanceStrategy`.
+                When provided, it is used instead of the default APF.
+                When ``None`` and *repulsion_gain* > 0 with *occupancy*
+                set, an :class:`ArtificialPotentialField` is constructed
+                with the same behaviour as the historical inline APF.
         """
         self.vehicle = vehicle
         self.controller = controller
@@ -77,6 +86,15 @@ class TrackingLoop:
         self.curvature_gain = curvature_gain
         self._occupancy = occupancy
         self.repulsion_gain = repulsion_gain
+        if avoidance is not None:
+            self._avoidance: Optional["AvoidanceStrategy"] = avoidance
+        elif occupancy is not None and repulsion_gain > 0.0:
+            self._avoidance = ArtificialPotentialField(
+                occupancy=occupancy,
+                repulsion_gain=repulsion_gain,
+            )
+        else:
+            self._avoidance = None
         self._history: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------
@@ -98,22 +116,11 @@ class TrackingLoop:
     # ------------------------------------------------------------------
 
     def _repulsion_turn_rate(self, x: float, y: float, theta: float) -> float:
-        """Compute an APF obstacle-repulsion turn-rate correction.
+        """Compute an obstacle-repulsion turn-rate correction.
 
-        Returns an additive turn-rate (rad/s) that steers the vehicle away
-        from the nearest obstacle when it is within ``2 × clearance`` meters.
-        The magnitude follows the standard APF formula::
-
-            Δω = −gain × (1/d − 1/d_max) × sign(lateral)
-
-        where *d* is the distance to the nearest obstacle, *d_max* is the
-        influence radius (2 × clearance), and *lateral* is the signed
-        lateral displacement of the obstacle from the vehicle's heading
-        (positive = obstacle is to the vehicle's left).
-
-        The sign convention steers *away* from the obstacle:
-        obstacle to the left  → negative Δω (turn right);
-        obstacle to the right → positive Δω (turn left).
+        Delegates to the configured :class:`~arco.protocols.avoidance.AvoidanceStrategy`
+        (default APF or an injected strategy).  Returns ``0.0`` when
+        avoidance is disabled.
 
         Args:
             x: Vehicle x-position in world frame (m).
@@ -121,38 +128,12 @@ class TrackingLoop:
             theta: Vehicle heading in radians.
 
         Returns:
-            Turn-rate correction in rad/s; ``0.0`` when outside influence
-            radius or when no occupancy map is configured.
+            Turn-rate correction in rad/s; ``0.0`` when avoidance is
+            disabled.
         """
-        if self._occupancy is None or self.repulsion_gain <= 0.0:
+        if self._avoidance is None:
             return 0.0
-        clearance: float = getattr(self._occupancy, "clearance", 0.0)
-        if clearance <= 0.0 or not hasattr(
-            self._occupancy, "nearest_obstacle"
-        ):
-            return 0.0
-
-        influence_radius = 2.0 * clearance
-        pt = np.array([x, y], dtype=float)
-        dist, nearest = self._occupancy.nearest_obstacle(pt)  # type: ignore[attr-defined]
-        if dist >= influence_radius or dist < 1e-6:
-            return 0.0
-
-        # Signed lateral displacement of the obstacle from the vehicle axis.
-        # Vehicle lateral direction (pointing LEFT of heading) is
-        # (−sin θ, cos θ).
-        dx = float(nearest[0]) - x
-        dy = float(nearest[1]) - y
-        lateral = dx * (-math.sin(theta)) + dy * math.cos(theta)
-
-        # APF magnitude: (1/d − 1/d_max) with distance clamped for stability.
-        magnitude = self.repulsion_gain * (
-            1.0 / max(dist, 0.1 * clearance) - 1.0 / influence_radius
-        )
-
-        # Steer away: if obstacle is to the left (lateral > 0) → turn right (Δω < 0)
-        lateral_sign = math.copysign(1.0, lateral)
-        return -magnitude * lateral_sign
+        return float(self._avoidance(x, y, theta))
 
     # ------------------------------------------------------------------
     # Simulation
@@ -167,9 +148,10 @@ class TrackingLoop:
         current vehicle pose and reference path, applies them to the vehicle
         model, then records and returns the resulting metrics.
 
-        When an occupancy map and a positive repulsion gain are configured,
-        an obstacle-avoidance correction is blended into the turn-rate
-        command before the vehicle is integrated.
+        When an avoidance strategy is configured (explicitly or via the
+        default APF from occupancy / repulsion_gain), an obstacle-avoidance
+        correction is blended into the turn-rate command before the vehicle
+        is integrated.
 
         Args:
             path: Reference path as an ordered list of ``(x, y)`` waypoints.
@@ -185,7 +167,7 @@ class TrackingLoop:
             - ``pose``: current vehicle pose ``(x, y, heading)``.
             - ``speed``: current vehicle speed (m/s).
             - ``turn_rate``: current vehicle turn rate (rad/s).
-            - ``curvature``: pure pursuit curvature used this step (rad/m).
+            - ``curvature``: tracker curvature used this step (rad/m).
             - ``repulsion_turn_rate``: obstacle-repulsion correction added
               to the turn-rate command (rad/s).  Zero when repulsion is
               disabled.

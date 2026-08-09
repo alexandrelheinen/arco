@@ -67,6 +67,13 @@ Feedback controllers that generate control inputs to track a reference trajector
   - Used by PPP / RRP when `tracker: mpc`
 
 - **MPCTrackingLoop** / **TrackingLoop**: integration loops for MPC and Pure Pursuit
+  - `TrackingLoop` accepts `VehicleModel` / `PathTracker` duck types and an
+    optional `avoidance=` strategy (`AvoidanceStrategy`).  When omitted,
+    `occupancy` + `repulsion_gain` build the default
+    `ArtificialPotentialField` (same APF behaviour as before).
+- **ArtificialPotentialField** (`arco.control.avoidance`): default APF
+  turn-rate bias; construct with `occupancy=None` / `repulsion_gain<=0`
+  for a no-op disable path.
 
 - **MPCController**: Deprecated scalar stub — use `DubinsPathFollowingMPC`
 
