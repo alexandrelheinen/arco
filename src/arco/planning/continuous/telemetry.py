@@ -111,6 +111,15 @@ def write_telemetry(
         pass
 
 
+def noop_publisher(telemetry: PlannerTelemetry) -> None:
+    """Discard a telemetry snapshot (disable file IPC).
+
+    Args:
+        telemetry: Ignored snapshot.
+    """
+    return None
+
+
 def read_telemetry(
     path: Path = DEFAULT_TELEMETRY_PATH,
 ) -> Optional[PlannerTelemetry]:

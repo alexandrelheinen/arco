@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 
 from arco.mapping.occupancy import Occupancy
+from arco.planning.continuous.telemetry import (
+    PlannerTelemetry,
+    write_telemetry,
+)
 from arco.planning.cost import PlannerCost
+
+TelemetryFn = Callable[[PlannerTelemetry], None]
 
 
 class ContinuousPlanner(PlannerCost, ABC):
@@ -24,6 +30,10 @@ class ContinuousPlanner(PlannerCost, ABC):
     subclassing the algorithm.  When ``None`` (default), the planner uses
     its own distance/heuristic methods.
 
+    Optional ``publisher=``, ``seed=``, and ``rng=`` control telemetry
+    sinks and sampling reproducibility.  Defaults preserve historical
+    file-telemetry and unseeded RNG behavior.
+
     Subclasses must implement :meth:`plan`.
     """
 
@@ -31,6 +41,9 @@ class ContinuousPlanner(PlannerCost, ABC):
         self,
         occupancy: Occupancy,
         cost: Optional[PlannerCost] = None,
+        publisher: Optional[TelemetryFn] = None,
+        seed: Optional[int] = None,
+        rng: Optional[np.random.Generator] = None,
     ) -> None:
         """Initialize the planner with an occupancy map.
 
@@ -38,9 +51,21 @@ class ContinuousPlanner(PlannerCost, ABC):
             occupancy: The occupancy map for collision checking.
             cost: Optional external cost model.  When provided,
                 :meth:`distance` and :meth:`heuristic` delegate to it.
+            publisher: Optional telemetry sink.  When ``None``, snapshots
+                are written with
+                :func:`~arco.planning.continuous.telemetry.write_telemetry`.
+                Pass
+                :func:`~arco.planning.continuous.telemetry.noop_publisher`
+                to disable IPC.
+            seed: Optional RNG seed used when *rng* is not provided.
+            rng: Optional NumPy generator.  When set, takes precedence over
+                *seed*.
         """
         self.occupancy = occupancy
         self._cost_model = cost
+        self._telemetry_publisher = publisher
+        self._seed = seed
+        self._rng = rng
 
     def distance(self, state_a: Any, state_b: Any) -> float:
         """Return step-size-normalized Euclidean distance.
@@ -75,6 +100,27 @@ class ContinuousPlanner(PlannerCost, ABC):
         if self._cost_model is not None:
             return float(self._cost_model.heuristic(state_a, state_b))
         return self.distance(state_a, state_b)
+
+    def publish_telemetry(self, telemetry: PlannerTelemetry) -> None:
+        """Publish a telemetry snapshot via the configured sink.
+
+        Args:
+            telemetry: Snapshot to publish.
+        """
+        if self._telemetry_publisher is not None:
+            self._telemetry_publisher(telemetry)
+        else:
+            write_telemetry(telemetry)
+
+    def make_rng(self) -> np.random.Generator:
+        """Return the configured RNG (or a seeded/unseeded default).
+
+        Returns:
+            A :class:`numpy.random.Generator` instance.
+        """
+        if self._rng is not None:
+            return self._rng
+        return np.random.default_rng(self._seed)
 
     @abstractmethod
     def plan(
