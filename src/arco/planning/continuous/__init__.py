@@ -9,6 +9,7 @@ from .telemetry import (
     DEFAULT_TELEMETRY_PATH,
     PlannerTelemetry,
     StopCriterion,
+    noop_publisher,
     read_telemetry,
     write_telemetry,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "TrajectoryOptimizer",
     "TrajectoryPruner",
     "TrajectoryResult",
+    "noop_publisher",
     "read_telemetry",
     "write_telemetry",
 ]

@@ -17,7 +17,6 @@ from .telemetry import (
     TELEMETRY_WRITE_INTERVAL,
     PlannerTelemetry,
     StopCriterion,
-    write_telemetry,
 )
 
 SamplerFn = Callable[[np.random.Generator], np.ndarray]
@@ -84,6 +83,9 @@ class RRTPlanner(ContinuousPlanner):
         steerer: Optional[SteererFn] = None,
         segment_free: Optional[SegmentFreeFn] = None,
         cost: Optional[PlannerCost] = None,
+        publisher: Optional[Callable[[PlannerTelemetry], None]] = None,
+        seed: Optional[int] = None,
+        rng: Optional[np.random.Generator] = None,
     ) -> None:
         """Initialize RRTPlanner.
 
@@ -115,12 +117,22 @@ class RRTPlanner(ContinuousPlanner):
                 Defaults to linspace point checks via ``occupancy.is_occupied``.
             cost: Optional external :class:`~arco.planning.cost.PlannerCost`.
                 When ``None``, uses this planner's step-normalized distance.
+            publisher: Optional telemetry sink.  Defaults to file IPC via
+                :func:`~arco.planning.continuous.telemetry.write_telemetry`.
+            seed: Optional RNG seed when *rng* is omitted.
+            rng: Optional NumPy generator (overrides *seed*).
 
         Raises:
             ValueError: If *bounds* is empty or any element of *step_size*
                 is not positive.
         """
-        super().__init__(occupancy, cost=cost)
+        super().__init__(
+            occupancy,
+            cost=cost,
+            publisher=publisher,
+            seed=seed,
+            rng=rng,
+        )
         if not bounds:
             raise ValueError("bounds must not be empty.")
         self.step_size = np.asarray(step_size, dtype=float)
@@ -176,12 +188,12 @@ class RRTPlanner(ContinuousPlanner):
         best_goal_cost = math.inf
         _best_dist_to_goal = math.inf
 
-        rng = np.random.default_rng()
+        rng = self.make_rng()
 
         for iteration in range(self.max_sample_count):
             # --- Telemetry ------------------------------------------------
             if iteration % TELEMETRY_WRITE_INTERVAL == 0:
-                write_telemetry(
+                self.publish_telemetry(
                     PlannerTelemetry(
                         algorithm="RRT*",
                         step_name="exploring",
@@ -334,11 +346,11 @@ class RRTPlanner(ContinuousPlanner):
         best_goal_cost = math.inf
         _best_dist_to_goal = math.inf
 
-        rng = np.random.default_rng()
+        rng = self.make_rng()
 
         for _iter in range(self.max_sample_count):
             if _iter % TELEMETRY_WRITE_INTERVAL == 0:
-                write_telemetry(
+                self.publish_telemetry(
                     PlannerTelemetry(
                         algorithm="RRT*",
                         step_name="exploring (tree)",
