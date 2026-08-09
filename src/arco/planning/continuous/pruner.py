@@ -225,7 +225,7 @@ class TrajectoryPruner:
             from all obstacle points; ``False`` if any point violates the
             clearance constraint.
         """
-        clearance: float = getattr(self.occupancy, "clearance", 0.0)
+        clearance: float = float(self.occupancy.clearance)
 
         # --- Step-size criterion (primary) --------------------------------
         # D[i] / L[i] gives the number of planner steps spanned by this
@@ -253,10 +253,9 @@ class TrajectoryPruner:
         # Prefer the batch distance query for efficiency; the explicit
         # comparison `distances >= clearance` is the canonical
         # nearest + distance-thresholding check.
-        if clearance > 0.0 and hasattr(self.occupancy, "query_distances"):
+        if clearance > 0.0:
             distances = self.occupancy.query_distances(pts)
             return bool(np.all(distances >= clearance))
 
-        # Fallback for occupancy maps that only expose is_occupied().
-        # is_occupied() also performs nearest + distance thresholding.
+        # Fallback for binary occupancy maps (clearance == 0).
         return all(not self.occupancy.is_occupied(pt) for pt in pts)
