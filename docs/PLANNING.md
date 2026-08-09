@@ -50,7 +50,8 @@ on a planner subclass to customize costs without rewriting search loops.
 | `heuristic(a, b)` | same as `distance` | `graph.heuristic` or `distance` | same as continuous `distance` |
 
 A* also accepts an optional `heuristic=` callable in its constructor.
-The trajectory optimizer keeps its own composite cost (weights only).
+The trajectory optimizer accepts optional ``cost_terms=`` (defaults to the
+five historical weighted terms).
 
 ## Extension Points
 

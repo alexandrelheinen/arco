@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from scipy.optimize import minimize
 
 from arco.config import load_config
 from arco.mapping.occupancy import Occupancy
+from arco.planning.continuous.cost_terms import build_default_cost_terms
+from arco.protocols import CostTerm
 
 
 @dataclass
@@ -138,6 +140,11 @@ class TrajectoryOptimizer:
         max_iter: Maximum number of iterations for the Stage-2 solver.
         ftol: Convergence tolerance for the Stage-2 solver (function
             value change threshold).
+        cost_terms: Optional ordered list of
+            :class:`~arco.protocols.CostTerm` callables.  When ``None``,
+            the five historical defaults (time, deviation, velocity,
+            collision+barrier, dynamics) are built from the weight
+            arguments above.
 
     Raises:
         ValueError: If *cruise_speed* is not positive.
@@ -242,6 +249,7 @@ class TrajectoryOptimizer:
         sample_count: int = 3,
         max_iter: int = 500,
         ftol: float = 1e-9,
+        cost_terms: Optional[Sequence[CostTerm]] = None,
     ) -> None:
         """Initialize the TrajectoryOptimizer.
 
@@ -273,6 +281,10 @@ class TrajectoryOptimizer:
                 collision term.
             max_iter: Maximum number of Stage-2 solver iterations.
             ftol: Stage-2 solver convergence tolerance (function value).
+            cost_terms: Optional ordered list of cost-term callables.
+                When ``None``, builds the five historical defaults from
+                the weight arguments.  Custom lists replace the defaults
+                entirely.
 
         Raises:
             ValueError: If *cruise_speed* is not positive.
@@ -297,6 +309,21 @@ class TrajectoryOptimizer:
         self.sample_count = sample_count
         self.max_iter = max_iter
         self.ftol = ftol
+        if cost_terms is None:
+            self.cost_terms: List[CostTerm] = build_default_cost_terms(
+                weight_time=weight_time,
+                weight_deviation=weight_deviation,
+                weight_velocity=weight_velocity,
+                weight_collision=weight_collision,
+                weight_dynamics=weight_dynamics,
+                cruise_speed=cruise_speed,
+                collision_barrier_scale=collision_barrier_scale,
+                collision_barrier_power=collision_barrier_power,
+                max_speed=max_speed,
+                min_speed=min_speed,
+            )
+        else:
+            self.cost_terms = list(cost_terms)
 
     # ------------------------------------------------------------------
     # Public API
@@ -472,6 +499,9 @@ class TrajectoryOptimizer:
     ) -> float:
         """Evaluate the composite cost function.
 
+        Builds a shared context dict and sums ``term(context)`` over
+        :attr:`cost_terms`.
+
         Args:
             x: Flat decision-variable vector (durations + interior
                 waypoint positions).
@@ -487,94 +517,38 @@ class TrajectoryOptimizer:
         # Build numpy arrays for vectorised computation
         pts = np.array(waypoints)  # (N+1, dim)
         durs = np.maximum(durations, 1e-9)  # (N,)
-
-        # --- Time cost ---------------------------------------------------
-        total_time = float(np.sum(durs))
-        j_time = self.weight_time * total_time**2
-
-        # --- Velocity deviation ------------------------------------------
         diff = pts[1:] - pts[:-1]  # (N, dim)
         lengths = np.linalg.norm(diff, axis=1)  # (N,)
         speeds = lengths / durs  # (N,)
-        j_velocity = self.weight_velocity * float(
-            np.sum((speeds - self.cruise_speed) ** 2)
-        )
 
-        # --- Deviation from reference path (interior only) ---------------
-        # Interior waypoints: indices 1 .. N-1
-        interior_count = segment_count - 1
-        j_deviation = 0.0
-        if interior_count > 0:
-            ref_interior = np.array(ref[1:-1])  # (N-1, dim)
-            pts_interior = pts[1:-1]  # (N-1, dim)
-            j_deviation = self.weight_deviation * float(
-                np.sum((pts_interior - ref_interior) ** 2)
-            )
+        context: Dict[str, Any] = {
+            "durations": durations,
+            "durs": durs,
+            "waypoints": waypoints,
+            "pts": pts,
+            "lengths": lengths,
+            "speeds": speeds,
+            "ref": ref,
+            "segment_count": segment_count,
+            "dim": dim,
+            "occupancy": self.occupancy,
+            "sample_count": self.sample_count,
+            "cruise_speed": self.cruise_speed,
+            "weight_time": self.weight_time,
+            "weight_deviation": self.weight_deviation,
+            "weight_velocity": self.weight_velocity,
+            "weight_collision": self.weight_collision,
+            "weight_dynamics": self.weight_dynamics,
+            "collision_barrier_scale": self.collision_barrier_scale,
+            "collision_barrier_power": self.collision_barrier_power,
+            "max_speed": self.max_speed,
+            "min_speed": self.min_speed,
+        }
 
-        # --- Collision penalty (batch query) -----------------------------
-        clearance = getattr(self.occupancy, "clearance", 0.5)
-        j_collision = 0.0
-        j_collision_barrier = 0.0
-
-        # Collect all query points: interior waypoints + segment samples
-        query_pts_list: list[np.ndarray] = []
-        if interior_count > 0:
-            query_pts_list.append(pts[1:-1])
-
-        if self.sample_count > 0:
-            for i in range(segment_count):
-                p_a = pts[i]
-                p_b = pts[i + 1]
-                alphas = np.linspace(0.0, 1.0, self.sample_count + 2)[1:-1]
-                samples = p_a + alphas[:, None] * (p_b - p_a)
-                query_pts_list.append(samples)
-
-        if query_pts_list:
-            all_query = np.concatenate(query_pts_list, axis=0)
-            # Use batch query when available (KDTreeOccupancy)
-            if hasattr(self.occupancy, "query_distances"):
-                dists = self.occupancy.query_distances(all_query)
-            else:
-                dists = np.array(
-                    [self.occupancy.nearest_obstacle(p)[0] for p in all_query]
-                )
-            penetrations = np.maximum(0.0, clearance - dists)
-            j_collision = self.weight_collision * float(
-                np.sum(penetrations**2)
-            )
-            clearance_safe = max(float(clearance), 1e-9)
-            normalized_penetrations = penetrations / clearance_safe
-            j_collision_barrier = (
-                self.weight_collision
-                * self.collision_barrier_scale
-                * float(
-                    np.sum(
-                        normalized_penetrations**self.collision_barrier_power
-                    )
-                )
-            )
-
-        # --- Dynamics penalty (speed bounds) -----------------------------
-        # Penalises implied segment speeds that violate max_speed / min_speed.
-        # Acts as a soft-to-hard barrier scaled by weight_dynamics.
-        j_dynamics = 0.0
-        if self.max_speed is not None or self.min_speed is not None:
-            if self.max_speed is not None:
-                over = np.maximum(0.0, speeds - self.max_speed)
-                j_dynamics += float(np.sum(over**2))
-            if self.min_speed is not None:
-                under = np.maximum(0.0, self.min_speed - speeds)
-                j_dynamics += float(np.sum(under**2))
-            j_dynamics *= self.weight_dynamics
-
-        return (
-            j_time
-            + j_deviation
-            + j_velocity
-            + j_collision
-            + j_collision_barrier
-            + j_dynamics
-        )
+        total = 0.0
+        for term in self.cost_terms:
+            total += float(term(context))
+        return total
 
     # ------------------------------------------------------------------
     # Helpers
