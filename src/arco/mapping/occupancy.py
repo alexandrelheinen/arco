@@ -22,14 +22,7 @@ class Occupancy(Graph, ABC):
     ``getattr`` / ``hasattr`` branching.
     """
 
-    @property
-    def clearance(self) -> float:
-        """Minimum free margin around obstacles (meters).
-
-        Defaults to ``0.0`` (binary occupancy only).  Concrete maps such as
-        :class:`~arco.mapping.kdtree.KDTreeOccupancy` override this.
-        """
-        return 0.0
+    clearance: float = 0.0
 
     @abstractmethod
     def nearest_obstacle(self, point: np.ndarray) -> Tuple[float, np.ndarray]:
