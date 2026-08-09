@@ -589,9 +589,8 @@ class RRTPlanner(ContinuousPlanner):
     def _segment_free(self, a: np.ndarray, b: np.ndarray) -> bool:
         """Check whether the straight-line segment from *a* to *b* is free.
 
-        Discretizes the segment into :attr:`collision_check_count`
-        intermediate points and tests each with
-        :meth:`~arco.mapping.Occupancy.is_occupied`.
+        Delegates to :meth:`~arco.mapping.occupancy.Occupancy.segment_free`
+        with ``collision_check_count + 2`` samples (historical RRT* density).
 
         Args:
             a: Segment start position.
@@ -600,11 +599,9 @@ class RRTPlanner(ContinuousPlanner):
         Returns:
             True if no intermediate point is occupied, False otherwise.
         """
-        for t in np.linspace(0.0, 1.0, self.collision_check_count + 2):
-            pt = a + t * (b - a)
-            if self.occupancy.is_occupied(pt):
-                return False
-        return True
+        return self.occupancy.segment_free(
+            a, b, sample_count=self.collision_check_count + 2
+        )
 
     def _extract_path(
         self,

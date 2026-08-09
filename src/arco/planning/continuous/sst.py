@@ -517,6 +517,9 @@ class SSTPlanner(ContinuousPlanner):
     def _segment_free(self, a: np.ndarray, b: np.ndarray) -> bool:
         """Check whether the segment from *a* to *b* is collision-free.
 
+        Delegates to :meth:`~arco.mapping.occupancy.Occupancy.segment_free`
+        with ``collision_check_count + 2`` samples.
+
         Args:
             a: Segment start.
             b: Segment end.
@@ -524,11 +527,9 @@ class SSTPlanner(ContinuousPlanner):
         Returns:
             True if no intermediate point is occupied.
         """
-        for t in np.linspace(0.0, 1.0, self.collision_check_count + 2):
-            pt = a + t * (b - a)
-            if self.occupancy.is_occupied(pt):
-                return False
-        return True
+        return self.occupancy.segment_free(
+            a, b, sample_count=self.collision_check_count + 2
+        )
 
     def _extract_path(
         self,
