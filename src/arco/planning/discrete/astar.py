@@ -41,6 +41,8 @@ class AStarPlanner(DiscretePlanner):
         self,
         graph: Any,
         heuristic: Optional[Callable[[Any, Any], float]] = None,
+        simplify_path: bool = True,
+        prefer_straight: bool = True,
     ) -> None:
         """Initialize AStarPlanner.
 
@@ -52,9 +54,15 @@ class AStarPlanner(DiscretePlanner):
                 When set, it overrides :meth:`heuristic`.  Otherwise the
                 discrete base uses ``graph.heuristic`` if available, else
                 ``graph.distance``.
+            simplify_path: When ``True`` (default), collapse collinear runs
+                after a successful search.
+            prefer_straight: When ``True`` (default), use direction-continuity
+                as a tie-break key in the open set (does not change ``g``).
         """
         super().__init__(graph)
         self._heuristic_override = heuristic
+        self.simplify_path = simplify_path
+        self.prefer_straight = prefer_straight
         if heuristic is not None:
             logger.debug("Setting custom heuristic override")
         elif hasattr(graph, "heuristic"):
@@ -142,7 +150,10 @@ class AStarPlanner(DiscretePlanner):
             expanded_count += 1
             if current == goal:
                 path = self._reconstruct_path(came_from, current)
-                simplified_path = self._simplify_path(path)
+                if self.simplify_path:
+                    simplified_path = self._simplify_path(path)
+                else:
+                    simplified_path = path
                 logger.debug(
                     (
                         "A*: finished success raw_length=%d simplified_length=%d "
@@ -163,10 +174,10 @@ class AStarPlanner(DiscretePlanner):
                 tentative_g = g_score[current] + self.distance(
                     current, neighbor
                 )
-                direction_change_penalty = self._turn_penalty(
-                    current,
-                    neighbor,
-                    came_from,
+                direction_change_penalty = (
+                    self._turn_penalty(current, neighbor, came_from)
+                    if self.prefer_straight
+                    else 0
                 )
                 better_cost = (
                     neighbor not in g_score

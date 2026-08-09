@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, NamedTuple, Optional
+from typing import Any, List, NamedTuple, Optional
 
 import numpy as np
 
@@ -63,6 +63,7 @@ class RouteRouter:
         self,
         graph: CartesianGraph,
         activation_radius: Optional[float] = None,
+        planner: Optional[Any] = None,
     ) -> None:
         """Initialize RouteRouter.
 
@@ -72,10 +73,14 @@ class RouteRouter:
                 positions onto graph nodes.  If ``None``, any distance is
                 accepted.  Recommended to set this to prevent routing from
                 positions far from valid roads.
+            planner: Optional discrete planner exposing
+                ``plan(start_node, goal_node)``.  Defaults to
+                :class:`~arco.planning.discrete.astar.AStarPlanner` on
+                *graph*.
         """
         self.graph = graph
         self.activation_radius = activation_radius
-        self._planner = AStarPlanner(graph)
+        self._planner = planner if planner is not None else AStarPlanner(graph)
 
     def plan(
         self,
