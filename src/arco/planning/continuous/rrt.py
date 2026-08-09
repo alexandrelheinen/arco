@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from arco.mapping.occupancy import Occupancy
+from arco.planning.cost import PlannerCost
 
 from .base import ContinuousPlanner
 from .telemetry import (
@@ -82,6 +83,7 @@ class RRTPlanner(ContinuousPlanner):
         sampler: Optional[SamplerFn] = None,
         steerer: Optional[SteererFn] = None,
         segment_free: Optional[SegmentFreeFn] = None,
+        cost: Optional[PlannerCost] = None,
     ) -> None:
         """Initialize RRTPlanner.
 
@@ -111,12 +113,14 @@ class RRTPlanner(ContinuousPlanner):
                 here for kinodynamic expansion.
             segment_free: Optional ``(a, b) -> bool`` collision override.
                 Defaults to linspace point checks via ``occupancy.is_occupied``.
+            cost: Optional external :class:`~arco.planning.cost.PlannerCost`.
+                When ``None``, uses this planner's step-normalized distance.
 
         Raises:
             ValueError: If *bounds* is empty or any element of *step_size*
                 is not positive.
         """
-        super().__init__(occupancy)
+        super().__init__(occupancy, cost=cost)
         if not bounds:
             raise ValueError("bounds must not be empty.")
         self.step_size = np.asarray(step_size, dtype=float)
