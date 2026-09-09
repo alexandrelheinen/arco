@@ -52,7 +52,7 @@ from arco.pipeline import PipelineNode, PipelineRunner
 
 | Rule | Detail |
 |------|--------|
-| One main class per module | Matching [guidelines.md](guidelines.md) §1 |
+| One main class per module | Matching [.guidelines/languages/py.md](../.guidelines/languages/py.md) |
 | Import from layer package | `from arco.planning import RRTPlanner`, not deep private paths |
 | `__all__` is the contract | Every public package declares `__all__` |
 | Stable return sentinels | Planners return `None` when no path exists |

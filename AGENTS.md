@@ -1,65 +1,12 @@
 # AGENTS Instructions
 
-This file defines repository-wide instructions for coding agents.
+This file is a bridge only. **Do not add rules here.**
 
-## Scope
+Shared engineering guidelines live in [.guidelines/](.guidelines/) (a git submodule):
 
-Applies to all automated agents working in this repository.
+- [.guidelines/workflow/sdd.md](.guidelines/workflow/sdd.md), [integration.md](.guidelines/workflow/integration.md), [tdd.md](.guidelines/workflow/tdd.md) — how work gets done
+- [.guidelines/agents/writing.md](.guidelines/agents/writing.md) — how any prose should read
+- [.guidelines/style/naming.md](.guidelines/style/naming.md) — naming
+- [.guidelines/languages/py.md](.guidelines/languages/py.md) — Python
 
-## Source of Truth
-
-Follow [docs/guidelines.md](docs/guidelines.md) as the authoritative standard for:
-
-- Architecture and package structure
-- Naming conventions
-- Docstring style
-- Formatting and typing
-- Testing and quality gates
-
-## Agent Policy
-
-- Do not introduce patterns that violate [docs/guidelines.md](docs/guidelines.md).
-- Keep edits narrow and relevant to the task.
-- When changing behavior, update tests in the mirrored tests structure.
-- When adding public APIs, include type annotations and Google-style docstrings.
-- Prefer project-local conventions over generic defaults.
-- Before pushing, run `bash scripts/check_formatting.sh`,
-  `bash scripts/run_tests.sh`, and smoke tests via
-  `bash scripts/run_smoke_test.sh <scenario>` for each scenario.
-  Smoke tests are the only local gate that imports every simulator module at
-  startup, and skipping them allows import-time `KeyError` / `ImportError`
-  regressions to escape into CI (see §12 of docs/guidelines.md).
-- **After restructuring any shared config file** (`colors.yml`, etc.): audit
-  every consumer with `grep -rn 'load_config("colors")' src/` and run a quick
-  import check on all simulator entry points before pushing (see §12 of
-  docs/guidelines.md).
-- **Tests that import display-only modules** (pygame/OpenGL simulator mains
-  such as `ppp.py`, `rrp.py`) **must** begin with
-  `pygame = pytest.importorskip("pygame")` before the triggering import.
-  Omitting this causes the whole test-collection phase to fail with
-  `ModuleNotFoundError` on headless CI runners (see §13 of docs/guidelines.md).
-- **Simulation plot axes must be shape-consistent**: always derive the time
-  axis from `np.arange(N) * dt` where N = number of simulation steps — never
-  from per-waypoint optimizer durations (see §14 of docs/guidelines.md).
-
-An imperative order (do, implement, make, add...) is not only about writting the code. It must include all the V-cycle.
-
-### Respect the V-cycle
-
-As indicated above, all work of an AI must include all the descending and ascending steps of the cycle. For each row numerated below, the two actions (descend and ascend) must be done **at the same time**:
-
-1. Add a documentation of the work, feature, but... Use Github issues if possible, otherwise, go diretly into the Github PR and document every step in comments. It includes: goal/objectives and acceptable criteria
-2. Implement the architecture of the code (classes, public interface, file organization, dependencies) and the (functional) unit tests at the same time. The testing must come first then coding: the performance of the algorithm is independent of its implementation. By reading the acceptance criteria above, you must already know which values to expect.
-3. Do the coding. This is the 3-rd step: Fill the stubs lefted by the architecture definition. Implement algorithms, data structure and private/local utilities. Add unit testing for private functions as well (fine testing/non-functional tests).
-4. Then, run the tests. Ideally proving 100% coverage (at least 90% would be great!). If this step fails, go back to step 2: Review your architecture, your functional tests, and go back to the cycle.
-5. Implement high level simulations if all the testing are passing. Add visual inspection (either images or videos) in the `tools` folder. Add material for the presentation and documentation of the tool. Add the appropriate documentation of the newly implemented feature, of fix the lines affected by the changes. All github workflows must pass: both at push and release! If some is wrong in this step, go back to step number 1.
-
-This complete the V-cycle. Once the acceptance criteria are met and all the Github workflows (autotests) are passing (both at push and release, test them all locally or add the tooling to test it), you can push your branch and trigger the review.
-
-## Conflict Resolution
-
-When instructions conflict, resolve in this order:
-
-1. Direct maintainer request in the active task
-2. [docs/guidelines.md](docs/guidelines.md)
-3. This file
+For arco's own project context and conventions, read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/guidelines.md](docs/guidelines.md).
