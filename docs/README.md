@@ -16,6 +16,7 @@
 
 ## Tools and design
 - [Visualization (`arcosim`)](VISUALIZATION.md)
+- [Illustration gallery](GALLERY.md) — 16:9 plates for decks, pages and papers
 - [Pipeline](PIPELINE.md)
 - [Entity model](ENTITY_MODEL.md)
 - [Entity format research](entity_formats.md)

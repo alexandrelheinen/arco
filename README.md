@@ -5,6 +5,14 @@
 ARCO (Algorithms for Robotic Control and Optimization) is a Python library for
 autonomous navigation building blocks: mapping, planning, and guidance/control.
 
+<br clear="left">
+
+![RRT* growing across an obstacle field, with the optimised trajectory it feeds](docs/images/gallery/nocturne/01_field.png)
+
+Every curve above is solver output. See the
+[illustration gallery](docs/GALLERY.md) for the other six plates, the
+light-background print set, and how to regenerate them.
+
 ## Documentation
 
 - [Docs index](docs/README.md)
@@ -12,7 +20,7 @@ autonomous navigation building blocks: mapping, planning, and guidance/control.
 - [Coding guidelines](docs/guidelines.md) (authoritative)
 - [Tech stack](docs/STACK.md)
 - [Mapping](docs/MAPPING.md) · [Planning](docs/PLANNING.md) · [Guidance](docs/GUIDANCE.md)
-- [Visualization (`arcosim`)](docs/VISUALIZATION.md)
+- [Visualization (`arcosim`)](docs/VISUALIZATION.md) · [Illustration gallery](docs/GALLERY.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
 
