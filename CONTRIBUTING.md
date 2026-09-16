@@ -5,14 +5,27 @@ Thank you for contributing.
 ## Prerequisites
 
 - Python 3.10+
+- A Rust toolchain. `rust-toolchain.toml` pins the version, so
+  [rustup](https://rustup.rs) installs the right one on first build.
 - Git
 
 ## Setup
 
 ```bash
-git clone https://github.com/alexandrelheinen/arco.git
+git clone --recurse-submodules https://github.com/alexandrelheinen/arco.git
 cd arco
 pip install -e ".[dev]"
+```
+
+The build backend is [maturin](https://www.maturin.rs), which compiles the
+Rust workspace under `crates/` and installs the extension beside the
+Python package as `arco._arco`. An editable install rebuilds the extension
+when Rust sources change; `maturin develop` forces a rebuild.
+
+The gates need four cargo tools:
+
+```bash
+cargo install cargo-nextest cargo-llvm-cov cargo-deny --locked
 ```
 
 ## Development Workflow
@@ -24,11 +37,27 @@ pip install -e ".[dev]"
 
 ## Local Validation
 
+One script runs every gate, and CI runs the same script, so "it passed
+locally" and "CI is green" mean the same thing:
+
 ```bash
-pytest tests/ -v
-python -m black --target-version py312 src/ tests/
-python -m isort src/ tests/
+bash scripts/validate.sh
 ```
+
+It runs `cargo fmt`, `cargo clippy` at deny-warnings, the Rust tests and
+doc tests, `cargo doc`, `cargo deny`, then builds the extension under
+coverage instrumentation and runs `pytest` through it, and finishes with
+the Python formatting gate. Pass `--fast` to skip coverage and the
+dependency audit during a tight edit loop.
+
+Coverage instruments the extension before maturin builds it, which is why
+the script sources `cargo llvm-cov show-env` rather than calling
+`cargo llvm-cov` directly. Running `pytest` against an uninstrumented
+build reports an empty profile.
+
+For the port itself, read [docs/rust/PLAN.md](docs/rust/PLAN.md) before
+starting a phase and [docs/rust/STYLE.md](docs/rust/STYLE.md) before
+writing Rust.
 
 ## Coding Rules
 

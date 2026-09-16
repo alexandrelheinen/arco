@@ -1,0 +1,15 @@
+[package]
+name = "arco-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "In-process message bus and pipeline execution."
+
+[dependencies]
+arco-core.workspace = true
+
+[lints]
+workspace = true

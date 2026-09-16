@@ -266,3 +266,55 @@ exception and the most valuable single test in the plan, since an
 admissible heuristic means A* must return exactly the cost an uninformed
 search returns on the same graph, giving a differential oracle that needs
 no reference implementation.
+
+## ADR-014: pin the toolchain exactly, and let the dependency gate block a merge
+
+**Date:** 2026-09-16. **Status:** accepted.
+
+`rust-toolchain.toml` pins `1.98.1` rather than the `1.98` the shared
+guideline shows, because the point of the pin is that a contributor and CI
+resolve the same compiler and a two-component channel still floats across
+patch releases.
+
+`cargo deny check` is a blocking gate from the first commit, not something
+added once the workspace has code in it. It earned that position
+immediately: the skeleton pulled `pyo3` 0.27.2, which carries an advisory
+for a thread-safety defect closed in 0.29.0, and the gate caught it before
+a single algorithm existed. Finding it later would have meant auditing
+whatever binding code had been written against the affected API.
+
+The wider point is the one worth keeping. Phase 0 exists so that every
+later phase pushes into a pipeline that already works, and a gate that
+only starts running once there is something to check is a gate that
+arrives after the decisions it was meant to inform.
+
+## ADR-015: configuration is passed explicitly, never read at import time
+
+**Date:** 2026-09-16. **Status:** accepted.
+
+`load_config` resolves its directory from the `ARCO_CONFIG_DIR`
+environment variable, and several modules call it at import time into a
+module-level global, `src/arco/config/palette.py` being the clearest
+case. Once any of those modules is imported, changing the environment
+variable has no further effect, because the value is already bound.
+
+Phase 0 hit this from the other direction. A snapshot test that imports
+every package to read its signatures left the config globals populated,
+and a simulator test running afterwards in the same interpreter read a
+configuration it had not selected, failing with a `KeyError` on a key that
+belongs to a different file. The snapshot test now captures in its own
+interpreter, which is correct for a snapshot test regardless, but the
+underlying fragility is a property of the Python design rather than of the
+test.
+
+The ported crates do not reproduce it. Configuration is parsed once at
+construction, validated there, and held by the object that uses it, so a
+caller that wants different configuration builds a different object. No
+crate reads an environment variable at load time, and nothing holds
+configuration in a global.
+
+This also removes a class of ordering dependency that
+[docs/guidelines.md](guidelines.md) section 8 currently handles with a
+manual consumer audit whenever a shared configuration file is
+restructured. When configuration is an argument, the compiler finds the
+consumers.

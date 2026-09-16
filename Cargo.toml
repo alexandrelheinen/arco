@@ -1,0 +1,71 @@
+# ARCO Rust workspace.
+#
+# The crate graph mirrors the Python package tree and is acyclic by
+# construction, so Cargo rejects an upward dependency at compile time.
+# See docs/rust/SPEC.md for the layering and docs/rust/PLAN.md for the
+# order the crates are filled in.
+
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.5.0"
+edition = "2024"
+rust-version = "1.98.1"
+license = "Apache-2.0"
+authors = ["Alexandre Loeblein Heinen"]
+repository = "https://github.com/alexandrelheinen/arco"
+description = "Algorithms for Robotic Control and Optimization"
+
+[workspace.dependencies]
+arco-core = { path = "crates/arco-core", version = "0.5.0" }
+arco-mapping = { path = "crates/arco-mapping", version = "0.5.0" }
+arco-kinematics = { path = "crates/arco-kinematics", version = "0.5.0" }
+arco-runtime = { path = "crates/arco-runtime", version = "0.5.0" }
+arco-planning = { path = "crates/arco-planning", version = "0.5.0" }
+arco-control = { path = "crates/arco-control", version = "0.5.0" }
+arco-guidance = { path = "crates/arco-guidance", version = "0.5.0" }
+
+thiserror = "2"
+
+# Baseline tier, every crate. See .guidelines/languages/rs.md.
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+unused_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+let_underscore_drop = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+unwrap_used = "deny"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "deny"
+float_cmp = "deny"
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+
+# FR-SAFE: a silent wrap in a planner index or a control loop is a wrong
+# answer rather than a crash, so the check stays on in release. ADR to
+# follow if a real-time budget ever cannot absorb it.
+[profile.release]
+overflow-checks = true
+debug = "line-tables-only"
+
+# #[no_panic] needs an unwind profile and optimization to prove anything,
+# per .guidelines/languages/rs.md.
+[profile.dev]
+opt-level = 1

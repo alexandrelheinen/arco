@@ -32,6 +32,13 @@ jobs:
         with:
           python-version: "3.10"
 
+      # pip install now builds the Rust extension through maturin, so the
+      # pinned toolchain has to exist before it runs.
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
       - name: Install package with dev and mpc dependencies
         run: pip install -e ".[dev,mpc]"
 

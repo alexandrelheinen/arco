@@ -1,0 +1,29 @@
+[package]
+name = "arco-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "PyO3 bindings that keep the arco Python API unchanged."
+
+[lib]
+name = "_arco"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+arco-core.workspace = true
+arco-mapping.workspace = true
+arco-kinematics.workspace = true
+arco-runtime.workspace = true
+arco-planning.workspace = true
+arco-control.workspace = true
+arco-guidance.workspace = true
+
+pyo3 = { version = "0.29", features = ["abi3-py310", "extension-module"] }
+numpy = "0.29"
+
+[lints]
+workspace = true
+

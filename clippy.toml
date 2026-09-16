@@ -1,0 +1,13 @@
+# Strict lints are scoped out of tests here rather than with cfg_attr,
+# which cannot reach integration tests because those compile as separate
+# crates. See .guidelines/languages/rs.md.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+
+disallowed-methods = [
+    { path = "std::process::exit", reason = "a library must not kill the host process" },
+    { path = "std::time::Instant::now", reason = "take the elapsed interval as an argument so runs are reproducible, per FR-INV-10" },
+    { path = "std::time::SystemTime::now", reason = "take the elapsed interval as an argument so runs are reproducible, per FR-INV-10" },
+]
