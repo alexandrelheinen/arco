@@ -100,6 +100,20 @@ front of anyone reading its first screen rather than in a manifest.
 The shared guideline is wrong here rather than ARCO being unusual, so this
 entry closes when an upstream fix lands.
 
+### C-09: protocol traits drop the `Like` suffix
+
+**Status:** accepted, phase 1.
+
+Four of the thirteen Python protocols carry a `Like` suffix:
+`PlannerLike`, `OccupancyLike`, `OptimizerLike`, `PrunerLike`. That suffix
+is a Python typing idiom marking a structural protocol as distinct from
+the concrete class of the same name. Rust has no such collision, since the
+trait and the implementing type are separate declarations, so the traits
+are `Planner`, `Occupancy`, `Optimizer`, and `Pruner`.
+
+The remaining nine keep their names exactly. No Python import changes,
+because `arco.protocols` continues to export every original name.
+
 ## API
 
 ### A-09: control output gains saturation, rate limiting, and anti-windup
