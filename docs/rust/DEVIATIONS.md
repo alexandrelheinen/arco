@@ -68,7 +68,43 @@ During the port a file instead keeps the name of the Python module it
 replaces (`astar.py` becomes `astar.rs`), so the two trees can be read
 side by side. Revisit once the Python sources are gone.
 
+### C-07: criticality assigned per crate
+
+**Status:** accepted, phase 0.
+
+ARCO's Python guidelines apply one standard to `src/` and exempt `tests/`.
+The Rust workspace assigns a criticality level per crate instead, so the
+lint tier and the required defensive rules differ between `arco-control`
+and `arco-runtime`. See [STYLE.md](STYLE.md#1-criticality-per-crate) and
+ADR-008.
+
 ## API
+
+### A-09: control output gains saturation, rate limiting, and anti-windup
+
+**Status:** planned, phase 6. Blocking review before merge.
+
+Every command leaving the control layer passes one saturation function and
+one rate limiter, and every integrator carries an anti-windup path. Where
+the Python implementation already does this, behavior is unchanged. Where
+it does not, the output changes, and phase 6 records which controllers
+were affected and by how much.
+
+This is the one place the port deliberately improves an algorithm rather
+than translating it, which otherwise contradicts the rule in
+[PLAN.md](PLAN.md#what-this-plan-does-not-do). The exception is taken
+because shipping a controller that winds up is a defect, not a feature to
+preserve, and because a differential test against a winding-up reference
+would lock the defect in.
+
+### A-10: tolerances become named domain constants
+
+**Status:** planned, phase 1.
+
+Comparisons that used an implicit tolerance now use a named constant in
+meters, radians, or seconds. Where the new constant differs from what the
+Python code used implicitly, a test asserting the old behavior may change
+its result. Phase 1 lists the constants and the call sites they replace.
 
 ### A-01: `casadi` leaves the dependency list
 
