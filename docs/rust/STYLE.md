@@ -60,7 +60,7 @@ under its original spelling at the binding:
 | `SSTPlanner` | `SstPlanner` | `#[pyclass(name = "SSTPlanner")]` |
 | `KDTreeOccupancy` | `KdTreeOccupancy` | `#[pyclass(name = "KDTreeOccupancy")]` |
 | `AStarPlanner` | `AStarPlanner` | unchanged, `A` is a single letter |
-| `RRArm`, `RRPArm` | `RrArm`, `RrpArm` | `#[pyclass(name = "RRArm")]` and so on |
+| `RRRobot`, `RRPRobot` | `RrRobot`, `RrpRobot` | `#[pyclass(name = "RRRobot")]` and so on |
 | `MPCController` | `MpcController` | `#[pyclass(name = "MPCController")]` |
 | `PIDController` | `PidController` | `#[pyclass(name = "PIDController")]` |
 

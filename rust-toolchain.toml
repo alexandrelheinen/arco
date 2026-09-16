@@ -1,0 +1,7 @@
+# Pinned so that a contributor and CI resolve the same compiler.
+# Raise this only in a commit whose body names the feature that forced it,
+# per .guidelines/languages/rs.md.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy", "llvm-tools-preview"]
+profile = "minimal"

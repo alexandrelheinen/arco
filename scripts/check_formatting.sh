@@ -12,11 +12,25 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# The interpreter to run the tools with.  ARCO_PYTHON lets scripts/validate.sh
+# hand down the one it already resolved, so a contributor without a bare
+# `python` on PATH runs the same checks CI does.
+PYTHON="${ARCO_PYTHON:-}"
+if [ -z "$PYTHON" ]; then
+    if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+        PYTHON="$REPO_ROOT/.venv/bin/python"
+    elif command -v python >/dev/null 2>&1; then
+        PYTHON=python
+    else
+        PYTHON=python3
+    fi
+fi
+
 echo "=== Formatting check (black + isort + pydocstyle) ==="
 
 # ---------- black ----------
 echo "--- black ---"
-if python -m black --check --target-version py312 --line-length 79 src/; then
+if "$PYTHON" -m black --check --target-version py312 --line-length 79 src/; then
     echo "✅  black: OK"
     BLACK_OK=true
 else
@@ -26,7 +40,7 @@ fi
 
 # ---------- isort ----------
 echo "--- isort ---"
-if python -m isort --check-only --line-length 79 src/; then
+if "$PYTHON" -m isort --check-only --line-length 79 src/; then
     echo "✅  isort: OK"
     ISORT_OK=true
 else
@@ -36,7 +50,7 @@ fi
 
 # ---------- pydocstyle (warning only) ----------
 echo "--- pydocstyle ---"
-if python -m pydocstyle \
+if "$PYTHON" -m pydocstyle \
        --convention=google \
        --add-ignore=D100,D104,D205,D212,D402,D411 \
        src/ 2>&1; then

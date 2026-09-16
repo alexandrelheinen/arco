@@ -120,6 +120,7 @@ done
 
 | Gate | Script | What it checks |
 |------|--------|----------------|
+| 0 | `scripts/validate.sh` | Every gate below, plus the Rust workspace. CI runs this and nothing else |
 | 1 | `scripts/check_formatting.sh` | `black` + `isort` (blocking), `pydocstyle` (warning) |
 | 2 | `scripts/run_tests.sh` | `pytest` unit tests |
 | 3 | `scripts/run_smoke_test.sh <scenario>` | short headless `arcosim` recording |

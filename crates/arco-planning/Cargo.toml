@@ -1,0 +1,16 @@
+[package]
+name = "arco-planning"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Discrete and sampling-based motion planning."
+
+[dependencies]
+arco-core.workspace = true
+arco-mapping.workspace = true
+
+[lints]
+workspace = true

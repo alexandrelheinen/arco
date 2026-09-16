@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
 
 [project]
 name = "arco"
-version = "0.4.0"
-description = "Autonomous Routing, Control, and Observation algorithms in Python"
+version = "0.5.0"
+description = "Algorithms for Robotic Control and Optimization"
 authors = [
     { name = "Alexandre Loeblein Heinen" }
 ]
@@ -25,6 +25,8 @@ dev = [
     "graphviz",
     "pydocstyle"
 ]
+# Removed in phase 7 when the LTV reformulation of ADR-002 lands.
+# See docs/rust/DEVIATIONS.md entry A-01.
 mpc = [
     "casadi>=3.6",
 ]
@@ -37,15 +39,14 @@ tools = [
 [project.scripts]
 arcosim = "arco.simulator.__main__:main"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-# This identifies the 'arco.config' sub-package and includes its .yml files
-"arco.config" = ["*.yml"]
+[tool.maturin]
+# Mixed layout: the Python package stays under src/arco and the compiled
+# extension lands beside it as arco._arco.
+python-source = "src"
+module-name = "arco._arco"
+manifest-path = "crates/arco-py/Cargo.toml"
+features = ["pyo3/extension-module"]
+include = ["src/arco/config/*.yml"]
 
 [tool.black]
 line-length = 79

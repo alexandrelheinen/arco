@@ -78,6 +78,28 @@ lint tier and the required defensive rules differ between `arco-control`
 and `arco-runtime`. See [STYLE.md](STYLE.md#1-criticality-per-crate) and
 ADR-008.
 
+### C-08: the hardened lint tier lives in crate-root attributes
+
+**Status:** accepted, phase 0. **Upstream fix pending.**
+
+[.guidelines/languages/rs.md](../../.guidelines/languages/rs.md#hardened-for-real-time-unsafe-and-ffi-crates)
+says to add the hardened tier as a `[lints.clippy]` table in the crate
+that needs it. Cargo rejects that whenever the same crate also opts into
+the workspace table, which every ARCO crate does:
+
+```
+cannot override `workspace.lints` in `lints`, either remove the overrides
+or `lints.workspace = true` and manually specify the lints
+```
+
+The alternatives are restating the whole baseline tier in each hardened
+crate, or expressing the hardened tier as crate-root attributes. ARCO
+takes the second, which also puts the fact that a crate is hardened in
+front of anyone reading its first screen rather than in a manifest.
+
+The shared guideline is wrong here rather than ARCO being unusual, so this
+entry closes when an upstream fix lands.
+
 ## API
 
 ### A-09: control output gains saturation, rate limiting, and anti-windup

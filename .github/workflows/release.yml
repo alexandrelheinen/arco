@@ -41,6 +41,13 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg xvfb libgl1 libglib2.0-0
 
+      # pip install now builds the Rust extension through maturin, so the
+      # pinned toolchain has to exist before it runs.
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
       - name: Install package with simulator dependencies
         # CasADi (mpc) only for scenarios whose map YAML sets tracker: mpc.
         run: |

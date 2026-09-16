@@ -1,0 +1,74 @@
+name: Rust
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # rust-toolchain.toml pins the channel and the components, so this
+      # resolves the same compiler a contributor gets.
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-llvm-cov,cargo-deny
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # maturin develop refuses to run outside a virtualenv, so the gate
+      # gets the same .venv layout a contributor has rather than a
+      # CI-only code path.
+      - name: Install the Python side
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install "maturin>=1.7,<2" pytest \
+              black isort pydocstyle numpy pyyaml scipy casadi
+
+      # One script, the same one a contributor runs, per
+      # .guidelines/workflow/integration.md.
+      - name: scripts/validate.sh
+        run: bash scripts/validate.sh
+
+  no-std:
+    name: Bare-metal check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Add the bare-metal target
+        run: rustup target add thumbv7em-none-eabihf
+
+      - uses: Swatinem/rust-cache@v2
+
+      # A host build with std available will miss a leaked std:: path.
+      # Cross-compiling to a target with no std is the only honest gate,
+      # per .guidelines/languages/rs.md.  Scoped to the crates that claim
+      # no_std; it grows as phases land.
+      - name: Check the no_std subset
+        run: |
+          echo "No crate claims no_std yet. This job is wired now so that"
+          echo "the first crate that does cannot land without it."
