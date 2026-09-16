@@ -11,6 +11,8 @@ description = "Discrete and sampling-based motion planning."
 [dependencies]
 arco-core.workspace = true
 arco-mapping.workspace = true
+argmin.workspace = true
+argmin-math.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

@@ -13,6 +13,15 @@ targets = [
 [advisories]
 version = 2
 yanked = "deny"
+# Each entry needs a line in docs/decisions.md saying why, and is removed
+# the moment an upgrade makes it unnecessary.
+ignore = [
+    # RUSTSEC-2024-0436: `paste` is unmaintained, not vulnerable. It
+    # reaches us only through `argmin`, it is a proc macro that runs at
+    # compile time and ships nothing, and no version of `argmin` avoids
+    # it. See ADR-016.
+    "RUSTSEC-2024-0436",
+]
 
 [licenses]
 version = 2

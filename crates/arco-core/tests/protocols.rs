@@ -38,6 +38,10 @@ impl Occupancy for SingleObstacle {
         self.dimension
     }
 
+    fn clearance(&self) -> f64 {
+        self.radius
+    }
+
     fn nearest_obstacle(&self, point: &[f64]) -> Result<NearestObstacle, Error> {
         arco_core::geometry::require_dimension("point", point, self.dimension)?;
         arco_core::geometry::require_finite("point", point)?;

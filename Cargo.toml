@@ -32,6 +32,8 @@ thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_yaml_ng = "0.10"
 criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
+argmin = { version = "0.11", default-features = false }
+argmin-math = { version = "0.5", default-features = false, features = ["primitives", "vec"] }
 
 # Baseline tier, every crate. See .guidelines/languages/rs.md.
 [workspace.lints.rust]
