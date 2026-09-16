@@ -208,3 +208,6 @@ __marimo__/
 
 # Open Street Map cache
 cache/
+
+# ARCO illustration gallery solver cache
+tools/output/gallery_cache/
