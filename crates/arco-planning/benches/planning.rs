@@ -19,6 +19,10 @@
 //! clearance of 1.2, planning corner to corner with every policy at its
 //! default. The Python median was 3.125 seconds, so the target here is
 //! 312 milliseconds.
+//!
+//! The segment policy is the sampled one, matching what the Python
+//! planner did, so the two sides are doing the same work rather than the
+//! Rust side doing more of it.
 
 // A benchmark is neither library code nor a #[test] function, so the
 // allowances in clippy.toml do not reach it, and criterion_main generates
@@ -34,7 +38,7 @@ use std::hint::black_box;
 use arco_core::rng::Pcg64;
 use arco_mapping::occupancy::KdTreeOccupancy;
 use arco_planning::continuous::{
-    RrtPlanner, RrtSettings, SamplerPolicy, SegmentPolicy, SteererPolicy,
+    CostPolicy, RrtPlanner, RrtSettings, SamplerPolicy, SegmentPolicy, SteererPolicy,
 };
 use criterion::{Criterion, criterion_group, criterion_main};
 
@@ -73,6 +77,9 @@ fn scenario_planner(occupancy: KdTreeOccupancy) -> RrtPlanner<KdTreeOccupancy> {
         SegmentPolicy::Sampled {
             occupancy,
             count: 12,
+        },
+        CostPolicy::Scaled {
+            step_size: vec![STEP_SIZE, STEP_SIZE],
         },
         RrtSettings {
             max_samples: MAX_SAMPLES,

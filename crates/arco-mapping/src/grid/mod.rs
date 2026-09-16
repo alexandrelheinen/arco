@@ -133,6 +133,10 @@ macro_rules! grid_impl {
         impl DiscreteMap for $grid {
             type Node = usize;
 
+            fn contains(&self, node: usize) -> bool {
+                node < self.cells.cell_count()
+            }
+
             fn neighbors(&self, node: usize) -> Vec<usize> {
                 neighbors_of(&self.cells, node, $diagonal)
             }

@@ -70,6 +70,10 @@ impl Default for SearchOptions {
 /// which is what `FR-INV-06` asserts and what makes one a free oracle for
 /// the other.
 ///
+/// A start or goal the map does not contain is reported as
+/// [`PlanFailure::StartOutsideMap`] or [`PlanFailure::GoalOutsideMap`]
+/// rather than searched for.
+///
 /// # Errors
 ///
 /// Propagates whatever the map's own `distance` or `heuristic` returns,
@@ -84,6 +88,22 @@ where
     M: DiscreteMap,
     M::Node: Ord,
 {
+    // FR-INV-08. A node off the edge of the map is a different answer
+    // from a node the search could not reach, and collapsing the two
+    // sends a caller looking for a route that was never askable.
+    if !map.contains(start) {
+        return Ok(PlanOutcome::Failed {
+            reason: PlanFailure::StartOutsideMap,
+            expanded: 0,
+        });
+    }
+    if !map.contains(goal) {
+        return Ok(PlanOutcome::Failed {
+            reason: PlanFailure::GoalOutsideMap,
+            expanded: 0,
+        });
+    }
+
     let mut open = BinaryHeap::new();
     let mut best_cost: BTreeMap<M::Node, f64> = BTreeMap::new();
     let mut came_from: BTreeMap<M::Node, M::Node> = BTreeMap::new();

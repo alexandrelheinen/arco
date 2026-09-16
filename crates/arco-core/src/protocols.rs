@@ -37,6 +37,14 @@ pub trait DiscreteMap {
     /// The type identifying a node.
     type Node: Copy + Eq + core::hash::Hash;
 
+    /// Whether `node` belongs to this map.
+    ///
+    /// A search asks this about its start and its goal before expanding
+    /// anything, so that a query naming a cell off the edge of a grid is
+    /// reported as such instead of as an unreachable goal. The two are
+    /// different diagnoses and `FR-INV-08` keeps them apart.
+    fn contains(&self, node: Self::Node) -> bool;
+
     /// The nodes adjacent to `node`.
     fn neighbors(&self, node: Self::Node) -> Vec<Self::Node>;
 
@@ -80,6 +88,45 @@ pub trait Occupancy {
     ///
     /// As [`Occupancy::nearest_obstacle`].
     fn is_occupied(&self, point: &[f64]) -> Result<bool, Error>;
+
+    /// Whether the straight segment between two states touches nothing.
+    ///
+    /// Exact, not sampled. Sampling a segment at any fixed resolution
+    /// misses an obstacle the segment only grazes, because the span it
+    /// occludes shrinks to nothing as the contact gets shallower, and no
+    /// sample count fixes that. `FR-INV-01` asks that a returned path
+    /// survive a re-check finer than the planning resolution, which only
+    /// an exact answer can promise.
+    ///
+    /// # Errors
+    ///
+    /// As [`Occupancy::nearest_obstacle`].
+    fn is_segment_free(&self, from: &[f64], to: &[f64]) -> Result<bool, Error>;
+}
+
+/// The metric a planner measures edges and remaining cost with.
+///
+/// Replaces `arco.planning.cost.PlannerCost`, which planners accepted
+/// through a `cost=` argument so that a caller could change the metric
+/// without subclassing the search.
+pub trait PlannerCost {
+    /// The cost of moving from `from` to `to`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::DimensionMismatch`] when the states disagree in
+    /// dimension, or [`Error::NotFinite`] when one carries a NaN.
+    fn distance(&self, from: &[f64], to: &[f64]) -> Result<f64, Error>;
+
+    /// A lower bound on the remaining cost from `from` to `to`.
+    ///
+    /// Overestimating breaks the optimality `FR-INV-06` asserts, so an
+    /// implementation that cannot bound the remainder returns zero.
+    ///
+    /// # Errors
+    ///
+    /// As [`PlannerCost::distance`].
+    fn heuristic(&self, from: &[f64], to: &[f64]) -> Result<f64, Error>;
 }
 
 /// A source of random states for a sampling planner.

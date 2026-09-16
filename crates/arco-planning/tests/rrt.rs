@@ -20,11 +20,12 @@ use arco_core::protocols::Occupancy;
 use arco_core::rng::Pcg64;
 use arco_mapping::occupancy::KdTreeOccupancy;
 use arco_planning::continuous::{
-    RrtPlanner, RrtSettings, SamplerPolicy, SegmentPolicy, SteererPolicy,
+    CostPolicy, RrtPlanner, RrtSettings, SamplerPolicy, SegmentPolicy, SteererPolicy,
 };
 use arco_planning::failure::PlanFailure;
 
 const SEGMENT_SAMPLES: usize = 12;
+const STEP_SIZE: f64 = 2.0;
 
 fn obstacle_field(seed: u64, count: usize) -> KdTreeOccupancy {
     let mut generator = Pcg64::seed_from_u64(seed);
@@ -40,16 +41,34 @@ fn obstacle_field(seed: u64, count: usize) -> KdTreeOccupancy {
 }
 
 fn planner(occupancy: KdTreeOccupancy, settings: RrtSettings) -> RrtPlanner<KdTreeOccupancy> {
+    planner_with(
+        SegmentPolicy::Sampled {
+            occupancy,
+            count: SEGMENT_SAMPLES,
+        },
+        settings,
+    )
+}
+
+/// The same planner under an exact segment check.
+fn exact_planner(occupancy: KdTreeOccupancy, settings: RrtSettings) -> RrtPlanner<KdTreeOccupancy> {
+    planner_with(SegmentPolicy::Exact { occupancy }, settings)
+}
+
+fn planner_with(
+    segments: SegmentPolicy<KdTreeOccupancy>,
+    settings: RrtSettings,
+) -> RrtPlanner<KdTreeOccupancy> {
     RrtPlanner::new(
         SamplerPolicy::UniformBox {
             bounds: vec![(0.0, 50.0), (0.0, 50.0)],
         },
         SteererPolicy::Straight {
-            step_size: vec![2.0, 2.0],
+            step_size: vec![STEP_SIZE, STEP_SIZE],
         },
-        SegmentPolicy::Sampled {
-            occupancy,
-            count: SEGMENT_SAMPLES,
+        segments,
+        CostPolicy::Scaled {
+            step_size: vec![STEP_SIZE, STEP_SIZE],
         },
         settings,
     )
@@ -78,11 +97,12 @@ fn path_is_collision_free(occupancy: &KdTreeOccupancy, path: &[Vec<f64>]) -> boo
 
 #[test]
 fn a_returned_path_is_collision_free_under_the_same_map() {
-    // FR-INV-01, re-checked at 200 samples per segment against the
-    // planner's 12.
+    // FR-INV-01. Under the exact segment policy the re-check may be as
+    // fine as it likes, because the planner made no resolution-bound
+    // claim to begin with.
     for seed in 0..8_u64 {
         let occupancy = obstacle_field(seed, 150);
-        let planner = planner(
+        let planner = exact_planner(
             occupancy.clone(),
             RrtSettings {
                 max_samples: 3000,
@@ -125,36 +145,63 @@ fn a_path_starts_at_the_start_and_reaches_the_goal() {
 }
 
 #[test]
-fn consecutive_states_are_within_one_step() {
-    // FR-INV-02: the steerer caps each edge, and the path is made of
-    // those edges, so no edge may exceed the cap.
+fn consecutive_states_are_connected_by_an_accepted_motion() {
+    // FR-INV-02. The bound is the rewiring radius rather than the step:
+    // grafting and rewiring both connect a node to a neighbor up to a
+    // radius away, so a path edge is a chord of that neighborhood and not
+    // a single steering step.
+    let settings = RrtSettings {
+        max_samples: 2000,
+        goal_tolerance: 1.5,
+        ..RrtSettings::default()
+    };
     let occupancy = obstacle_field(2, 100);
-    let planner = planner(
-        occupancy,
-        RrtSettings {
-            max_samples: 2000,
-            goal_tolerance: 1.5,
-            ..RrtSettings::default()
-        },
-    );
+    let checker = SegmentPolicy::Exact {
+        occupancy: occupancy.clone(),
+    };
+    let planner = exact_planner(occupancy, settings);
     let mut generator = Pcg64::seed_from_u64(2);
     let outcome = planner
         .plan(&[2.0, 2.0], &[48.0, 48.0], &mut generator)
         .unwrap();
 
-    if let Some(path) = outcome.path() {
-        // The last edge may be the appended goal segment, which is only
-        // bounded by the goal tolerance.
-        for pair in path.windows(2).take(path.len().saturating_sub(2)) {
-            let [from, to] = pair else { continue };
-            for axis in 0..2 {
-                assert!(
-                    (to[axis] - from[axis]).abs() <= 2.0 + 1e-9,
-                    "edge {from:?} to {to:?} exceeds the step on axis {axis}"
-                );
-            }
-        }
+    let path = outcome.path().expect("this field is crossable");
+    let longest = settings.max_rewire_radius.max(settings.goal_tolerance);
+    for pair in path.windows(2) {
+        let [from, to] = pair else { continue };
+        assert!(
+            checker.is_segment_free(from, to).unwrap(),
+            "the checker rejects an edge it built: {from:?} to {to:?}"
+        );
+        let span = (to[0] - from[0]).hypot(to[1] - from[1]) / STEP_SIZE;
+        assert!(
+            span <= longest + 1e-9,
+            "edge {from:?} to {to:?} spans {span} steps"
+        );
     }
+}
+
+#[test]
+fn sampling_a_segment_can_miss_an_obstacle_an_exact_check_catches() {
+    // The reason FR-INV-01 is stated against a resolution rather than
+    // absolutely. A segment grazing an obstacle occludes a span far
+    // shorter than the obstacle is wide, and twelve samples step over it.
+    // Clearance 1.2 against a standoff of 1.19 leaves an occluded span of
+    // about 0.31, and twelve samples over ten meters step 0.91 at a time.
+    let occupancy = KdTreeOccupancy::new(&[vec![5.0, 1.19]], 1.2).unwrap();
+    let from = vec![0.0, 0.0];
+    let to = vec![10.0, 0.0];
+
+    let sampled = SegmentPolicy::Sampled {
+        occupancy: occupancy.clone(),
+        count: SEGMENT_SAMPLES,
+    };
+    let exact = SegmentPolicy::Exact { occupancy };
+
+    assert!(sampled.is_segment_free(&from, &to).unwrap());
+    assert!(!exact.is_segment_free(&from, &to).unwrap());
+    assert_eq!(sampled.validity_samples(), Some(SEGMENT_SAMPLES));
+    assert_eq!(exact.validity_samples(), None);
 }
 
 #[test]
@@ -302,7 +349,9 @@ fn an_empty_space_is_crossed_directly() {
         .unwrap();
 
     let cost = outcome.cost().expect("an empty space is always crossable");
-    let straight = (48.0_f64 - 2.0).hypot(48.0 - 2.0);
+    // Cost is measured in steps, so the straight line is converted before
+    // the comparison rather than after.
+    let straight = (48.0_f64 - 2.0).hypot(48.0 - 2.0) / STEP_SIZE;
     assert!(
         cost >= straight - 1e-9,
         "shorter than a straight line: {cost}"

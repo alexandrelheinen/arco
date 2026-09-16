@@ -149,11 +149,42 @@ impl Occupancy for KdTreeOccupancy {
     fn is_occupied(&self, point: &[f64]) -> Result<bool, Error> {
         Ok(self.nearest_obstacle(point)?.distance <= 0.0)
     }
+
+    fn is_segment_free(&self, from: &[f64], to: &[f64]) -> Result<bool, Error> {
+        require_dimension("segment start", from, self.dimension)?;
+        require_dimension("segment end", to, self.dimension)?;
+        require_finite("segment start", from)?;
+        require_finite("segment end", to)?;
+
+        // The capsule of radius `clearance` around the segment is what
+        // has to stay empty, and its bounding box is what prunes the
+        // descent. A subtree lying wholly on the far side of a split
+        // plane from that box cannot hold a point inside it.
+        let bounds: Vec<(f64, f64)> = from
+            .iter()
+            .zip(to)
+            .map(|(start, end)| {
+                (
+                    start.min(*end) - self.clearance,
+                    start.max(*end) + self.clearance,
+                )
+            })
+            .collect();
+
+        Ok(!intersects(
+            self.root.as_ref(),
+            &self.points,
+            from,
+            to,
+            &bounds,
+            self.clearance,
+        ))
+    }
 }
 
 impl SegmentChecker for KdTreeOccupancy {
     fn is_segment_free(&self, from: &[f64], to: &[f64]) -> Result<bool, Error> {
-        self.is_segment_free_with(from, to, 12)
+        Occupancy::is_segment_free(self, from, to)
     }
 }
 
@@ -289,4 +320,69 @@ const fn mix(value: u64) -> u64 {
     mixed ^= mixed >> 33;
     mixed = mixed.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
     mixed ^ (mixed >> 33)
+}
+
+/// Whether any obstacle lies within `clearance` of the segment.
+///
+/// Descends the tree, keeping a subtree only while the query's bounding
+/// box reaches across the split plane into it. The walk is over the tree
+/// rather than over the points, so a sparse field costs a handful of
+/// distance evaluations rather than one per obstacle.
+fn intersects(
+    node: Option<&Node>,
+    points: &[Vec<f64>],
+    from: &[f64],
+    to: &[f64],
+    bounds: &[(f64, f64)],
+    clearance: f64,
+) -> bool {
+    let Some(node) = node else { return false };
+    let Some(point) = points.get(node.point) else {
+        return false;
+    };
+
+    if squared_distance_to_segment(point, from, to) <= clearance * clearance {
+        return true;
+    }
+
+    let split = point.get(node.axis).copied().unwrap_or_default();
+    let (low, high) = bounds
+        .get(node.axis)
+        .copied()
+        .unwrap_or((f64::NEG_INFINITY, f64::INFINITY));
+
+    // Every point left of the split sits at or below it, so the whole
+    // subtree is out of reach once the split is below the box.
+    if split >= low && intersects(node.left.as_deref(), points, from, to, bounds, clearance) {
+        return true;
+    }
+    if split <= high && intersects(node.right.as_deref(), points, from, to, bounds, clearance) {
+        return true;
+    }
+    false
+}
+
+/// The squared distance from `point` to the segment `from` to `to`.
+fn squared_distance_to_segment(point: &[f64], from: &[f64], to: &[f64]) -> f64 {
+    let mut span_squared = 0.0_f64;
+    let mut projection = 0.0_f64;
+    for ((start, end), coordinate) in from.iter().zip(to).zip(point) {
+        let span = end - start;
+        span_squared += span * span;
+        projection += (coordinate - start) * span;
+    }
+    // A degenerate segment is a point, and the clamp below would divide
+    // by zero rather than say so.
+    let ratio = if span_squared > 0.0 {
+        (projection / span_squared).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    let mut total = 0.0_f64;
+    for ((start, end), coordinate) in from.iter().zip(to).zip(point) {
+        let offset = (end - start).mul_add(ratio, start - coordinate);
+        total += offset * offset;
+    }
+    total
 }
