@@ -578,7 +578,14 @@ of its Rust replacement, so a revert is a one-commit operation.
   three are needed by any caller embedding ARCO in a real robot. Decide
   before phase 9 whether they are added as documented additions or left to
   a follow-up.
-- **`arco.config` palette ownership.** `palette.py` and `colors.yml`
-  serve the simulator, which stays Python. Porting them may be wasted
-  work. Confirm during phase 1 whether `arco-core` carries config at all
-  or whether `arco.config` stays Python for now.
+- ~~**`arco.config` palette ownership.**~~ Resolved. The four
+  configuration files split cleanly by consumer: `mpc.yml` is read by
+  `control/mpc/`, `optimizer.yml` by `planning/continuous/optimizer.py`,
+  and both `colors.yml` and `simulator.yml` only by the simulator and the
+  palette. So `arco-core` carries YAML parsing for the first two, and
+  `arco.config.palette` stays Python along with the simulator it serves.
+
+  The ported crates embed their own defaults with `include_str!` and parse
+  them once at construction, which is how ADR-015 is implemented rather
+  than merely stated: no environment variable is read, nothing runs at
+  load time, and no parsed document is held in a global.

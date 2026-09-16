@@ -28,6 +28,8 @@ arco-control = { path = "crates/arco-control", version = "0.5.0" }
 arco-guidance = { path = "crates/arco-guidance", version = "0.5.0" }
 
 thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_yaml_ng = "0.10"
 
 # Baseline tier, every crate. See .guidelines/languages/rs.md.
 [workspace.lints.rust]
