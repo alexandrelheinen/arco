@@ -9,5 +9,7 @@ Shared engineering guidelines live in [.guidelines/](.guidelines/) (a git submod
 - [.guidelines/style/naming.md](.guidelines/style/naming.md) — naming
 - [.guidelines/languages/py.md](.guidelines/languages/py.md) — Python
 - [.guidelines/languages/rs.md](.guidelines/languages/rs.md) — Rust
+- [.guidelines/style/defensive.md](.guidelines/style/defensive.md) — code whose failure costs more than a rerun
+- [.guidelines/workflow/criticality.md](.guidelines/workflow/criticality.md) — rigor levels and the deviation procedure
 
 For arco's own project context and conventions, read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/guidelines.md](docs/guidelines.md).

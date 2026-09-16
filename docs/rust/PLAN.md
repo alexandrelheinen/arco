@@ -68,12 +68,18 @@ later phase has a green pipeline to push into.
 2. **Toolchain pin.** `rust-toolchain.toml` pinning the channel and
    listing `rustfmt` and `clippy` components, so a contributor and CI
    resolve the same compiler.
-3. **Lint policy.** Crate-root attributes per
-   [STYLE.md](STYLE.md): `#![deny(missing_docs)]`,
-   `#![deny(unsafe_op_in_unsafe_fn)]`, `#![warn(clippy::pedantic)]` with
-   the documented allow list. No `rustfmt.toml`: rustfmt defaults apply,
-   and [DEVIATIONS.md](DEVIATIONS.md) records why the Python 79-column
-   rule does not carry over.
+3. **Lint policy and criticality.** The `[workspace.lints]` table carries
+   the baseline tier from
+   [.guidelines/languages/rs.md](../../.guidelines/languages/rs.md#lints),
+   and every crate opts in with `lints.workspace = true`. Each C2 crate
+   from [STYLE.md](STYLE.md#1-criticality-per-crate) adds the hardened
+   tier and states in its crate documentation why it is hardened. A
+   `clippy.toml` allows the strict lints inside tests, which
+   `cfg_attr` cannot reach because integration tests compile as separate
+   crates. Release profile sets `overflow-checks = true`. No
+   `rustfmt.toml`: rustfmt defaults apply, and
+   [DEVIATIONS.md](DEVIATIONS.md) records why the Python 79-column rule
+   does not carry over. Satisfies `FR-SAFE-08`.
 4. **PyO3 and maturin.** `crates/arco-py` configured as a `cdylib` named
    `arco._arco`, `pyo3` with `abi3-py310` and the `extension-module`
    feature, `numpy` for array conversion. `pyproject.toml` switches
@@ -81,15 +87,24 @@ later phase has a green pipeline to push into.
    `requires-python = ">=3.10"`, the `[project.scripts]` entry, and the
    package data rules. The Python sources under `src/arco/` stay the
    installed package; the extension lands beside them.
-5. **One validation script.** `scripts/validate.sh`, which is the single
-   gate [.guidelines/workflow/integration.md](../../.guidelines/workflow/integration.md)
-   requires, running in this order and stopping at the first blocking
-   failure: `cargo fmt --check`, `cargo clippy --all-targets -- -D
-   warnings`, `cargo test --workspace`, `cargo llvm-cov` against the 80
-   percent gate, `maturin develop`, `bash scripts/check_formatting.sh`,
-   `bash scripts/run_tests.sh`. The existing scripts keep working and
-   keep their current jobs; `validate.sh` calls them rather than
-   duplicating them.
+5. **One validation script.** `scripts/validate.sh`, the single gate
+   [.guidelines/workflow/integration.md](../../.guidelines/workflow/integration.md)
+   requires, running the tooling table from the shared Rust guideline and
+   then the existing Python gates, stopping at the first blocking
+   failure. Coverage uses the `show-env` flow so that the extension is
+   instrumented before `maturin develop` builds it and a `pytest` run
+   reports into the same profile:
+
+   ```bash
+   source <(cargo llvm-cov show-env --sh)
+   cargo llvm-cov clean --workspace
+   maturin develop
+   pytest
+   cargo llvm-cov report --fail-under-lines 80 --fail-under-regions 80
+   ```
+
+   The existing scripts keep their current jobs; `validate.sh` calls them
+   rather than duplicating them.
 6. **CI.** Extend `.github/workflows/tests.yml` with a Rust job matching
    `validate.sh` step for step. Extend `.github/workflows/release.yml`
    to build `abi3` wheels for the three platforms of the spec's
@@ -147,7 +162,16 @@ the floor of the graph.
    This is the highest-risk item of the phase and goes first inside it,
    because `FR-RNG-02` is the one requirement that fails loudly and late
    if deferred.
-5. **Config loading.** `serde_yaml` over the `.yml` files in
+5. **Tolerance constants and ordering.** The named domain tolerances of
+   [STYLE.md](STYLE.md#7-tolerances), the total-order comparison helpers,
+   and the non-finite rejection used at every public boundary. Placed here
+   because every later crate calls them, and because writing them after
+   the algorithms would mean retrofitting the comparisons. Satisfies
+   `FR-SAFE-05`, `FR-SAFE-06`, and `FR-SAFE-07`.
+6. **Allocation-counting test harness.** The instrumented allocator
+   `FR-SAFE-04` needs, built once here and reused by the control crate in
+   phase 6.
+7. **Config loading.** `serde_yaml` over the `.yml` files in
    `src/arco/config/`, subject to the open question in [SPEC.md](SPEC.md)
    about whether the palette belongs here at all. Resolve that question
    in this phase rather than porting `palette.py` speculatively.
@@ -286,6 +310,10 @@ internal order, each step green before the next:
   baseline, number recorded in the commit body.
 - `FR-PERF-02` verified: no GIL acquisition inside the planner loop when
   hooks are at their defaults.
+- `FR-SAFE-02` met: every planner entry point takes a budget and reports
+  exhaustion distinctly from convergence.
+- `FR-SAFE-03` met: no recursion, and the tree searches carry an explicit
+  stack of stated capacity.
 - `scipy` no longer imported by `src/arco/planning/`.
 
 ---
@@ -309,6 +337,14 @@ cannot block the rest of the control layer from landing.
    `nearest_obstacle_fn` hook enum.
 4. **Avoidance.** The APF term, injected rather than hardcoded, matching
    the current Python structure.
+5. **Command conditioning.** One saturation function and one rate limiter
+   on the path out of the control module, reporting the two separately,
+   and an anti-windup path on every integrator, per
+   [.guidelines/style/defensive.md](../../.guidelines/style/defensive.md#control-output).
+   The step signature takes the elapsed interval as an argument and reads
+   no clock. Where the Python implementation lacks one of these, adding it
+   changes behavior and needs a [DEVIATIONS.md](DEVIATIONS.md) entry
+   rather than a silent improvement.
 
 ### Exit criteria
 
@@ -316,6 +352,8 @@ cannot block the rest of the control layer from landing.
   which still exercise the Python CasADi path.
 - `pytest tests/guidance/test_controller.py` and the tracking-loop tests
   pass.
+- `FR-SAFE-04` met: the allocation-counting harness from phase 1 reports
+  zero allocations across a control step.
 
 ---
 
@@ -421,9 +459,13 @@ did, which is the acceptance test for the entire effort.
    `except ValueError` still catches what it used to. `FR-API-04`.
 4. **Type stubs.** A `.pyi` per ported module so `mypy --strict` and IDE
    completion keep working against the compiled extension. `FR-DOC-02`.
-5. **Docstring forwarding.** Rust doc comments surfaced as `__doc__` on
+5. **Panic containment.** Every exported function returns a `PyResult`,
+   and a link job runs `#[no_panic]` against the entry points in an
+   unwind profile, per [STYLE.md](STYLE.md#6-the-python-boundary).
+   Satisfies `FR-SAFE-01`.
+6. **Docstring forwarding.** Rust doc comments surfaced as `__doc__` on
    the bound objects, so `help()` keeps answering. `FR-DOC-02`.
-6. **Deviation reconciliation.** Every entry accumulated in
+7. **Deviation reconciliation.** Every entry accumulated in
    [DEVIATIONS.md](DEVIATIONS.md) reviewed as one set, since a deviation
    that looked local in phase 2 may read differently next to eight
    others. `FR-API-06`.

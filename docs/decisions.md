@@ -119,3 +119,86 @@ ARCO formats Python at 79 columns. Rust uses `rustfmt` defaults at 100.
 Forcing 79 on Rust wraps generic bounds and `where` clauses into noise,
 and every Rust tool and reader expects the default. Recorded as C-02 in
 [docs/rust/DEVIATIONS.md](rust/DEVIATIONS.md).
+
+## ADR-007: gate coverage on lines, regions and functions, not branches
+
+**Date:** 2026-09-16. **Status:** accepted. **Supersedes part of ADR-005.**
+
+ISO 26262-6 table 9 downgrades statement coverage at the higher assurance
+levels and makes branch coverage highly recommended from ASIL B, which
+argues for gating on branches rather than lines.
+
+Rust cannot do it. `-Zcoverage-options=branch` needs nightly, its tracking
+issue is open, and `cargo-llvm-cov` has no `--fail-under-branches`: its own
+CI carries a `# TODO: --fail-under-branches?` comment. The available gates
+are lines, regions, functions, and per-file lines. Region coverage is the
+closest proxy to branch coverage that can actually fail a build, so
+`FR-TEST-03` gates on lines, regions and functions together.
+
+Modified condition or decision coverage is not an option at all. It was
+removed from the compiler in 2025 over maintenance cost, and
+`cargo-llvm-cov --mcdc` now fails on any toolchain from 1.91 onward.
+Reintroduction is an accepted 2026 Rust project goal with AdaCore
+committing maintenance; track it, do not plan around it.
+
+The Python side keeps branch coverage, since `coverage.py` supports it.
+The gate is therefore asymmetric by language, deliberately.
+
+## ADR-008: assign criticality per crate, not per project
+
+**Date:** 2026-09-16. **Status:** accepted.
+
+Holding a plotting helper and a control loop to one standard means either
+the helper drowns in process or the control loop is under-protected.
+Criticality is assigned per crate, in
+[docs/rust/STYLE.md](rust/STYLE.md#1-criticality-per-crate), following
+[.guidelines/workflow/criticality.md](../.guidelines/workflow/criticality.md).
+
+A crate inherits the highest level of anything depending on it, which is
+why `arco-core` is C2: its geometry helpers are reached from the
+controllers. `arco-planning` is C1 rather than C2 because a plan is
+consumed by a control layer that validates it before acting, and that
+layer is where an unsafe path has to be caught. If a planner output ever
+reaches an actuator without that validation, the level rises and this
+entry is superseded.
+
+## ADR-009: a panic must never cross the Python boundary
+
+**Date:** 2026-09-16. **Status:** accepted.
+
+Unwinding out of a foreign function is undefined behavior. PyO3 catches
+what it can and raises an exception derived from `BaseException`, which an
+ordinary `except Exception` handler passes over and which tends to end the
+interpreter.
+
+So a panic in an ARCO planner does not reach a Python caller as a
+catchable error; it takes the process down. That is a stronger argument
+against panicking constructs than a pure Rust library has, and it is why
+`arco-py` is C2 despite containing no algorithm: every exported function
+returns a `PyResult`, and a link job runs `#[no_panic]` against the entry
+points in an unwind profile.
+
+The alternative, relying on PyO3's own catch, was rejected because it
+converts a bug into a process kill rather than into an error the caller
+can handle.
+
+## ADR-010: defer to the shared guidelines rather than restating them
+
+**Date:** 2026-09-16. **Status:** accepted.
+
+`docs/rust/STYLE.md` originally carried a full Rust style guide, written
+when `.guidelines/languages/rs.md` was a stub that deferred most decisions
+upstream. The shared file now covers the toolchain, workspace layout, lint
+tiers, unsafe policy, error enums, rustdoc sections, test layout, and
+extension-module rules, and two new shared files cover defensive
+programming and criticality.
+
+`STYLE.md` is now ARCO deltas only: criticality per crate, the domain
+naming that describes robotics rather than a language, the acronym mapping
+table, the file-name mirroring during the port, the license header, the
+tolerance constants, and the budget parameters. Anything true of Rust in
+general belongs upstream, where every project in the family gets it.
+
+The submodule pin moved from v1.0.0 to the guidelines `main` tip in the
+same change, because the old pin made every reference in these documents
+point at the stub rather than the guideline.

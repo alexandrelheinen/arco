@@ -257,10 +257,18 @@ Python package keeps its current import paths and call syntax. See
 [docs/decisions.md](decisions.md) for why the approach was chosen.
 
 The authoritative Rust coding standard is
-[docs/rust/STYLE.md](rust/STYLE.md), which stands to Rust as this file
-stands to Python: it records ARCO's additions to the shared
-[.guidelines/languages/rs.md](../.guidelines/languages/rs.md), and nothing
-that file already covers.
+[.guidelines/languages/rs.md](../.guidelines/languages/rs.md).
+[docs/rust/STYLE.md](rust/STYLE.md) stands to it as this file stands to
+[.guidelines/languages/py.md](../.guidelines/languages/py.md): ARCO
+deltas only, nothing the shared file already covers.
+
+Two shared files govern the parts of ARCO where a wrong answer costs more
+than a rerun. [.guidelines/style/defensive.md](../.guidelines/style/defensive.md)
+holds the contract, assertion, bounded-resource and numerical rules, and
+[.guidelines/workflow/criticality.md](../.guidelines/workflow/criticality.md)
+says how much of that a given module owes, with the procedure for
+recording a deviation. ARCO assigns a criticality level per crate in
+[docs/rust/STYLE.md](rust/STYLE.md#1-criticality-per-crate).
 
 Rules from sections 1 through 12 above that describe the domain rather
 than the language carry over unchanged: maps are nouns, planners take the

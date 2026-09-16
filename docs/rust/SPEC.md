@@ -187,12 +187,48 @@ reused. Domains: `API`, `CORE`, `MPC`, `PERF`, `RNG`, `BUILD`, `TEST`,
 - `FR-TEST-02`: When a Rust module replaces a Python module, a
   differential test shall run both implementations on the same inputs and
   compare the outputs within a tolerance the test states explicitly.
-- `FR-TEST-03`: When the Rust test suite runs, line coverage on the ported
-  crates shall stay at or above 80 percent, enforced in CI, matching the
-  gate in [.guidelines/workflow/tdd.md](../../.guidelines/workflow/tdd.md).
+- `FR-TEST-03`: When the Rust test suite runs, line, region, and function
+  coverage on the ported crates shall each stay at or above 80 percent,
+  enforced in CI, matching the gate in
+  [.guidelines/workflow/tdd.md](../../.guidelines/workflow/tdd.md). Branch
+  coverage is measured where available and is not gated, for the reason
+  ADR-007 records.
 - `FR-TEST-04`: When a Rust function is left unimplemented on purpose, it
   shall call `todo!()` with a reason string, and its test shall carry
   `#[should_panic(expected = ...)]` naming the requirement that blocks it.
+
+### Soundness and defensive rules
+
+These implement
+[.guidelines/style/defensive.md](../../.guidelines/style/defensive.md) at
+the criticality levels assigned in [STYLE.md](STYLE.md#1-criticality-per-crate).
+
+- `FR-SAFE-01`: When a panic occurs inside `arco-py`, the system shall
+  convert it into a Python exception at the boundary and shall not unwind
+  across it.
+- `FR-SAFE-02`: When a caller invokes a search, sampling, or solving
+  entry point, the system shall accept an explicit budget and shall
+  return a result that distinguishes convergence from budget exhaustion.
+- `FR-SAFE-03`: When a ported crate is built, it shall contain no direct
+  or indirect recursion, and the tree and graph searches shall use an
+  explicit stack of stated capacity.
+- `FR-SAFE-04`: When a controller executes one step, it shall perform no
+  heap allocation, and a test shall prove this with an instrumented
+  allocator.
+- `FR-SAFE-05`: When the system orders floating-point values, whether to
+  sort, to key a map, or to select a minimum, it shall use a total order
+  and shall not discard the failure case of a partial comparison.
+- `FR-SAFE-06`: When the system compares floating-point values for
+  agreement, it shall use a named tolerance constant expressed in a
+  physical unit, and shall not use the machine epsilon as a domain
+  tolerance.
+- `FR-SAFE-07`: When a non-finite value crosses a public API boundary in
+  either direction, the system shall reject it with a typed error rather
+  than propagate it.
+- `FR-SAFE-08`: When CI builds the workspace, the lint policy shall come
+  from the `[workspace.lints]` table, and every C2 crate shall carry the
+  hardened tier from
+  [.guidelines/languages/rs.md](../../.guidelines/languages/rs.md#lints).
 
 ### Documentation
 
@@ -242,6 +278,14 @@ reused. Domains: `API`, `CORE`, `MPC`, `PERF`, `RNG`, `BUILD`, `TEST`,
 | `FR-TEST-02` | `tests/rust/differential/` |
 | `FR-TEST-03` | `cargo llvm-cov` gate in CI |
 | `FR-TEST-04` | `cargo test` |
+| `FR-SAFE-01` | `tests/rust/test_no_panic_escapes.py`, `#[no_panic]` link job |
+| `FR-SAFE-02` | `tests/rust/test_budgets.py`, per-crate budget tests |
+| `FR-SAFE-03` | `cargo clippy` plus a review gate; no lint covers this |
+| `FR-SAFE-04` | `crates/arco-control/tests/no_alloc.rs` with a counting allocator |
+| `FR-SAFE-05` | `crates/arco-core/tests/ordering.rs`, non-finite cost cases |
+| `FR-SAFE-06` | Review gate plus a grep for bare float literals in comparisons |
+| `FR-SAFE-07` | `tests/rust/test_non_finite_rejected.py` |
+| `FR-SAFE-08` | `.github/workflows/tests.yml` |
 | `FR-DOC-01` | `#![deny(missing_docs)]` plus `cargo doc` in CI |
 | `FR-DOC-02` | `tests/rust/test_docstrings.py`, `mypy --strict` |
 | `FR-DOC-03` | review gate, not a test |
@@ -269,6 +313,12 @@ reused. Domains: `API`, `CORE`, `MPC`, `PERF`, `RNG`, `BUILD`, `TEST`,
   current test fail is a breaking change and needs a
   [DEVIATIONS.md](DEVIATIONS.md) entry plus review, never a quiet edit to
   the test.
+- **Criticality is assigned per crate** in
+  [STYLE.md](STYLE.md#1-criticality-per-crate), and decides which rules in
+  [.guidelines/style/defensive.md](../../.guidelines/style/defensive.md)
+  are required rather than recommended. Breaking one needs a deviation
+  record in [docs/decisions.md](../decisions.md), per
+  [.guidelines/workflow/criticality.md](../../.guidelines/workflow/criticality.md#deviations).
 - **Performance budget for the binding layer**: array conversion at the
   Python boundary is allowed to copy on the way out, and must not copy on
   the way in. A planner call that crosses the boundary once per `plan()`
@@ -401,10 +451,20 @@ of its Rust replacement, so a revert is a one-commit operation.
   is new surface, which this spec otherwise forbids. Resolve before
   phase 6: either add `arco.planning.plan_batch` as a documented addition
   or drop `FR-PERF-04` from this spec.
-- **Coverage tooling for the binding crate.** `cargo llvm-cov` does not
-  see code reached only through PyO3. Either the crates carry enough
-  native tests to hit the 80 percent gate without the Python path, or CI
-  needs a combined report. Decide during phase 0.
+- ~~**Coverage tooling for the binding crate.**~~ Resolved. `cargo
+  llvm-cov show-env` instruments the extension before `maturin develop`
+  builds it, so a `pytest` run reports into the same profile:
+
+  ```bash
+  source <(cargo llvm-cov show-env --sh)
+  cargo llvm-cov clean --workspace
+  maturin develop
+  pytest
+  cargo llvm-cov report --lcov --output-path lcov.info
+  ```
+
+  No combined report is needed. The empty-report symptom is the missing
+  `show-env` step, not a tool limitation.
 - **`arco.config` palette ownership.** `palette.py` and `colors.yml`
   serve the simulator, which stays Python. Porting them may be wasted
   work. Confirm during phase 1 whether `arco-core` carries config at all
