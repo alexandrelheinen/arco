@@ -247,3 +247,30 @@ Whenever a new **module file** (not a sub-package) is added to a package whose
 invocations in `.github/workflows/generate_images.yml`.  Alternatively,
 restructure the new module as a sub-package (a folder with its own
 `__init__.py`) so pyreverse handles it like a package, not a module.
+
+## 13. Rust
+
+ARCO is porting its algorithm core to Rust behind PyO3 bindings, so the
+Python package keeps its current import paths and call syntax. See
+[docs/rust/SPEC.md](rust/SPEC.md) for the scope and acceptance criteria,
+[docs/rust/PLAN.md](rust/PLAN.md) for the order of work, and
+[docs/decisions.md](decisions.md) for why the approach was chosen.
+
+The authoritative Rust coding standard is
+[docs/rust/STYLE.md](rust/STYLE.md), which stands to Rust as this file
+stands to Python: it records ARCO's additions to the shared
+[.guidelines/languages/rs.md](../.guidelines/languages/rs.md), and nothing
+that file already covers.
+
+Rules from sections 1 through 12 above that describe the domain rather
+than the language carry over unchanged: maps are nouns, planners take the
+`-er` suffix, planners accept a map as their first argument, and the
+graph hierarchy keeps its four levels. Rules that describe Python
+mechanics do not carry over; every such adaptation is recorded in
+[docs/rust/DEVIATIONS.md](rust/DEVIATIONS.md).
+
+Run the same gate CI runs before pushing any branch that touches Rust:
+
+```bash
+bash scripts/validate.sh
+```

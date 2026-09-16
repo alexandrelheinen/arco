@@ -21,11 +21,18 @@
 - [Entity model](ENTITY_MODEL.md)
 - [Entity format research](entity_formats.md)
 
+## Rust port
+- [Spec](rust/SPEC.md) — scope, acceptance criteria, traceability ids
+- [Plan](rust/PLAN.md) — phase order and exit criteria
+- [Rust conventions](rust/STYLE.md) — naming, docs, tooling, PyO3 rules
+- [Port deviations](rust/DEVIATIONS.md) — where the port does not mirror Python
+
 ## Project
 - [README](../README.md)
 - [Public API reference](API.md) — user-facing classes and non-interface inventory
 - [Failure modes](FAILURE_MODES.md) — invalid inputs and unsatisfiable plans
 - [Tech stack](STACK.md)
 - [Coding guidelines](guidelines.md) (authoritative)
+- [Decision log](decisions.md) — why constraints and approaches were chosen
 - [Contributing](../CONTRIBUTING.md)
 - [Roadmap](ROADMAP.md)
