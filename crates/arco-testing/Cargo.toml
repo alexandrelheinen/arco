@@ -1,0 +1,15 @@
+[package]
+name = "arco-testing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Test-only instrumentation shared across the ARCO workspace."
+publish = false
+
+[dependencies]
+
+[lints]
+workspace = true

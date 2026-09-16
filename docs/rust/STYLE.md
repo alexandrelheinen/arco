@@ -31,6 +31,7 @@ The level decides which lint tier a crate carries and which rules from
 | `arco-planning` | C1 | Output is consumed by a C2 layer that validates it |
 | `arco-runtime` | C1 | Transport, not computation |
 | `arco-py` | C2 | A panic here is undefined behavior, see section 6 |
+| `arco-testing` | C0 | Test instrumentation, never a runtime dependency |
 
 A C2 crate carries the hardened lint tier from the shared guideline, and
 says so in its crate-level documentation.
