@@ -19,6 +19,10 @@
 //! Dijkstra needs no reference implementation, no recorded baseline, and
 //! no tolerance.
 
+// The helper functions below are not #[test] functions, so the
+// allow-unwrap-in-tests setting in clippy.toml does not reach them.
+#![expect(clippy::unwrap_used, reason = "test fixtures and assertions")]
+
 use arco_core::protocols::DiscreteMap;
 use arco_core::rng::Pcg64;
 use arco_mapping::grid::{Cell, EuclideanGrid, ManhattanGrid};
