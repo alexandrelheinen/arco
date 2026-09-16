@@ -211,3 +211,7 @@ cache/
 
 # ARCO illustration gallery solver cache
 tools/output/gallery_cache/
+
+# Rust
+/target/
+**/*.rs.bk
