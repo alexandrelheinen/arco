@@ -318,3 +318,33 @@ This also removes a class of ordering dependency that
 manual consumer audit whenever a shared configuration file is
 restructured. When configuration is an argument, the compiler finds the
 consumers.
+
+## ADR-016: the trajectory optimizer uses argmin, and one advisory is waived
+
+**Date:** 2026-09-16. **Status:** accepted.
+
+`scipy.optimize.minimize` has no equivalent in the Rust ecosystem, and
+[docs/rust/PLAN.md](rust/PLAN.md) named `argmin` for the replacement.
+Phase 5 adopts it, with two consequences worth writing down.
+
+`argmin` offers no box constraint on a quasi-Newton solver, where
+`scipy`'s L-BFGS-B held segment durations above a floor with one. The
+decision variable is therefore the logarithm of the duration rather than
+the duration, which keeps every duration positive without a constraint
+and keeps the problem smooth. This is a reparameterization rather than a
+different problem, but it changes the path the solver takes and so the
+local minimum it lands in, which deviation A-08 already covers.
+
+`argmin` depends on `paste`, which carries RUSTSEC-2024-0436: the crate is
+unmaintained. It is not a vulnerability, `paste` is a procedural macro
+that runs during compilation and contributes nothing to the artifact, and
+no released `argmin` avoids it. The advisory is listed in `deny.toml` with
+that reasoning rather than the gate being weakened, and the entry goes
+away when `argmin` drops the dependency.
+
+The gradient is a central difference rather than an analytic Jacobian.
+The Python side supplied none either, so `scipy` differenced too; the
+difference is that this port uses a central difference where `scipy`
+defaults to a forward one, which costs one extra evaluation per variable
+and buys an order of accuracy. The collision term dominates the cost of
+an evaluation, not the count of them.

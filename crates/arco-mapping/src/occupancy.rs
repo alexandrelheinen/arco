@@ -129,6 +129,10 @@ impl Occupancy for KdTreeOccupancy {
         self.dimension
     }
 
+    fn clearance(&self) -> f64 {
+        self.clearance
+    }
+
     fn nearest_obstacle(&self, point: &[f64]) -> Result<NearestObstacle, Error> {
         require_dimension("query point", point, self.dimension)?;
         require_finite("query point", point)?;

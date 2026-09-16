@@ -80,6 +80,15 @@ if [ "$FAST" = false ] && have cargo-llvm-cov; then
     source <(cargo llvm-cov show-env --sh)
     cargo llvm-cov clean --workspace
     cargo build --workspace --all-features
+    # The Rust suite runs again, instrumented this time.  Without it the
+    # report covers only what a pytest run reaches through the extension
+    # module, which is a fraction of the workspace and makes the floor
+    # mean nothing for a crate the bindings do not expose yet.
+    if have cargo-nextest; then
+        cargo nextest run --workspace --all-features --no-tests=pass
+    else
+        cargo test --workspace --all-features
+    fi
     # Build through the target interpreter so the extension lands in the
     # environment pytest will use.  Failing loudly matters: a silent skip
     # here measures coverage against a stale build.

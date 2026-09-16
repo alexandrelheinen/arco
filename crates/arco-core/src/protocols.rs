@@ -74,6 +74,15 @@ pub trait Occupancy {
     /// The dimension of the space this occupancy describes.
     fn dimension(&self) -> usize;
 
+    /// The radius around an obstacle that counts as occupied, meters.
+    ///
+    /// Already folded into [`Occupancy::nearest_obstacle`], which reports
+    /// the distance to the obstacle's surface rather than to its center.
+    /// It is exposed separately because a soft collision penalty needs to
+    /// normalize a penetration depth by the clearance it ate into, and a
+    /// depth without that scale says nothing about how bad it is.
+    fn clearance(&self) -> f64;
+
     /// The nearest obstacle to `point`.
     ///
     /// # Errors
@@ -162,11 +171,13 @@ pub trait SegmentChecker {
     fn is_segment_free(&self, from: &[f64], to: &[f64]) -> Result<bool, Error>;
 }
 
-/// One term of a composite trajectory cost.
-pub trait CostTerm {
-    /// The context a cost term reads.
-    type Context;
-
+/// One term of a composite cost, reading a context of type `C`.
+///
+/// The context is a type parameter rather than an associated type so that
+/// a term stays object safe when the context borrows, which a trajectory
+/// context does: it holds the waypoints and the map the optimizer is
+/// working on rather than copies of them.
+pub trait CostTerm<C: ?Sized> {
     /// Evaluates this term.
     ///
     /// # Errors
@@ -174,7 +185,7 @@ pub trait CostTerm {
     /// Returns [`Error::NotFinite`] rather than returning a NaN, since a
     /// non-finite cost makes every later comparison false and lets an
     /// optimizer select a garbage candidate silently.
-    fn evaluate(&self, context: &Self::Context) -> Result<f64, Error>;
+    fn evaluate(&self, context: &C) -> Result<f64, Error>;
 }
 
 /// A planner producing a path between two states.
