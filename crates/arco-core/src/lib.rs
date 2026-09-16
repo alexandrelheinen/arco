@@ -42,3 +42,5 @@
 //! floor of the dependency graph.
 //!
 //! Criticality: C2. See `docs/rust/STYLE.md`.
+
+pub mod rng;
