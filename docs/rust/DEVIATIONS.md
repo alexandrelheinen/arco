@@ -182,18 +182,58 @@ phase 7 commits the measured table here.
 
 Any caller asserting exact MPC output values has to move to a tolerance.
 
-### A-03: graph inheritance becomes composition
+### A-03: graph and grid inheritance becomes composition
 
-**Status:** planned, phase 2.
+**Status:** accepted, phase 2.
 
-`Graph` to `WeightedGraph` to `CartesianGraph` to `RoadGraph` is four
-levels of Python inheritance. Rust has no inheritance, so the hierarchy
-becomes traits plus composition. The Python-facing classes keep their
-names, their methods, and their `isinstance` relationships through the
-binding layer.
+`Graph` is the base of three separate chains in Python, not one: the
+weighted graph hierarchy, the grid family, and `Occupancy`. Rust has no
+inheritance, so each chain becomes a struct that owns the layer beneath it
+plus a trait for the search surface they share.
 
-The exact mapping from each Python class to its Rust form is written into
-this entry before the phase 2 code is written, per the plan.
+| Python class | Rust form |
+|---|---|
+| `Graph` | No struct. The shared surface is `arco_core::protocols::DiscreteMap`, which the search layer takes as a bound |
+| `WeightedGraph` | `WeightedGraph`, owning the adjacency and the edge weights |
+| `CartesianGraph` | `CartesianGraph`, owning a `WeightedGraph` plus node positions |
+| `RoadGraph` | `RoadGraph`, owning a `CartesianGraph` plus per-edge geometry |
+| `Grid` | `GridCells`, owning the extent, the cell size, and the cell states. Not public by itself |
+| `ManhattanGrid` | `ManhattanGrid`, owning a `GridCells`, four-connected, L1 distance |
+| `EuclideanGrid` | `EuclideanGrid`, owning a `GridCells`, eight-connected, L2 distance |
+| `Occupancy` | `arco_core::protocols::Occupancy`, already a trait |
+| `KDTreeOccupancy` | `KdTreeOccupancy`, per the acronym rule in C-01 |
+
+Each owning struct exposes the inner layer's methods by delegation rather
+than by inheritance, so `CartesianGraph::distance` still resolves and a
+Python caller sees no difference. The binding layer preserves the
+`isinstance` relationships the Python classes had.
+
+Two consequences a reader should expect. A Rust caller holding a
+`RoadGraph` reaches the weighted-graph methods through it rather than
+through a base class, which is the same set of calls in a different
+shape. And the grid metric is a property of the type rather than an
+overridden method, so a four-connected grid with an L2 metric is not
+constructible, which the Python version allowed by subclassing
+incorrectly.
+
+### A-11: a grid cell has three states, defaulting to free
+
+**Status:** accepted, phase 2.
+
+Python grids are binary: `set_occupied`, `set_free`, `is_occupied`.
+`FR-INV-11` requires that an unknown cell never be treated as free unless
+the caller asked for it, which needs a third state.
+
+The Rust `Cell` carries `Free`, `Occupied` and `Unknown`. A newly built
+grid is `Free` everywhere, matching the Python default so that
+`FR-CORE-01` holds and no existing test changes. A grid built from sensor
+data starts `Unknown` through a separate constructor, and the query that
+treats unknown as blocked is the default while the permissive one is
+named.
+
+`is_occupied` keeps returning a boolean and keeps its Python meaning,
+reporting true only for `Occupied`. Code that needs the distinction asks
+for the cell state instead.
 
 ### A-04: Python 3.10 floor kept
 
