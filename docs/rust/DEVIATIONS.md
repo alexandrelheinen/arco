@@ -428,3 +428,127 @@ sample as before; a caller with a real-time budget sets a capacity and
 gets a ring buffer, and `Some(0)` keeps none at all since the step returns
 its sample anyway. `FR-SAFE-04` holds only under a bounded history, which
 the allocation test states directly.
+
+### A-20: the vehicle takes one limit set rather than five attributes
+
+**Status:** accepted, phase 8.
+
+`DubinsVehicle` carried `max_speed`, `min_speed`, `max_turn_rate`,
+`max_acceleration` and `max_turn_rate_dot` as five separate attributes.
+The port holds one `arco_control::limits::CommandLimits`, which is the
+same type every other command in the control layer passes through, so a
+vehicle and a controller cannot be configured with limits that disagree.
+
+Two names change with it: `max_acceleration` becomes `max_speed_rate` and
+`max_turn_rate_dot` becomes `max_turn_rate_change`, because the shared
+type names the quantity rather than the axis it happens to bound. The
+binding maps both spellings, so `FR-API-02` holds and Python callers see
+no change. `DubinsVehicle::default_limits()` carries the Python defaults
+unchanged.
+
+### A-21: the guidance layer validates what Python assumed
+
+**Status:** accepted, phase 8.
+
+Python checked none of these and produced a plausible-looking answer for
+each. The port returns a typed error, which the binding raises as
+`ValueError`:
+
+| Input | Python | Port |
+|---|---|---|
+| A turning radius that is not finite and positive | Divided by it | `Error::OutOfRange` |
+| An iteration count of zero | Clamped up to one | `Error::TooFew` |
+| A B-spline degree of zero | Produced a degenerate curve | `Error::OutOfRange` |
+| A segment duration at or below zero | Floored at 1e-9, returning a saturated turn rate | `Error::OutOfRange` |
+| A state shorter than two components | Read past the end | `Error::TooFew` |
+| A non-finite waypoint or state | Propagated the NaN | `Error::NotFinite` |
+
+The last one is the reason the rest are here. A NaN compares false against
+every bound, so the Python `is_feasible` reported a state carrying one as
+feasible, which is the single answer that cannot be right. `is_feasible`
+is now fallible for that reason rather than returning a bare boolean.
+
+### A-22: the heading wraps into a half-open turn
+
+**Status:** accepted, phase 8.
+
+`arco_core::geometry::Pose` wraps its heading into `[-pi, pi)`, where
+Python's `atan2(sin, cos)` produced `(-pi, pi]`. The two disagree at
+exactly `pi` and nowhere else: a heading of `pi` reads back as `-pi`. Both
+name the same direction, and `FR-INV-15` asks only that a rotation
+representation be normalized on every return, which both satisfy.
+
+### C-12: two guidance placeholders are ported as placeholders
+
+**Status:** accepted, phase 8.
+
+`BSplineInterpolator.interpolate` returns its input unchanged and
+`DubinsPrimitive.steer` returns only the two endpoints. Neither is
+implemented in Python either, and `tests/guidance/test_guidance.py` pins
+both behaviors, so the port reproduces them rather than raising.
+
+That contradicts the rule in
+[.guidelines/workflow/tdd.md](../../.guidelines/workflow/tdd.md#marking-intentionally-unimplemented-work)
+against a stub that silently returns success. The rule is about new work,
+and marking these `todo!()` would fail a suite that phase 8 has to leave
+passing unmodified. Both carry the warning in their own documentation so
+a caller reaching for either is told before it depends on one.
+
+### A-23: `Grid` stops being instantiable
+
+**Status:** accepted, phase 9.
+
+`Grid.neighbors` carries `@abstractmethod`, but `Grid` never inherits
+`ABCMeta`, so the decorator is inert and `Grid(shape=(3, 3))` succeeds.
+Calling `neighbors` on the result returns `None`, and the caller meets it
+as `TypeError: 'NoneType' object is not iterable` somewhere further along.
+It is the only class in the surface with that shape.
+
+The port cannot reproduce "abstract in intent, instantiable in fact"
+without deciding to. `Grid` becomes the `DiscreteMap` trait of A-03, so
+constructing the base is a compile error rather than a deferred one, and
+`ManhattanGrid` or `EuclideanGrid` is what a caller builds. Anything that
+was constructing `Grid` directly was already broken.
+
+### A-24: subclassing a base class crosses the interpreter lock
+
+**Status:** accepted, phase 9.
+
+A-07 names the nine keyword hooks and says a Python callable in one of
+them gives up the speedup. That is narrower than what callers actually do:
+`ContinuousPlanner`, `DiscretePlanner`, `PlannerCost`, `Grid`,
+`Occupancy`, `RigidBody`, `Interpolator`, `ExplorationPrimitive`,
+`Controller`, `MPCTracker`, `PipelineNode` and `Bus` all expose
+overridable methods, the existing tests override several of them, and an
+override reached from inside a loop costs exactly what a keyword hook
+costs.
+
+Subclassing keeps working. What changes is that the cost is now stated:
+overriding `distance`, `heuristic`, `neighbors`, `is_occupied`,
+`nearest_obstacle`, `steer`, `sample` or `is_segment_free` puts a Python
+call on the inner loop, and `FR-PERF-01` does not apply to a planner
+carrying one. The native path is the one where nothing is overridden.
+
+### A-25: configuration is not read from the environment at import
+
+**Status:** accepted, phase 9.
+
+`load_config` resolves its directory from `ARCO_CONFIG_DIR` and caches the
+result in a module-level global, and three `create_from_config` static
+methods read it. Setting the variable after any `arco` module is imported
+therefore has no effect, and the ordering is invisible at the call site.
+
+ADR-015 records why the crates do not reproduce this: configuration is
+parsed at construction and held by the object that uses it. The
+API-visible consequence, which `FR-API-06` asks be written here rather
+than only in the decision log, is that a caller relying on the import-time
+environment read has to pass the directory explicitly instead.
+
+### A-26: the `tools` extra lists the package as its own dependency
+
+**Status:** open, phase 11.
+
+`[project.optional-dependencies] tools` contains `"arco"`. Pip resolves it
+to the package being installed and moves on, so nothing breaks today, and
+it is repaired when phase 11 rewrites the packaging metadata rather than
+in the middle of a phase that is not about packaging.

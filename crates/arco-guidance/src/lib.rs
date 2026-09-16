@@ -32,9 +32,18 @@
 
 //! Interpolation, motion primitives and vehicle models.
 //!
-//! Replaces `arco.guidance`. Depends on `arco-control` because
-//! `arco.guidance` re-exports five controller names; the reverse edge in
-//! the Python sources exists only under `TYPE_CHECKING` and does not
-//! survive the port.
+//! Replaces `arco.guidance`. The Python package re-exports five
+//! controller names from `arco.control`, and this crate does not: a Rust
+//! caller takes those from `arco-control` directly, and the binding layer
+//! restores the `arco.guidance` spelling for the Python callers
+//! `FR-API-01` covers. The dependency on `arco-control` is a real one all
+//! the same, since a vehicle states its limits and the interval band it
+//! accepts in that crate's types. The reverse edge in the Python sources
+//! exists only under `TYPE_CHECKING` and does not survive the port.
 //!
 //! Criticality: C2. See `docs/rust/STYLE.md`.
+
+pub mod interpolation;
+pub mod primitive;
+mod state;
+pub mod vehicle;
