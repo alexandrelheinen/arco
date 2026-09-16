@@ -21,3 +21,6 @@
 //! and the planner invariants `FR-INV-01` through `FR-INV-08`.
 //!
 //! Criticality: C1. See `docs/rust/STYLE.md`.
+
+pub mod discrete;
+pub mod failure;
