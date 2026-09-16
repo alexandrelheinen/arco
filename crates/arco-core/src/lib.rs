@@ -43,6 +43,7 @@
 //!
 //! Criticality: C2. See `docs/rust/STYLE.md`.
 
+pub mod config;
 mod error;
 pub mod geometry;
 pub mod numeric;
