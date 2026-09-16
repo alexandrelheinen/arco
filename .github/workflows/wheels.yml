@@ -1,0 +1,302 @@
+name: Wheels
+
+# Builds the distributable artifacts: one abi3 wheel per platform plus a
+# source distribution, then proves each wheel installs and imports on an
+# interpreter that compiles nothing.  FR-BUILD-01 and FR-BUILD-02 in
+# docs/rust/SPEC.md name this workflow as their evidence.
+#
+# Nothing here publishes and nothing here reads a secret.  The artifacts
+# are uploaded to the run and go no further; attaching them to a release
+# or pushing them to an index is a separate, human-driven step.
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+  push:
+    branches:
+      - main
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "pyproject.toml"
+      - "rust-toolchain.toml"
+      - "crates/**"
+      - "src/arco/**"
+      - ".github/workflows/wheels.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "pyproject.toml"
+      - "rust-toolchain.toml"
+      - "crates/**"
+      - "src/arco/**"
+      - ".github/workflows/wheels.yml"
+
+concurrency:
+  group: wheels-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The abi3 floor, declared once.  pyproject.toml sets
+  # requires-python = ">=3.10" and crates/arco-py/Cargo.toml enables
+  # pyo3/abi3-py310; the two have to agree with this value.
+  PYTHON_FLOOR: "3.10"
+
+jobs:
+  # -----------------------------------------------------------------------
+  # One wheel per platform.  maturin reads [tool.maturin] from
+  # pyproject.toml, which points at crates/arco-py/Cargo.toml and declares
+  # the mixed layout (python-source = "src", module-name = "arco._arco"),
+  # so the build runs from the repository root with no extra arguments.
+  #
+  # The .guidelines submodule holds prose only and no build step reads it,
+  # so the checkout skips submodules and stays independent of the SSH key
+  # its URL would otherwise need.
+  # -----------------------------------------------------------------------
+  wheel:
+    name: Wheel ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-latest
+          - target: macos-x86_64
+            runner: macos-13
+          - target: macos-aarch64
+            runner: macos-14
+          - target: windows-x86_64
+            runner: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_FLOOR }}
+
+      # rust-toolchain.toml pins the compiler, so the wheel is built by the
+      # same version a contributor and the Rust gate use.  Inside the
+      # manylinux container rustup reads that file too.
+      - name: Build the wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist
+          manylinux: auto
+          sccache: "true"
+
+      # FR-BUILD-02: one wheel per platform, tagged cp310-abi3, covering
+      # every CPython from the floor upward.  A build that silently loses
+      # the abi3 feature produces a cp312-cp312 wheel instead, which this
+      # catches before the artifact is uploaded.
+      - name: Assert the wheel is a single abi3 artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          if [ "${#wheels[@]}" -ne 1 ]; then
+            echo "::error::expected one wheel, found ${#wheels[@]}: ${wheels[*]}"
+            exit 1
+          fi
+          name="$(basename "${wheels[0]}")"
+          case "$name" in
+            *-cp310-abi3-*.whl)
+              echo "$name carries the cp310-abi3 tag"
+              ;;
+            *)
+              echo "::error::$name is not tagged cp310-abi3"
+              exit 1
+              ;;
+          esac
+
+      - name: Upload the wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 14
+
+  # -----------------------------------------------------------------------
+  # Source distribution, for a platform with no wheel.  It builds from a
+  # Rust toolchain rather than shipping one, which is the reason it exists
+  # alongside the four wheels.
+  # -----------------------------------------------------------------------
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_FLOOR }}
+
+      - name: Build the sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+
+      - name: Upload the sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  # -----------------------------------------------------------------------
+  # FR-BUILD-01: the wheel installs and imports with nothing compiled.
+  # --only-binary=:all: is what makes that a real claim rather than an
+  # assumption: pip fails instead of falling back to a source build, for
+  # arco and for every dependency it pulls.
+  #
+  # Two interpreters per wheel, the floor and a later one, because a
+  # single abi3 wheel covering both is the whole point of FR-BUILD-02.
+  # -----------------------------------------------------------------------
+  install:
+    name: Install ${{ matrix.target }} on Python ${{ matrix.python }}
+    needs: wheel
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Two real axes, so the eight combinations exist; the include
+        # entries only attach a runner to each target, which is the one
+        # shape of include that extends combinations instead of replacing
+        # them.
+        target:
+          - linux-x86_64
+          - macos-x86_64
+          - macos-aarch64
+          - windows-x86_64
+        python:
+          - "3.10"
+          - "3.13"
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-latest
+          - target: macos-x86_64
+            runner: macos-13
+          - target: macos-aarch64
+            runner: macos-14
+          - target: windows-x86_64
+            runner: windows-latest
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Download the wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-${{ matrix.target }}
+          path: dist
+
+      - name: Install the wheel without a source build
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          if [ "${#wheels[@]}" -ne 1 ]; then
+            echo "::error::expected one wheel to install, found ${#wheels[@]}"
+            exit 1
+          fi
+          python -m pip install --upgrade pip
+          python -m pip install --only-binary=:all: "${wheels[0]}"
+
+      # The job checks out nothing, so an import can only resolve from
+      # site-packages.  Walking every layer is also what proves the
+      # configuration files listed under [tool.maturin] include landed in
+      # the wheel, since arco.config reads them at import time.
+      - name: Import the installed package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c "
+          import arco
+          from arco import control, guidance, kinematics, mapping
+          from arco import middleware, pipeline, planning, protocols
+          from arco._arco import version
+          print('arco', version(), 'imported on', __import__('sys').version.split()[0])
+          "
+
+      - name: Plan a path through the installed wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c "
+          import numpy as np
+          from arco.mapping import KDTreeOccupancy
+          from arco.planning import AStar, RRTPlanner
+
+          grid = np.zeros((20, 20), dtype=np.uint8)
+          assert AStar(grid, grid_type='euclidean').search((0, 0), (19, 19))
+
+          occupancy = KDTreeOccupancy(np.array([[5.0, 5.0]]), clearance=0.5)
+          planner = RRTPlanner(
+              occupancy,
+              [(0.0, 10.0), (0.0, 10.0)],
+              max_sample_count=500,
+              seed=7,
+          )
+          assert planner.plan(np.array([0.5, 0.5]), np.array([9.5, 9.5]))
+          print('planners answered from the installed wheel')
+          "
+
+  # -----------------------------------------------------------------------
+  # One artifact holding every wheel and the sdist, so a human downloads
+  # a single file.  This collects; it does not publish.
+  # -----------------------------------------------------------------------
+  collect:
+    name: Collect the distribution
+    needs:
+      - install
+      - sdist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download every artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List what was built
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          ls -l dist
+          wheels=(dist/*.whl)
+          sdists=(dist/*.tar.gz)
+          if [ "${#wheels[@]}" -ne 4 ] || [ "${#sdists[@]}" -ne 1 ]; then
+            echo "::error::expected 4 wheels and 1 sdist, found ${#wheels[@]} and ${#sdists[@]}"
+            exit 1
+          fi
+
+      - name: Upload the distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
