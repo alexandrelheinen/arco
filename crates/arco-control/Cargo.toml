@@ -12,6 +12,9 @@ description = "Feedback control and trajectory tracking."
 arco-core.workspace = true
 arco-mapping.workspace = true
 
+[dev-dependencies]
+arco-testing.workspace = true
+
 [lints]
 workspace = true
 

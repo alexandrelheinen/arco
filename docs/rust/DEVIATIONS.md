@@ -365,3 +365,66 @@ edge of the map and unreachable within it are different diagnoses: no
 budget makes the first answerable and no obstacle caused it. `FR-INV-08`
 requires the enumeration be closed and every reason in it reachable, and
 these two had no producer before.
+
+### A-16: `nearest_obstacle` measures from the obstacle surface
+
+**Status:** accepted, phase 2, recorded in phase 6.
+
+Python returns the distance from the query to the obstacle's center, and
+every caller subtracts the clearance itself. The port returns the distance
+to its surface, which is the number a planner asking about clearance
+actually wants and the one that is directly comparable to zero.
+
+Callers inside the port are converted. `ArtificialPotentialField` adds the
+clearance back, because the potential is defined against the center
+distance and its influence radius is expressed in those terms. Anything
+outside the port calling `nearest_obstacle` gets a number smaller by the
+clearance than it used to.
+
+Recorded late. It was decided while porting `arco-mapping` and only
+noticed to be unwritten when the control layer had to convert back.
+
+### A-17: every control step validates the elapsed interval
+
+**Status:** accepted, phase 6.
+
+A step reads no clock, so the interval arrives as an argument. Python
+documented that it had to be positive and checked nothing, which means a
+negative interval after a clock adjustment, a zero one from two reads
+inside a tick, and an enormous one after a stall all produced a command
+that was arithmetically valid and physically wrong.
+
+Every step in `arco-control` now takes the interval against a configured
+[`IntervalBand`], one microsecond to one second by default, and returns
+`Error::NotFinite` or `Error::OutOfRange` rather than computing with it.
+`FR-INV-10` is the requirement. A caller passing an interval the Python
+accepted silently now gets an error, which is the point.
+
+### A-18: the PID controller takes the elapsed interval
+
+**Status:** accepted, phase 6.
+
+`arco.control.pid.PIDController` summed raw errors and differenced raw
+errors, with no interval anywhere. That is this controller at an interval
+of exactly one second, which is what the binding passes, so nothing
+visible from Python changes and the existing tests hold. The Rust
+signature takes the interval because a controller whose gains mean
+different things at different sample rates is a controller nobody can
+tune, and because `FR-INV-10` needs something to check.
+
+One behavior does change at any interval: the first step after
+construction or reset takes no derivative. Python differenced against an
+initial previous error of zero, which makes the derivative term a spike
+proportional to the initial error on the first call of every run.
+
+### A-19: the tracking loop can bound its history
+
+**Status:** accepted, phase 6.
+
+The Python loop appended a metrics dictionary per step and never dropped
+one, which is fine for a simulation and wrong for anything running longer.
+`TrackingSettings::history_capacity` defaults to `None`, keeping every
+sample as before; a caller with a real-time budget sets a capacity and
+gets a ring buffer, and `Some(0)` keeps none at all since the step returns
+its sample anyway. `FR-SAFE-04` holds only under a bounded history, which
+the allocation test states directly.

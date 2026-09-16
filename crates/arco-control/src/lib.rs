@@ -38,3 +38,10 @@
 //! and every integrator carries an anti-windup path, per deviation A-09.
 //!
 //! Criticality: C2. See `docs/rust/STYLE.md`.
+
+pub mod avoidance;
+pub mod body;
+pub mod limits;
+pub mod pid;
+pub mod pursuit;
+pub mod tracking;
