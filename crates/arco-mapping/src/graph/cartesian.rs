@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use arco_core::Error;
 use arco_core::geometry::{euclidean_distance, require_finite};
 use arco_core::numeric::RELATIVE_TOLERANCE;
+use arco_core::protocols::DiscreteMap;
 
 use super::weighted::{NodeId, WeightedGraph};
 
@@ -148,6 +149,12 @@ impl CartesianGraph {
         self.topology.neighbors(node)
     }
 
+    /// Whether the graph holds a position for `node`.
+    #[must_use]
+    pub fn contains_node(&self, node: NodeId) -> bool {
+        self.positions.contains_key(&node)
+    }
+
     /// The node closest to `position`, optionally within a radius.
     ///
     /// Returns `None` for an empty graph or when nothing falls inside the
@@ -208,6 +215,42 @@ impl CartesianGraph {
             }
         }
         Ok(nearest)
+    }
+}
+
+impl AsRef<Self> for CartesianGraph {
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl DiscreteMap for CartesianGraph {
+    type Node = NodeId;
+
+    fn contains(&self, node: NodeId) -> bool {
+        self.contains_node(node)
+    }
+
+    fn neighbors(&self, node: NodeId) -> Vec<NodeId> {
+        Self::neighbors(self, node)
+    }
+
+    fn distance(&self, from: NodeId, to: NodeId) -> Result<f64, Error> {
+        Self::distance(self, from, to)
+    }
+
+    /// Straight-line distance between the two node positions.
+    ///
+    /// Admissible only while every edge weight is at least the
+    /// straight-line distance between its endpoints, which is what the
+    /// default weight in [`CartesianGraph::add_edge`] gives. A caller that
+    /// supplies a weight below that, a shortcut priced under its own
+    /// length, makes the estimate an overestimate and forfeits the
+    /// optimality `FR-INV-06` asserts. Nothing rejects such a weight,
+    /// because a road cheaper than its length is a reasonable thing to
+    /// model; the precondition is stated here instead.
+    fn heuristic(&self, node: NodeId, goal: NodeId) -> Result<f64, Error> {
+        Self::heuristic(self, node, goal)
     }
 }
 

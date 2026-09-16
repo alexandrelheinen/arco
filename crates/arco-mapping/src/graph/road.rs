@@ -110,6 +110,18 @@ impl RoadGraph {
     }
 }
 
+impl AsRef<CartesianGraph> for RoadGraph {
+    /// The positioned graph underneath, so anything taking a Cartesian
+    /// graph takes a road graph too.
+    ///
+    /// Python got this from inheritance. Deviation A-03 replaced the
+    /// inheritance with ownership, and this is what keeps the call sites
+    /// reading the same.
+    fn as_ref(&self) -> &CartesianGraph {
+        &self.positions
+    }
+}
+
 /// The storage key for an undirected edge.
 const fn ordered(from: NodeId, to: NodeId) -> (NodeId, NodeId) {
     if from <= to { (from, to) } else { (to, from) }
