@@ -329,3 +329,71 @@ fn a_euclidean_grid_also_agrees_with_its_uninformed_search() {
         );
     }
 }
+
+#[test]
+fn a_query_naming_a_cell_off_the_grid_is_named_as_such() {
+    // FR-INV-08. Off the edge of the map is a different diagnosis from
+    // unreachable: no budget makes it answerable and no obstacle caused
+    // it, so collapsing the two sends a caller looking for the wrong fix.
+    let grid = scattered_grid(41, 12, 0.0);
+    let outside = grid.cells().cell_count();
+
+    let from_outside = search(&grid, outside, 0, astar()).unwrap();
+    assert_eq!(from_outside.failure(), Some(PlanFailure::StartOutsideMap));
+    assert!(!PlanFailure::StartOutsideMap.is_retryable());
+    assert_eq!(from_outside.expanded(), 0);
+
+    let to_outside = search(&grid, 0, outside, astar()).unwrap();
+    assert_eq!(to_outside.failure(), Some(PlanFailure::GoalOutsideMap));
+    assert!(!PlanFailure::GoalOutsideMap.is_retryable());
+    assert_eq!(to_outside.expanded(), 0);
+}
+
+#[test]
+fn every_failure_reason_is_reachable() {
+    // FR-INV-08 states the enumeration is closed and that every reason in
+    // it is reachable from the suite. This asserts the second half over
+    // the whole enumeration at once, so adding a variant without a way to
+    // produce it fails here rather than going unnoticed.
+    let grid = scattered_grid(42, 10, 0.0);
+    let outside = grid.cells().cell_count();
+
+    let discrete = [
+        search(&grid, outside, 0, astar()).unwrap().failure(),
+        search(&grid, 0, outside, astar()).unwrap().failure(),
+        search(&walled_grid(), 0, 8, astar()).unwrap().failure(),
+        search(
+            &grid,
+            0,
+            outside - 1,
+            SearchOptions {
+                max_expansions: 1,
+                use_heuristic: true,
+            },
+        )
+        .unwrap()
+        .failure(),
+    ];
+    assert_eq!(
+        discrete,
+        [
+            Some(PlanFailure::StartOutsideMap),
+            Some(PlanFailure::GoalOutsideMap),
+            Some(PlanFailure::Unreachable),
+            Some(PlanFailure::BudgetExhausted),
+        ]
+    );
+    // The two occupancy reasons belong to the sampling planners, which
+    // reach them in `rrt.rs` and `sst.rs`.
+}
+
+/// A grid split in two by a wall, so one half cannot reach the other.
+fn walled_grid() -> ManhattanGrid {
+    let mut grid = ManhattanGrid::new_free(&[3, 3], 1.0).unwrap();
+    for row in 0..3 {
+        grid.cells_mut()
+            .set_cell(row * 3 + 1, Cell::Occupied)
+            .unwrap();
+    }
+    grid
+}

@@ -303,3 +303,65 @@ different local minima on the same nonconvex problem. The differential
 test compares achieved cost rather than the solution vector, and any
 caller asserting exact optimizer output has to move to a cost-based
 assertion.
+
+### A-12: an exact segment check joins the sampled one
+
+**Status:** accepted, phase 5.
+
+Python checks a segment by sampling it a fixed number of times, and the
+sampled policy is kept unchanged as the default so the planners behave as
+they were tuned to. Alongside it, `SegmentPolicy::Exact` asks the
+occupancy for the exact answer, computed from the distance between each
+obstacle and the segment rather than from samples along it.
+
+The sampled check cannot support `FR-INV-01` as written. A segment that
+grazes an obstacle occludes a span that shrinks toward zero as the contact
+gets shallower, so for any sample count there is a contact it steps over,
+and re-checking the returned path more finely then finds a collision the
+planner did not. The exact policy has no resolution and therefore no such
+gap, which is why the invariant tests use it and why a result under the
+sampled policy carries the resolution it was validated at.
+
+### A-13: RRT* carries a rewiring saving down the subtree
+
+**Status:** accepted, phase 5. Blocking review before merge.
+
+When rewiring gives a node a cheaper parent, every node below it becomes
+cheaper by the same amount. Python updates only the rewired node and
+leaves its descendants holding their old costs, which is the common
+shortcut. The port updates the subtree.
+
+Costs change, and so do the paths that follow from them. Two things break
+without the update. A later rewiring compares a candidate against a stale
+cost that is too high, so it accepts a change that does not improve the
+path and rejects one that does. And the cost the planner reports can rise
+as the budget grows, since the node it selects carries a number that no
+longer describes the path it traces, which is exactly what `FR-INV-07`
+forbids. Measured on a fifty metre field, the reported cost under the
+Python rule rises between two thousand and four thousand samples and falls
+again after; under this rule it is monotone across the whole ladder and
+converges to within half a percent of the straight line.
+
+### A-14: SST rejects a witness radius of a whole step or more
+
+**Status:** accepted, phase 5.
+
+Python documents that the witness radius has to be under one normalized
+step and does not enforce it. At a radius of one step or more every
+candidate lands inside the region its own parent already holds and never
+beats it, so the planner spends its whole budget rejecting candidates and
+reports an exhausted budget on an open map. The port returns
+`Error::OutOfRange` naming the radius instead.
+
+### A-15: a discrete query naming a node outside the map says so
+
+**Status:** accepted, phase 5.
+
+A start or goal the map does not contain is reported as
+`PlanFailure::StartOutsideMap` or `PlanFailure::GoalOutsideMap` before any
+expansion, where Python either searched from a node that has no neighbors
+and reported no path, or raised out of the map's own indexing. Off the
+edge of the map and unreachable within it are different diagnoses: no
+budget makes the first answerable and no obstacle caused it. `FR-INV-08`
+requires the enumeration be closed and every reason in it reachable, and
+these two had no producer before.

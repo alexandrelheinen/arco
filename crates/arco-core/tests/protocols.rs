@@ -52,6 +52,30 @@ impl Occupancy for SingleObstacle {
     fn is_occupied(&self, point: &[f64]) -> Result<bool, Error> {
         Ok(self.nearest_obstacle(point)?.distance <= 0.0)
     }
+
+    fn is_segment_free(&self, from: &[f64], to: &[f64]) -> Result<bool, Error> {
+        // One obstacle at the origin, so the exact answer is the distance
+        // from the origin to the segment.
+        arco_core::geometry::require_dimension("segment end", to, from.len())?;
+        let mut span_squared = 0.0_f64;
+        let mut projection = 0.0_f64;
+        for (start, end) in from.iter().zip(to) {
+            let span = end - start;
+            span_squared += span * span;
+            projection -= start * span;
+        }
+        let ratio = if span_squared > 0.0 {
+            (projection / span_squared).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let closest: Vec<f64> = from
+            .iter()
+            .zip(to)
+            .map(|(start, end)| (end - start).mul_add(ratio, *start))
+            .collect();
+        Ok(!self.is_occupied(&closest)?)
+    }
 }
 
 /// Samples uniformly inside a hypercube.

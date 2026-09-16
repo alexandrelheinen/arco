@@ -15,7 +15,7 @@
 //! The k-d tree answers what a brute-force scan answers.
 
 use arco_core::Error;
-use arco_core::protocols::{Occupancy, SegmentChecker};
+use arco_core::protocols::Occupancy;
 use arco_core::rng::Pcg64;
 use arco_mapping::occupancy::KdTreeOccupancy;
 
@@ -159,23 +159,16 @@ fn the_content_hash_separates_different_fields() {
 #[test]
 fn a_segment_through_an_obstacle_is_not_free() {
     let occupancy = KdTreeOccupancy::new(&[vec![0.0, 0.0]], 1.0).unwrap();
-    assert!(
-        !occupancy
-            .is_segment_free(&[-5.0, 0.0], &[5.0, 0.0])
-            .unwrap()
-    );
-    assert!(
-        occupancy
-            .is_segment_free(&[-5.0, 5.0], &[5.0, 5.0])
-            .unwrap()
-    );
+    assert!(!Occupancy::is_segment_free(&occupancy, &[-5.0, 0.0], &[5.0, 0.0]).unwrap());
+    assert!(Occupancy::is_segment_free(&occupancy, &[-5.0, 5.0], &[5.0, 5.0]).unwrap());
 }
 
 #[test]
 fn sampling_can_miss_a_thin_obstacle() {
-    // Stated as a test because FR-INV-01 depends on knowing it: the
-    // segment check is a sampled approximation, which is why a returned
-    // path is re-checked at a stated resolution rather than trusted.
+    // Stated as a test because FR-INV-01 depends on knowing it: a sampled
+    // segment check is an approximation whose claim is only as strong as
+    // its resolution, which is why the exact check exists alongside it and
+    // why a path carries the resolution it was validated at.
     // Placed off the coarse sample points, which land at -5, 0 and 5.
     let occupancy = KdTreeOccupancy::new(&[vec![1.0, 0.0]], 0.01).unwrap();
     let coarse = occupancy
@@ -186,6 +179,10 @@ fn sampling_can_miss_a_thin_obstacle() {
         .unwrap();
     assert!(coarse, "the coarse check misses the obstacle");
     assert!(!fine, "the fine check finds it");
+    assert!(
+        !Occupancy::is_segment_free(&occupancy, &[-5.0, 0.0], &[5.0, 0.0]).unwrap(),
+        "the exact check finds it at any size"
+    );
 }
 
 #[test]
