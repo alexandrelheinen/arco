@@ -20,3 +20,5 @@
 //! import paths on the Python side. Deviation A-05 records the merge.
 //!
 //! Criticality: C1. See `docs/rust/STYLE.md`.
+
+pub mod bus;
