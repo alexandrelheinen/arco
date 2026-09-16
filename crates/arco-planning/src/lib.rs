@@ -22,5 +22,6 @@
 //!
 //! Criticality: C1. See `docs/rust/STYLE.md`.
 
+pub mod continuous;
 pub mod discrete;
 pub mod failure;

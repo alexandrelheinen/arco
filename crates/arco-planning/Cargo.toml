@@ -12,5 +12,12 @@ description = "Discrete and sampling-based motion planning."
 arco-core.workspace = true
 arco-mapping.workspace = true
 
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "planning"
+harness = false
+
 [lints]
 workspace = true
