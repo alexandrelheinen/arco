@@ -39,9 +39,12 @@
 //!
 //! Criticality: C2. See `docs/rust/STYLE.md`.
 
+pub mod actuator;
 pub mod avoidance;
 pub mod body;
+pub mod joint;
 pub mod limits;
+mod linalg;
 pub mod pid;
 pub mod pursuit;
 pub mod tracking;
