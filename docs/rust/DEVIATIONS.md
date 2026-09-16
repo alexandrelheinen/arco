@@ -114,6 +114,25 @@ are `Planner`, `Occupancy`, `Optimizer`, and `Pruner`.
 The remaining nine keep their names exactly. No Python import changes,
 because `arco.protocols` continues to export every original name.
 
+### C-10: a ninth crate holds the test instrumentation
+
+**Status:** accepted, phase 1.
+
+[SPEC.md](SPEC.md) lays out eight crates. A ninth, `arco-testing`, holds
+the allocation counter that `FR-SAFE-04` needs.
+
+It exists because counting allocations means implementing
+`core::alloc::GlobalAlloc`, which is unsafe to implement, and every
+algorithm crate carries `#![forbid(unsafe_code)]`. `forbid` cannot be
+relaxed for one module the way `deny` can, and weakening a C2 crate's
+strongest stated guarantee to accommodate test-only code is the wrong
+trade. One crate that permits `unsafe`, is never published, and is never a
+runtime dependency is the cheaper answer.
+
+The crate is C0 under
+[workflow/criticality.md](../../.guidelines/workflow/criticality.md),
+since nothing it does reaches a machine.
+
 ## API
 
 ### A-09: control output gains saturation, rate limiting, and anti-windup
