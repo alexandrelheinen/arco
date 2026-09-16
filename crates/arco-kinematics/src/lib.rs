@@ -37,3 +37,6 @@
 //! `FR-INV-14`.
 //!
 //! Criticality: C2. See `docs/rust/STYLE.md`.
+
+pub mod rr;
+pub mod rrp;
