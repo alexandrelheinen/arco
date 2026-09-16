@@ -236,6 +236,21 @@ pub trait Optimizer {
     fn optimize(&self, path: &[Vec<f64>], budget: usize) -> Result<Self::Trajectory, Error>;
 }
 
+/// What a tracker measured on its last call.
+///
+/// Reported as one value rather than three accessors because a tracking
+/// loop logs all three together, and because a tracker that computed none
+/// of them has one obvious thing to return.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct TrackerErrors {
+    /// Signed distance from the path, meters, positive to its left.
+    pub cross_track: f64,
+    /// Heading minus path tangent, radians, wrapped.
+    pub heading: f64,
+    /// Signed curvature the command implied, per meter.
+    pub curvature: f64,
+}
+
 /// A geometric tracker turning a pose and a path into a command.
 pub trait PathTracker {
     /// Computes the command for the current pose.
@@ -245,6 +260,9 @@ pub trait PathTracker {
     /// Returns [`Error::TooFew`] when the path is too short to track, or
     /// [`Error::NotFinite`] when the pose carries a non-finite value.
     fn track(&mut self, pose: Pose, path: &[(f64, f64)], speed: f64) -> Result<Command, Error>;
+
+    /// What the last [`PathTracker::track`] call measured.
+    fn errors(&self) -> TrackerErrors;
 }
 
 /// A vehicle whose state a tracking loop advances.
