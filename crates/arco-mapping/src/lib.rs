@@ -38,3 +38,5 @@
 //! `FR-INV-11` in which unknown is a distinct class from free.
 //!
 //! Criticality: C2. See `docs/rust/STYLE.md`.
+
+pub mod grid;

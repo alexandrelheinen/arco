@@ -11,6 +11,9 @@ description = "Grids, graphs and occupancy structures."
 [dependencies]
 arco-core.workspace = true
 
+[dev-dependencies]
+arco-testing = { path = "../arco-testing" }
+
 [lints]
 workspace = true
 
