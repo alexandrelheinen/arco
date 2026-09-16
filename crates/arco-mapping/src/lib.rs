@@ -39,4 +39,5 @@
 //!
 //! Criticality: C2. See `docs/rust/STYLE.md`.
 
+pub mod graph;
 pub mod grid;
