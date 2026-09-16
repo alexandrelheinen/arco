@@ -209,13 +209,18 @@ hierarchy, and `KDTreeOccupancy`.
    Dimension checks raise `ValueError` per `FR-CORE-03`.
 4. **Binding slice.** The first real work in `arco-py`: expose the
    mapping types, wire `tests/mapping/` at them, run the suite unchanged.
-5. **Differential harness.** The `FR-TEST-02` machinery, built here
+5. **Map identity and footprint.** The content hash of `FR-INV-12`, the
+   closed occupancy enumeration of `FR-INV-11` where unknown is a distinct
+   class from free, and the single footprint object of `FR-INV-13`. Built
+   here because `FR-INV-01` in phase 5 cannot be stated without them.
+6. **Differential harness.** The `FR-TEST-02` machinery, built here
    because this is the first phase that has two implementations to
    compare. Reused by every later phase.
 
 ### Exit criteria
 
 - `pytest tests/mapping/` passes unmodified against the Rust backing.
+- `FR-INV-11`, `FR-INV-12` and `FR-INV-13` met.
 - Differential tests green on random maps and random queries.
 - `scipy.spatial.KDTree` no longer imported by `src/arco/mapping/`.
 
@@ -234,6 +239,11 @@ pattern before the large crates arrive.
 ### Exit criteria
 
 - `pytest tests/kinematics/` passes unmodified.
+- `FR-INV-14` met. ARCO's arms use closed-form inverse kinematics rather
+  than a Jacobian pseudo-inverse, so the rejection criterion is the
+  reachability domain and a commanded joint-rate bound, not a condition
+  number. The bound is what keeps a near-boundary configuration from
+  returning a joint command an operator does not expect.
 - Forward and inverse kinematics agree with the Python implementation to
   1e-10 on random joint configurations.
 
@@ -297,7 +307,15 @@ internal order, each step green before the next:
 5. **RRT\*.** The `FR-PERF-01` benchmark target. Bench against the
    phase 0 baseline in the same commit that lands it.
 6. **SST.**
-7. **Trajectory optimizer.** `scipy.optimize.minimize` becomes `argmin`.
+7. **Planner invariants.** `FR-INV-01` through `FR-INV-08`, written as
+   the planners land rather than after. `FR-INV-06` is the strongest cheap
+   oracle available anywhere in this port: with an admissible heuristic,
+   A\* must return the cost an uninformed search returns on the same
+   graph, which is a differential test against Dijkstra with no reference
+   implementation needed. `FR-INV-07` differs by planner, since RRT\* is
+   asymptotically optimal and SST only asymptotically near-optimal, so the
+   SST test is a suboptimality band rather than convergence.
+8. **Trajectory optimizer.** `scipy.optimize.minimize` becomes `argmin`.
    This is the second-riskiest item in the plan after the MPC, because
    two optimizers converge to different local minima on the same problem.
    The differential test compares cost achieved, never the solution
@@ -315,6 +333,8 @@ internal order, each step green before the next:
 - `FR-SAFE-03` met: no recursion, and the tree searches carry an explicit
   stack of stated capacity.
 - `scipy` no longer imported by `src/arco/planning/`.
+- `FR-INV-01` through `FR-INV-08` met, with the failure enumeration of
+  `FR-INV-08` fully reachable from the suite.
 
 ---
 
@@ -354,6 +374,7 @@ cannot block the rest of the control layer from landing.
   pass.
 - `FR-SAFE-04` met: the allocation-counting harness from phase 1 reports
   zero allocations across a control step.
+- `FR-INV-09`, `FR-INV-10` and `FR-INV-15` met.
 
 ---
 
@@ -465,7 +486,13 @@ did, which is the acceptance test for the entire effort.
    Satisfies `FR-SAFE-01`.
 6. **Docstring forwarding.** Rust doc comments surfaced as `__doc__` on
    the bound objects, so `help()` keeps answering. `FR-DOC-02`.
-7. **Deviation reconciliation.** Every entry accumulated in
+7. **Boundary documents.** One per algorithm, stating assumptions of use,
+   input validity requirements, limits enforced, failure modes returned,
+   and numbered integration requirements, per the element-out-of-context
+   framing in [SPEC.md](SPEC.md#arco-is-an-element-out-of-context). These
+   are what a caller embedding ARCO in a machine reads, and they are the
+   artifact `FR-INV-08` tests against.
+8. **Deviation reconciliation.** Every entry accumulated in
    [DEVIATIONS.md](DEVIATIONS.md) reviewed as one set, since a deviation
    that looked local in phase 2 may read differently next to eight
    others. `FR-API-06`.
@@ -553,6 +580,7 @@ implementations those tests used to exercise, one module per commit.
 | Python callbacks erase the speedup | 5 | Hook enums built before the planners that use them; `FR-PERF-02` measured |
 | Graph inheritance does not map to traits cleanly | 2 | Deviation entry written before the code, so the shape is reviewed before it is built |
 | Port drags on and `main` diverges | all | Rebase on `origin/main` per phase; every phase leaves the suite green, so the branch is always mergeable |
+| An invariant turns out to be false of the existing Python behavior | 2, 5, 6 | The invariant is the specification and the Python code is not. A disagreement is a bug report against the Python implementation plus a DEVIATIONS entry, never a weakened invariant |
 | Coverage gate unreachable through PyO3 | 0 | Open question in the spec, resolved in phase 0 before it can block phase 10 |
 
 ## What this plan does not do

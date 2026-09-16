@@ -230,6 +230,61 @@ the criticality levels assigned in [STYLE.md](STYLE.md#1-criticality-per-crate).
   hardened tier from
   [.guidelines/languages/rs.md](../../.guidelines/languages/rs.md#lints).
 
+### Algorithm invariants
+
+Each is asserted in the implementation and proved by a test. Most are
+metamorphic relations, chosen because every algorithm here has the oracle
+problem: the optimal path is unknown, while how the output must change
+under a known input change is not.
+
+- `FR-INV-01`: When a planner returns a path, that path shall be
+  collision-free when re-checked against the same map object it was given,
+  at a validity resolution at least as fine as the planning resolution,
+  and the result shall carry that resolution.
+- `FR-INV-02`: When a planner returns a path, consecutive states shall be
+  connected by a motion the segment checker accepts.
+- `FR-INV-03`: When path simplification or smoothing runs, it shall not
+  turn a valid path invalid and shall not increase path cost.
+- `FR-INV-04`: When an obstacle is removed from a map, the optimal cost
+  shall not increase; when one is added, it shall not decrease.
+- `FR-INV-05`: When the map, the start and the goal are translated and
+  rotated together, the returned path shall transform by the same amount,
+  for a fixed seed.
+- `FR-INV-06`: When `AStarPlanner` runs with an admissible heuristic, the
+  returned cost shall equal the cost an uninformed search returns on the
+  same graph.
+- `FR-INV-07`: When `RrtPlanner` runs, the incumbent solution cost shall
+  be monotonically non-increasing across iterations. When `SstPlanner`
+  runs, the incumbent cost shall stay inside a stated suboptimality band,
+  since SST is asymptotically near-optimal rather than optimal.
+- `FR-INV-08`: When a planner or controller declines to produce a result,
+  it shall return a reason drawn from a closed enumeration, and every
+  reason in that enumeration shall be reachable from the test suite.
+- `FR-INV-09`: When a controller returns a command, that command shall lie
+  inside the configured limit box and shall be reachable from the previous
+  command under the configured rate limit, given the interval passed in.
+- `FR-INV-10`: When a controller receives an elapsed interval that is not
+  finite, not strictly positive, or outside its configured band, it shall
+  return a typed error rather than compute with it.
+- `FR-INV-11`: When a map is queried, index and world coordinates shall
+  round-trip for every in-bounds cell, an out-of-bounds index shall be
+  rejected by the safe accessor, and an unknown cell shall never be
+  treated as free unless the caller asked for that explicitly.
+- `FR-INV-12`: When a map object exists, its resolution, extent and origin
+  shall be immutable, and it shall expose a content hash, so that
+  `FR-INV-01` is a checkable claim rather than an assertion about an
+  unnamed map.
+- `FR-INV-13`: When collision checking and inflation both use a footprint,
+  they shall use the same footprint object.
+- `FR-INV-14`: When inverse kinematics returns a solution, it shall lie
+  inside joint limits, forward kinematics shall reproduce the requested
+  pose within a stated tolerance, and a configuration whose commanded
+  joint rate would exceed a stated bound shall be rejected rather than
+  returned.
+- `FR-INV-15`: When any angular difference feeds a control law, it shall
+  be the wrapped difference, and a rotation representation shall be
+  normalized on every return.
+
 ### Documentation
 
 - `FR-DOC-01`: When a Rust item is public, it shall carry a doc comment
@@ -286,6 +341,21 @@ the criticality levels assigned in [STYLE.md](STYLE.md#1-criticality-per-crate).
 | `FR-SAFE-06` | Review gate plus a grep for bare float literals in comparisons |
 | `FR-SAFE-07` | `tests/rust/test_non_finite_rejected.py` |
 | `FR-SAFE-08` | `.github/workflows/tests.yml` |
+| `FR-INV-01` | `tests/rust/invariants/test_path_collision_free.py` |
+| `FR-INV-02` | `tests/rust/invariants/test_path_connected.py` |
+| `FR-INV-03` | `tests/rust/invariants/test_smoothing_metamorphic.py` |
+| `FR-INV-04` | `tests/rust/invariants/test_obstacle_monotonicity.py` |
+| `FR-INV-05` | `tests/rust/invariants/test_rigid_transform_equivariance.py` |
+| `FR-INV-06` | `crates/arco-planning/tests/astar_vs_dijkstra.rs` |
+| `FR-INV-07` | `crates/arco-planning/tests/anytime_cost.rs` |
+| `FR-INV-08` | `tests/rust/invariants/test_failure_taxonomy.py` |
+| `FR-INV-09` | `crates/arco-control/tests/limits.rs` |
+| `FR-INV-10` | `crates/arco-control/tests/interval.rs` |
+| `FR-INV-11` | existing `tests/mapping/`, extended |
+| `FR-INV-12` | `crates/arco-mapping/tests/identity.rs` |
+| `FR-INV-13` | review gate plus a construction-time assertion |
+| `FR-INV-14` | existing `tests/kinematics/`, extended |
+| `FR-INV-15` | `crates/arco-core/tests/angles.rs` |
 | `FR-DOC-01` | `#![deny(missing_docs)]` plus `cargo doc` in CI |
 | `FR-DOC-02` | `tests/rust/test_docstrings.py`, `mypy --strict` |
 | `FR-DOC-03` | review gate, not a test |
@@ -436,6 +506,41 @@ streams, so the alternative is survivable. The stricter option is chosen
 because it removes a whole class of "the port changed my results"
 reports at a fixed one-time cost.
 
+### ARCO is an element out of context
+
+ISO 21448 clause 4.4.3 names the position a reusable library occupies: it
+is developed against documented assumptions about its use and ships those
+assumptions together with integration requirements the integrating system
+must discharge. ARCO makes no safety claim and cannot: a performance level
+or an integrity level attaches to a safety function realized in a
+subsystem, never to a source package.
+
+What this port owes as a result is one boundary document per algorithm,
+stating assumptions of use, the inputs and their required validity, the
+limits the algorithm enforces, the failure modes it returns, and the
+numbered integration requirements a caller has to satisfy. That document
+is also the artifact `FR-INV-08` tests against, so it replaces no existing
+practice.
+
+Two things ARCO explicitly does not own, and must never appear to: an
+emergency stop, which requires removal of power and cannot be a library
+method, and personnel detection, which a path planner's collision check is
+not, even when both read the same sensor.
+
+On applicable standards, the mobile and manipulator halves of ARCO differ.
+ISO 10218-2:2025 excludes mobile platforms and driverless industrial
+trucks in its scope clause, so the mapping, planning, guidance, and
+control layers look to ISO 3691-4:2023 instead, while ISO 10218 governs
+`arco-kinematics`. See the shared robotics guideline for the full mapping.
+
+### Frames
+
+A pose in a globally referenced frame is discontinuous by specification
+and may jump at any time, while an odometry-frame pose is continuous. A
+controller that differentiates the former to obtain a velocity is wrong by
+construction. Ported control code names the frame each pose argument is
+expected in, and the type carries it where the trait bounds allow.
+
 ### Migration shape
 
 Every module is ported bottom up, and the Python source it replaces stays
@@ -465,6 +570,14 @@ of its Rust replacement, so a revert is a one-commit operation.
 
   No combined report is needed. The empty-report symptom is the missing
   `show-env` step, not a tool limitation.
+- **Cancellation, speed limit, and reset.** The nav2 plugin interfaces
+  carry three features ARCO lacks: a cooperative cancellation token passed
+  into a long-running plan call, an externally settable speed limit that
+  is not a planner parameter, and a reset distinct from teardown. All
+  three are new public surface, which this spec otherwise forbids, and all
+  three are needed by any caller embedding ARCO in a real robot. Decide
+  before phase 9 whether they are added as documented additions or left to
+  a follow-up.
 - **`arco.config` palette ownership.** `palette.py` and `colors.yml`
   serve the simulator, which stays Python. Porting them may be wasted
   work. Confirm during phase 1 whether `arco-core` carries config at all

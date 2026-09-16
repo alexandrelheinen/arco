@@ -202,3 +202,67 @@ general belongs upstream, where every project in the family gets it.
 The submodule pin moved from v1.0.0 to the guidelines `main` tip in the
 same change, because the old pin made every reference in these documents
 point at the stub rather than the guideline.
+
+## ADR-011: ISO 3691-4 governs the mobile half, ISO 10218 the manipulator half
+
+**Date:** 2026-09-16. **Status:** accepted.
+
+ISO 10218 is the standard people reach for when a project says "robot",
+and for ARCO it is mostly the wrong one. ISO 10218-2:2025 excludes mobile
+platforms, driverless industrial trucks, and tele-operated manipulators in
+its own scope clause, so `arco-mapping`, `arco-planning`,
+`arco-guidance` and `arco-control` look to ISO 3691-4:2023 in Europe and
+ANSI/A3 R15.08 in the US. ISO 10218 governs `arco-kinematics`.
+
+A related correction: ISO/TS 15066 is no longer where
+collaborative-operation requirements live. The 2025 edition of ISO 10218
+absorbed them as normative content and retired the terms "collaborative
+robot" and "collaborative operation".
+
+Nothing here obliges ARCO to comply with any of them. The point of
+recording it is that an integrator asking "which standard did you build
+against" gets a straight answer, and that nobody spends a week reading the
+wrong document.
+
+## ADR-012: ARCO makes no safety claim, and ships assumptions instead
+
+**Date:** 2026-09-16. **Status:** accepted.
+
+ISO 21448 clause 4.4.3 names the position a reusable library occupies: an
+element out of context, developed against documented assumptions and
+shipped with integration requirements the integrating system discharges.
+
+A performance level or a safety integrity level attaches to a safety
+function realized in a subsystem, including its hardware architecture,
+diagnostic coverage, and common-cause analysis. No amount of test coverage
+on a crate produces one. ARCO therefore claims none, and phase 9 produces
+one boundary document per algorithm instead.
+
+Two capabilities ARCO must never appear to offer. An **emergency stop**
+requires removal of power and cannot be a library method; anything named
+`stop` in this API is a normal stop, and naming it otherwise would be a
+naming error with safety consequences. **Personnel detection** is not what
+a planner's collision check does, even when both read the same sensor.
+
+## ADR-013: invariants are the specification, the Python behavior is not
+
+**Date:** 2026-09-16. **Status:** accepted. **Qualifies ADR-005.**
+
+ADR-005 makes the existing pytest suite the port's acceptance test, which
+is right for behavior and wrong for correctness properties the Python code
+never asserted.
+
+`FR-INV-01` through `FR-INV-15` are stated as properties of the algorithms
+rather than as descriptions of the current implementation. Where one turns
+out to be false of the Python behavior, the resolution is a bug report
+against the Python implementation and a DEVIATIONS entry, never a
+weakened invariant. An invariant relaxed to make a port pass has stopped
+being a specification.
+
+Most are metamorphic relations, chosen because every algorithm here has
+the oracle problem: the optimal path is unknown, while how the output must
+change under a known input transformation is not. `FR-INV-06` is the
+exception and the most valuable single test in the plan, since an
+admissible heuristic means A* must return exactly the cost an uninformed
+search returns on the same graph, giving a differential oracle that needs
+no reference implementation.
