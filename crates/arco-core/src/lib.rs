@@ -44,6 +44,7 @@
 //! Criticality: C2. See `docs/rust/STYLE.md`.
 
 mod error;
+pub mod numeric;
 pub mod rng;
 
 pub use error::{Error, PythonException};
