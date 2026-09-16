@@ -133,6 +133,28 @@ The crate is C0 under
 [workflow/criticality.md](../../.guidelines/workflow/criticality.md),
 since nothing it does reaches a machine.
 
+### C-11: the k-d tree is written here rather than taken from a crate
+
+**Status:** accepted, phase 2.
+
+[SPEC.md](SPEC.md) names `kiddo` as the replacement for
+`scipy.spatial.KDTree`. `kiddo` fixes the dimension as a const generic
+parameter, and ARCO promises N-dimensional maps chosen at run time, which
+[docs/guidelines.md](../guidelines.md) section 6 states and which the
+existing tests exercise.
+
+The options were to support a fixed set of dimensions and reject the rest,
+which breaks that promise, or to carry roughly 150 lines of tree in the
+crate. The tree is the cheaper answer, and it buys two things a dependency
+would not: the split order is decided by a total comparison, so an
+obstacle set with repeated coordinates builds the same tree on every run,
+and the content hash of `FR-INV-12` is computed over the same points the
+tree was built from.
+
+The tree is verified against a brute-force scan rather than against
+itself: four dimensions, two hundred points, two hundred queries each,
+agreeing to 1e-9.
+
 ## API
 
 ### A-09: control output gains saturation, rate limiting, and anti-windup
