@@ -1,26 +1,33 @@
 # Visualization Tools
 
-ARCO ships one visualization tool: **arcosim** — the unified CLI for both
-static image generation and real-time interactive simulation, driven by YAML
-scenario files.
+ARCO ships one visualization tool: **arcosim**, the CLI that runs a YAML
+scenario through the ARCO pipeline and renders it.
 
 ## arcosim — Unified Scenario Runner
 
-`arcosim` runs a scenario through the ARCO pipeline. It supports two modes:
+`arcosim` has one renderer, the pygame / OpenGL one, and three output modes:
 
-- **Real-time simulation** (default): pygame window with live animation.
-- **Static image mode** (`--image` / `--static`): matplotlib figure, optionally
-  saved to a file.
+- **Interactive** (default): a window with live animation.
+- **Video** (`-o FILE.mp4`): headless MP4 recording through ffmpeg.
+- **Still frames** (`-o FILE.png --still FRAME`): the same render, with the
+  selected frames written as PNG instead of encoded. See
+  [still_frames.md](still_frames.md).
+
+The matplotlib layer under `src/arco/simulator/viewer/` is a library used by
+the pipeline frontends; it has no `arcosim` entry point. Earlier revisions of
+this file documented `arcosim --image` and `arcosim --static` for it. Those
+flags were never implemented and have been removed from the documentation
+rather than from the CLI, which never had them.
 
 ### Dependencies
 
 ```bash
-# Static image mode only
-pip install arco[tools]          # matplotlib + pyyaml; no pygame needed
-
-# Real-time simulation
-pip install arco[tools,pygame]   # adds pygame >= 2.0 and PyOpenGL >= 3.1
+pip install arco[tools,pygame]   # pyyaml + pygame >= 2.0 + PyOpenGL >= 3.1
+pip install arco[mpc]            # CasADi, for scenarios with tracker: mpc
 ```
+
+A display server (or `xvfb-run`) is needed for every mode, including stills:
+the frame comes out of an OpenGL context.
 
 A display server (or virtual framebuffer such as `xvfb`) is required for
 interactive use. For headless recording, `xvfb-run` and `ffmpeg` are needed.
@@ -32,23 +39,32 @@ interactive use. For headless recording, `xvfb-run` and `ffmpeg` are needed.
 arcosim map/city.yml
 
 # Record to MP4 (requires pygame + ffmpeg)
-arcosim map/city.yml --record output/city.mp4
+arcosim map/city.yml -o output/city.mp4
 
 # Limit recording duration
-arcosim map/city.yml --record output/city.mp4 --record-duration 30
+arcosim map/city.yml -o output/city.mp4 --record-duration 30
 
 # Fast headless recording: skip animated planner-tree reveal
 arcosim map/city.yml -o output/city.mp4 -d 60 --fast-record
 
-# Static image mode — opens matplotlib window
-arcosim map/city.yml --image
+# Save one frame as PNG, headless, at a chosen size and seed
+xvfb-run -a arcosim map/city.yml -o output/city.png \
+    --still 300 --width 1920 --height 1080 --seed 7
 
-# Static image mode — save to file (headless-safe)
-arcosim map/city.yml --image --record output/city.png
-
-# --static is an alias for --image
-arcosim map/city.yml --static --record output/city.png
+# Search a run for a good instant: one PNG per listed frame
+xvfb-run -a arcosim map/city.yml -o output/scan/city.png \
+    --still 120,300,600,900 --width 1920 --height 1080 --seed 7
 ```
+
+| Flag | Effect |
+|---|---|
+| `--still FRAMES` | Save the listed zero-based recorded frames as PNG. One frame uses `--output` verbatim; several add an `_fNNNNN` suffix. |
+| `--width` / `--height` | Framebuffer size for the still. Defaults to the scenario's own recording size (1280 x 720, or 1280 x 800 for ppp and rrp). |
+| `--seed` | Pin unseeded planner sampling so the run repeats exactly. Seeds already set in the scenario YAML, such as the city world's `seed: 42`, are left alone. |
+
+`--still` changes the frame sink and the framebuffer size and nothing else.
+Without it every default is what it was, so `scripts/generate_videos.sh` and
+the release workflow produce the same videos as before.
 
 ### Supported scenarios
 

@@ -3,7 +3,7 @@
 Usage::
 
     arcosim path/to/scenario.yml [-o PATH] [-d SECONDS] [--fast-record]
-    arcosim path/to/scenario.yml --static [--record PATH]
+    arcosim path/to/scenario.yml -o PATH.png --still FRAME[,FRAME...]
 
 Requires the ``tools`` optional dependency group::
 
@@ -16,7 +16,10 @@ import argparse
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import Any
+
+from arco.simulator.sim import still
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +115,79 @@ def _dispatch(
     handler(cfg, save_path, record_duration)
 
 
+def _build_still_request(
+    still_spec: str,
+    output: str | None,
+    width: int | None,
+    height: int | None,
+) -> still.StillRequest:
+    """Turn the still-related CLI arguments into a request.
+
+    Args:
+        still_spec: Comma-separated frame indices from ``--still``.
+        output: Destination path from ``--output``.
+        width: Framebuffer width from ``--width``, or ``None``.
+        height: Framebuffer height from ``--height``, or ``None``.
+
+    Returns:
+        The :class:`~arco.simulator.sim.still.StillRequest` to install.
+
+    Raises:
+        SystemExit: If no output path was given or the frame list is
+            unparsable.
+    """
+    if not output:
+        logger.error("--still needs an output path: pass -o FILE.png")
+        sys.exit(1)
+    try:
+        frames = still.parse_frames(still_spec)
+    except ValueError as exc:
+        logger.error("Invalid --still value %r: %s", still_spec, exc)
+        sys.exit(1)
+    return still.StillRequest(
+        frames=frames,
+        output=Path(output),
+        width=width,
+        height=height,
+    )
+
+
+def _still_duration(
+    last_frame: int, record_duration: float, fps: int
+) -> float:
+    """Return a recording budget that reaches *last_frame*.
+
+    Args:
+        last_frame: Highest requested frame index.
+        record_duration: Budget requested on the command line.
+        fps: Scenario frame rate in frames per second.
+
+    Returns:
+        The larger of *record_duration* and the time needed to reach
+        *last_frame*, plus a one-second margin.
+    """
+    needed = (last_frame + 2) / float(max(fps, 1)) + 1.0
+    return max(record_duration, needed)
+
+
+def _report_missing_frames() -> None:
+    """Fail when the run ended before every requested frame.
+
+    Raises:
+        SystemExit: If the still sink never reached some requested frames.
+    """
+    sink = still.last_sink()
+    if sink is None:
+        return
+    missing = sink.missing_frames()
+    if missing:
+        logger.error(
+            "Scenario ended before frame(s) %s; pick a lower index.",
+            list(missing),
+        )
+        sys.exit(1)
+
+
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for the ``arcosim`` command.
 
@@ -143,6 +219,37 @@ def parse_args() -> argparse.Namespace:
         help="Maximum recording length in seconds (default: 360 s).",
     )
     parser.add_argument(
+        "--still",
+        default=None,
+        metavar="FRAMES",
+        help=(
+            "Save recorded frames as PNG instead of an MP4.  Takes one "
+            "frame index or a comma-separated list; --output names the "
+            "file (several frames add an _fNNNNN suffix)."
+        ),
+    )
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=None,
+        help="Still framebuffer width (default: the scenario's own).",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=None,
+        help="Still framebuffer height (default: the scenario's own).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help=(
+            "Pin unseeded planner sampling so a run repeats exactly.  "
+            "Seeds already set in the scenario YAML are left alone."
+        ),
+    )
+    parser.add_argument(
         "--fast-record",
         action="store_true",
         help=(
@@ -165,12 +272,39 @@ def main() -> None:
     """
     args = parse_args()
     cfg = _load_map(args.scenario_file)
-    _dispatch(
-        cfg,
-        args.output,
-        args.record_duration,
-        fast_record=bool(args.fast_record),
-    )
+
+    if args.seed is not None:
+        still.pin_unseeded_rng(int(args.seed))
+
+    record_duration = args.record_duration
+    if args.still:
+        # Still capture writes one file per frame and is otherwise silent;
+        # surface the progress logs so the user sees what was saved.
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+        request = _build_still_request(
+            args.still, args.output, args.width, args.height
+        )
+        still.set_request(request)
+        from arco.config import load_config  # noqa: PLC0415
+
+        fps = int(load_config("simulator")["fps"])
+        record_duration = _still_duration(
+            request.last_frame, record_duration, fps
+        )
+
+    try:
+        _dispatch(
+            cfg,
+            args.output,
+            record_duration,
+            fast_record=bool(args.fast_record),
+        )
+    except still.CaptureDone:
+        # Every requested frame was saved; the sink unwound the render loop.
+        pass
+
+    if args.still:
+        _report_missing_frames()
 
 
 if __name__ == "__main__":

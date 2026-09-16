@@ -56,6 +56,7 @@ from arco.config.palette import layer_rgb, ui_rgb
 from arco.simulator import renderer_gl
 from arco.simulator.scenes import RaceScene
 from arco.simulator.scenes.sparse import CityScene
+from arco.simulator.sim import still
 from arco.simulator.sim.camera import CameraFilter
 from arco.simulator.sim.car_sprite import draw_car_sprite, reset_texture_cache
 from arco.simulator.sim.city_race_style import (
@@ -261,7 +262,9 @@ def run_race(
     pygame.init()
 
     if recording:
-        sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
+        sw, sh = still.resolve_recording_size(
+            _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
+        )
     else:
         info = pygame.display.Info()
         w = int(getattr(info, "current_w", 0) or 0)
@@ -472,7 +475,7 @@ def run_race(
     # Video writer
     # ---------------------------------------------------------------------------
     writer: VideoWriter | None = (
-        VideoWriter(record, sw, sh, fps) if recording else None
+        still.make_writer(record, sw, sh, fps) if recording else None
     )
     if writer is not None:
         writer.open()

@@ -117,6 +117,7 @@ from arco.config.palette import (
 )
 from arco.simulator import renderer_gl
 from arco.simulator.scenes.rrp import RRPScene
+from arco.simulator.sim import still
 from arco.simulator.sim.layout import (
     ScreenLayout,
     build_compact_planner_sections,
@@ -984,7 +985,7 @@ def run_race(
     )
 
     pygame.init()
-    sw, sh = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
+    sw, sh = still.resolve_recording_size(_DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H)
     if not recording:
         info = pygame.display.Info()
         w = int(getattr(info, "current_w", 0) or 0)
@@ -1061,7 +1062,7 @@ def run_race(
 
     video_writer: VideoWriter | None = None
     if recording and record:
-        video_writer = VideoWriter(record, sw, sh, fps)
+        video_writer = still.make_writer(record, sw, sh, fps)
         video_writer.open()
 
     try:

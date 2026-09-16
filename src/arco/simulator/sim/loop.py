@@ -33,6 +33,7 @@ from OpenGL.GL import (  # type: ignore[import-untyped]
 
 from arco.simulator import renderer_gl
 
+from . import still
 from .camera import CameraFilter, FollowTransform
 from .layout import ScreenLayout, draw_sidebar_panel, make_chrome_surface
 from .loading import run_with_loading_screen
@@ -175,7 +176,9 @@ def run_sim(
     pygame.init()
 
     if recording:
-        screen_w, screen_h = _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
+        screen_w, screen_h = still.resolve_recording_size(
+            _DEFAULT_SCREEN_W, _DEFAULT_SCREEN_H
+        )
     else:
         screen_w, screen_h = _resolve_screen_size()
         logger.info("Window size: %dx%d", screen_w, screen_h)
@@ -296,7 +299,9 @@ def run_sim(
         _start_tracking()
 
     writer: VideoWriter | None = (
-        VideoWriter(record, screen_w, screen_h, fps) if recording else None
+        still.make_writer(record, screen_w, screen_h, fps)
+        if recording
+        else None
     )
     if writer is not None:
         writer.open()

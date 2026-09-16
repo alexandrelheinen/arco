@@ -44,6 +44,7 @@ from arco.control import ActuatorArray
 from arco.control.rigid_body import CircleBody, SquareBody
 from arco.mapping import KDTreeOccupancy
 from arco.simulator.scenes.occ import OCCScene
+from arco.simulator.sim import still
 from arco.simulator.sim.layout import (
     ScreenLayout,
     make_chrome_surface,
@@ -436,13 +437,14 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
 
     pygame.init()
     flags = pygame.DOUBLEBUF
-    screen = pygame.display.set_mode((_WIDTH, _HEIGHT), flags)
+    sw, sh = still.resolve_recording_size(_WIDTH, _HEIGHT)
+    screen = pygame.display.set_mode((sw, sh), flags)
     pygame.display.set_caption("OCC - Piano Movers")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("monospace", 14)
     title_font = pygame.font.SysFont("monospace", 16, bold=True)
     panel_label_font = pygame.font.SysFont("monospace", 18, bold=True)
-    layout = ScreenLayout(_WIDTH, _HEIGHT)
+    layout = ScreenLayout(sw, sh)
 
     # Build scene with loading screen feedback
     scene = OCCScene(cfg)
@@ -548,7 +550,7 @@ def main(cfg: dict, save_path: str | None, sim_duration: float) -> None:
     recording = save_path is not None
     video_writer: VideoWriter | None = None
     if recording:
-        video_writer = VideoWriter(save_path, _WIDTH, _HEIGHT, fps)
+        video_writer = still.make_writer(save_path, sw, sh, fps)
         video_writer.open()
 
     record_frames = int(sim_duration / dt)
