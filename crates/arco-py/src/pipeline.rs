@@ -14,7 +14,6 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyString, PyTuple};
 
-
 /// Snapshot of every stage output from one `PlanningPipeline.run` call.
 ///
 /// Stores the outputs from all stages so that a caller can inspect or
@@ -422,8 +421,8 @@ impl PyPlanningPipeline {
         result.raw_path = Some(listed.clone().unbind());
         let mut active = listed;
 
-        let total =
-            usize::from(self.pruner.is_some()).saturating_add(usize::from(self.optimizer.is_some()));
+        let total = usize::from(self.pruner.is_some())
+            .saturating_add(usize::from(self.optimizer.is_some()));
         let mut stage = 0_usize;
 
         if let Some(pruner) = self.pruner.as_ref() {
@@ -462,12 +461,18 @@ impl PyPlanningPipeline {
     #[staticmethod]
     #[pyo3(signature = (result, path))]
     #[pyo3(text_signature = "(result, path)")]
-    fn save_result(py: Python<'_>, result: &Bound<'_, PyAny>, path: &Bound<'_, PyAny>) -> PyResult<()> {
+    fn save_result(
+        py: Python<'_>,
+        result: &Bound<'_, PyAny>,
+        path: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
         let numpy = py.import("numpy")?;
         let pathlib = py.import("pathlib")?.getattr("Path")?.call1((path,))?;
-        pathlib
-            .getattr("parent")?
-            .call_method("mkdir", (), Some(&kwargs(py, &[("parents", true), ("exist_ok", true)])?))?;
+        pathlib.getattr("parent")?.call_method(
+            "mkdir",
+            (),
+            Some(&kwargs(py, &[("parents", true), ("exist_ok", true)])?),
+        )?;
 
         let arrays = PyDict::new(py);
         for key in ["raw_path", "pruned_path", "trajectory"] {
@@ -512,11 +517,7 @@ impl PyPlanningPipeline {
         let encoded = py.import("json")?.call_method1("dumps", (meta,))?;
         arrays.set_item("__meta__", numpy.call_method1("array", (encoded,))?)?;
 
-        numpy.call_method(
-            "savez_compressed",
-            (pathlib.str()?,),
-            Some(&arrays),
-        )?;
+        numpy.call_method("savez_compressed", (pathlib.str()?,), Some(&arrays))?;
         Ok(())
     }
 
@@ -538,7 +539,12 @@ impl PyPlanningPipeline {
     fn load_result(py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult<PyPipelineResult> {
         let numpy = py.import("numpy")?;
         let mut target = py.import("pathlib")?.getattr("Path")?.call1((path,))?;
-        if target.getattr("suffix")?.str()?.to_string_lossy().is_empty() {
+        if target
+            .getattr("suffix")?
+            .str()?
+            .to_string_lossy()
+            .is_empty()
+        {
             target = target.call_method1("with_suffix", (".npz",))?;
         }
         let archive = numpy.call_method(
@@ -564,7 +570,12 @@ impl PyPlanningPipeline {
             }
         }
         if archive.contains("durations")? {
-            result.durations = Some(archive.get_item("durations")?.call_method0("tolist")?.unbind());
+            result.durations = Some(
+                archive
+                    .get_item("durations")?
+                    .call_method0("tolist")?
+                    .unbind(),
+            );
         }
         if archive.contains("__meta__")? {
             let encoded = archive.get_item("__meta__")?.str()?;
