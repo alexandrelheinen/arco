@@ -104,6 +104,7 @@ dependencies = [
  "arco-runtime",
  "numpy",
  "pyo3",
+ "serde_json",
 ]
 
 [[package]]

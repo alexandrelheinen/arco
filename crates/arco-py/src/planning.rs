@@ -660,8 +660,9 @@ fn publish_snapshot(
             sink.bind(py).call1((telemetry,))?;
         }
         None => {
-            py.import("arco.planning.continuous.telemetry")?
-                .call_method1("write_telemetry", (telemetry,))?;
+            // The file write is compiled, so a planner with no sink of
+            // its own runs no Python here beyond the extraction.
+            crate::telemetry::publish_bound(telemetry)?;
         }
     }
     Ok(())
@@ -677,24 +678,25 @@ fn report_progress(
     algorithm: &str,
     progress: &arco_planning::continuous::PlannerProgress,
 ) {
+    // `inf` is what Python carried before any node had been placed, and
+    // the loading screen renders it as an unknown distance.
+    let snapshot = crate::telemetry::snapshot(
+        algorithm,
+        "exploring",
+        progress.iteration,
+        progress.max_iterations,
+        progress.best_distance_to_goal,
+    );
+    // A planner with no sink never touches the interpreter: the snapshot
+    // is built natively and written natively. One with a sink pays for
+    // the call it asked for and nothing else.
+    let Some(sink) = publisher else {
+        crate::telemetry::publish_to_file(&snapshot);
+        return;
+    };
     Python::attach(|py| {
-        let Ok(module) = py.import("arco.planning.continuous.telemetry") else {
-            return;
-        };
-        let Ok(kind) = module.getattr("PlannerTelemetry") else {
-            return;
-        };
-        // `inf` is what Python carried before any node had been placed,
-        // and the loading screen renders it as an unknown distance.
-        let snapshot = kind.call1((
-            algorithm,
-            "exploring",
-            progress.iteration,
-            progress.max_iterations,
-            progress.best_distance_to_goal,
-        ));
-        if let Ok(snapshot) = snapshot {
-            let _ignored = publish_snapshot(py, publisher, &snapshot);
+        if let Ok(built) = Py::new(py, snapshot) {
+            let _ignored = sink.bind(py).call1((built,));
         }
     });
 }
