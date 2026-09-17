@@ -451,6 +451,28 @@ impl BoundOccupancy {
     }
 }
 
+impl BoundOccupancy {
+    /// Reports `fallback` when the map publishes no dimension of its own.
+    ///
+    /// A Python map subclassing `arco.mapping.occupancy.Occupancy`
+    /// publishes `clearance` and nothing else, so it reads as a map of
+    /// dimension zero. A planner never asked, and the two predictive
+    /// controllers do, because a program built for the wrong number of
+    /// axes is a wrong program rather than a slow one. Taking the
+    /// caller's own dimension for a map that declines to state one keeps
+    /// the check for every map that does state one, which is what the
+    /// Python controllers, which checked nothing, would have wanted.
+    pub(crate) fn assume_dimension(self, fallback: usize) -> Self {
+        match self {
+            Self::Python(map) if map.dimension == 0 => Self::Python(PyOccupancy {
+                dimension: fallback,
+                ..map
+            }),
+            stated => stated,
+        }
+    }
+}
+
 impl Occupancy for BoundOccupancy {
     fn dimension(&self) -> usize {
         match self {

@@ -23,7 +23,7 @@ const CURVATURE_SPREAD_CEILING: f64 = 20.0;
 const CURVATURE_SPREAD_FLOOR: f64 = 8.0;
 
 /// The largest curvature the path will report, per meter.
-const CURVATURE_CEILING: f64 = 0.35;
+pub const CURVATURE_CEILING: f64 = 0.35;
 
 /// How far ahead a corner's curvature is visible, meters.
 ///

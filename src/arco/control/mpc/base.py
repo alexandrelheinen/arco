@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Sequence
 
+from arco._arco import DubinsPathFollowingMPC
 from arco.control.mpc.result import MPCStepResult
 
 
@@ -44,3 +45,10 @@ class MPCTracker(ABC):
         Returns:
             Structured command and diagnostics.
         """
+
+
+# The compiled controller cannot inherit from a Python abstract base, so
+# it is registered as a virtual subclass instead: an ``isinstance`` check
+# against this interface keeps answering True, which is what a caller
+# written against the protocol relies on.
+MPCTracker.register(DubinsPathFollowingMPC)

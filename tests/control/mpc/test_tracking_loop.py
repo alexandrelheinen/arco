@@ -85,7 +85,7 @@ def test_build_vehicle_mpc_sim_factory() -> None:
     vehicle, loop = build_vehicle_mpc_sim(path, cfg, mpc_cfg)
     assert isinstance(loop, MPCTrackingLoop)
     assert abs(vehicle.x - 0.0) < 1e-12
-    metrics = loop.step(path, dt=0.05)
+    metrics = loop.step(path, dt=mpc_cfg.dt)
     assert "mpc_solver_success" in metrics
 
 

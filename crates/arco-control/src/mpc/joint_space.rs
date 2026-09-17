@@ -79,6 +79,14 @@ const CLEARANCE_FLOOR: f64 = 1e-3;
 /// barrier off for that step.
 const SEPARATION_FLOOR: f64 = 1e-9;
 
+/// How collinear a barrier normal may be with the direction of travel.
+///
+/// Above this, the half-space of [`JointSpaceMpc::push_barriers`] points
+/// back along the route and the only motion it permits is stopping. The
+/// program is then asked to go around by turning the normal sideways
+/// instead, per deviation A-33.
+const COLLINEAR_NORMAL: f64 = 0.9;
+
 /// How far outside a bound a returned solution may sit.
 ///
 /// Clarabel reports a primal residual rather than an exact answer, so
@@ -493,7 +501,7 @@ impl<O: Occupancy> JointSpaceMpc<O> {
         self.require_model_interval(dt)?;
         self.require_axes("target configuration", target)?;
 
-        let obstacles = self.probe_obstacles()?;
+        let obstacles = self.probe_obstacles(target)?;
         let program = self.assemble(target, &obstacles)?;
         let Program {
             problem,
@@ -714,11 +722,11 @@ impl<O: Occupancy> JointSpaceMpc<O> {
     ///
     /// Returns [`Error::OutOfRange`] when the problem would be larger than
     /// an index can address.
-    fn assemble(&self, target: &[f64], obstacles: &[Vec<f64>]) -> Result<Program, Error> {
+    fn assemble(&self, target: &[f64], obstacles: &ObstacleProbes) -> Result<Program, Error> {
         let layout = Layout::new(
             self.axes(),
             self.settings.horizon_step_count,
-            obstacles.len(),
+            obstacles.slot_count(),
         )?;
         let mut objective = Triplets::new();
         let mut gradient = vec![0.0; layout.variable_count];
@@ -791,6 +799,15 @@ impl<O: Occupancy> JointSpaceMpc<O> {
             for step in 1..=layout.horizon {
                 let index = layout.slack(slot, step);
                 objective.push(index, index, 2.0 * settings.weight_obstacle);
+                // The quadratic alone is not an exact penalty: its slope
+                // at a penetration already paid for is small, so a large
+                // tracking weight buys its way through the barrier for a
+                // bounded price. The linear term keeps the marginal cost
+                // of one more meter of penetration at the barrier weight
+                // however deep the machine already is, which is what an
+                // exact penalty means and what the quartic of the
+                // nonlinear original achieved by curvature instead.
+                add_to(gradient, index, settings.weight_obstacle);
             }
         }
         constant_cost
@@ -882,31 +899,28 @@ impl<O: Occupancy> JointSpaceMpc<O> {
         &self,
         layout: &Layout,
         target: &[f64],
-        obstacles: &[Vec<f64>],
+        obstacles: &ObstacleProbes,
         rows: &mut Rows,
     ) {
-        if obstacles.is_empty() {
+        if obstacles.slot_count() == 0 {
             return;
         }
         let clearance = self.barrier_clearance();
-        let reach = self.settings.step_interval * self.slowest_axis();
         let remaining = distance_between(target, &self.configuration);
-        let mut nominal = self.configuration.clone();
-        let mut travelled = 0.0;
+        let heading = self.travel_direction(target, remaining);
 
         for step in 1..=layout.horizon {
-            travelled = (travelled + reach).min(remaining);
-            if remaining > SEPARATION_FLOOR {
-                for axis in 0..layout.axes {
-                    let from = self.configuration.get(axis).copied().unwrap_or_default();
-                    let to = target.get(axis).copied().unwrap_or_default();
-                    if let Some(slot) = nominal.get_mut(axis) {
-                        *slot = (travelled * (to - from) / remaining) + from;
-                    }
-                }
-            }
+            let nominal = self.nominal_at(step, target, remaining);
 
-            for (slot, obstacle) in obstacles.iter().enumerate() {
+            for slot in 0..obstacles.slot_count() {
+                let Some(probe) = obstacles.point(slot, step) else {
+                    // The occupancy could not place an obstacle for this
+                    // slot at this step, so the row stands empty for the
+                    // reason the next comment gives.
+                    rows.open(0.0);
+                    continue;
+                };
+                let obstacle = &probe.point;
                 let separation = distance_between(&nominal, obstacle);
                 // A row of nothing reads as `0 <= 0`, which every point
                 // satisfies. Keeping it costs one empty row and keeps the
@@ -917,11 +931,11 @@ impl<O: Occupancy> JointSpaceMpc<O> {
                     continue;
                 }
 
+                let normal = self.barrier_normal(&nominal, probe, separation, &heading);
                 let mut offset = 0.0;
                 for axis in 0..layout.axes {
-                    let here = nominal.get(axis).copied().unwrap_or_default();
                     let there = obstacle.get(axis).copied().unwrap_or_default();
-                    let direction = (here - there) / separation;
+                    let direction = normal.get(axis).copied().unwrap_or_default();
                     rows.push(
                         row,
                         layout.configuration(step, axis),
@@ -935,23 +949,168 @@ impl<O: Occupancy> JointSpaceMpc<O> {
         }
     }
 
+    /// The unit vector from here to the target, when there is one.
+    ///
+    /// Empty when the machine is already there, which is also when no
+    /// barrier needs turning: a controller that is not going anywhere is
+    /// not going to drive into anything.
+    fn travel_direction(&self, target: &[f64], remaining: f64) -> Vec<f64> {
+        if !(remaining.is_finite() && remaining > SEPARATION_FLOOR) {
+            return Vec::new();
+        }
+        (0..self.axes())
+            .map(|axis| {
+                let from = self.configuration.get(axis).copied().unwrap_or_default();
+                let to = target.get(axis).copied().unwrap_or_default();
+                (to - from) / remaining
+            })
+            .collect()
+    }
+
+    /// Which way the half-space of one barrier faces.
+    ///
+    /// Normally the direction from the obstacle to the nominal, which is
+    /// the supporting hyperplane of deviation A-30, tangent to the
+    /// keep-out ball at the closest point of approach.
+    ///
+    /// Deviation A-33 covers the case that normal cannot express. An
+    /// obstacle sitting on the route has a normal pointing back along it,
+    /// so the only way to satisfy the row is to stop short: the program
+    /// can brake and cannot steer, because a straight run at a symmetric
+    /// obstacle carries no lateral gradient at all. Any unit normal gives
+    /// a half-space that excludes a slab around the obstacle, and it is
+    /// the choice of normal that decides whether going around is
+    /// expressible. Turning it across the route is what asks the program
+    /// to go around rather than to give up.
+    fn barrier_normal(
+        &self,
+        nominal: &[f64],
+        probe: &Probe,
+        separation: f64,
+        heading: &[f64],
+    ) -> Vec<f64> {
+        let obstacle = &probe.point;
+        let radial: Vec<f64> = (0..self.axes())
+            .map(|axis| {
+                let here = nominal.get(axis).copied().unwrap_or_default();
+                let there = obstacle.get(axis).copied().unwrap_or_default();
+                (here - there) / separation
+            })
+            .collect();
+        // Outside the clearance the row costs nothing whichever way it
+        // faces, so the radial normal stands and the machine keeps its
+        // line until an obstacle is close enough to matter.
+        if heading.is_empty() || separation > clearance_of(self) {
+            return radial;
+        }
+        let alignment: f64 = radial
+            .iter()
+            .zip(heading)
+            .map(|(&component, &along)| component * along)
+            .sum();
+        if alignment.abs() < COLLINEAR_NORMAL {
+            return radial;
+        }
+        // Tilted rather than replaced. A purely sideways normal forbids
+        // the collinear path and nothing else, which leaves a machine
+        // facing a wall no way to satisfy the row at all when the nearest
+        // point slides along that wall beside it. Half of each keeps both
+        // answers open: stop short, or step around, whichever the rest of
+        // the program finds cheaper.
+        let Some(across) = sideways(heading, &self.lateral_offset(obstacle, heading)) else {
+            return radial;
+        };
+        let tilted: Vec<f64> = radial
+            .iter()
+            .zip(&across)
+            .map(|(&back, &side)| back + side)
+            .collect();
+        let length = norm_of(&tilted);
+        if length <= SEPARATION_FLOOR {
+            return radial;
+        }
+        tilted.iter().map(|&value| value / length).collect()
+    }
+
+    /// Where the machine sits relative to the line through the obstacle.
+    ///
+    /// The component of the offset perpendicular to the route, which is
+    /// the side the machine is already leaning toward and therefore the
+    /// cheaper way around.
+    fn lateral_offset(&self, obstacle: &[f64], heading: &[f64]) -> Vec<f64> {
+        let offset: Vec<f64> = (0..self.axes())
+            .map(|axis| {
+                let here = self.configuration.get(axis).copied().unwrap_or_default();
+                let there = obstacle.get(axis).copied().unwrap_or_default();
+                here - there
+            })
+            .collect();
+        let along: f64 = offset
+            .iter()
+            .zip(heading)
+            .map(|(&component, &direction)| component * direction)
+            .sum();
+        offset
+            .iter()
+            .zip(heading)
+            .map(|(&component, &direction)| along.mul_add(-direction, component))
+            .collect()
+    }
+
+    /// Where on the straight run to the target step `step` would land.
+    ///
+    /// The barriers are written about this line rather than about a
+    /// solved trajectory, because nothing is carried between steps: the
+    /// machine walks as far as its slowest axis allows and stops at the
+    /// target. The Python built its initial guess the same way, and the
+    /// choice matters because a half-space anchored somewhere the machine
+    /// will not pass either constrains nothing or constrains the wrong
+    /// direction.
+    fn nominal_at(&self, step: usize, target: &[f64], remaining: f64) -> Vec<f64> {
+        if !(remaining.is_finite() && remaining > SEPARATION_FLOOR) {
+            return self.configuration.clone();
+        }
+        let reach = self.settings.step_interval * self.slowest_axis();
+        let travelled = (reach * count_as_value(step)).min(remaining);
+        (0..self.axes())
+            .map(|axis| {
+                let from = self.configuration.get(axis).copied().unwrap_or_default();
+                let to = target.get(axis).copied().unwrap_or_default();
+                (travelled * (to - from) / remaining) + from
+            })
+            .collect()
+    }
+
     /// The obstacle points this step's barriers are built against.
     ///
-    /// Two probes, as in the Python: where the machine is, and where it
-    /// would be in a few steps at its current velocity. A probe whose
-    /// answer repeats one already held is dropped, and one the occupancy
-    /// cannot locate is skipped rather than raised, since no barrier is
-    /// the right answer to not knowing where the obstacle is.
+    /// Two families of them. The fixed probes are the Python's: where the
+    /// machine is, and where it would be in a few steps at its current
+    /// velocity. They anchor a barrier that does not move while the
+    /// program is solved.
+    ///
+    /// The route probe is one query per predicted step, taken at the
+    /// nominal position that step lands on. Deviation A-34 records why it
+    /// is needed: against a flat face, the nearest point of a fixed probe
+    /// slides sideways with the machine and sits between it and the
+    /// target, so once the machine is past that point every step forward
+    /// increases the distance the barrier measures and the barrier reads
+    /// as satisfied while the machine is inside the obstacle. A point
+    /// probed at the predicted position cannot be passed that way.
+    ///
+    /// A probe whose answer repeats one already held is dropped, and one
+    /// the occupancy cannot locate is skipped rather than raised, since
+    /// no barrier is the right answer to not knowing where the obstacle
+    /// is.
     ///
     /// # Errors
     ///
     /// Propagates whatever the occupancy returns.
-    fn probe_obstacles(&self) -> Result<Vec<Vec<f64>>, Error> {
+    fn probe_obstacles(&self, target: &[f64]) -> Result<ObstacleProbes, Error> {
         let Some(occupancy) = self.occupancy.as_ref() else {
-            return Ok(Vec::new());
+            return Ok(ObstacleProbes::default());
         };
         if self.settings.weight_obstacle <= 0.0 {
-            return Ok(Vec::new());
+            return Ok(ObstacleProbes::default());
         }
 
         let mut probes: Vec<Vec<f64>> = Vec::with_capacity(2);
@@ -968,17 +1127,34 @@ impl<O: Occupancy> JointSpaceMpc<O> {
             );
         }
 
-        let mut points: Vec<Vec<f64>> = Vec::with_capacity(probes.len());
+        let mut fixed: Vec<Probe> = Vec::with_capacity(probes.len());
         for probe in &probes {
             let nearest = occupancy.nearest_obstacle(probe)?;
             if nearest.point.len() != self.axes() || !finite(&nearest.point) {
                 continue;
             }
-            if !points.iter().any(|held| agrees(held, &nearest.point)) {
-                points.push(nearest.point);
+            if !fixed.iter().any(|held| agrees(&held.point, &nearest.point)) {
+                fixed.push(Probe {
+                    point: nearest.point,
+                });
             }
         }
-        Ok(points)
+
+        let remaining = distance_between(target, &self.configuration);
+        let mut route: Vec<Option<Probe>> = Vec::with_capacity(self.settings.horizon_step_count);
+        for step in 1..=self.settings.horizon_step_count {
+            let nominal = self.nominal_at(step, target, remaining);
+            let nearest = occupancy.nearest_obstacle(&nominal)?;
+            if nearest.point.len() != self.axes() || !finite(&nearest.point) {
+                route.push(None);
+                continue;
+            }
+            route.push(Some(Probe {
+                point: nearest.point,
+            }));
+        }
+
+        Ok(ObstacleProbes { fixed, route })
     }
 
     /// The clearance the barrier normalizes a penetration by, floored.
@@ -1228,6 +1404,100 @@ impl Layout {
         self.slack_block
             .saturating_add(slot.saturating_mul(self.horizon))
             .saturating_add(step.saturating_sub(1))
+    }
+}
+
+/// The clearance a controller's barrier normalizes by.
+///
+/// A free function so [`JointSpaceMpc::barrier_normal`] can ask for it
+/// without borrowing the controller twice.
+fn clearance_of<O: Occupancy>(controller: &JointSpaceMpc<O>) -> f64 {
+    controller.barrier_clearance()
+}
+
+/// A unit vector across `heading`, leaning toward `preference`.
+///
+/// Returns nothing when no such direction can be built, which happens
+/// when the heading is degenerate. The caller then keeps the radial
+/// normal, so a barrier is never dropped for want of a direction.
+fn sideways(heading: &[f64], preference: &[f64]) -> Option<Vec<f64>> {
+    let leaning = norm_of(preference);
+    if leaning > SEPARATION_FLOOR {
+        return Some(preference.iter().map(|&value| value / leaning).collect());
+    }
+    // Perfectly head on, so either side is as good: take the axis the
+    // route leans on least, and remove whatever of the route it carries.
+    let (thinnest, _smallest) = heading.iter().enumerate().fold(
+        (0_usize, f64::INFINITY),
+        |(index, smallest), (axis, &component)| {
+            if component.abs() < smallest {
+                (axis, component.abs())
+            } else {
+                (index, smallest)
+            }
+        },
+    );
+    let along = heading.get(thinnest).copied().unwrap_or_default();
+    let candidate: Vec<f64> = heading
+        .iter()
+        .enumerate()
+        .map(|(axis, &component)| {
+            let basis = if axis == thinnest { 1.0 } else { 0.0 };
+            along.mul_add(-component, basis)
+        })
+        .collect();
+    let length = norm_of(&candidate);
+    (length > SEPARATION_FLOOR).then(|| candidate.iter().map(|&value| value / length).collect())
+}
+
+/// The Euclidean length of a vector.
+fn norm_of(values: &[f64]) -> f64 {
+    values
+        .iter()
+        .map(|&value| value * value)
+        .sum::<f64>()
+        .sqrt()
+}
+
+/// The obstacle points one step's barriers are written against.
+///
+/// Two kinds, kept apart because they are indexed differently: a fixed
+/// point holds for the whole horizon, while a route point belongs to one
+/// predicted step. Both occupy one slack column per step, so a caller
+/// reading [`Self::slot_count`] gets what the layout needs to allocate.
+#[derive(Debug, Clone, Default, PartialEq)]
+struct ObstacleProbes {
+    /// Points probed once, at the machine and ahead of its velocity.
+    fixed: Vec<Probe>,
+    /// One point per predicted step, probed at that step's nominal.
+    route: Vec<Option<Probe>>,
+}
+
+/// One answer from the occupancy, held per slot and per step.
+#[derive(Debug, Clone, PartialEq)]
+struct Probe {
+    /// Where the occupancy put the nearest obstacle.
+    point: Vec<f64>,
+}
+
+impl ObstacleProbes {
+    /// How many barrier families the program carries.
+    ///
+    /// The route family counts once however many steps it covers, and
+    /// counts not at all when no step found an obstacle.
+    fn slot_count(&self) -> usize {
+        let route = usize::from(self.route.iter().any(Option::is_some));
+        self.fixed.len().saturating_add(route)
+    }
+
+    /// The probe slot `slot` is written against at `step`, if there is one.
+    fn point(&self, slot: usize, step: usize) -> Option<&Probe> {
+        self.fixed.get(slot).or_else(|| {
+            (slot == self.fixed.len())
+                .then(|| self.route.get(step.saturating_sub(1)))
+                .flatten()
+                .and_then(Option::as_ref)
+        })
     }
 }
 

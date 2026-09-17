@@ -44,6 +44,7 @@ use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyDict, PyList, PyTuple};
 
+use crate::config::{count, number, required, text};
 use crate::errors::{OrRaise, to_exception};
 use crate::hooks::{
     BoundMap, BoundOccupancy, FailureSlot, PyPlannerCost, PySampler, PySegmentChecker, PySteerer,
@@ -2822,69 +2823,6 @@ impl PyTrajectoryOptimizer {
         }
         Ok(PyList::new(py, commands)?.unbind())
     }
-}
-
-/// Reads a required section of the optimizer configuration.
-///
-/// # Errors
-///
-/// Returns a `ValueError` naming the missing key, which is what the
-/// Python constructor raised.
-fn required<'py>(config: &Bound<'py, PyAny>, key: &str) -> PyResult<Bound<'py, PyAny>> {
-    let section = config.call_method1("get", (key, py_none(config.py())))?;
-    if section.is_none() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Config file must specify '{key}' key."
-        )));
-    }
-    Ok(section)
-}
-
-/// The `None` a `dict.get` default needs.
-fn py_none(py: Python<'_>) -> Py<PyAny> {
-    py.None()
-}
-
-/// Reads a number out of a configuration section, or its default.
-///
-/// # Errors
-///
-/// Returns whatever reading the key raised.
-fn number(section: &Bound<'_, PyAny>, key: &str, fallback: f64) -> PyResult<f64> {
-    let read = section.call_method1("get", (key, fallback))?;
-    // Coerced rather than extracted, because the Python original wrapped
-    // every value in `float(...)` and the shipped configuration relies on
-    // it: PyYAML follows the 1.1 spec, where an exponent needs a sign, so
-    // `1.0e2` in `config/optimizer.yml` parses as the string "1.0e2" and
-    // four of the five weights arrive as text.
-    read.call_method0("__float__")
-        .or_else(|_not_a_number| read.py().get_type::<pyo3::types::PyFloat>().call1((read,)))?
-        .extract::<f64>()
-}
-
-/// Reads a count out of a configuration section, or its default.
-///
-/// # Errors
-///
-/// Returns whatever reading the key raised.
-fn count(section: &Bound<'_, PyAny>, key: &str, fallback: usize) -> PyResult<usize> {
-    let read = section.call_method1("get", (key, fallback))?;
-    // Coerced for the reason [`number`] is: the Python original wrapped
-    // every count in `int(...)`.
-    read.py()
-        .get_type::<pyo3::types::PyInt>()
-        .call1((read,))?
-        .extract::<usize>()
-}
-
-/// Reads a string out of a configuration section, or its default.
-///
-/// # Errors
-///
-/// Returns whatever reading the key raised.
-fn text(section: &Bound<'_, PyAny>, key: &str, fallback: &str) -> PyResult<String> {
-    let read = section.call_method1("get", (key, fallback))?;
-    read.str()?.extract::<String>()
 }
 
 // ---------------------------------------------------------------------

@@ -57,6 +57,7 @@
 
 use pyo3::prelude::*;
 
+mod config;
 mod control;
 mod core;
 mod errors;
@@ -64,6 +65,7 @@ mod guidance;
 mod hooks;
 mod kinematics;
 mod mapping;
+mod mpc;
 mod planning;
 mod runtime;
 
@@ -84,6 +86,7 @@ fn _arco(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(version, module)?)?;
     core::register(module)?;
     control::register(module)?;
+    mpc::register(module)?;
     mapping::register(module)?;
     kinematics::register(module)?;
     guidance::register(module)?;

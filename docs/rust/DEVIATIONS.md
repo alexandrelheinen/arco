@@ -666,3 +666,78 @@ near the linearization point and nowhere else.
 The number is still comparable across steps of the same controller, which
 is what a caller watching it for divergence needs. It is not comparable
 against a number the Python printed.
+
+### A-32: the solver status carries a different vocabulary
+
+**Status:** accepted, phase 7.
+
+`MPCStepResult.solver_status` held whatever IPOPT returned, which was its
+own return-status string, plus three the Python wrote itself:
+`invalid_state`, `solve_failed`, and `solver_exception:<type>`.
+
+IPOPT is gone with `CasADi`, so the strings are these: `solved`,
+`solved_inexact`, `invalid_state`, `infeasible`, `unbounded`,
+`budget_exhausted`, and `numerical`. `invalid_state` survives unchanged.
+The single `solve_failed` splits into the four the convex solver can tell
+apart, which is what says whether retrying the same step is worth
+anything, per `FR-SAFE-02`.
+
+A caller matching on the exact text of an IPOPT status has to change. One
+reading `solver_success` does not.
+
+### A-33: a barrier on the route faces across it, not back along it
+
+**Status:** accepted, phase 7. Extends A-30.
+
+The supporting hyperplane of A-30 takes its normal from the obstacle to
+the predicted position. An obstacle sitting on the route puts that normal
+back along the route, so the only motion the row permits is stopping
+short, and a symmetric approach carries no lateral gradient at all to
+break the tie. The joint-space controller drove straight into an obstacle
+it was asked to avoid, at a tenth of the clearance it was given.
+
+Any unit normal gives a half-space excluding a slab around the obstacle,
+so the choice of normal is free and it decides whether going around is
+expressible at all. A normal within `COLLINEAR_NORMAL` of the direction of
+travel, and close enough for the row to bite, is tilted halfway toward the
+perpendicular, on the side the machine already leans toward. Half of each
+keeps both answers open: stop short, or step around, whichever the rest of
+the program finds cheaper.
+
+The slack penalty gained a linear term at the same time. A purely
+quadratic penalty is not exact: its slope at a penetration already paid
+for is small, so a large tracking weight buys through the barrier for a
+bounded price. The linear term holds the marginal cost of one more meter
+of penetration at the barrier weight however deep the machine is, which is
+what the quartic of the nonlinear original achieved through curvature.
+
+### A-34: obstacles are probed along the horizon, not only under the machine
+
+**Status:** accepted, phase 7.
+
+The Python probed the occupancy twice per control step, at the machine and
+at where its velocity would carry it in a few steps, and wrote every
+barrier in the horizon against those two points. The port adds one probe
+per predicted step, taken at the nominal position that step lands on.
+
+Against a flat face the two fixed probes are not enough. The nearest point
+of a face slides sideways with the machine and sits between it and the
+target, so once the machine is past that point every step forward
+increases the distance the barrier measures, and the barrier reads as
+satisfied while the machine is inside the obstacle. A point probed at the
+predicted position cannot be passed that way.
+
+The cost is one occupancy query per horizon step. For a native map that is
+a tree lookup; for a map that lives in Python it is one call across the
+interpreter, which is the price of the barrier being correct about where
+the machine is going rather than about where it has been.
+
+This does not make the barrier exact for an obstacle with a surface.
+[`Occupancy`](../../crates/arco-core/src/protocols.rs) reports the nearest
+point and whether a query is within the clearance, and nothing
+distinguishes a position inside an obstacle's body from one in the band
+around it. The barrier is therefore a ball around the reported point, and
+a ball cannot represent a box: a predicted position deep inside one takes
+its normal from the nearest face and reads "further from that face" as
+progress. Closing that needs a signed distance on the occupancy protocol,
+which every implementation would have to answer for.

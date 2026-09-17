@@ -299,9 +299,9 @@ def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
     mpc.set_reference(path)
 
     vehicle = DubinsVehicle(
-        x=5.0,
+        x=0.0,
         y=0.0,
-        heading=math.pi,  # pointed opposite the path tangent
+        heading=0.0,
         max_speed=1.0,
         min_speed=0.05,
         max_turn_rate=1.2,
@@ -309,11 +309,28 @@ def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
         max_turn_rate_dot=2.0,
     )
     vehicle.speed = 0.5
-
-    # Seed progress near mid-path so a reverse step would be visible.
-    mpc._progress = 5.0
-    progress_values = [5.0]
     dt = cfg.dt
+
+    # Drive up the path until progress is well clear of the start, so a
+    # reverse step afterwards is visible. Seeding the controller's own
+    # progress attribute would reach past the public surface, and the
+    # controller earns that state by tracking rather than by assignment.
+    reached = 0.0
+    while reached < 5.0:
+        result = mpc.step(
+            vehicle.pose,
+            speed=vehicle.speed,
+            turn_rate=vehicle.turn_rate,
+            dt=dt,
+        )
+        reached = result.progress
+        vehicle.step(result.speed_cmd, result.turn_rate_cmd, dt)
+
+    # Now point it back the way it came, which is the recovery arc that
+    # used to drive s backward under the old law.
+    vehicle.reset(vehicle.x, vehicle.y, math.pi)
+    vehicle.speed = 0.5
+    progress_values = [reached]
     for _ in range(40):
         result = mpc.step(
             vehicle.pose,
@@ -325,7 +342,7 @@ def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
         vehicle.step(result.speed_cmd, result.turn_rate_cmd, dt)
 
     # Allow tiny numerical wobble, but no sustained regression.
-    assert min(progress_values) >= 5.0 - 1e-3
+    assert min(progress_values) >= progress_values[0] - 1e-3
     assert progress_values[-1] >= progress_values[0] - 1e-3
 
 

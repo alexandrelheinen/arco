@@ -7,6 +7,7 @@
 //! records that the two reach different solutions on the same input, and
 //! `FR-MPC-02` states how far apart they are allowed to be.
 
+pub mod costs;
 pub mod joint_space;
 pub mod model;
 pub mod path_following;

@@ -80,7 +80,7 @@ const ASSUMED_MASS: f64 = 1.0;
 /// `slot` and reports a stand-in. Draining the slot here raises the
 /// caller's own exception, with its type and traceback intact, on the
 /// call that caused it.
-fn detached<T, F>(py: Python<'_>, slot: &FailureSlot, work: F) -> PyResult<T>
+pub(crate) fn detached<T, F>(py: Python<'_>, slot: &FailureSlot, work: F) -> PyResult<T>
 where
     F: Ungil + Send + FnOnce() -> Result<T, Error>,
     T: Ungil + Send,
@@ -103,7 +103,7 @@ where
 ///
 /// Returns a `ValueError` when a waypoint carries fewer than two
 /// components, and a `TypeError` when it is not a sequence of numbers.
-fn waypoints(path: &Bound<'_, PyAny>) -> PyResult<Vec<(f64, f64)>> {
+pub(crate) fn waypoints(path: &Bound<'_, PyAny>) -> PyResult<Vec<(f64, f64)>> {
     if let Ok(pairs) = path.extract::<Vec<(f64, f64)>>() {
         return Ok(pairs);
     }
@@ -1576,7 +1576,7 @@ impl PyArtificialPotentialField {
 ///
 /// Returns a `ValueError` naming *quantity* when a bound is not finite
 /// and strictly positive, in the words the Python constructor used.
-fn axis_limits(quantity: &str, value: &Bound<'_, PyAny>) -> PyResult<Vec<f64>> {
+pub(crate) fn axis_limits(quantity: &str, value: &Bound<'_, PyAny>) -> PyResult<Vec<f64>> {
     let read = value
         .extract::<f64>()
         .map_or_else(|_not_scalar| coordinates(value), |scalar| Ok(vec![scalar]))?;
