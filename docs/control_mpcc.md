@@ -4,13 +4,19 @@ ARCO's SE(2) online tracker `DubinsPathFollowingMPC` is a **nonlinear model
 predictive contouring controller** (MPCC): it augments the vehicle state
 with a path parameter \(s\) driven by its own **virtual progress speed**
 decision variable, splits the position error into **contouring** (lateral)
-and **lag** (longitudinal) components, and solves a nonlinear program each
-control step under Dubins / unicycle dynamics.
+and **lag** (longitudinal) components, and solves the resulting nonlinear
+program each control step under Dubins / unicycle dynamics, as a short
+sequence of convex quadratic programs linearized about the previous
+solution and solved by Clarabel (ADR-002 in [decisions.md](decisions.md);
+deviation A-02 in [rust/DEVIATIONS.md](rust/DEVIATIONS.md)).
 
-This is the classical Lam / Liniger MPCC structure.  This note documents
-**exactly what ARCO implements**, including the design decisions that fix
-the historical city-race failure modes (zigzag, junction orbits, parked
-stalls at sharp kinks).
+This is the classical Lam / Liniger MPCC structure, carried through a
+sequential quadratic programming solve rather than a single interior-point
+one. This note documents **exactly what ARCO implements**, including the
+design decisions that fix the historical city-race failure modes (zigzag,
+junction orbits, parked stalls at sharp kinks), and the points where the
+convex reformulation changes what the controller reports or does with a
+configuration knob.
 
 ## Key references (family)
 
@@ -28,14 +34,19 @@ Fully implemented in:
 
 | Piece | File |
 |-------|------|
-| NLP / step | `src/arco/control/mpc/path_following.py` |
-| Arc-length path, \(\kappa\), projection | `src/arco/control/mpc/reference_path.py` |
-| Metrics loop | `src/arco/control/mpc/tracking_loop.py` |
+| Sequential convex program / step | `crates/arco-control/src/mpc/path_following.rs` |
+| Cost terms, obstacle barrier | `crates/arco-control/src/mpc/costs.rs`, `crates/arco-control/src/mpc/model.rs` |
+| QP assembly and solve | `crates/arco-control/src/mpc/qp.rs` |
+| Arc-length path, \(\kappa\), projection | `crates/arco-control/src/mpc/reference.rs` |
+| Python binding | `crates/arco-py/src/mpc/path.rs`, `crates/arco-py/src/mpc/reference.rs` |
+| Python re-export shim | `src/arco/control/mpc/path_following.py`, `src/arco/control/mpc/reference_path.py` |
+| Metrics loop | `src/arco/control/mpc/tracking_loop.py` (binding: `crates/arco-py/src/mpc/tracking.rs`) |
 | City / sim factory | `src/arco/simulator/sim/tracking.py` |
 | Closed-loop city report | `tools/city_tracking_report.py` |
 | Demo (stiff vs lane-aware) | `tools/mpc_progress_first_demo.py` |
 
-Optional dependency: `pip install arco[mpc]` (CasADi + IPOPT).
+`DubinsPathFollowingMPC` is a compiled extension type reached through
+`arco._arco`; it carries no optional dependency.
 
 ---
 
@@ -52,20 +63,26 @@ s \in [0, L],
 with heading \(\psi_{\mathrm{ref}}(s)\) from segment tangents and an
 approximate curvature \(\kappa(s)\) used for progress-speed capping.
 
-Inside the NLP, the reference is resampled on a uniform arc-length grid
-(**2 m resolution**, 200–1500 samples) and looked up through **cubic
-B-spline CasADi interpolants**.  Piecewise-linear lookups have
-discontinuous gradients exactly at polyline kinks, which stalled IPOPT
-(`Maximum_Iterations_Exceeded`) right where tracking is hardest; smooth
-splines also round the polyline at the ~2 m sample scale, a desirable
-property for a vehicle-feasible target.
+Each control step looks the reference up directly on this polyline:
+position **linearly interpolated** along the current segment, and
+curvature linearly interpolated between the per-vertex values the next
+subsection derives. The nonlinear formulation this replaced instead
+resampled the reference onto a uniform arc-length grid (2 m resolution,
+200-1500 samples) and read it back through a cubic B-spline interpolant,
+because that solver built one symbolic nonlinear graph per control step
+and a piecewise-linear lookup's discontinuous gradient at a polyline kink
+could stall it (`Maximum_Iterations_Exceeded`) exactly where tracking is
+hardest. The sequential convex solve re-linearizes from each iterate's own
+nominal position instead of holding one global symbolic graph, so a
+piecewise-linear lookup costs nothing in convergence, and both the grid
+and the spline are gone.
 
 ### Runway extension
 
 `set_reference` appends one prediction-horizon length of straight
 "runway" along the final tangent.  Without it, the progress bounds pinch
-\(S\) against the arc-length cap near the goal and the NLP fails on the
-last meters of the race.
+\(S\) against the arc-length cap near the goal and the program fails on
+the last meters of the race.
 
 ### Curvature estimate
 
@@ -152,7 +169,7 @@ e_{l,k} &=
 The **lag error is structural**: it is the only term coupling the virtual
 progress \(s\) to the vehicle, so `weight_lag` must be strictly positive
 (enforced at construction).  No projection heuristics or monotonicity
-constraints are needed *inside* the NLP.
+constraints are needed *inside* the program.
 
 **Heading error** \(e_{\psi,k} = \psi_k - \psi_{\mathrm{ref}}(s_k)\) uses a
 smooth \(2\pi\)-periodic surrogate
@@ -191,8 +208,9 @@ v_{s,k} \le \frac{\omega_{\max}}{|\kappa(s_k)|}.
 **Why not quadratic speed-matching?**  The previous cost
 \(w_v (v_s - v_{\mathrm{ref}}(s_k))^2\) is a trap: at a sharp kink
 \(v_{\mathrm{ref}}(s)\) is small, so *parking at the kink* costs almost
-nothing while accelerating away looks expensive over the horizon — IPOPT
-then converges to a permanent full stop (the city A\* racer stall).  A
+nothing while accelerating away looks expensive over the horizon — the
+solver then converges to a permanent full stop (the city A\* racer
+stall).  A
 linear reward makes advancement pay everywhere; corner braking stays
 feed-forward through the \(v_s\) cap, which the lag term transfers to the
 actual vehicle speed.
@@ -203,18 +221,28 @@ search can flip to another road corridor at junctions) and never rewinds:
 \(s \leftarrow \max(s, s_{\mathrm{proj}})\).  Recovery arcs catch up to
 \(s\) through the lag cost instead of resetting it.
 
-**Warm start / anti-stall initialization.**  The solver warm-starts from
-the shifted previous solution while that solution keeps moving.  If the
-warm start advances less than \(\max(1, 0.1\, v_{\mathrm{cruise}} N \Delta t)\)
-meters over the horizon (a "parked" solution) while the path ahead allows
-motion, the initial guess is rebuilt as a **reference rollout**: poses on
-the path, speed accelerating toward the curve-limited cruise.  Seeding
-inside the moving basin is what lets IPOPT escape the parked local
-minimum at sharp kinks.
+**Warm start / anti-stall initialization.**  Each control step linearizes
+about a **nominal** trajectory before solving, and that nominal warm-starts
+from the shifted previous solution while that solution keeps moving. If
+the warm start advances less than
+\(\max(1, 0.1\, v_{\mathrm{cruise}} N \Delta t)\) meters over the horizon (a
+"parked" solution), and the vehicle is not already floored at its minimum
+speed or within one horizon of the goal, the nominal is rebuilt as a
+**rollout**: the model integrated forward with a feed-forward acceleration
+toward the curve-limited cruise speed and a turn rate toward the reference
+heading, both inside their own limits. Integrating the model, rather than
+pinning every predicted pose onto the path the way the earlier nonlinear
+implementation did, is what keeps the rollout inside the trust region the
+sequential solve linearizes around (see [Online problem](#6-online-problem-and-solver)):
+a nominal the vehicle could not reach in one step can sit further from
+every point the dynamics can actually produce than the trust radius
+allows, leaving no feasible point near it. Seeding inside the moving basin
+is what lets the sequential solve escape the parked local minimum at sharp
+kinks.
 
 ---
 
-## 5. Stage cost (what the NLP minimizes)
+## 5. Stage cost (what the program minimizes)
 
 For \(k = 0,\ldots,N-1\):
 
@@ -237,7 +265,19 @@ w_c\,e_{c,k}^2
 \]
 
 where \(e_{c}^2\) becomes \(\max(|e_c|-d_{\mathrm{dz}},0)^2\) when a
-deadzone is configured.
+deadzone is configured. This is the cost the nonlinear problem states.
+Each sequential iterate minimizes a convex surrogate of it instead: the
+contouring, lag and heading terms become the square of the affine
+expansion of \(e_c\), \(e_l\) and \(e_\psi\) about the nominal trajectory
+(dropping the second-order term is what keeps each block positive
+semidefinite), the deadzone above becomes an exact epigraph reformulation
+with a slack and two linear rows rather than an approximation of the
+\(\max\) itself, and \(J_{\mathrm{obs},k}\) takes the different form
+[Soft obstacle barriers](#soft-obstacle-barriers) below describes.
+`MPCStepResult.cost` reports the value of that convex surrogate at the
+solution, not the nonlinear \(J\) above: it is comparable across steps of
+one controller and not against a number the earlier nonlinear
+implementation printed (deviation A-31).
 
 Weights map to `PathFollowingMPCConfig` / YAML `simulator.mpc.weights`:
 
@@ -254,10 +294,8 @@ Weights map to `PathFollowingMPCConfig` / YAML `simulator.mpc.weights`:
 
 ### Soft obstacle barriers
 
-When an occupancy map is provided, nearest obstacle samples enter a
-directional penalty (stronger in the forward cone).  The cone factor is
-the **smooth** projection of the unit obstacle bearing onto the heading
-(no `atan2` kinks):
+The nonlinear cost above penalized penetration of the clearance margin
+with the power-law, forward-cone-weighted term
 
 \[
 J_{\mathrm{obs},k}
@@ -269,16 +307,70 @@ w_{\mathrm{obs}}\,
 \]
 
 with clearance \(c\), obstacle offset \((\Delta x, \Delta y)\), distance
-\(d_{k,j}\), and power \(p =\) `obstacle_barrier_power`.  This is
-**soft**, not a hard road tube.  A clearance-based cruise preview
-(`_preview_cruise_speed`) additionally scales the cruise cap down before
+\(d_{k,j}\), and power \(p =\) `obstacle_barrier_power`. That expression
+still exists, as the float-only `obstacle_barrier` and
+`forward_cone_factor` helpers in `arco.control.mpc.costs`, but the
+controller's own program no longer evaluates it (deviation A-30).
+
+The keep-out region around an obstacle, everywhere the vehicle's
+clearance is violated, is the complement of a disc, which is not convex:
+no quadratic program can state it as a constraint, which is why the
+nonlinear formulation reached for a penalty in the first place instead of
+a hard bound. The convex program writes a supporting hyperplane instead:
+at each predicted step \(k\), a half-space through that step's nominal
+position, normal to the line from the obstacle toward it, with a slack
+\(\sigma_{k,j} \ge 0\) absorbing whatever penetration the hyperplane still
+allows. Because the hyperplane is tangent at the nominal rather than at
+the true clearance boundary, it is conservative, and it tightens on every
+sequential iterate as the nominal moves. The turn-rate cap in section 4
+has the same shape of problem: \(v_{s,k}\sqrt{\kappa(s_k)^2+\varepsilon}
+\le \omega_{\max}\) is bilinear in \(v_{s,k}\) and the path parameter, and
+becomes the one linear row shown there once \(\kappa\) is frozen at the
+nominal arc length (deviation A-30 covers both).
+
+One probe is taken at the vehicle and several more along the reference
+ahead of it to find which obstacles are close enough to matter; a barrier
+row is then written against every one of those points at every predicted
+step, each using the nominal position that step actually lands on rather
+than the handful of fixed probe points the earlier implementation reused
+across the whole horizon (deviation A-34). That is what keeps the barrier
+correct as the vehicle passes an obstacle's nearest point: a barrier
+pinned to a fixed probe can start reading as satisfied while the vehicle
+is still inside the clearance margin, because the nearest point of a flat
+face slides sideways with the vehicle.
+
+The slack's penalty is quadratic, \(w_{\mathrm{obs},k,j}\,\sigma_{k,j}^2\),
+with the same forward-cone shape as before but frozen at the nominal
+heading and folded into the weight rather than left inside the row — a
+cone factor written on the decision variables would multiply two of them
+together and undo the convexity, so the sequential loop recovers the
+directionality between iterates instead of within one. The quartic
+penetration \(p = 4\) of the nonlinear cost becomes this square, so
+**`obstacle_barrier_power` is accepted for backward compatibility and no
+longer shapes the barrier** (deviation A-30). Deviation A-33 tilts
+this normal away from the direction of travel in the joint-space
+controller, because an obstacle sitting on the route otherwise leaves the
+half-space facing back along it with no lateral gradient to break a
+symmetric approach. `PathFollowingMpc` carries no such tilt, and what
+follows from that is a stall rather than a collision: an obstacle on the
+reference brings the vehicle to a halt at a safe distance and it does not
+resume, because the barrier can express stopping short and cannot express
+going around. Deviation A-35 records it.
+
+This remains **soft**, not a hard road tube, and it remains a ball around
+the nearest reported obstacle point rather than a shape-aware constraint:
+[`Occupancy`](../crates/arco-core/src/protocols.rs) reports a nearest
+point and a clearance flag, and nothing distinguishes a position inside an
+obstacle's body from one in the band around it. A clearance-based cruise
+preview (`_preview_cruise_speed`) also scales the cruise cap down before
 pinch points enter the horizon.
 
 ---
 
-## 6. Online problem
+## 6. Online problem and solver
 
-At each control tick, with measured \((X_0, s_0)\):
+At each control tick, with measured \((X_0, s_0)\), the nonlinear problem
+ARCO states is:
 
 \[
 \begin{aligned}
@@ -291,9 +383,56 @@ At each control tick, with measured \((X_0, s_0)\):
 \end{aligned}
 \]
 
-Solved with CasADi `Opti` + IPOPT (acceptable-tolerance early exit
-enabled).  The first predicted state \((v_1, \omega_1)\) is the command
-target for `DubinsVehicle`.
+ARCO no longer hands this problem to a single nonlinear solver. Instead,
+each control tick runs a short **sequential convex programming (SQP)**
+loop:
+
+1. Linearize the unicycle dynamics and the contouring, lag, heading and
+   turn-rate-cap expressions about a nominal trajectory: the shifted
+   previous solution when it is still moving, or the rollout that
+   [Progress law](#4-progress-law-linear-reward--curve-limited-cap)
+   describes when it is not.
+2. Assemble the resulting convex quadratic program, described in
+   [Stage cost](#5-stage-cost-what-the-program-minimizes) and [Soft
+   obstacle barriers](#soft-obstacle-barriers), and solve it with
+   [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs).
+3. Take the solution as the next nominal and repeat, stopping once two
+   successive iterates agree within `sqp_tolerance` on position, heading
+   and arc length, or once `max_sqp_iterations` solves have run (three,
+   by default).
+
+Two rows with no counterpart in the nonlinear problem hold the predicted
+heading within `trust_heading` (0.5 rad by default) and the predicted arc
+length within `trust_arc_length` (5 m by default) of the nominal. They
+exist because the affine expansions are written in absolute variables and
+nothing else stops a solve from placing its answer where the tangent
+plane has stopped describing the true model; the heading carries a radius
+because every nonlinear term in the position rows multiplies it, and the
+arc length carries one because it is what moves the frame the errors are
+measured in.
+
+If the warm-started nominal turns out to describe an infeasible program,
+the loop retries once from a fresh rollout nominal before giving up,
+which is what tells a genuinely blocked geometry apart from a
+linearization point that was merely a poor guess. A step that still finds
+no plan, or that measures a non-finite or otherwise invalid state, brakes
+instead of commanding a stale one; `MPCStepResult.solver_status` reports
+which of `solved`, `solved_inexact`, `invalid_state`, `infeasible`,
+`unbounded`, `budget_exhausted` or `numerical` produced the command,
+replacing the raw status string the earlier nonlinear solver returned
+(deviation A-32). `solved_inexact` means Clarabel converged to its
+almost-solved tolerance rather than its exact one on the last solve; it is
+not a report of whether the SQP loop itself reached `sqp_tolerance`.
+
+Bit-identical agreement with the earlier nonlinear implementation is
+neither achievable nor required here: two solvers can return
+different, and equally valid, solutions to the same nonconvex problem.
+`FR-MPC-02` in [rust/SPEC.md](rust/SPEC.md) bounds the difference at 20
+percent of root-mean-square lateral error instead of asking for an exact
+match.
+
+The first predicted state \((v_1, \omega_1)\) is still the command target
+for `DubinsVehicle`.
 
 ---
 
@@ -301,9 +440,9 @@ target for `DubinsVehicle`.
 
 | Property | ARCO `DubinsPathFollowingMPC` | Classical racing MPCC |
 |----------|-------------------------------|------------------------|
-| Path parameter in the NLP | Yes (\(s\)) | Yes (\(\theta\)) |
+| Path parameter in the model | Yes (\(s\)) | Yes (\(\theta\)) |
 | Contour vs lag split | Yes | Yes |
-| Nonlinear dynamics in the NLP | Yes (NMPC) | Often yes (NMPCC) |
+| Nonlinear dynamics | Yes (NMPC, solved as a linearized sequence) | Often yes (NMPCC) |
 | Progress law | Free \(v_s\), linear reward, curve-limited cap | Free \(\dot\theta\), linear reward |
 | Spatial safety | Soft occupancy barriers | Often **hard corridor / tube** |
 | Reference | Planner polyline (may ignore dynamics) | Usually smooth centerline |
@@ -371,5 +510,5 @@ Enable in SE(2) races with `simulator.tracker: mpc` in the scenario YAML.
 
 ---
 
-*This document reflects the current contouring MPCC in ARCO.  If the NLP
+*This document reflects the current contouring MPCC in ARCO.  If the stage
 cost or progress law changes, update this file in the same PR.*

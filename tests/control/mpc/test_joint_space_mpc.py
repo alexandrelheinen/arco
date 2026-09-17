@@ -5,7 +5,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-casadi = pytest.importorskip("casadi")
 
 from arco.control.mpc.joint_space import (  # noqa: E402
     JointSpaceMPC,

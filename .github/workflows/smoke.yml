@@ -57,9 +57,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install package with pygame and MPC
-        # CasADi is required when map YAMLs set simulator.tracker: mpc
         # (city, ppp, rrp). Without it, smoke fails at race start.
-        run: pip install -e ".[tools,mpc]"
+        run: pip install -e ".[tools]"
 
       - name: Run smoke test
         run: |

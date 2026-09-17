@@ -42,7 +42,7 @@ feeds planner polylines **directly** into the online tracker.
 
 | Parameter | Where | Effect |
 |-----------|--------|--------|
-| `simulator.tracker` | Scenario YAML (`map/city.yml`, …) | `"mpc"` → CasADi contouring NMPC; `"pure_pursuit"` → PP + optional APF |
+| `simulator.tracker` | Scenario YAML (`map/city.yml`, …) | `"mpc"` selects the contouring controller; `"pure_pursuit"` selects pure pursuit with optional potential-field repulsion |
 
 City defaults to `mpc`.  Switching tracker changes the whole online law;
 weights below apply only when `tracker: mpc`.

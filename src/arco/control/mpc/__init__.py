@@ -1,4 +1,4 @@
-"""Path-following MPC sub-package (CasADi optional)."""
+"""Predictive control, compiled in the ``arco-control`` crate."""
 
 from __future__ import annotations
 

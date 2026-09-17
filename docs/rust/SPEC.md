@@ -145,8 +145,9 @@ reused. Domains: `API`, `CORE`, `MPC`, `PERF`, `RNG`, `BUILD`, `TEST`,
   reacquires the GIL per call and that the speedup of `FR-PERF-01` does
   not apply.
 - `FR-PERF-04`: When a caller runs independent planning problems through
-  the documented batch entry point, the system shall run them in parallel
-  on all available cores without a GIL-bound section.
+  its own thread pool, the system shall release the interpreter lock for
+  the duration of each search. No batch entry point is added, per
+  [decisions.md](../decisions.md).
 
 ### Random number generation
 
@@ -470,7 +471,7 @@ solved:
 
 | Element | CasADi form | Rust form |
 |---|---|---|
-| Path lookup | `ca.interpolant` B-spline | precomputed cubic spline, evaluated natively |
+| Path lookup | `ca.interpolant` B-spline | piecewise linear along the polyline, per deviation A-36 |
 | Model | nonlinear unicycle, symbolic | per-step linearization about the previous solution |
 | Contour and lag cost | exact nonlinear expression | first-order expansion about the reference arclength, giving a quadratic |
 | Heading cost | `sin^2 + (1 - cos)^2` | quadratic in the small-angle expansion about the reference heading |
@@ -551,11 +552,11 @@ of its Rust replacement, so a revert is a one-commit operation.
 
 ## Open questions
 
-- **Batch entry point shape (`FR-PERF-04`).** Parallel planning needs a
-  public API that does not exist in the Python library today. Adding one
-  is new surface, which this spec otherwise forbids. Resolve before
-  phase 6: either add `arco.planning.plan_batch` as a documented addition
-  or drop `FR-PERF-04` from this spec.
+- ~~**Batch entry point shape (`FR-PERF-04`).**~~ Resolved. No batch entry
+  point is added: parallelism is the caller's to arrange with
+  `concurrent.futures`, and the planner releases the interpreter lock
+  while it searches. Thread-pool scaling does not yet follow from that,
+  which [decisions.md](../decisions.md) records with the measurements.
 - ~~**Coverage tooling for the binding crate.**~~ Resolved. `cargo
   llvm-cov show-env` instruments the extension before `maturin develop`
   builds it, so a `pytest` run reports into the same profile:

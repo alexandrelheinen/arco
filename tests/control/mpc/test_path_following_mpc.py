@@ -6,7 +6,6 @@ import math
 
 import pytest
 
-casadi = pytest.importorskip("casadi")
 
 from arco.control.mpc.path_following import (  # noqa: E402
     DubinsPathFollowingMPC,

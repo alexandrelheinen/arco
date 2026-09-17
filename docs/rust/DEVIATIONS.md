@@ -741,3 +741,55 @@ a ball cannot represent a box: a predicted position deep inside one takes
 its normal from the nearest face and reads "further from that face" as
 progress. Closing that needs a signed distance on the occupancy protocol,
 which every implementation would have to answer for.
+
+### A-35: an obstacle on the reference stalls the path follower
+
+**Status:** accepted, phase 7. Extends A-33.
+
+A-33 turns the obstacle barrier's normal across the route in the
+joint-space controller. The path-following controller keeps the radial
+normal, so its half-space faces back along the route whenever an obstacle
+sits on the reference, and the only motion that satisfies the row is
+stopping short.
+
+The consequence is a stall, not a collision. A vehicle cruising at one
+meter per second into a keep-out ball of one and a half meters centered on
+its own reference brakes and settles about two and a half meters short,
+holds clearance, and does not resume, because the program can express
+stopping and cannot express going around.
+
+That is the safe failure of `FR-MPC-04` rather than the useful one. The
+Python behaved the same way for the same reason, since its barrier also
+penalized distance from the nearest point and its progress term also paid
+only for advancing along the reference. Replanning around the obstacle is
+the planner's job, and a caller watching `MPCStepResult.progress` stop
+advancing is what triggers it.
+
+Turning the normal here as A-33 does for the joint-space controller is the
+obvious next step and is not taken yet: the contouring controller carries
+a virtual progress variable and a lag coupling that the joint-space one
+does not, and a normal that moves the vehicle off the reference interacts
+with both.
+
+### A-36: the path lookup is piecewise linear, not a cubic spline
+
+**Status:** accepted, phase 7. Corrects [SPEC.md](SPEC.md).
+
+`SPEC.md` describes the Rust path lookup as a precomputed cubic spline
+evaluated natively, against the `CasADi` B-spline interpolant it replaces.
+[`ReferencePath`](../../crates/arco-control/src/mpc/reference.rs) does
+something simpler: it interpolates position linearly along the polyline
+segment an arc length falls in, takes the heading of that segment, and
+interpolates curvature linearly between per-vertex estimates. Nothing is
+resampled onto a uniform grid first.
+
+The spline in the `CasADi` version existed to give IPOPT continuous
+gradients: piecewise-linear lookups have a gradient discontinuity exactly
+at a polyline kink, which stalled the nonlinear solve where tracking is
+hardest. The convex reformulation does not need it, because each
+subproblem linearizes about a fixed nominal arc length and the lookup is
+evaluated rather than differentiated through.
+
+What a caller loses is the rounding the 2 meter resampling gave a sharp
+polyline for free. The curvature estimate carries its own smoothing
+instead, spread over an arc length rather than over a sample count.

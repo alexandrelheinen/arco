@@ -23,7 +23,7 @@ See [PLANNING.md](PLANNING.md) for details.
 ### Guidance / control layer
 - Controllers: `PIDController`, `PurePursuitController`, `TrackingLoop`
 - Path-following MPC (shipped): `DubinsPathFollowingMPC`, `MPCTrackingLoop`,
-  `ReferencePath` under `arco.control.mpc` (optional `arco[mpc]` / CasADi)
+  `ReferencePath` under `arco.control.mpc`
 - Joint-space MPC (shipped): `JointSpaceMPC` drop-in for `JointSpaceTracker`
   (PPP / RRP carrot tracking; select via `simulator.tracker: mpc`)
 - Deprecated stub: scalar `MPCController` (use `DubinsPathFollowingMPC`)
@@ -34,7 +34,7 @@ See [PLANNING.md](PLANNING.md) for details.
 See [GUIDANCE.md](GUIDANCE.md) for details.
 
 ### Follow-ups
-- Optional acados backend after the CasADi formulation is stable
+- Optional acados backend, measured against the convex formulation
 - Full contouring joint-space MPC (path progress state) beyond carrot NMPC
 
 ### Tools

@@ -49,17 +49,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install package with simulator dependencies
-        # CasADi (mpc) only for scenarios whose map YAML sets tracker: mpc.
-        run: |
-          set -euo pipefail
-          case "${{ matrix.scenario }}" in
-            city|ppp|rrp)
-              pip install -e ".[tools,pygame,mpc]"
-              ;;
-            *)
-              pip install -e ".[tools,pygame]"
-              ;;
-          esac
+        run: pip install -e ".[tools,pygame]"
 
       - name: Generate video
         # 45 s at 30 fps × 0.1 s sim steps = 135 simulated seconds — enough

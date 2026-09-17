@@ -33,7 +33,7 @@ class JointSpaceMPCConfig:
         weight_control: Acceleration effort weight.
         weight_obstacle: Soft obstacle-barrier weight.
         obstacle_barrier_power: Barrier exponent.
-        max_solver_iter_count: IPOPT iteration budget.
+        max_solver_iter_count: Interior-point iteration budget.
     """
 
     horizon_step_count: int = 12

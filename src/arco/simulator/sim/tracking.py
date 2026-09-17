@@ -347,9 +347,8 @@ def build_vehicle_mpc_sim(
     Returns:
         Tuple of ``(vehicle, mpc_tracking_loop)``.
 
-    Raises:
-        ImportError: If the optional CasADi dependency is missing
-            (``pip install arco[mpc]``).
+    Returns the loop ready to step; the controller it drives is compiled,
+    so nothing optional has to be installed for it.
     """
     x0, y0 = waypoints[0]
     theta0 = initial_heading(waypoints)
@@ -410,8 +409,6 @@ def build_joint_tracker(
     Returns:
         A tracker exposing ``reset(q0)`` and ``step(target_q, dt)``.
 
-    Raises:
-        ImportError: If ``tracker == "mpc"`` and CasADi is missing.
     """
     if tracker == "mpc":
         return JointSpaceMPC(

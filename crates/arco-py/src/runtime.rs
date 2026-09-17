@@ -531,6 +531,21 @@ impl Node for PythonNode {
     }
 }
 
+/// The name out of a constructor call, positional or keyword.
+///
+/// Nothing when the caller passed neither, which is what a subclass with
+/// its own argument list does on the way through `__new__`.
+fn read_name(args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> Option<String> {
+    if let Some(named) = kwargs.and_then(|given| given.get_item("name").ok().flatten())
+        && let Ok(text) = named.extract::<String>()
+    {
+        return Some(text);
+    }
+    args.get_item(0)
+        .ok()
+        .and_then(|first| first.extract::<String>().ok())
+}
+
 /// Abstract base class for a single stage in the async pipeline.
 ///
 /// A subclass implements `run`, which is called once on a background
@@ -546,25 +561,31 @@ pub(crate) struct PyPipelineNode {
 
 #[pymethods]
 impl PyPipelineNode {
-    /// Absorbs a subclass calling `super().__init__(...)`.
+    /// Takes the name a subclass forwarded upward.
     ///
-    /// A compiled class does its construction in `__new__`, so `__init__`
-    /// falls through to `object.__init__`, which refuses arguments. A
-    /// Python subclass forwarding its own arguments upward then fails on
-    /// a line that worked against the pure-Python base.
-    #[pyo3(signature = (*_args, **_kwargs))]
-    #[expect(
-        clippy::unused_self,
-        reason = "Python calls this on an instance and the body reads nothing"
-    )]
-    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+    /// A compiled class does its construction in `__new__`, which a
+    /// Python subclass cannot reach: `__new__` is handed the subclass's
+    /// own arguments, and a node written as `MyNode(count=3)` carries no
+    /// name at all by then. The name therefore arrives here, on the same
+    /// `super().__init__(name=...)` line that set it on the pure-Python
+    /// base, and `__new__` accepts whatever the subclass was called with.
+    #[pyo3(signature = (*args, **kwargs))]
+    fn __init__(&mut self, args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) {
+        if let Some(name) = read_name(args, kwargs) {
+            self.label = name;
+        }
+    }
 
     /// Builds a node under the given name.
     #[new]
+    #[pyo3(signature = (*args, **kwargs))]
     #[pyo3(text_signature = "(name)")]
-    fn new(name: String) -> PyClassInitializer<Self> {
+    fn new(
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyClassInitializer<Self> {
         PyClassInitializer::from(PyBusPublisher::detached()).add_subclass(Self {
-            label: name,
+            label: read_name(args, kwargs).unwrap_or_default(),
             stop: Arc::new(AtomicBool::new(false)),
             handle: Mutex::new(None),
         })
