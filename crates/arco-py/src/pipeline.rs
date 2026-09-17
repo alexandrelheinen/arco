@@ -214,10 +214,6 @@ fn announce(
 /// FR-INV-10 keeps a clock out of a control decision, and this is not
 /// one: the three stage timings are reported to the caller and read by
 /// nothing. The Python measured them with `time.perf_counter`.
-#[expect(
-    clippy::disallowed_methods,
-    reason = "a reported diagnostic, never an input to a decision"
-)]
 fn elapsed_since(started: std::time::Instant) -> f64 {
     started.elapsed().as_secs_f64()
 }

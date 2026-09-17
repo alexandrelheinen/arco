@@ -37,7 +37,7 @@ use arco_planning::discrete::{
     RouteOutcome, SearchDiagnostics, SearchOptions, search, search_with_diagnostics,
 };
 use arco_planning::failure::{PlanFailure, PlanOutcome};
-use numpy::PyArray1;
+use numpy::{PyArray1, PyArray2};
 use pyo3::PyTypeInfo;
 use pyo3::marker::Ungil;
 use pyo3::prelude::*;
@@ -48,7 +48,7 @@ use crate::config::{count, number, required, text};
 use crate::errors::{OrRaise, to_exception};
 use crate::hooks::{
     BoundMap, BoundOccupancy, FailureSlot, PyPlannerCost, PySampler, PySegmentChecker, PySteerer,
-    PyTrajectoryTerm, SharedOccupancy, as_array, as_path, coordinates,
+    PyTrajectoryTerm, SharedOccupancy, as_array, as_path, coordinates, point_rows,
 };
 
 /// Decimals a direction vector is rounded to before it is compared.
@@ -2268,6 +2268,497 @@ impl PyDefaultTerm {
     }
 }
 
+// ---------------------------------------------------------------------
+// Standalone cost terms (arco.planning.continuous.cost_terms)
+// ---------------------------------------------------------------------
+//
+// These five classes are the ones a caller could already build by hand
+// and pass through `cost_terms=`, kept at their historical names,
+// constructor arguments and `name` attributes so an existing call site
+// still works. `TrajectoryOptimizer` itself never builds one: its own
+// five defaults stay the cheaper `TrajectoryTerm` enum inside the crate,
+// reported through `PyDefaultTerm` above. An instance of one of the
+// classes below reaches the optimizer through the same path any other
+// Python callable does, `cost_terms=[...]`, evaluated once per term per
+// cost call.
+
+/// Reads `context[key]`, raising the `KeyError` a dict subscript would.
+///
+/// # Errors
+///
+/// Returns a `KeyError` naming `key` when it is missing from `context`.
+fn context_item<'py>(context: &Bound<'py, PyDict>, key: &str) -> PyResult<Bound<'py, PyAny>> {
+    context
+        .get_item(key)?
+        .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(key.to_owned()))
+}
+
+/// The interior of `items`, dropping the first and last element.
+///
+/// Mirrors Python's `items[1:-1]`. Fewer than two elements have no
+/// interior, so the result is empty rather than negative-length.
+fn interior<T>(items: &[T]) -> &[T] {
+    let len = items.len();
+    if len < 2 {
+        return &[];
+    }
+    let Some(end) = len.checked_sub(1) else {
+        return &[];
+    };
+    items.get(1..end).unwrap_or(&[])
+}
+
+/// Penalizes total traversal time squared: `weight * total_time ** 2`.
+///
+/// One of the five terms `build_default_cost_terms` returns and the
+/// term the optimizer exists to reduce; left unopposed it drives the
+/// total time to zero, which the velocity term stops.
+#[pyclass(skip_from_py_object, name = "TimeCostTerm", module = "arco._arco")]
+#[derive(Debug, Clone)]
+pub(crate) struct PyTimeCostTerm {
+    /// Multiplier for the squared total duration.
+    #[pyo3(get, set)]
+    weight: f64,
+}
+
+#[pymethods]
+impl PyTimeCostTerm {
+    /// Builds the time cost term.
+    #[new]
+    #[pyo3(text_signature = "(weight)")]
+    fn new(weight: f64) -> Self {
+        Self { weight }
+    }
+
+    /// This term's name in a composite cost's `cost_terms` list.
+    #[getter]
+    #[expect(
+        clippy::unused_self,
+        reason = "the name is a class-level constant Python reads as an instance attribute"
+    )]
+    const fn name(&self) -> &'static str {
+        "time"
+    }
+
+    /// Evaluates the time cost.
+    ///
+    /// Reads `durations` off `context` and returns the weighted square
+    /// of their sum.
+    fn __call__(&self, context: &Bound<'_, PyDict>) -> PyResult<f64> {
+        let durations: Vec<f64> = context_item(context, "durs")?.extract()?;
+        let total: f64 = durations.iter().sum();
+        Ok(self.weight * total * total)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("TimeCostTerm(weight={:?})", self.weight)
+    }
+}
+
+/// Penalizes squared deviation of interior waypoints from the reference.
+#[pyclass(skip_from_py_object, name = "DeviationCostTerm", module = "arco._arco")]
+#[derive(Debug, Clone)]
+pub(crate) struct PyDeviationCostTerm {
+    /// Multiplier for the summed squared deviation.
+    #[pyo3(get, set)]
+    weight: f64,
+}
+
+#[pymethods]
+impl PyDeviationCostTerm {
+    /// Builds the deviation cost term.
+    #[new]
+    #[pyo3(text_signature = "(weight)")]
+    fn new(weight: f64) -> Self {
+        Self { weight }
+    }
+
+    /// This term's name in a composite cost's `cost_terms` list.
+    #[getter]
+    #[expect(
+        clippy::unused_self,
+        reason = "the name is a class-level constant Python reads as an instance attribute"
+    )]
+    const fn name(&self) -> &'static str {
+        "deviation"
+    }
+
+    /// Evaluates the path-deviation cost.
+    ///
+    /// Reads `segment_count`, `pts` and `ref` off `context`, and returns
+    /// the weighted sum of squared interior deviations, or zero when
+    /// there are no interior waypoints.
+    fn __call__(&self, context: &Bound<'_, PyDict>) -> PyResult<f64> {
+        let segment_count: usize = context_item(context, "segment_count")?.extract()?;
+        if segment_count.saturating_sub(1) == 0 {
+            return Ok(0.0);
+        }
+        let waypoints = point_rows(&context_item(context, "pts")?)?;
+        let reference = point_rows(&context_item(context, "ref")?)?;
+        let mut total = 0.0;
+        for (moved, original) in interior(&waypoints).iter().zip(interior(&reference)) {
+            for (a, b) in moved.iter().zip(original) {
+                let offset = a - b;
+                total += offset * offset;
+            }
+        }
+        Ok(self.weight * total)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("DeviationCostTerm(weight={:?})", self.weight)
+    }
+}
+
+/// Penalizes squared deviation of segment speeds from cruise speed.
+#[pyclass(skip_from_py_object, name = "VelocityCostTerm", module = "arco._arco")]
+#[derive(Debug, Clone)]
+pub(crate) struct PyVelocityCostTerm {
+    /// Multiplier for the summed squared speed error.
+    #[pyo3(get, set)]
+    weight: f64,
+    /// Target traversal speed, world units per second.
+    #[pyo3(get, set)]
+    cruise_speed: f64,
+}
+
+#[pymethods]
+impl PyVelocityCostTerm {
+    /// Builds the velocity cost term.
+    #[new]
+    #[pyo3(text_signature = "(weight, cruise_speed)")]
+    fn new(weight: f64, cruise_speed: f64) -> Self {
+        Self {
+            weight,
+            cruise_speed,
+        }
+    }
+
+    /// This term's name in a composite cost's `cost_terms` list.
+    #[getter]
+    #[expect(
+        clippy::unused_self,
+        reason = "the name is a class-level constant Python reads as an instance attribute"
+    )]
+    const fn name(&self) -> &'static str {
+        "velocity"
+    }
+
+    /// Evaluates the velocity-tracking cost.
+    ///
+    /// Reads `speeds` off `context` and returns the weighted sum of
+    /// squared `speed - cruise_speed` errors.
+    fn __call__(&self, context: &Bound<'_, PyDict>) -> PyResult<f64> {
+        let speeds: Vec<f64> = context_item(context, "speeds")?.extract()?;
+        let total: f64 = speeds
+            .iter()
+            .map(|speed| {
+                let offset = speed - self.cruise_speed;
+                offset * offset
+            })
+            .sum();
+        Ok(self.weight * total)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VelocityCostTerm(weight={:?}, cruise_speed={:?})",
+            self.weight, self.cruise_speed
+        )
+    }
+}
+
+/// Soft clearance penalty plus barrier-style penetration growth.
+///
+/// Combines the quadratic clearance violation with the scaled barrier
+/// term the optimizer historically summed alongside it.
+#[pyclass(skip_from_py_object, name = "CollisionCostTerm", module = "arco._arco")]
+#[derive(Debug, Clone)]
+pub(crate) struct PyCollisionCostTerm {
+    /// Multiplier applied to both the soft and the barrier penalty.
+    #[pyo3(get, set)]
+    weight: f64,
+    /// Extra multiplier on the barrier contribution.
+    #[pyo3(get, set)]
+    barrier_scale: f64,
+    /// Exponent on normalized penetration depth.
+    #[pyo3(get, set)]
+    barrier_power: f64,
+}
+
+#[pymethods]
+impl PyCollisionCostTerm {
+    /// Builds the collision cost term.
+    #[new]
+    #[pyo3(signature = (weight, barrier_scale = 50.0, barrier_power = 4.0))]
+    #[pyo3(text_signature = "(weight, barrier_scale=50.0, barrier_power=4.0)")]
+    fn new(weight: f64, barrier_scale: f64, barrier_power: f64) -> Self {
+        Self {
+            weight,
+            barrier_scale,
+            barrier_power,
+        }
+    }
+
+    /// This term's name in a composite cost's `cost_terms` list.
+    #[getter]
+    #[expect(
+        clippy::unused_self,
+        reason = "the name is a class-level constant Python reads as an instance attribute"
+    )]
+    const fn name(&self) -> &'static str {
+        "collision"
+    }
+
+    /// Evaluates soft collision plus barrier penalties.
+    ///
+    /// Reads `pts`, `segment_count`, `occupancy` and `sample_count` off
+    /// `context`. Queries `occupancy.query_distances` when it publishes
+    /// one, and falls back to calling `occupancy.nearest_obstacle` per
+    /// point otherwise, matching the historical Python behavior for a
+    /// caller-supplied occupancy that offers only the slower method.
+    fn __call__(&self, py: Python<'_>, context: &Bound<'_, PyDict>) -> PyResult<f64> {
+        let waypoints = point_rows(&context_item(context, "pts")?)?;
+        let segment_count: usize = context_item(context, "segment_count")?.extract()?;
+        let occupancy = context_item(context, "occupancy")?;
+        let sample_count: usize = context_item(context, "sample_count")?.extract()?;
+
+        let clearance = occupancy
+            .getattr("clearance")
+            .ok()
+            .and_then(|value| value.extract::<f64>().ok())
+            .unwrap_or(0.5);
+
+        let mut queried: Vec<Vec<f64>> = Vec::new();
+        if segment_count.saturating_sub(1) > 0 {
+            queried.extend(interior(&waypoints).iter().cloned());
+        }
+        if sample_count > 0 {
+            let divisor =
+                f64::from(u32::try_from(sample_count.saturating_add(1)).unwrap_or(u32::MAX));
+            for index in 0..segment_count {
+                let (Some(from), Some(to)) =
+                    (waypoints.get(index), waypoints.get(index.saturating_add(1)))
+                else {
+                    continue;
+                };
+                for step in 1..=sample_count {
+                    let ratio = f64::from(u32::try_from(step).unwrap_or(1)) / divisor;
+                    let sample: Vec<f64> = from
+                        .iter()
+                        .zip(to)
+                        .map(|(start, end)| start + ratio * (end - start))
+                        .collect();
+                    queried.push(sample);
+                }
+            }
+        }
+
+        if queried.is_empty() {
+            return Ok(0.0);
+        }
+
+        let distances: Vec<f64> = if occupancy.hasattr("query_distances")? {
+            let batch = PyArray2::from_vec2(py, &queried).map_err(|_fault| {
+                pyo3::exceptions::PyValueError::new_err(
+                    "query points do not form a rectangular array.",
+                )
+            })?;
+            occupancy
+                .call_method1("query_distances", (batch,))?
+                .extract()?
+        } else {
+            let mut found = Vec::with_capacity(queried.len());
+            for point in &queried {
+                let answer = occupancy.call_method1("nearest_obstacle", (as_array(py, point),))?;
+                found.push(answer.get_item(0)?.extract::<f64>()?);
+            }
+            found
+        };
+
+        let clearance_safe = clearance.max(1e-9);
+        let mut quadratic = 0.0;
+        let mut barrier = 0.0;
+        for distance in distances {
+            let penetration = (clearance - distance).max(0.0);
+            quadratic += penetration * penetration;
+            barrier += (penetration / clearance_safe).powf(self.barrier_power);
+        }
+
+        Ok(self.weight * quadratic + self.weight * self.barrier_scale * barrier)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CollisionCostTerm(weight={:?}, barrier_scale={:?}, barrier_power={:?})",
+            self.weight, self.barrier_scale, self.barrier_power
+        )
+    }
+}
+
+/// Penalizes implied segment speeds outside `[min_speed, max_speed]`.
+#[pyclass(skip_from_py_object, name = "DynamicsCostTerm", module = "arco._arco")]
+#[derive(Debug, Clone)]
+pub(crate) struct PyDynamicsCostTerm {
+    /// Multiplier for the summed squared bound violations.
+    #[pyo3(get, set)]
+    weight: f64,
+    /// Upper speed limit, world units per second, when there is one.
+    #[pyo3(get, set)]
+    max_speed: Option<f64>,
+    /// Lower speed limit, world units per second, when there is one.
+    #[pyo3(get, set)]
+    min_speed: Option<f64>,
+}
+
+#[pymethods]
+impl PyDynamicsCostTerm {
+    /// Builds the dynamics cost term.
+    #[new]
+    #[pyo3(signature = (weight, max_speed = None, min_speed = None))]
+    #[pyo3(text_signature = "(weight, max_speed=None, min_speed=None)")]
+    fn new(weight: f64, max_speed: Option<f64>, min_speed: Option<f64>) -> Self {
+        Self {
+            weight,
+            max_speed,
+            min_speed,
+        }
+    }
+
+    /// This term's name in a composite cost's `cost_terms` list.
+    #[getter]
+    #[expect(
+        clippy::unused_self,
+        reason = "the name is a class-level constant Python reads as an instance attribute"
+    )]
+    const fn name(&self) -> &'static str {
+        "dynamics"
+    }
+
+    /// Evaluates the dynamics-bound penalty.
+    ///
+    /// Reads `speeds` off `context` and returns the weighted sum of
+    /// squared speed-bound violations, or zero when both bounds are
+    /// unset.
+    fn __call__(&self, context: &Bound<'_, PyDict>) -> PyResult<f64> {
+        if self.max_speed.is_none() && self.min_speed.is_none() {
+            return Ok(0.0);
+        }
+        let speeds: Vec<f64> = context_item(context, "speeds")?.extract()?;
+        let mut total = 0.0;
+        if let Some(limit) = self.max_speed {
+            total += speeds
+                .iter()
+                .map(|speed| (speed - limit).max(0.0).powi(2))
+                .sum::<f64>();
+        }
+        if let Some(limit) = self.min_speed {
+            total += speeds
+                .iter()
+                .map(|speed| (limit - speed).max(0.0).powi(2))
+                .sum::<f64>();
+        }
+        Ok(total * self.weight)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DynamicsCostTerm(weight={:?}, max_speed={:?}, min_speed={:?})",
+            self.weight, self.max_speed, self.min_speed
+        )
+    }
+}
+
+/// Builds the five historical default optimizer cost terms.
+///
+/// Returns an ordered list of five cost term instances, `TimeCostTerm`,
+/// `DeviationCostTerm`, `VelocityCostTerm`, `CollisionCostTerm` and
+/// `DynamicsCostTerm`, matching the composition order the optimizer has
+/// always summed them in. Passing the result back through a
+/// `TrajectoryOptimizer`'s `cost_terms=` reproduces its own defaults,
+/// only evaluated through the slower, caller-supplied path rather than
+/// the optimizer's native one.
+#[pyfunction]
+#[pyo3(signature = (
+    *,
+    weight_time,
+    weight_deviation,
+    weight_velocity,
+    weight_collision,
+    weight_dynamics,
+    cruise_speed,
+    collision_barrier_scale,
+    collision_barrier_power,
+    max_speed,
+    min_speed,
+))]
+#[pyo3(
+    text_signature = "(*, weight_time, weight_deviation, weight_velocity, \
+    weight_collision, weight_dynamics, cruise_speed, collision_barrier_scale, \
+    collision_barrier_power, max_speed, min_speed)"
+)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one per historical keyword-only parameter"
+)]
+fn build_default_cost_terms(
+    py: Python<'_>,
+    weight_time: f64,
+    weight_deviation: f64,
+    weight_velocity: f64,
+    weight_collision: f64,
+    weight_dynamics: f64,
+    cruise_speed: f64,
+    collision_barrier_scale: f64,
+    collision_barrier_power: f64,
+    max_speed: Option<f64>,
+    min_speed: Option<f64>,
+) -> PyResult<Py<PyList>> {
+    let terms = [
+        Py::new(
+            py,
+            PyTimeCostTerm {
+                weight: weight_time,
+            },
+        )?
+        .into_any(),
+        Py::new(
+            py,
+            PyDeviationCostTerm {
+                weight: weight_deviation,
+            },
+        )?
+        .into_any(),
+        Py::new(
+            py,
+            PyVelocityCostTerm {
+                weight: weight_velocity,
+                cruise_speed,
+            },
+        )?
+        .into_any(),
+        Py::new(
+            py,
+            PyCollisionCostTerm {
+                weight: weight_collision,
+                barrier_scale: collision_barrier_scale,
+                barrier_power: collision_barrier_power,
+            },
+        )?
+        .into_any(),
+        Py::new(
+            py,
+            PyDynamicsCostTerm {
+                weight: weight_dynamics,
+                max_speed,
+                min_speed,
+            },
+        )?
+        .into_any(),
+    ];
+    Ok(PyList::new(py, terms)?.unbind())
+}
+
 #[pyclass(get_all, set_all, name = "TrajectoryResult", module = "arco._arco")]
 #[derive(Debug)]
 pub(crate) struct PyTrajectoryResult {
@@ -2849,6 +3340,12 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyTrajectoryPruner>()?;
     module.add_class::<PyTrajectoryResult>()?;
     module.add_class::<PyTrajectoryOptimizer>()?;
+    module.add_class::<PyTimeCostTerm>()?;
+    module.add_class::<PyDeviationCostTerm>()?;
+    module.add_class::<PyVelocityCostTerm>()?;
+    module.add_class::<PyCollisionCostTerm>()?;
+    module.add_class::<PyDynamicsCostTerm>()?;
+    module.add_function(wrap_pyfunction!(build_default_cost_terms, module)?)?;
     Ok(())
 }
 
