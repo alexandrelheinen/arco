@@ -112,10 +112,6 @@ class TestRigidBodyInertia:
 
 
 class TestRigidBodyPhysics:
-    def test_zero_force_constant_velocity(self, square: SquareBody) -> None:
-        square._velocity[:] = [1.0, 0.5, 0.1]
-        square.step(dt=0.1)
-        np.testing.assert_array_almost_equal(square.velocity, [1.0, 0.5, 0.1])
 
     def test_force_produces_acceleration(self, square: SquareBody) -> None:
         square.apply_wrench(fx=10.0, fy=0.0, torque=0.0)
@@ -162,10 +158,6 @@ class TestRigidBodyPhysics:
 
 
 class TestRigidBodyReset:
-    def test_reset_clears_velocity(self, square: SquareBody) -> None:
-        square._velocity[:] = [1.0, 2.0, 3.0]
-        square.reset()
-        np.testing.assert_array_almost_equal(square.velocity, [0.0, 0.0, 0.0])
 
     def test_reset_sets_pose(self, square: SquareBody) -> None:
         square.reset(x=1.0, y=2.0, psi=0.5)

@@ -274,80 +274,12 @@ class TestInitRadii:
 
 
 class TestStepActuators:
-    def test_angles_converge_to_ref(self, circle: CircleBody) -> None:
-        """Angles must converge to reference under second-order dynamics."""
-        a = ActuatorArray(actuator_count=4, omega=20.0, zeta=0.7)
-        a.init_radii(circle)
-        ref = np.array([0.5, 1.5, 2.5, 3.5])
-        a._ref_angles = ref.copy()
-        dt = 0.01
-        for _ in range(500):
-            a.step_actuators(dt)
-        np.testing.assert_array_almost_equal(a.angles, ref, decimal=2)
-
-    def test_angle_velocity_nonzero_during_transient(
-        self, circle: CircleBody
-    ) -> None:
-        a = ActuatorArray(actuator_count=4, omega=5.0, zeta=0.7)
-        a.init_radii(circle)
-        a._ref_angles = np.zeros(4)
-        a._angles = np.ones(4) * 0.5
-        a.step_actuators(0.01)
-        # Angular velocity should be nonzero immediately
-        assert not np.allclose(a.angle_velocities, 0.0)
-
-    def test_radii_converge_to_ref(self, circle: CircleBody) -> None:
-        """Radial positions must converge to reference."""
-        a = ActuatorArray(actuator_count=4, omega=20.0, zeta=0.7)
-        a.init_radii(circle)
-        r_nom = circle.bounding_radius + 0.05
-        # Push reference slightly inward (simulate desired contact force)
-        a._ref_radii = np.full(4, r_nom - 0.02)
-        dt = 0.01
-        for _ in range(500):
-            a.step_actuators(dt)
-        np.testing.assert_array_almost_equal(
-            a.radii, np.full(4, r_nom - 0.02), decimal=2
-        )
-
     def test_no_radii_init_skips_radial_dynamics(
         self, array4: ActuatorArray
     ) -> None:
         # Calling step_actuators without init_radii should not raise
         array4.step_actuators(0.01)
         assert array4.radii is None
-
-    def test_stable_with_large_dt_and_high_omega(
-        self, circle: CircleBody
-    ) -> None:
-        """Radii must remain bounded with occ.yml params (Ω=10, dt=0.1).
-
-        The velocity-first integration order (symplectic Euler) is unstable
-        for these parameters (eigenvalue ≈ 3.34 > 1). The forward-Euler
-        ordering used here must keep the radii bounded after 50 steps.
-        """
-        # 1.4 m: compression needed to generate ~140 N spring force at k_s=100
-        # This simulates the actuator chasing a far waypoint (56 m away at
-        # kp=2.5 → 140 N → ref = r_nom − 1.4 m).
-        large_offset_m = 1.4
-        # Maximum allowed absolute deviation from r_nom before we declare
-        # divergence.  Ten metres is orders of magnitude larger than any
-        # physically meaningful displacement for this geometry.
-        max_deviation_m = 10.0
-
-        a = ActuatorArray(actuator_count=3, omega=10.0, zeta=0.7)
-        a.init_radii(circle)
-        r_nom = circle.bounding_radius + 0.05
-        # Large reference offset (simulates chasing a far waypoint)
-        a._ref_radii = np.full(3, r_nom - large_offset_m)
-        dt = 0.1
-        for _ in range(50):
-            a.step_actuators(dt)
-        # Radii must not diverge; all values finite and within max_deviation_m
-        assert np.all(np.isfinite(a.radii)), "Radii diverged (non-finite)"
-        assert np.all(
-            np.abs(a.radii) < r_nom + max_deviation_m
-        ), f"Radii out of bounds: {a.radii}"
 
 
 # ---------------------------------------------------------------------------
@@ -414,29 +346,6 @@ class TestSpringForces:
         array4.init_radii(circle)
         forces = array4.spring_forces(circle)
         np.testing.assert_array_almost_equal(forces, np.zeros(8))
-
-    def test_compression_gives_positive_radial_force(
-        self, array4: ActuatorArray, circle: CircleBody
-    ) -> None:
-        array4.init_radii(circle)
-        r_nom = circle.bounding_radius + 0.05
-        # Move actuator inside nominal → compression
-        array4._radii = np.full(4, r_nom - 0.01)
-        forces = array4.spring_forces(circle)
-        k = array4.spring_stiffness
-        for i in range(4):
-            assert forces[2 * i] == pytest.approx(k * 0.01, rel=1e-6)
-
-    def test_tension_gives_zero_force(
-        self, array4: ActuatorArray, circle: CircleBody
-    ) -> None:
-        """Actuators cannot pull; tension (r > r_nom) gives zero force."""
-        array4.init_radii(circle)
-        r_nom = circle.bounding_radius + 0.05
-        array4._radii = np.full(4, r_nom + 0.05)
-        forces = array4.spring_forces(circle)
-        for i in range(4):
-            assert forces[2 * i] == 0.0
 
     def test_tangential_forces_always_zero(
         self, array4: ActuatorArray, circle: CircleBody

@@ -57,6 +57,7 @@
 
 use pyo3::prelude::*;
 
+mod control;
 mod core;
 mod errors;
 mod guidance;
@@ -82,6 +83,7 @@ fn version() -> &'static str {
 fn _arco(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(version, module)?)?;
     core::register(module)?;
+    control::register(module)?;
     mapping::register(module)?;
     kinematics::register(module)?;
     guidance::register(module)?;

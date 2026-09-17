@@ -1,157 +1,23 @@
-"""PurePursuitController: pure pursuit path tracking controller."""
+"""Pure pursuit path tracking, re-exported from the compiled extension.
+
+The implementation is ``PurePursuitTracker`` in the ``arco-control``
+crate, registered back under its Python spelling by the binding layer and
+reaching callers through :mod:`arco._arco`.
+
+The two private helpers below stay in Python. The crate computes the
+lookahead point inside the tracker rather than exposing it, so there is no
+compiled counterpart to re-export, and the regression tests that pin the
+off-track fallback call :func:`_find_lookahead` directly.
+"""
 
 from __future__ import annotations
 
 import math
 from typing import Sequence
 
-from .base import Controller
+from arco._arco import PurePursuitController
 
-
-class PurePursuitController(Controller):
-    """Pure pursuit controller for 2-D path tracking.
-
-    Computes a turn-rate command that steers a unicycle vehicle toward a
-    lookahead point located a fixed arc length ahead along the reference path.
-    Cross-track error and heading error are updated on every :meth:`track`
-    call and exposed as read-only attributes for logging.
-
-    The standard pure pursuit turn-rate law is::
-
-        ω = 2 · v · sin(α) / L_d
-
-    where *α* is the bearing from the vehicle heading to the lookahead
-    direction in the vehicle frame and *L_d* is ``lookahead_distance``.
-
-    Attributes:
-        lookahead_distance: Arc length used to locate the lookahead point (m).
-        cross_track_error: Signed perpendicular distance from vehicle to the
-            nearest path segment (positive = vehicle is left of path).
-        heading_error: Difference between vehicle heading and path tangent
-            at the nearest segment, wrapped to ``(−π, π]`` (radians).
-        curvature: Signed geometric curvature at the lookahead point
-            (rad/m), updated after each :meth:`track` call.  Computed as
-            ``2·sin(α)/L_d`` — the standard pure pursuit curvature.
-    """
-
-    def __init__(self, lookahead_distance: float = 1.0) -> None:
-        """Initialize PurePursuitController.
-
-        Args:
-            lookahead_distance: Arc length ahead on the path used to compute
-                the lookahead point (meters).
-        """
-        self.lookahead_distance = lookahead_distance
-        self.cross_track_error: float = 0.0
-        self.heading_error: float = 0.0
-        self.curvature: float = 0.0
-
-    def track(
-        self,
-        pose: tuple[float, float, float],
-        path: Sequence[tuple[float, float]],
-        speed: float = 1.0,
-    ) -> tuple[float, float]:
-        """Compute pure pursuit speed and turn-rate commands.
-
-        Finds the lookahead point on *path* that is approximately
-        ``lookahead_distance`` meters ahead of the vehicle and computes the
-        instantaneous turn rate that steers the vehicle toward it.  Also
-        updates :attr:`cross_track_error` and :attr:`heading_error`.
-
-        Args:
-            pose: Current vehicle pose ``(x, y, heading)`` in world frame.
-            path: Ordered sequence of ``(x, y)`` waypoints.
-            speed: Desired forward speed (m/s) passed through as-is.
-
-        Returns:
-            Tuple ``(speed_cmd, turn_rate_cmd)`` where ``speed_cmd`` equals
-            *speed* and ``turn_rate_cmd`` is in rad/s.
-        """
-        if len(path) < 2:
-            return speed, 0.0
-
-        x, y, theta = pose
-
-        # --- Find closest waypoint index ---
-        min_dist = math.inf
-        closest_idx = 0
-        for i, (wx, wy) in enumerate(path):
-            dist = math.hypot(wx - x, wy - y)
-            if dist < min_dist:
-                min_dist = dist
-                closest_idx = i
-
-        # --- Cross-track and heading errors at closest segment ---
-        if closest_idx < len(path) - 1:
-            sx = path[closest_idx + 1][0] - path[closest_idx][0]
-            sy = path[closest_idx + 1][1] - path[closest_idx][1]
-        else:
-            sx = path[closest_idx][0] - path[closest_idx - 1][0]
-            sy = path[closest_idx][1] - path[closest_idx - 1][1]
-
-        seg_len = math.hypot(sx, sy)
-        if seg_len > 1e-9:
-            # Left-pointing unit normal of the path segment
-            nx = -sy / seg_len
-            ny = sx / seg_len
-            self.cross_track_error = nx * (x - path[closest_idx][0]) + ny * (
-                y - path[closest_idx][1]
-            )
-            self.heading_error = _wrap_angle(theta - math.atan2(sy, sx))
-        else:
-            self.cross_track_error = 0.0
-            self.heading_error = 0.0
-
-        # --- Find lookahead point ---
-        lookahead = _find_lookahead(
-            x, y, path, closest_idx, self.lookahead_distance
-        )
-
-        # --- Pure pursuit turn-rate law ---
-        lx, ly = lookahead
-        dx = lx - x
-        dy = ly - y
-        # Transform lookahead vector to vehicle frame
-        dx_v = math.cos(theta) * dx + math.sin(theta) * dy
-        dy_v = -math.sin(theta) * dx + math.cos(theta) * dy
-        alpha = math.atan2(dy_v, dx_v)
-        self.curvature = 2.0 * math.sin(alpha) / self.lookahead_distance
-        turn_rate_cmd = speed * self.curvature
-
-        return speed, turn_rate_cmd
-
-    def control(self, state: float, reference: float) -> float:
-        """Compute a proportional steering command from a scalar error.
-
-        This method satisfies the :class:`Controller` interface for simple
-        scalar inputs.  For full 2-D path tracking use :meth:`track`.
-
-        Args:
-            state: The current state value.
-            reference: The reference/target value.
-
-        Returns:
-            Proportional command ``reference − state`` as a float.
-        """
-        return reference - state
-
-
-# ---------------------------------------------------------------------------
-# Module-level helpers
-# ---------------------------------------------------------------------------
-
-
-def _wrap_angle(angle: float) -> float:
-    """Wrap *angle* to the interval ``(−π, π]``.
-
-    Args:
-        angle: Angle in radians.
-
-    Returns:
-        Equivalent angle in ``(−π, π]``.
-    """
-    return math.atan2(math.sin(angle), math.cos(angle))
+__all__ = ["PurePursuitController"]
 
 
 def _find_lookahead(
