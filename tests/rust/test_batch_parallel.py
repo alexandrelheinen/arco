@@ -17,12 +17,22 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from arco.mapping import KDTreeOccupancy
 from arco.planning import RRTPlanner
+
+# The requirement holds on an ordinary Linux kernel and does not hold
+# under WSL2, so the expectation is conditioned rather than dropped: a
+# regression on a real runner still fails the suite.
+_UNDER_WSL = (
+    "microsoft" in Path("/proc/version").read_text().lower()
+    if Path("/proc/version").exists()
+    else False
+)
 
 _BOUNDS = ((0.0, 40.0), (0.0, 40.0))
 _START = np.array([1.0, 1.0])
@@ -84,14 +94,15 @@ def test_planning_lets_another_python_thread_run() -> None:
     reason="parallel speedup is not observable on fewer than four cores",
 )
 @pytest.mark.xfail(
+    _UNDER_WSL,
     strict=True,
     reason=(
-        "Four concurrent plans each take an order of magnitude longer than "
-        "one alone on an idle sixteen-core machine, while the same four in "
-        "separate processes are unaffected. The lock is released, since a "
-        "counter thread keeps running, and the interpreter switch interval "
-        "makes no difference, so the contention is somewhere else and is "
-        "not diagnosed yet. See docs/decisions.md."
+        "Under WSL2 four concurrent plans each take an order of magnitude "
+        "longer than one alone on an idle sixteen-core machine, while the "
+        "same four in separate processes are unaffected and a Linux runner "
+        "shows the expected speedup. The lock is released, since a counter "
+        "thread keeps running, and the interpreter switch interval makes no "
+        "difference. See docs/decisions.md."
     ),
 )
 def test_four_plans_in_a_thread_pool_beat_the_same_four_in_sequence() -> None:
