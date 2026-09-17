@@ -793,3 +793,41 @@ evaluated rather than differentiated through.
 What a caller loses is the rounding the 2 meter resampling gave a sharp
 polyline for free. The curvature estimate carries its own smoothing
 instead, spread over an arc length rather than over a sample count.
+
+### A-37: what stays Python, and why each one does
+
+**Status:** accepted, phase 10.
+
+Phase 10 asks that `src/arco/` hold the binding layer, the stubs and
+`arco/simulator/` alone. Five things outside the simulator are Python on
+purpose rather than by omission, and the reason differs in each case.
+
+`arco/protocols/` declares `Protocol` classes a caller implements. They
+are interface declarations, and the crate's traits are the same
+declarations in the other language, so compiling them would produce two
+definitions of one contract. `MPCTracker` in `arco.control.mpc.base` is
+the same thing wearing an abstract base class, with the compiled
+controller registered as a virtual subclass so `isinstance` keeps
+answering.
+
+`arco/config/` loads the YAML that ships with the package and holds the
+color palette. It computes nothing a planner or a controller calls. Every
+`create_from_config` in the binding layer reaches it through
+`crates/arco-py/src/config.rs`.
+
+The three configuration records of the predictive controllers,
+`JointSpaceMPCConfig`, `PathFollowingMPCConfig` and `DubinsVehicleLimits`,
+stay dataclasses because `dataclasses.replace` only works on a real
+dataclass and `arco.simulator` builds a variant of one that way. The
+controllers read them by attribute, so a caller may substitute any object
+carrying the same fields.
+
+`arco.planning.discrete.api.DStarLite` and
+`arco.planning.discrete.dstar.DStarPlanner` raise `NotImplementedError`.
+There is no algorithm to port. `arco.planning.discrete.api.AStar` is the
+ten lines that build a grid and hand it to the compiled planner.
+
+The serialization helpers on `PlanningPipeline` are compiled, and they
+call numpy rather than writing the archive themselves: `.npz` is numpy's
+format, and a second implementation would be a second definition of it to
+keep in step with a caller's `numpy.load`.

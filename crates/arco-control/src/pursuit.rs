@@ -127,7 +127,8 @@ impl PurePursuitTracker {
     /// reaches, the answer is the next waypoint forward rather than the
     /// goal: steering at the goal from off-track cuts every corner between
     /// here and there.
-    fn lookahead_point(&self, pose: Pose, path: &[(f64, f64)], closest: usize) -> (f64, f64) {
+    #[must_use]
+    pub fn lookahead_point(&self, pose: Pose, path: &[(f64, f64)], closest: usize) -> (f64, f64) {
         let first = closest.saturating_sub(1);
         for index in first..path.len().saturating_sub(1) {
             let Some(((ax, ay), (bx, by))) = pair(path, index, index.saturating_add(1)) else {
@@ -222,7 +223,8 @@ fn pair(path: &[(f64, f64)], first: usize, second: usize) -> Option<((f64, f64),
 /// Farthest rather than nearest, because the lookahead point is meant to
 /// be ahead: taking the near intersection steers at a point the vehicle
 /// has already passed.
-fn circle_segment_intersection(
+#[must_use]
+pub fn circle_segment_intersection(
     center: (f64, f64),
     radius: f64,
     start: (f64, f64),
