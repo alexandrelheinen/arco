@@ -1231,6 +1231,16 @@ impl PyCartesianGraph {
 pub struct PyRoadGraph;
 
 impl PyRoadGraph {
+    /// Wraps a graph this module built, rather than an empty one.
+    fn holding(graph: RoadGraph) -> PyClassInitializer<Self> {
+        PyClassInitializer::from(PyGraph)
+            .add_subclass(PyWeightedGraph {
+                topology: Topology::Road(graph),
+            })
+            .add_subclass(PyCartesianGraph)
+            .add_subclass(Self)
+    }
+
     /// The graph state, which lives two classes up.
     fn state<'a>(slf: &'a PyRef<'_, Self>) -> &'a Topology {
         &slf.as_super().as_super().topology
@@ -1569,6 +1579,143 @@ impl PyKdTreeOccupancy {
 ///
 /// Returns an error when a class fails to register, which the interpreter
 /// surfaces as an `ImportError`.
+/// Load a :class:`RoadGraph` from a JSON network descriptor file.
+///
+/// The descriptor format is documented in ``docs/city_network.md``. Each
+/// node carries ``id``, ``x`` and ``y``. Each edge carries ``from``,
+/// ``to`` and an optional ``waypoints`` list of ``[x, y]`` pairs.
+///
+/// Waypoints are stored running from the lower node id to the higher, so
+/// an edge written in the other direction has its list reversed on the
+/// way in. A reader asking for the geometry in either direction then gets
+/// it in the order it travels.
+///
+/// Args:
+///     `path`: Path to the ``.json`` descriptor.
+///
+/// Returns:
+///     A populated :class:`RoadGraph`, ready for route planning.
+///
+/// Raises:
+///     `FileNotFoundError`: If *path* names no file.
+///     `KeyError`: If a node or an edge is missing a required field.
+///     `ValueError`: If an edge names a node the file never added.
+#[pyfunction]
+#[pyo3(signature = (path))]
+#[pyo3(text_signature = "(path)")]
+fn load_road_graph(py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let name = path.str()?.to_string_lossy().into_owned();
+    let text = std::fs::read_to_string(&name).map_err(|_unreadable| {
+        pyo3::exceptions::PyFileNotFoundError::new_err(format!(
+            "Network descriptor not found: '{name}'"
+        ))
+    })?;
+    let parsed: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|failure| PyValueError::new_err(format!("{name} is not valid JSON: {failure}")))?;
+
+    let mut graph = RoadGraph::new();
+    for node in array_of(&parsed, "nodes")? {
+        let id = node_id(node, "id")?;
+        let x = coordinate(node, "x")?;
+        let y = coordinate(node, "y")?;
+        graph.positions_mut().add_node(id, &[x, y]).or_raise()?;
+    }
+
+    for edge in array_of(&parsed, "edges")? {
+        let from = node_id(edge, "from")?;
+        let to = node_id(edge, "to")?;
+        for end in [from, to] {
+            if graph.positions().position(end).is_err() {
+                return Err(PyValueError::new_err(format!(
+                    "Edge references unknown node id {end}"
+                )));
+            }
+        }
+        let mut waypoints = waypoints_of(edge)?;
+        // The graph keys geometry on the ordered endpoint pair, so a file
+        // that wrote the edge the other way round describes the same road
+        // backwards and its list is reversed here.
+        if from > to {
+            waypoints.reverse();
+        }
+        graph.add_edge(from, to, None, &waypoints).or_raise()?;
+    }
+
+    Ok(Py::new(py, PyRoadGraph::holding(graph))?.into_any())
+}
+
+/// Reads a required array out of the descriptor.
+///
+/// # Errors
+///
+/// Returns a `KeyError` naming the field, which is what indexing a
+/// missing key raised in Python.
+fn array_of<'a>(parsed: &'a serde_json::Value, key: &str) -> PyResult<&'a Vec<serde_json::Value>> {
+    parsed
+        .get(key)
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(key.to_owned()))
+}
+
+/// Reads a node id, which the Python read through `int(...)`.
+///
+/// # Errors
+///
+/// Returns a `KeyError` when the field is absent and a `ValueError` when
+/// it is not a whole number.
+fn node_id(entry: &serde_json::Value, key: &str) -> PyResult<NodeId> {
+    let found = entry
+        .get(key)
+        .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(key.to_owned()))?;
+    found
+        .as_i64()
+        .or_else(|| found.as_str().and_then(|text| text.parse::<i64>().ok()))
+        .and_then(|value| NodeId::try_from(value).ok())
+        .ok_or_else(|| PyValueError::new_err(format!("node id {found} is not a whole number")))
+}
+
+/// Reads a coordinate, which the Python read through `float(...)`.
+///
+/// # Errors
+///
+/// Returns a `KeyError` when the field is absent and a `ValueError` when
+/// it is not a real number.
+fn coordinate(entry: &serde_json::Value, key: &str) -> PyResult<f64> {
+    let found = entry
+        .get(key)
+        .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(key.to_owned()))?;
+    found
+        .as_f64()
+        .or_else(|| found.as_str().and_then(|text| text.parse::<f64>().ok()))
+        .ok_or_else(|| PyValueError::new_err(format!("coordinate {found} is not a real number")))
+}
+
+/// Reads an edge's intermediate waypoints, which may be absent.
+///
+/// # Errors
+///
+/// Returns a `ValueError` when a waypoint is not a pair of numbers.
+fn waypoints_of(edge: &serde_json::Value) -> PyResult<Vec<Vec<f64>>> {
+    let Some(listed) = edge.get("waypoints").and_then(serde_json::Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    listed
+        .iter()
+        .map(|point| {
+            let pair = point
+                .as_array()
+                .ok_or_else(|| PyValueError::new_err("a waypoint is not a pair of numbers"))?;
+            let (Some(x), Some(y)) = (
+                pair.first().and_then(serde_json::Value::as_f64),
+                pair.get(1).and_then(serde_json::Value::as_f64),
+            ) else {
+                return Err(PyValueError::new_err("a waypoint is not a pair of numbers"));
+            };
+            Ok(vec![x, y])
+        })
+        .collect()
+}
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGraph>()?;
     module.add_class::<PyGrid>()?;
@@ -1578,6 +1725,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCartesianGraph>()?;
     module.add_class::<PyRoadGraph>()?;
     module.add_class::<PyKdTreeOccupancy>()?;
+    module.add_function(wrap_pyfunction!(load_road_graph, module)?)?;
 
     // Python declared these inside the class body. PyO3 registers a class
     // at module level, so they are attached to the type afterwards, which

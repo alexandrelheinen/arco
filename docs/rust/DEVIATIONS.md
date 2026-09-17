@@ -822,10 +822,24 @@ dataclass and `arco.simulator` builds a variant of one that way. The
 controllers read them by attribute, so a caller may substitute any object
 carrying the same fields.
 
-`arco.planning.discrete.api.DStarLite` and
-`arco.planning.discrete.dstar.DStarPlanner` raise `NotImplementedError`.
-There is no algorithm to port. `arco.planning.discrete.api.AStar` is the
-ten lines that build a grid and hand it to the compiled planner.
+`arco.mapping.occupancy.Occupancy` is the abstract base a caller
+subclasses to describe its own world. Two of its methods are abstract and
+two carry defaults, `query_distances` looping over `nearest_obstacle` and
+`segment_free` sampling a segment, and a subclass that overrides neither
+runs those loops in Python however the map is reached. Compiling the base
+would move the defaults into the crate and would also make every existing
+subclass construct through `__new__`, which is what broke `PipelineNode`
+before the name was moved onto `__init__`. The base stays Python and the
+defaults stay slow, which is the documented cost of writing a map in
+Python rather than handing the planner a `KDTreeOccupancy`.
+
+One consequence is worth naming, because it looks like a bug from the
+outside. The base declares no `dimension`, so a Python map publishes
+none, and the two predictive controllers check the dimension of the map
+they are given. They read a map that states nothing as having the
+dimension the controller itself works in, through
+`BoundOccupancy::assume_dimension`, rather than refusing it. A map that
+does state a dimension is still checked.
 
 The serialization helpers on `PlanningPipeline` are compiled, and they
 call numpy rather than writing the archive themselves: `.npz` is numpy's

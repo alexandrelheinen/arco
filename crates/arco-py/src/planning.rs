@@ -1134,6 +1134,102 @@ impl PyAStar {
 }
 
 // ---------------------------------------------------------------------
+// D*, not yet implemented
+// ---------------------------------------------------------------------
+
+/// The message every D* entry point raises until the algorithm lands.
+const DSTAR_NOT_IMPLEMENTED: &str = "D* planner not yet implemented.";
+
+/// D* path planner for dynamic replanning, as a stub.
+///
+/// D* (Dynamic A*) supports incremental replanning when the environment
+/// changes. This implementation is a placeholder: [`PyDStarPlanner::plan`]
+/// raises `NotImplementedError` rather than searching.
+#[pyclass(extends = PyDiscretePlanner, name = "DStarPlanner", module = "arco._arco", subclass)]
+#[derive(Debug)]
+pub(crate) struct PyDStarPlanner;
+
+#[pymethods]
+impl PyDStarPlanner {
+    /// Builds a planner over `graph`.
+    #[new]
+    #[pyo3(text_signature = "(graph)")]
+    fn new(graph: &Bound<'_, PyAny>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(PyCostModel)
+            .add_subclass(PyDiscretePlanner::over(graph)?)
+            .add_subclass(Self))
+    }
+
+    /// Plans a path from `start` to `goal`, not yet implemented.
+    ///
+    /// # Errors
+    ///
+    /// Always returns `NotImplementedError`: D* is not implemented yet.
+    #[pyo3(text_signature = "(start, goal)")]
+    #[expect(clippy::unused_self, reason = "the stub raises regardless of state")]
+    fn plan(
+        &self,
+        _start: &Bound<'_, PyAny>,
+        _goal: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyList>>> {
+        Err(pyo3::exceptions::PyNotImplementedError::new_err(
+            DSTAR_NOT_IMPLEMENTED,
+        ))
+    }
+}
+
+/// D* over a numpy grid, as a stub.
+///
+/// Accepts a grid the way [`PyAStar`] does, so a caller building both
+/// planners over the same grid uses the same shape for each, but the
+/// grid is not read: [`PyDStarLite::search`] raises `NotImplementedError`
+/// rather than searching.
+#[pyclass(name = "DStarLite", module = "arco._arco", subclass)]
+#[derive(Debug)]
+pub(crate) struct PyDStarLite;
+
+#[pymethods]
+impl PyDStarLite {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base. The arguments are
+    /// ignored here because `__new__` has already read them.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
+    /// Builds the stub over `grid`, which it does not read.
+    #[new]
+    #[pyo3(text_signature = "(grid)")]
+    fn new(_grid: &Bound<'_, PyAny>) -> Self {
+        Self
+    }
+
+    /// Searches for a path from `start` to `goal`, not yet implemented.
+    ///
+    /// # Errors
+    ///
+    /// Always returns `NotImplementedError`: D* is not implemented yet.
+    #[pyo3(text_signature = "(start, goal)")]
+    #[expect(clippy::unused_self, reason = "the stub raises regardless of state")]
+    fn search(
+        &self,
+        _start: &Bound<'_, PyAny>,
+        _goal: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyList>>> {
+        Err(pyo3::exceptions::PyNotImplementedError::new_err(
+            DSTAR_NOT_IMPLEMENTED,
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------
 // Routing over a positioned graph
 // ---------------------------------------------------------------------
 
@@ -3335,6 +3431,8 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyContinuousPlanner>()?;
     module.add_class::<PyAStarPlanner>()?;
     module.add_class::<PyAStar>()?;
+    module.add_class::<PyDStarPlanner>()?;
+    module.add_class::<PyDStarLite>()?;
     module.add("RouteResult", route_result_type(module.py())?)?;
     module.add_class::<PyRouteRouter>()?;
     module.add_class::<PyRrtPlanner>()?;
