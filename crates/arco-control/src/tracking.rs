@@ -128,6 +128,19 @@ impl<V: VehicleModel, T: PathTracker, A: AvoidanceStrategy> TrackingLoop<V, T, A
         &self.vehicle
     }
 
+    /// The vehicle, mutably.
+    ///
+    /// A vehicle wrapping something outside this crate may need to be
+    /// re-read before a step, which it cannot do through `&self`.
+    pub const fn vehicle_mut(&mut self) -> &mut V {
+        &mut self.vehicle
+    }
+
+    /// The tracker, mutably, for the reason [`TrackingLoop::vehicle_mut`] is.
+    pub const fn tracker_mut(&mut self) -> &mut T {
+        &mut self.tracker
+    }
+
     /// The tracker producing commands.
     pub const fn tracker(&self) -> &T {
         &self.tracker

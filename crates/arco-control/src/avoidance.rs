@@ -47,9 +47,20 @@ impl<O: Occupancy> ArtificialPotentialField<O> {
     /// Builds a field that never biases anything.
     #[must_use]
     pub const fn disabled() -> Self {
+        Self::without_map(0.0)
+    }
+
+    /// Builds a field with no map, keeping the gain the caller stated.
+    ///
+    /// A field with nothing to repel from produces no bias whatever the
+    /// gain is, but the gain is a value the caller set and can read back,
+    /// and reporting zero for it says the call was ignored rather than
+    /// that the map was missing.
+    #[must_use]
+    pub const fn without_map(repulsion_gain: f64) -> Self {
         Self {
             occupancy: None,
-            repulsion_gain: 0.0,
+            repulsion_gain,
         }
     }
 

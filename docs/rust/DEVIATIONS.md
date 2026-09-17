@@ -621,3 +621,48 @@ a `KeyError` from the first.
 
 Every call now drains the slot whether the search succeeded or not, and
 raises what it finds.
+
+### A-30: the obstacle barrier is a half-space, not a second-order cone
+
+**Status:** accepted, phase 7. Corrects [SPEC.md](SPEC.md).
+
+`SPEC.md` says the obstacle constraint becomes a second-order cone under
+the reformulation. It cannot. The keep-out set is
+`norm(p - o) >= clearance`, which is the complement of a ball and is not
+convex; the second-order cone states the opposite, that the vehicle stays
+inside the obstacle. No convex program expresses the constraint as
+written, which is why the nonlinear formulation used a penalty rather than
+a constraint in the first place.
+
+The port writes a half-space through the nominal predicted position whose
+normal points from the obstacle toward it, carrying a penalized slack.
+That is the standard convexification: a supporting hyperplane of the
+keep-out set, tangent at the nominal, so it is conservative rather than
+exact and it tightens as the sequential iteration moves the nominal.
+
+Two consequences follow. The quartic penetration of
+`obstacle_barrier_power` becomes the square the slack's quadratic penalty
+gives, so that configuration key no longer changes the shape of the
+barrier. And the forward cone factor freezes at the nominal heading and
+scales the slack's weight rather than entering the row, because a cone
+factor that varied with the decision variables would make the row
+nonlinear again.
+
+The turn-rate limit has the same shape of problem and the same answer:
+`progress_speed * sqrt(curvature^2 + eps) <= max_turn_rate` is bilinear in
+the progress speed and the path parameter, and becomes one linear row once
+the curvature is frozen at the nominal arc length.
+
+### A-31: the reported cost is the surrogate objective
+
+**Status:** accepted, phase 7.
+
+`MPCStepResult.cost` carried the value of the nonlinear objective at the
+solution. The port reports the value of the convex program it actually
+solved, including the constant the solver drops and the stage the initial
+pin makes constant. The two agree only where the expansions do, which is
+near the linearization point and nowhere else.
+
+The number is still comparable across steps of the same controller, which
+is what a caller watching it for divergence needs. It is not comparable
+against a number the Python printed.
