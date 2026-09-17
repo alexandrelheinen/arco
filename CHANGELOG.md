@@ -60,8 +60,9 @@ type it had. Scripts written against 0.4 run unmodified.
   around the nearest reported point. Deviation A-34 has the detail.
 - A path-following controller stops short of an obstacle sitting on its
   reference rather than going around it. Deviation A-35.
-- Running plans across threads does not yet buy wall-clock time even
-  though the lock is released, which `docs/decisions.md` records with the
+- Running plans across threads buys wall-clock time on an ordinary Linux
+  kernel and does not under WSL2, where four concurrent plans each take
+  about twelve times as long as one alone. `docs/decisions.md` records the
   measurements.
 
 Every behavior difference between this release and 0.4 carries an entry in

@@ -366,15 +366,19 @@ the interpreter lock while it searches.
 It releases it: a Python thread keeps counting while a plan is running,
 which `tests/rust/test_batch_parallel.py` asserts.
 
-Thread-pool scaling does not follow, and the measurement is worth writing
-down because it contradicts what releasing the lock is supposed to buy.
-Four plans that take 0.375 seconds each in isolation take about 5.1
-seconds each when run concurrently on four threads of an idle sixteen-core
-machine. The same four in separate processes take 0.107 seconds each, so
-the machine has the cores and the work is parallelizable. The interpreter
-switch interval makes no difference, which rules out lock handoff, and a
-pure native call with no Python callbacks in its inner loop degrades the
-same way, which rules out the progress callback.
+Thread-pool scaling follows from that on an ordinary Linux kernel, where
+CI measures it, and does not follow under WSL2, where this port was
+written. The difference is worth writing down because it looked like a
+defect in the port until a Linux runner disagreed.
+
+Under WSL2, four plans that take 0.768 seconds each in isolation take
+about 9.0 seconds each when run concurrently on four threads of an idle
+sixteen-core machine, while the same four in separate processes are
+unaffected, so the machine has the cores and the work is parallelizable.
+The interpreter switch interval makes no difference, which rules out lock
+handoff, and a pure native call with no Python callbacks in its inner
+loop degrades the same way, which rules out the progress callback. The
+same test passes on a GitHub Linux runner.
 
 One contributor is identified and is not the whole story. A binding that
 takes a large array copies it into a `Vec` before releasing the lock, so
@@ -385,6 +389,7 @@ times to two and a half. Borrowing the caller's buffer with
 [languages/rs.md](../.guidelines/languages/rs.md) already asks for, would
 remove that part.
 
-The speedup assertion in `tests/rust/test_batch_parallel.py` is
-`xfail(strict=True)` until this is understood, so the day it starts
-passing the marker fails and forces someone to read this entry again.
+The speedup assertion in `tests/rust/test_batch_parallel.py` is expected
+to fail under WSL2 and is enforced everywhere else, so a regression on a
+real runner still fails the suite and a WSL2 developer still sees the
+platform difference named rather than a mysterious red test.
