@@ -552,3 +552,38 @@ environment read has to pass the directory explicitly instead.
 to the package being installed and moves on, so nothing breaks today, and
 it is repaired when phase 11 rewrites the packaging metadata rather than
 in the middle of a phase that is not about packaging.
+
+### A-27: bound arguments are positional only
+
+**Status:** accepted, phase 9.
+
+`PyO3` generates a positional-only signature by default, so a method that
+read `(self, q1, q2, z)` in Python reads `(self, /, q1, q2, z)` once it is
+compiled. Argument names, their order and their defaults are unchanged;
+what is lost is the ability to pass them by keyword, so
+`robot.forward_kinematics(q1=1.0, q2=0.5, z=2.0)` raises where the
+positional form still works.
+
+Restoring keyword calls means an explicit `#[pyo3(signature = (...))]` on
+every bound method across seven binding modules, a few hundred of them.
+The cost was weighed against adapting the handful of call sites that use
+keywords, and adapting the callers won.
+
+`FR-API-02` is narrowed to match: it covers the names, the order and the
+defaults, and no longer covers keyword-callability. The parity test in
+`tests/rust/test_signature_parity.py` normalizes the marker away and
+compares the rest, so a genuine change of an argument name, its position
+or its default still fails.
+
+Two things the same test used to report and no longer does, because the
+measurement was wrong rather than the port:
+
+A compiled class does not hold inherited members in its own dictionary.
+`ManhattanGrid.neighbors` comes from `Grid`, and reading `vars()` called
+it a name that had vanished while `ManhattanGrid().neighbors` worked
+exactly as before. The capture resolves members through the class instead.
+
+A class built by `PyO3` carries its constructor signature on the class,
+through `__text_signature__`, rather than on an `__init__` it does not
+define. The capture reads it from there, so `__init__` and `__new__` are
+treated as the one construction contract they are.

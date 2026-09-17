@@ -12,8 +12,11 @@ from arco.mapping import EuclideanGrid, Grid, ManhattanGrid
 
 
 def test_grid_basic():
-    """Test basic Grid creation and occupancy methods."""
-    grid = Grid((3, 3))
+    """Test basic grid creation and occupancy methods."""
+    # ManhattanGrid rather than Grid, because deviation A-23 makes the
+    # base class abstract. Construction and occupancy are base class
+    # behavior either way, so the assertions below are unchanged.
+    grid = ManhattanGrid((3, 3))
     assert grid.shape == (3, 3)
     assert grid.data.shape == (3, 3)
     grid.set_occupied((1, 1))
@@ -92,22 +95,40 @@ def test_grid_cell_based_has_default_cell_size():
     assert grid.physical_size == (5.0, 7.0)
 
 
+# The three tests below construct ManhattanGrid rather than Grid, because
+# deviation A-23 makes the base class abstract. Validation lives in the
+# base class and both classes raise the same message, so the expected
+# messages are unchanged.
+
+
 def test_grid_invalid_both_shape_and_physical_size():
     """Providing both shape and physical_size raises ValueError."""
     with pytest.raises(ValueError, match="not both"):
-        Grid((3, 3), physical_size=[3.0, 3.0])
+        ManhattanGrid((3, 3), physical_size=[3.0, 3.0])
 
 
 def test_grid_invalid_neither():
     """Providing neither shape nor physical_size raises ValueError."""
     with pytest.raises(ValueError, match="either"):
-        Grid()
+        ManhattanGrid()
 
 
 def test_grid_invalid_negative_cell_size():
     """Non-positive cell_size raises ValueError."""
     with pytest.raises(ValueError, match="positive"):
-        Grid(physical_size=[10.0, 10.0], cell_size=-1.0)
+        ManhattanGrid(physical_size=[10.0, 10.0], cell_size=-1.0)
+
+
+def test_grid_base_class_rejects_direct_construction():
+    """Constructing the base Grid class raises TypeError."""
+    # A-23: Grid.neighbors carries @abstractmethod while Grid never
+    # inherits ABCMeta, so the decorator is inert and the pure-Python
+    # class builds an object whose neighbors() returns None. The port
+    # makes the base abstract for real, and the compiled class reports
+    # "cannot create 'arco._arco.Grid' instances". The pattern leaves the
+    # module path open so a re-export does not break the match.
+    with pytest.raises(TypeError, match=r"cannot create '.*Grid' instances"):
+        Grid((3, 3))
 
 
 # ---------------------------------------------------------------------------

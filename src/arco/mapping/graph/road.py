@@ -1,104 +1,11 @@
-"""RoadGraph: Cartesian graph with per-edge geometry metadata for road networks."""
+"""Road graph, re-exported from the compiled extension.
 
-from __future__ import annotations
+The implementation is ``RoadGraph`` in the ``arco-mapping`` crate,
+reaching Python through :mod:`arco._arco`. It owns a Cartesian graph plus
+the per-edge geometry. Reading a road graph out of a JSON descriptor has
+no crate-side counterpart and stays in :mod:`arco.mapping.graph.loader`.
+"""
 
-from typing import Dict, List, Optional, Tuple
+from arco._arco import RoadGraph
 
-import numpy as np
-
-from .cartesian import CartesianGraph
-
-
-class RoadGraph(CartesianGraph):
-    """Cartesian graph extended with per-edge geometry metadata.
-
-    In addition to the standard CartesianGraph functionality, this class stores
-    sequential waypoints along each edge. These waypoints can be used for
-    spline interpolation, path smoothing, or trajectory generation.
-
-    Each edge between nodes A and B stores an ordered list of intermediate
-    (x, y) waypoints that define the road's geometry. The waypoints do not
-    include the start and end nodes themselves.
-    """
-
-    def __init__(self) -> None:
-        """Initialize an empty road graph."""
-        super().__init__()
-        # Map from edge (min_id, max_id) to list of waypoints
-        self._edge_geometry: Dict[
-            Tuple[int, int], List[Tuple[float, float]]
-        ] = {}
-
-    def add_edge(
-        self,
-        node_a: int,
-        node_b: int,
-        weight: Optional[float] = None,
-        waypoints: Optional[List[Tuple[float, float]]] = None,
-    ) -> None:
-        """Add an undirected weighted edge with optional geometry waypoints.
-
-        Args:
-            node_a: ID of the first node.
-            node_b: ID of the second node.
-            weight: Edge weight. Defaults to the Euclidean distance between
-                the two node positions when *None*.
-            waypoints: Optional list of (x, y) intermediate waypoints along
-                the edge. These points define the road geometry between the
-                two nodes and can be used for spline interpolation.
-        """
-        super().add_edge(node_a, node_b, weight)
-
-        # Store geometry in canonical order (min_id, max_id)
-        edge_key = (min(node_a, node_b), max(node_a, node_b))
-        if waypoints is not None:
-            self._edge_geometry[edge_key] = list(waypoints)
-        else:
-            self._edge_geometry[edge_key] = []
-
-    def edge_geometry(
-        self, node_a: int, node_b: int
-    ) -> List[Tuple[float, float]]:
-        """Return the waypoints defining the geometry of an edge.
-
-        Args:
-            node_a: ID of the first node.
-            node_b: ID of the second node.
-
-        Returns:
-            List of (x, y) waypoints. Empty list if no waypoints were specified
-            for this edge.
-        """
-        edge_key = (min(node_a, node_b), max(node_a, node_b))
-        return self._edge_geometry.get(edge_key, [])
-
-    def full_edge_geometry(self, node_a: int, node_b: int) -> List[np.ndarray]:
-        """Return the complete edge geometry including start and end nodes.
-
-        All elements are :class:`numpy.ndarray` objects for consistency with
-        the N-dimensional architecture.  Intermediate waypoints (stored as
-        tuples) are converted on the fly.
-
-        Args:
-            node_a: ID of the first node.
-            node_b: ID of the second node.
-
-        Returns:
-            List of position arrays starting at node_a, including all
-            intermediate waypoints as ``np.ndarray``, and ending at node_b.
-        """
-        waypoints = self.edge_geometry(node_a, node_b)
-        edge_key = (min(node_a, node_b), max(node_a, node_b))
-
-        wp_arrays = [np.array(wp, dtype=float) for wp in waypoints]
-
-        if node_a == edge_key[0]:
-            return (
-                [self.position(node_a)] + wp_arrays + [self.position(node_b)]
-            )
-        else:
-            return (
-                [self.position(node_a)]
-                + wp_arrays[::-1]
-                + [self.position(node_b)]
-            )
+__all__ = ["RoadGraph"]

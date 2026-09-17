@@ -48,6 +48,25 @@ pub trait DiscreteMap {
     /// The nodes adjacent to `node`.
     fn neighbors(&self, node: Self::Node) -> Vec<Self::Node>;
 
+    /// Whether stepping to `next` changes direction, as zero or one.
+    ///
+    /// A tie-break, not a cost: it separates two paths of equal cost by
+    /// preferring the one that turns less, which is what stops a search
+    /// over a uniform grid returning a staircase where a straight line and
+    /// a staircase cost exactly the same. It never changes which cost
+    /// wins, so the optimality `FR-INV-06` asserts is untouched.
+    ///
+    /// The default is zero, meaning a map with no notion of direction
+    /// declines to break the tie rather than guessing at one.
+    fn turn_penalty(
+        &self,
+        _previous: Option<Self::Node>,
+        _current: Self::Node,
+        _next: Self::Node,
+    ) -> u8 {
+        0
+    }
+
     /// The edge cost between two adjacent nodes.
     ///
     /// # Errors

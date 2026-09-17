@@ -74,6 +74,36 @@ def _public_modules() -> list[str]:
     return ["arco"] + sorted(modules)
 
 
+def _has_python_init(obj: type) -> bool:
+    """Whether *obj* or a base of it defines `__init__` in Python."""
+    return any("__init__" in vars(base) for base in obj.__mro__ if base is not object)
+
+
+def _class_members(obj: type) -> list[str]:
+    """Return the public member names a caller can reach on *obj*.
+
+    Resolved through the class rather than read out of ``vars``, because a
+    compiled class does not hold what it inherits in its own dictionary:
+    ``ManhattanGrid.neighbors`` comes from ``Grid`` and
+    ``vars(ManhattanGrid)`` does not mention it, while
+    ``ManhattanGrid().neighbors`` works exactly as it always did.  Reading
+    the dictionary reports such a name as vanished when nothing about the
+    caller's access to it changed.
+
+    ``__init__`` is treated as one construction contract with ``__new__``
+    for the same reason: a class built by PyO3 carries ``__new__`` and no
+    ``__init__`` of its own, and ``Class(...)`` is unaffected.
+    """
+    reachable = {
+        name
+        for name in dir(obj)
+        if not name.startswith("_") and callable(getattr(obj, name, None))
+    }
+    if callable(getattr(obj, "__init__", None)) or callable(getattr(obj, "__new__", None)):
+        reachable.add("__init__")
+    return sorted(reachable)
+
+
 def capture_signatures() -> dict[str, Any]:
     """Snapshot every public callable's signature, keyed by import path.
 
@@ -104,9 +134,14 @@ def capture_signatures() -> dict[str, Any]:
                 continue
             path = f"{module_name}.{name}"
             if inspect.isclass(obj):
-                for attr, member in sorted(vars(obj).items()):
-                    if attr.startswith("_") and attr != "__init__":
-                        continue
+                for attr in _class_members(obj):
+                    member = getattr(obj, attr, None)
+                    if attr == "__init__" and not _has_python_init(obj):
+                        # A compiled class carries its constructor
+                        # signature on the class itself, through
+                        # `__text_signature__`, rather than on a
+                        # `__init__` it does not define.
+                        member = obj
                     if not callable(member):
                         continue
                     try:

@@ -1,80 +1,11 @@
-"""ManhattanGrid: axis-aligned neighbor logic for discrete planners."""
+"""Manhattan grid, re-exported from the compiled extension.
 
-from __future__ import annotations
+The implementation is ``ManhattanGrid`` in the ``arco-mapping`` crate,
+reaching Python through :mod:`arco._arco`. Four-connected neighbors and
+L1 distance come as one pairing fixed at construction rather than as an
+overridable method, per deviation A-03 in ``docs/rust/DEVIATIONS.md``.
+"""
 
-from typing import Iterator, Sequence, Tuple
+from arco._arco import ManhattanGrid
 
-import numpy as np
-
-from .base import Grid
-
-
-class ManhattanGrid(Grid):
-    """
-    Grid with Manhattan (L1) connectivity and distance.
-
-    Only axis-aligned neighbors are considered.
-    """
-
-    def __init__(
-        self,
-        shape: Sequence[int] | None = None,
-        *,
-        physical_size: Sequence[float] | None = None,
-        cell_size: float = 1.0,
-    ) -> None:
-        """Initialize a ManhattanGrid.
-
-        Args:
-            shape: Grid dimensions in cells.  Mutually exclusive with
-                *physical_size*.
-            physical_size: Physical size of the grid in meters for each axis.
-                Mutually exclusive with *shape*.  Requires *cell_size*.
-            cell_size: Physical size of one cell in meters (default 1.0).
-        """
-        super().__init__(
-            shape, physical_size=physical_size, cell_size=cell_size
-        )
-
-    def distance(self, a: Tuple[int, ...], b: Tuple[int, ...]) -> int:
-        """Return L1 (Manhattan) distance between two nodes.
-
-        Args:
-            a: First node index.
-            b: Second node index.
-        Returns:
-            Manhattan (L1) distance as int.
-        """
-        return sum(abs(x - y) for x, y in zip(a, b))
-
-    def neighbors(self, idx: Tuple[int, ...]) -> Iterator[Tuple[int, ...]]:
-        """Yield axis-aligned neighbor indices for a given cell.
-
-        Args:
-            idx: Index of the cell to find neighbors for.
-        Yields:
-            Neighbor indices as tuples.
-        """
-        ndim = len(self.shape)
-        idx_arr = np.array(idx)
-        for d in range(ndim):
-            for sign in [-1, 1]:
-                offset = np.zeros(ndim, dtype=int)
-                offset[d] = sign
-                neighbor = tuple(idx_arr + offset)
-                if all(0 <= n < s for n, s in zip(neighbor, self.shape)):
-                    yield neighbor
-
-        def squared_distance(
-            self, a: Tuple[int, ...], b: Tuple[int, ...]
-        ) -> int:
-            """Return squared L1 (Manhattan) distance between two nodes.
-
-            Args:
-                a: First node index.
-                b: Second node index.
-            Returns:
-                Squared L1 distance as integer.
-            """
-            d = sum(abs(x - y) for x, y in zip(a, b))
-            return d * d
+__all__ = ["ManhattanGrid"]

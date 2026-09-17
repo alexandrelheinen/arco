@@ -4,6 +4,8 @@
 //! in how they store the tree or how they turn a leaf into a path, so
 //! those two things live here rather than twice.
 
+use std::collections::BTreeMap;
+
 use arco_core::Error;
 use arco_core::protocols::{Occupancy, PlannerCost};
 
@@ -182,6 +184,85 @@ impl Tree {
         }
         path.reverse();
         path
+    }
+}
+
+/// The tree a sampling planner grew, for a caller that wants to draw it.
+///
+/// A plain snapshot rather than a handle: the planner has finished by the
+/// time this exists, so there is nothing to keep borrowing and a caller
+/// that wants to keep it can.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PlannerTree {
+    states: Vec<Vec<f64>>,
+    parents: Vec<Option<usize>>,
+}
+
+impl PlannerTree {
+    /// The states, in the order the planner added them.
+    #[must_use]
+    pub fn states(&self) -> &[Vec<f64>] {
+        &self.states
+    }
+
+    /// The parent of each state by index, `None` for a root.
+    #[must_use]
+    pub fn parents(&self) -> &[Option<usize>] {
+        &self.parents
+    }
+
+    /// How many states the tree holds.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.states.len()
+    }
+
+    /// Whether the tree is empty, which only a failed query produces.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.states.is_empty()
+    }
+}
+
+impl Tree {
+    /// A snapshot of the whole tree.
+    pub(crate) fn snapshot(&self) -> PlannerTree {
+        PlannerTree {
+            states: self.states.clone(),
+            parents: self.parents.clone(),
+        }
+    }
+
+    /// A snapshot of `kept` only, renumbered from zero.
+    ///
+    /// SST retires a node when a cheaper one takes its region, and what a
+    /// caller draws is the surviving tree rather than everything that was
+    /// ever tried. A parent that did not survive becomes `None`, so the
+    /// result is a forest of the nodes that are still growable rather than
+    /// a tree with dangling indices.
+    pub(crate) fn snapshot_of(&self, kept: impl IntoIterator<Item = usize>) -> PlannerTree {
+        let ordered: Vec<usize> = {
+            let mut indices: Vec<usize> = kept.into_iter().collect();
+            indices.sort_unstable();
+            indices.dedup();
+            indices
+        };
+        let renumbered: BTreeMap<usize, usize> = ordered
+            .iter()
+            .enumerate()
+            .map(|(new, &old)| (old, new))
+            .collect();
+
+        let mut states = Vec::with_capacity(ordered.len());
+        let mut parents = Vec::with_capacity(ordered.len());
+        for &old in &ordered {
+            states.push(self.state(old).to_vec());
+            parents.push(
+                self.parent(old)
+                    .and_then(|parent| renumbered.get(&parent).copied()),
+            );
+        }
+        PlannerTree { states, parents }
     }
 }
 

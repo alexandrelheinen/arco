@@ -141,6 +141,10 @@ macro_rules! grid_impl {
                 neighbors_of(&self.cells, node, $diagonal)
             }
 
+            fn turn_penalty(&self, previous: Option<usize>, current: usize, next: usize) -> u8 {
+                turn_penalty_of(&self.cells, previous, current, next)
+            }
+
             fn distance(&self, from: usize, to: usize) -> Result<f64, Error> {
                 let start = self.cells.position(from)?;
                 let end = self.cells.position(to)?;
@@ -171,3 +175,39 @@ grid_impl!(
     arco_core::geometry::euclidean_distance,
     "Builds an eight-connected grid whose cells are all free."
 );
+
+/// Whether the step from `current` to `next` turns, as zero or one.
+///
+/// Direction is the per-axis sign of the index difference, so on a grid it
+/// is exactly the eight compass headings and the comparison is integer. A
+/// first step has nothing to have turned from and so never turns.
+fn turn_penalty_of(cells: &GridCells, previous: Option<usize>, current: usize, next: usize) -> u8 {
+    let Some(previous) = previous else { return 0 };
+    let (Ok(before), Ok(here), Ok(after)) = (
+        cells.cell_index(previous),
+        cells.cell_index(current),
+        cells.cell_index(next),
+    ) else {
+        return 0;
+    };
+
+    for axis in 0..here.len() {
+        let incoming = step_sign(&before, &here, axis);
+        let outgoing = step_sign(&here, &after, axis);
+        if incoming != outgoing {
+            return 1;
+        }
+    }
+    0
+}
+
+/// The sign of the move along one axis, as minus one, zero or one.
+fn step_sign(from: &[usize], to: &[usize], axis: usize) -> i8 {
+    let start = from.get(axis).copied().unwrap_or_default();
+    let end = to.get(axis).copied().unwrap_or_default();
+    match end.cmp(&start) {
+        core::cmp::Ordering::Less => -1,
+        core::cmp::Ordering::Equal => 0,
+        core::cmp::Ordering::Greater => 1,
+    }
+}
