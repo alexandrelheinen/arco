@@ -71,8 +71,12 @@ fn the_tree_agrees_with_a_brute_force_scan() {
 fn clearance_turns_a_point_into_a_region() {
     let occupancy = KdTreeOccupancy::new(&[vec![0.0, 0.0]], 1.0).unwrap();
     assert!(occupancy.is_occupied(&[0.5, 0.0]).unwrap());
-    assert!(occupancy.is_occupied(&[1.0, 0.0]).unwrap());
     assert!(!occupancy.is_occupied(&[1.5, 0.0]).unwrap());
+    // Exactly on the radius is free, matching `distance < clearance` in
+    // the Python. The boundary has to fall the same way on both sides,
+    // because a segment check samples its endpoints and an endpoint one
+    // side calls occupied turns a usable path into a refusal.
+    assert!(!occupancy.is_occupied(&[1.0, 0.0]).unwrap());
 }
 
 #[test]

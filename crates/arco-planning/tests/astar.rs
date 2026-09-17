@@ -33,6 +33,7 @@ fn astar() -> SearchOptions {
     SearchOptions {
         max_expansions: 1_000_000,
         use_heuristic: true,
+        prefer_straight: true,
     }
 }
 
@@ -40,6 +41,7 @@ fn dijkstra() -> SearchOptions {
     SearchOptions {
         max_expansions: 1_000_000,
         use_heuristic: false,
+        prefer_straight: true,
     }
 }
 
@@ -196,6 +198,7 @@ fn an_exhausted_budget_is_reported_as_retryable() {
         SearchOptions {
             max_expansions: 10,
             use_heuristic: true,
+            prefer_straight: true,
         },
     )
     .unwrap();
@@ -216,6 +219,7 @@ fn a_larger_budget_turns_exhaustion_into_a_path() {
         SearchOptions {
             max_expansions: 10,
             use_heuristic: true,
+            prefer_straight: true,
         },
     )
     .unwrap();
@@ -369,6 +373,7 @@ fn every_failure_reason_is_reachable() {
             SearchOptions {
                 max_expansions: 1,
                 use_heuristic: true,
+                prefer_straight: true,
             },
         )
         .unwrap()

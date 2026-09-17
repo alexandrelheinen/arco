@@ -278,6 +278,7 @@ fn an_exhausted_budget_is_reported_as_retryable() {
     let router = RouteRouter::new(grid_graph(), None).with_options(SearchOptions {
         max_expansions: 1,
         use_heuristic: true,
+        prefer_straight: true,
     });
     let outcome = router.plan(&[0.0, 0.0], &[20.0, 20.0]).unwrap();
     assert_eq!(outcome.failure(), Some(PlanFailure::BudgetExhausted));
@@ -307,6 +308,7 @@ fn routing_agrees_with_an_uninformed_search_over_the_same_graph() {
             SearchOptions {
                 max_expansions: 1_000_000,
                 use_heuristic: false,
+                prefer_straight: true,
             },
         )
         .unwrap();

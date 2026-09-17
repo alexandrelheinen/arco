@@ -151,7 +151,12 @@ impl Occupancy for KdTreeOccupancy {
     }
 
     fn is_occupied(&self, point: &[f64]) -> Result<bool, Error> {
-        Ok(self.nearest_obstacle(point)?.distance <= 0.0)
+        // Strictly inside, so a point exactly at the clearance radius is
+        // free. Python compared `distance < clearance` and the two have to
+        // agree: a segment check samples both endpoints, and an endpoint
+        // that one side calls occupied and the other calls free turns a
+        // path into a failure depending on which asked.
+        Ok(self.nearest_obstacle(point)?.distance < 0.0)
     }
 
     fn is_segment_free(&self, from: &[f64], to: &[f64]) -> Result<bool, Error> {

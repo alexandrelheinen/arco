@@ -10,7 +10,7 @@ use arco_core::rng::Pcg64;
 use crate::failure::{PlanFailure, PlanOutcome};
 
 use super::policy::{CostPolicy, SamplerPolicy, SegmentPolicy, SteererPolicy};
-use super::tree::{Tree, close_path};
+use super::tree::{PlannerTree, Tree, close_path};
 
 /// How an SST run should behave.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -171,22 +171,47 @@ impl<O: Occupancy> SstPlanner<O> {
         goal: &[f64],
         generator: &mut Pcg64,
     ) -> Result<PlanOutcome<Vec<f64>>, Error> {
+        Ok(self.plan_tree(start, goal, generator)?.0)
+    }
+
+    /// Plans, and hands back the tree that survived.
+    ///
+    /// The active nodes only, renumbered from zero, which is the whole
+    /// point of SST: a node retired when a cheaper one took its region is
+    /// no longer somewhere the tree can grow from, and drawing it would
+    /// make the sparse tree look exactly as dense as an RRT.
+    ///
+    /// # Errors
+    ///
+    /// As [`SstPlanner::plan`].
+    pub fn plan_tree(
+        &self,
+        start: &[f64],
+        goal: &[f64],
+        generator: &mut Pcg64,
+    ) -> Result<(PlanOutcome<Vec<f64>>, PlannerTree), Error> {
         require_finite("start", start)?;
         require_finite("goal", goal)?;
         require_dimension("goal", goal, start.len())?;
         self.require_growable_witness_radius()?;
 
         if self.occupancy_blocks(start)? {
-            return Ok(PlanOutcome::Failed {
-                reason: PlanFailure::StartOccupied,
-                expanded: 0,
-            });
+            return Ok((
+                PlanOutcome::Failed {
+                    reason: PlanFailure::StartOccupied,
+                    expanded: 0,
+                },
+                PlannerTree::default(),
+            ));
         }
         if self.occupancy_blocks(goal)? {
-            return Ok(PlanOutcome::Failed {
-                reason: PlanFailure::GoalOccupied,
-                expanded: 0,
-            });
+            return Ok((
+                PlanOutcome::Failed {
+                    reason: PlanFailure::GoalOccupied,
+                    expanded: 0,
+                },
+                PlannerTree::default(),
+            ));
         }
 
         let dimension = start.len();
@@ -244,20 +269,22 @@ impl<O: Occupancy> SstPlanner<O> {
                 best_goal_cost = reached;
                 best_goal = Some(added);
                 if self.settings.early_stop {
-                    return self.finish(&tree, added, goal, iteration.saturating_add(1));
+                    let outcome = self.finish(&tree, added, goal, iteration.saturating_add(1))?;
+                    return Ok((outcome, tree.snapshot_of(active)));
                 }
             }
         }
 
-        match best_goal {
-            Some(index) => self.finish(&tree, index, goal, self.settings.max_samples),
-            None => Ok(PlanOutcome::Failed {
+        let outcome = match best_goal {
+            Some(index) => self.finish(&tree, index, goal, self.settings.max_samples)?,
+            None => PlanOutcome::Failed {
                 // Sampling never proves a goal unreachable, it only runs
                 // out of samples, so this is always the retryable answer.
                 reason: PlanFailure::BudgetExhausted,
                 expanded: self.settings.max_samples,
-            }),
-        }
+            },
+        };
+        Ok((outcome, tree.snapshot_of(active)))
     }
 
     /// Admits `candidate` only if it beats whatever holds its region.

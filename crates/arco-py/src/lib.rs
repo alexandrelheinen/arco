@@ -57,6 +57,14 @@
 
 use pyo3::prelude::*;
 
+mod core;
+mod errors;
+mod hooks;
+mod kinematics;
+mod mapping;
+mod planning;
+mod runtime;
+
 /// Version of the compiled extension, for diagnostics and parity tests.
 #[pyfunction]
 fn version() -> &'static str {
@@ -72,5 +80,10 @@ fn version() -> &'static str {
 #[pymodule]
 fn _arco(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(version, module)?)?;
+    core::register(module)?;
+    mapping::register(module)?;
+    kinematics::register(module)?;
+    planning::register(module)?;
+    runtime::register(module)?;
     Ok(())
 }

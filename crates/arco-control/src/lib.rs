@@ -45,6 +45,7 @@ pub mod body;
 pub mod joint;
 pub mod limits;
 mod linalg;
+pub mod mpc;
 pub mod pid;
 pub mod pursuit;
 pub mod tracking;
