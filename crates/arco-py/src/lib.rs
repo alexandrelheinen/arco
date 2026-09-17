@@ -69,6 +69,7 @@ mod mpc;
 mod pipeline;
 mod planning;
 mod runtime;
+mod telemetry;
 
 /// Version of the compiled extension, for diagnostics and parity tests.
 #[pyfunction]
@@ -93,6 +94,7 @@ fn _arco(module: &Bound<'_, PyModule>) -> PyResult<()> {
     guidance::register(module)?;
     planning::register(module)?;
     pipeline::register(module)?;
+    telemetry::register(module)?;
     runtime::register(module)?;
     Ok(())
 }

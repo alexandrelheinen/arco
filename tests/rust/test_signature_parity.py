@@ -98,6 +98,20 @@ _EXEMPT = frozenset(
         # same empty dict built inside the constructor.
         "arco.planning.PipelineResult.__init__",
         "arco.planning.pipeline.PipelineResult.__init__",
+        # And on the telemetry snapshot, whose `criteria` defaulted to an
+        # empty list built per call.
+        "arco.planning.continuous.PlannerTelemetry.__init__",
+        "arco.planning.continuous.telemetry.PlannerTelemetry.__init__",
+        # The two telemetry file helpers defaulted their path to a
+        # `PosixPath` value, which a compiled signature cannot spell: a
+        # text signature is parsed by `inspect`, so its defaults have to
+        # be literals. They take `None` and resolve it to the same
+        # `DEFAULT_TELEMETRY_PATH` the module still exports, so a call
+        # that passed nothing lands on the same file.
+        "arco.planning.continuous.read_telemetry",
+        "arco.planning.continuous.write_telemetry",
+        "arco.planning.continuous.telemetry.read_telemetry",
+        "arco.planning.continuous.telemetry.write_telemetry",
     }
 )
 
