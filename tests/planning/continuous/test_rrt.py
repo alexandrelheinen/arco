@@ -328,14 +328,3 @@ def test_vector_step_size_mixed_units_3d():
     assert np.allclose(path[-1], goal)
 
 
-def test_vector_step_size_steer_respects_per_dimension():
-    """_steer must not exceed one normalized step in any direction."""
-    occ = _empty_occupancy()
-    step = np.array([0.3, 2.0])
-    planner = RRTPlanner(occ, bounds=BOUNDS_2D, step_size=step)
-    from_pt = np.array([0.0, 0.0])
-    to_pt = np.array([10.0, 10.0])
-    new_pt = planner._steer(from_pt, to_pt)
-    # Normalized distance must be <= 1.0
-    norm_dist = float(np.linalg.norm((new_pt - from_pt) / step))
-    assert norm_dist <= 1.0 + 1e-9

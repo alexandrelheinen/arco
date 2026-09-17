@@ -10,7 +10,9 @@ use arco_core::rng::Pcg64;
 use crate::failure::{PlanFailure, PlanOutcome};
 
 use super::policy::{CostPolicy, SamplerPolicy, SegmentPolicy, SteererPolicy};
-use super::tree::{PlannerTree, Tree, close_path};
+use super::tree::{
+    PROGRESS_INTERVAL, PlannerProgress, PlannerTree, ProgressObserver, Tree, close_path,
+};
 
 /// How an SST run should behave.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -190,6 +192,26 @@ impl<O: Occupancy> SstPlanner<O> {
         goal: &[f64],
         generator: &mut Pcg64,
     ) -> Result<(PlanOutcome<Vec<f64>>, PlannerTree), Error> {
+        self.plan_observed(start, goal, generator, &mut |_progress| {})
+    }
+
+    /// Plans, reporting progress every [`PROGRESS_INTERVAL`] iterations.
+    ///
+    /// The observer is what a loading screen reads. It is called on a
+    /// fixed interval rather than every iteration, because a
+    /// caller-supplied sink costs a crossing per call and ADR-004 is
+    /// about keeping those off the inner loop.
+    ///
+    /// # Errors
+    ///
+    /// As [`SstPlanner::plan`].
+    pub fn plan_observed(
+        &self,
+        start: &[f64],
+        goal: &[f64],
+        generator: &mut Pcg64,
+        observe: ProgressObserver<'_>,
+    ) -> Result<(PlanOutcome<Vec<f64>>, PlannerTree), Error> {
         require_finite("start", start)?;
         require_finite("goal", goal)?;
         require_dimension("goal", goal, start.len())?;
@@ -222,7 +244,16 @@ impl<O: Occupancy> SstPlanner<O> {
         let mut best_goal: Option<usize> = None;
         let mut best_goal_cost = f64::INFINITY;
 
+        let mut closest_to_goal = f64::INFINITY;
         for iteration in 0..self.settings.max_samples {
+            if iteration.is_multiple_of(PROGRESS_INTERVAL) {
+                observe(PlannerProgress {
+                    iteration,
+                    max_iterations: self.settings.max_samples,
+                    best_distance_to_goal: closest_to_goal,
+                    tree_size: tree.len(),
+                });
+            }
             let target = if generator.next_f64() < self.settings.goal_bias {
                 goal.to_vec()
             } else {
@@ -263,9 +294,9 @@ impl<O: Occupancy> SstPlanner<O> {
                 continue;
             };
 
-            if self.cost.distance(&candidate, goal)? <= self.settings.goal_tolerance
-                && reached < best_goal_cost
-            {
+            let reach = self.cost.distance(&candidate, goal)?;
+            closest_to_goal = closest_to_goal.min(reach);
+            if reach <= self.settings.goal_tolerance && reached < best_goal_cost {
                 best_goal_cost = reached;
                 best_goal = Some(added);
                 if self.settings.early_stop {

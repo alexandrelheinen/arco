@@ -95,6 +95,44 @@ impl DubinsVehicle {
         Ok(())
     }
 
+    /// Places the vehicle at a speed and turn rate directly.
+    ///
+    /// The kinematic state is normally an output: a command goes in and
+    /// the state follows. Starting a run part way through a manoeuvre
+    /// needs it as an input, and Python let a caller assign the private
+    /// attributes to do that. This is the same thing with the limits
+    /// checked, which assigning an attribute never was.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::NotFinite`] when a value is not a real number, or
+    /// [`Error::OutOfRange`] when it falls outside the configured limits.
+    pub fn set_motion(&mut self, speed: f64, turn_rate: f64) -> Result<(), Error> {
+        for (quantity, value) in [("speed", speed), ("turn rate", turn_rate)] {
+            if !value.is_finite() {
+                return Err(Error::NotFinite { quantity, value });
+            }
+        }
+        let limits = self.limits();
+        if speed < limits.min_speed || speed > limits.max_speed {
+            return Err(Error::OutOfRange {
+                quantity: "speed",
+                value: speed,
+                bound: "the configured speed band",
+            });
+        }
+        if turn_rate.abs() > limits.max_turn_rate {
+            return Err(Error::OutOfRange {
+                quantity: "turn rate",
+                value: turn_rate,
+                bound: "the configured turn-rate limit",
+            });
+        }
+        self.speed = speed;
+        self.turn_rate = turn_rate;
+        Ok(())
+    }
+
     /// Returns the vehicle to `(x, y, heading)` at rest.
     ///
     /// # Errors

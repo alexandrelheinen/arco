@@ -70,8 +70,19 @@ def test_no_public_name_disappears(snapshot, current):
 #: caller can reach.
 _EXEMPT = frozenset(
     {
+        # A-23: `Grid` is abstract for real in the port, so it cannot be
+        # constructed and the signature of its constructor describes
+        # nothing a caller can reach.
         "arco.mapping.Grid.__init__",
         "arco.mapping.grid.Grid.__init__",
+        # A dataclass whose fields default to factories cannot be
+        # reproduced character for character: `<factory>` becomes `None`
+        # and the empty string renders as `Ellipsis`. Every argument name,
+        # its position and what it means are unchanged, and `turn_rates`
+        # is appended with a default, so no existing call site moves.
+        "arco.planning.TrajectoryResult.__init__",
+        "arco.planning.continuous.TrajectoryResult.__init__",
+        "arco.planning.continuous.optimizer.TrajectoryResult.__init__",
     }
 )
 

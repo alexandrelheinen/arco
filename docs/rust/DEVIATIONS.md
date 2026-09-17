@@ -587,3 +587,37 @@ A class built by `PyO3` carries its constructor signature on the class,
 through `__text_signature__`, rather than on an `__init__` it does not
 define. The capture reads it from there, so `__init__` and `__new__` are
 treated as the one construction contract they are.
+
+### A-28: configuration values are coerced, not extracted
+
+**Status:** accepted, phase 9.
+
+`PyYAML` follows the 1.1 spec, where a float's exponent needs a sign, so
+`1.0e2` in `src/arco/config/optimizer.yml` parses as the string `"1.0e2"`
+and four of the five optimizer weights arrive as text. The Python original
+wrapped every read in `float(...)` and never noticed. The binding extracted
+instead, and `TrajectoryOptimizer.create_from_config` died with
+`TypeError: must be real number, not str` against the repository's own
+configuration file, which four shipped simulator scenes call.
+
+The readers coerce, as the Python did. The alternative, quoting the
+exponents in the YAML, fixes one file and leaves every other caller's
+configuration to fail the same way.
+
+### A-29: a hook that raises surfaces on the call that raised
+
+**Status:** accepted, phase 9.
+
+Two trait methods a Python hook can be reached through, `neighbors` and
+the feasibility check, cannot return an error, so an exception raised
+inside one is parked and an empty answer handed back. The search would
+then finish, report no path, and leave the exception held.
+
+Two things went wrong with that. The call that raised reported
+`last_failure` as "no path exists", which contradicts `FR-API-04`. And the
+parked exception outlived its call: the next genuine failure surfaced the
+stale one instead, so a `ValueError` raised by a second plan came back as
+a `KeyError` from the first.
+
+Every call now drains the slot whether the search succeeded or not, and
+raises what it finds.

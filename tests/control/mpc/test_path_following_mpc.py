@@ -69,7 +69,7 @@ def test_mpc_tracks_straight_path_no_obstacles(straight_path) -> None:
         max_turn_rate_dot=2.0,
     )
     # Seed near cruise so the horizon is useful immediately.
-    vehicle._speed = cfg.cruise_speed
+    vehicle.speed = cfg.cruise_speed
 
     dt = cfg.dt
     steps = int(5.0 / dt)
@@ -117,7 +117,7 @@ def test_mpc_slows_before_box_obstacle(straight_path) -> None:
         max_acceleration=1.5,
         max_turn_rate_dot=2.0,
     )
-    vehicle._speed = cfg.cruise_speed
+    vehicle.speed = cfg.cruise_speed
 
     dt = cfg.dt
     steps = int(2.0 / dt)
@@ -159,7 +159,7 @@ def test_mpc_avoids_lateral_obstacle(straight_path) -> None:
         max_acceleration=1.5,
         max_turn_rate_dot=2.0,
     )
-    vehicle._speed = cfg.cruise_speed
+    vehicle.speed = cfg.cruise_speed
 
     dt = cfg.dt
     steps = int(6.0 / dt)
@@ -206,7 +206,7 @@ def test_mpc_respects_max_turn_rate(straight_path) -> None:
         max_acceleration=1.5,
         max_turn_rate_dot=2.0,
     )
-    vehicle._speed = cfg.cruise_speed
+    vehicle.speed = cfg.cruise_speed
 
     dt = cfg.dt
     for _ in range(80):
@@ -308,7 +308,7 @@ def test_mpc_progress_does_not_reverse_when_heading_error_is_large() -> None:
         max_acceleration=1.5,
         max_turn_rate_dot=2.0,
     )
-    vehicle._speed = 0.5
+    vehicle.speed = 0.5
 
     # Seed progress near mid-path so a reverse step would be visible.
     mpc._progress = 5.0
@@ -361,7 +361,7 @@ def test_mpc_progress_advances_through_sharp_corner() -> None:
         max_acceleration=1.0,
         max_turn_rate_dot=2.0,
     )
-    vehicle._speed = cfg.cruise_speed
+    vehicle.speed = cfg.cruise_speed
 
     dt = cfg.dt
     progresses: list[float] = []
@@ -430,7 +430,7 @@ def test_mpc_lane_aware_corner_stays_inside_road_budget() -> None:
         max_acceleration=limits.max_acceleration,
         max_turn_rate_dot=limits.max_turn_rate_dot,
     )
-    vehicle._speed = cfg.cruise_speed
+    vehicle.speed = cfg.cruise_speed
 
     dt = cfg.dt
     progresses: list[float] = []
@@ -509,7 +509,7 @@ def test_mpc_city_horizon_solves_dense_astar_style_kinks() -> None:
         max_turn_rate_dot=limits.max_turn_rate_dot,
     )
     # Match race start: vehicle begins at rest.
-    vehicle._speed = 0.0
+    vehicle.speed = 0.0
 
     # Control period equals the model dt (the corrected city wiring).
     dt = cfg.dt

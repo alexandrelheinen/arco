@@ -75,8 +75,21 @@ def _public_modules() -> list[str]:
 
 
 def _has_python_init(obj: type) -> bool:
-    """Whether *obj* or a base of it defines `__init__` in Python."""
-    return any("__init__" in vars(base) for base in obj.__mro__ if base is not object)
+    """Whether the nearest `__init__` above *obj* is written in Python.
+
+    A compiled class may carry an `__init__` that exists only to absorb a
+    subclass calling `super().__init__(...)`, since construction happened
+    in `__new__`.  Its signature is `(*args, **kwargs)` and describes
+    nothing, so the real constructor signature has to come off the class
+    instead.  Only a Python `__init__` is worth reading directly.
+    """
+    for base in obj.__mro__:
+        if base is object:
+            continue
+        found = vars(base).get("__init__")
+        if found is not None:
+            return inspect.isfunction(found)
+    return False
 
 
 def _class_members(obj: type) -> list[str]:

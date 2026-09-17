@@ -1,31 +1,10 @@
-"""BSplineInterpolator: B-spline path interpolation."""
+"""B-spline interpolation, re-exported from the compiled extension.
 
-from __future__ import annotations
+The implementation is ``BSplineInterpolator`` in the ``arco-guidance`` crate, registered
+back under its Python spelling by the binding layer and reaching callers
+through :mod:`arco._arco`. Deviation C-12: this returns its input unchanged, in Python as well, and is documented as a placeholder rather than an implementation.
+"""
 
-from typing import Any, List
+from arco._arco import BSplineInterpolator
 
-from .base import Interpolator
-
-
-class BSplineInterpolator(Interpolator):
-    """B-spline interpolator for smoothing discrete paths."""
-
-    def __init__(self, degree: int = 3) -> None:
-        """Initialize BSplineInterpolator.
-
-        Args:
-            degree: Degree of the B-spline polynomial.
-        """
-        self.degree = degree
-
-    def interpolate(self, path: List[Any]) -> List[Any]:
-        """Smooth a discrete path using B-spline interpolation (stub).
-
-        Args:
-            path: A list of discrete waypoints.
-
-        Returns:
-            A list of waypoints representing the smoothed trajectory.
-        """
-        # Placeholder: would use scipy.interpolate in practice
-        return path
+__all__ = ["BSplineInterpolator"]

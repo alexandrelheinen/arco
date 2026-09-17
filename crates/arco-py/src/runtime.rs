@@ -38,7 +38,7 @@ use arco_core::Error;
 use arco_runtime::bus::{DEFAULT_CAPACITY, PublishReport};
 use arco_runtime::node::{Control, Handle, Node, Outcome};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::{PyDict, PyList, PyTuple};
 
 use crate::errors::OrRaise;
 
@@ -63,6 +63,19 @@ pub(crate) struct PyBus;
 
 #[pymethods]
 impl PyBus {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
     /// Builds the base, which carries no state of its own.
     #[new]
     #[pyo3(text_signature = "()")]
@@ -281,15 +294,40 @@ pub(crate) struct PyBusPublisher {
     bus: Mutex<Option<Py<PyAny>>>,
 }
 
-#[pymethods]
 impl PyBusPublisher {
     /// Builds a publisher with no bus attached.
-    #[new]
-    #[pyo3(text_signature = "()")]
-    fn new() -> Self {
+    ///
+    /// Separate from the Python constructor because a subclass built from
+    /// Rust passes no arguments, while one built from Python passes its
+    /// own and expects them ignored.
+    pub(crate) const fn detached() -> Self {
         Self {
             bus: Mutex::new(None),
         }
+    }
+}
+
+#[pymethods]
+impl PyBusPublisher {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
+    /// Builds a publisher with no bus attached.
+    #[new]
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[pyo3(text_signature = "()")]
+    fn new(_args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> Self {
+        Self::detached()
     }
 
     /// Attaches the bus published frames are routed through.
@@ -332,10 +370,24 @@ pub(crate) struct PyBusSubscriber {
 
 #[pymethods]
 impl PyBusSubscriber {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
     /// Builds a subscriber with an empty subscription registry.
     #[new]
+    #[pyo3(signature = (*_args, **_kwargs))]
     #[pyo3(text_signature = "()")]
-    fn new() -> Self {
+    fn new(_args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> Self {
         Self {
             subscriptions: Mutex::new(Vec::new()),
         }
@@ -494,11 +546,24 @@ pub(crate) struct PyPipelineNode {
 
 #[pymethods]
 impl PyPipelineNode {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
     /// Builds a node under the given name.
     #[new]
     #[pyo3(text_signature = "(name)")]
     fn new(name: String) -> PyClassInitializer<Self> {
-        PyClassInitializer::from(PyBusPublisher::new()).add_subclass(Self {
+        PyClassInitializer::from(PyBusPublisher::detached()).add_subclass(Self {
             label: name,
             stop: Arc::new(AtomicBool::new(false)),
             handle: Mutex::new(None),

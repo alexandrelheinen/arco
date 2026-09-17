@@ -1,26 +1,10 @@
-"""ExplorationPrimitive: abstract base for exploration primitives."""
+"""The primitive base, re-exported from the compiled extension.
 
-from __future__ import annotations
+The implementation is the ``ExplorationPrimitive`` trait in the ``arco-guidance`` crate, registered
+back under its Python spelling by the binding layer and reaching callers
+through :mod:`arco._arco`.
+"""
 
-from abc import ABC, abstractmethod
-from typing import Any, List
+from arco._arco import ExplorationPrimitive
 
-
-class ExplorationPrimitive(ABC):
-    """Abstract base for exploration primitives (e.g., Dubins, Reeds-Shepp).
-
-    Used in RRT-based planners to ensure kinematic feasibility.
-    """
-
-    @abstractmethod
-    def steer(self, from_state: Any, to_state: Any) -> List[Any]:
-        """Return a feasible path segment from from_state to to_state.
-
-        Args:
-            from_state: The starting state.
-            to_state: The target state.
-
-        Returns:
-            A list of states representing the path segment.
-        """
-        pass
+__all__ = ["ExplorationPrimitive"]
