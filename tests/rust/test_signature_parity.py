@@ -93,6 +93,11 @@ _EXEMPT = frozenset(
         "arco.control.MPCStepResult.__init__",
         "arco.control.mpc.MPCStepResult.__init__",
         "arco.control.mpc.result.MPCStepResult.__init__",
+        # And on the pipeline snapshot, whose `extra` defaulted to an
+        # empty dict built per call and now defaults to `None` with the
+        # same empty dict built inside the constructor.
+        "arco.planning.PipelineResult.__init__",
+        "arco.planning.pipeline.PipelineResult.__init__",
     }
 )
 

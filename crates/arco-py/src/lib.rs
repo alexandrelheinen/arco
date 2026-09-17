@@ -66,6 +66,7 @@ mod hooks;
 mod kinematics;
 mod mapping;
 mod mpc;
+mod pipeline;
 mod planning;
 mod runtime;
 
@@ -91,6 +92,7 @@ fn _arco(module: &Bound<'_, PyModule>) -> PyResult<()> {
     kinematics::register(module)?;
     guidance::register(module)?;
     planning::register(module)?;
+    pipeline::register(module)?;
     runtime::register(module)?;
     Ok(())
 }

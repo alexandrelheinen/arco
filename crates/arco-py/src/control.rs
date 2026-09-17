@@ -37,7 +37,7 @@ use arco_control::body::{BodyState, CircleBody, RigidBody, SquareBody};
 use arco_control::joint::{JointLimits, JointSpaceTracker, JointTrackerSettings};
 use arco_control::limits::CommandLimits;
 use arco_control::pid::{PidController, PidGains, PidSettings};
-use arco_control::pursuit::PurePursuitTracker;
+use arco_control::pursuit::{self, PurePursuitTracker};
 use arco_control::tracking::{TrackingLoop, TrackingSample, TrackingSettings};
 use arco_core::Error;
 use arco_core::geometry::Pose;
@@ -552,6 +552,89 @@ impl PyPurePursuitController {
     const fn control(&self, state: f64, reference: f64) -> f64 {
         reference - state
     }
+}
+
+/// Find the point on `path` at distance `lookahead` from `(x, y)`.
+///
+/// Scans forward from the segment ending at `path[start_idx]`, so a vehicle
+/// sitting between two waypoints still finds the segment it is on. When no
+/// segment meets the lookahead circle, which happens once the vehicle has
+/// drifted further off the path than the circle reaches, the answer is the
+/// next waypoint forward rather than the goal: steering at the goal from
+/// off-track cuts every corner between here and there.
+///
+/// A tracker is built for the call and discarded, since `lookahead` is
+/// this function's own argument rather than a value carried on a
+/// long-lived controller.
+///
+/// Args:
+///     `x`: Vehicle x position.
+///     `y`: Vehicle y position.
+///     `path`: Ordered sequence of `(x, y)` waypoints.
+///     `start_idx`: Index of the closest waypoint on the path.
+///     `lookahead`: Lookahead distance (meters). Must be finite and
+///         positive.
+///
+/// Returns:
+///     `(x, y)` coordinates of the lookahead point.
+///
+/// Raises:
+///     `ValueError`: If `lookahead` is not finite and positive, or `x` or
+///         `y` is not a real number.
+#[pyfunction]
+#[pyo3(name = "_find_lookahead")]
+#[pyo3(signature = (x, y, path, start_idx, lookahead))]
+#[pyo3(text_signature = "(x, y, path, start_idx, lookahead)")]
+fn find_lookahead(
+    x: f64,
+    y: f64,
+    path: &Bound<'_, PyAny>,
+    start_idx: usize,
+    lookahead: f64,
+) -> PyResult<(f64, f64)> {
+    let read = waypoints(path)?;
+    let tracker = PurePursuitTracker::new(lookahead).or_raise()?;
+    // The heading is unused by `lookahead_point`, which only reads the
+    // vehicle's position, so zero stands in for the pose this function was
+    // never given one of.
+    let pose = Pose::new(x, y, 0.0).or_raise()?;
+    Ok(tracker.lookahead_point(pose, &read, start_idx))
+}
+
+/// Intersect a circle with a line segment, farthest intersection first.
+///
+/// Solves the quadratic that arises from substituting the parametric
+/// segment equation into the circle equation, then returns the root
+/// closest to the segment end, since the lookahead point is meant to be
+/// ahead: taking the near intersection would steer at a point the vehicle
+/// has already passed.
+///
+/// Args:
+///     `cx`: Circle center x.
+///     `cy`: Circle center y.
+///     `r`: Circle radius.
+///     `p0x`: Segment start x.
+///     `p0y`: Segment start y.
+///     `p1x`: Segment end x.
+///     `p1y`: Segment end y.
+///
+/// Returns:
+///     The intersection point `(x, y)` closest to the segment end, or
+///     `None` if the circle does not meet the segment.
+#[pyfunction]
+#[pyo3(name = "_circle_segment_intersection")]
+#[pyo3(signature = (cx, cy, r, p0x, p0y, p1x, p1y))]
+#[pyo3(text_signature = "(cx, cy, r, p0x, p0y, p1x, p1y)")]
+fn circle_segment_intersection(
+    cx: f64,
+    cy: f64,
+    r: f64,
+    p0x: f64,
+    p0y: f64,
+    p1x: f64,
+    p1y: f64,
+) -> Option<(f64, f64)> {
+    pursuit::circle_segment_intersection((cx, cy), r, (p0x, p0y), (p1x, p1y))
 }
 
 // ---------------------------------------------------------------------
@@ -2392,6 +2475,8 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyArtificialPotentialField>()?;
     module.add_class::<PyJointSpaceTracker>()?;
     module.add_class::<PyTrackingLoop>()?;
+    module.add_function(wrap_pyfunction!(find_lookahead, module)?)?;
+    module.add_function(wrap_pyfunction!(circle_segment_intersection, module)?)?;
 
     // `RigidBody` names the two properties a subclass has to supply, the
     // way the Python base did through `abc`. A compiled class builds in
