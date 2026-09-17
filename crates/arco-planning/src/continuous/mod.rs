@@ -16,4 +16,4 @@ pub use policy::{CostPolicy, SamplerPolicy, SegmentPolicy, SteererPolicy};
 pub use pruner::TrajectoryPruner;
 pub use rrt::{RrtPlanner, RrtSettings};
 pub use sst::{SstPlanner, SstSettings};
-pub use tree::PlannerTree;
+pub use tree::{PROGRESS_INTERVAL, PlannerProgress, PlannerTree, ProgressObserver};

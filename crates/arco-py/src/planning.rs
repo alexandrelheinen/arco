@@ -252,7 +252,16 @@ where
     F: Ungil + Send + FnOnce() -> Result<T, Error>,
     T: Ungil + Send,
 {
-    py.detach(plan).map_err(|failure| raised(&failure, slot))
+    let outcome = py.detach(plan);
+    match outcome {
+        Err(failure) => Err(raised(&failure, slot)),
+        // A hook that raised from a trait method with no way to report it
+        // parks the exception and hands the search an empty answer, so a
+        // run can finish looking successful with an exception still held.
+        // Draining here raises it on the call that caused it, and leaves
+        // nothing behind for the next call to surface with the wrong type.
+        Ok(value) => slot.take().map_or(Ok(value), Err),
+    }
 }
 
 /// Reads the sampling bounds a continuous planner takes.
@@ -262,7 +271,23 @@ where
 /// Returns a `ValueError` when the sequence is empty, which is the
 /// message the Python constructors raised.
 fn sampling_bounds(bounds: &Bound<'_, PyAny>) -> PyResult<Vec<(f64, f64)>> {
-    let read = bounds.extract::<Vec<(f64, f64)>>()?;
+    // Each axis arrives as whatever pair the caller had to hand. Python
+    // indexed it, so a list, a tuple and a two-element array were all
+    // acceptable and callers use each of them; extracting only tuples
+    // rejects `[[0.0, 10.0], [0.0, 10.0]]`, which the pipeline tests pass.
+    let read: Vec<(f64, f64)> = bounds.extract::<Vec<(f64, f64)>>().or_else(|_not_pairs| {
+        bounds
+            .extract::<Vec<Vec<f64>>>()?
+            .into_iter()
+            .map(|axis| match axis.as_slice() {
+                [low, high] => Ok((*low, *high)),
+                other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "each bound needs a low and a high, got {} value(s).",
+                    other.len()
+                ))),
+            })
+            .collect()
+    })?;
     if read.is_empty() {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "bounds must not be empty.",
@@ -339,10 +364,30 @@ pub(crate) struct PyCostModel;
 
 #[pymethods]
 impl PyCostModel {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base. The arguments are
+    /// ignored here because `__new__` has already read them.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
     /// Builds the default cost model, which carries no state.
+    ///
+    /// Accepts and ignores whatever a subclass was constructed with, the
+    /// way `object` does for any class overriding `__init__`. A generated
+    /// constructor with a fixed empty signature refuses them instead, and
+    /// every Python subclass carrying its own arguments stops building.
     #[new]
+    #[pyo3(signature = (*_args, **_kwargs))]
     #[pyo3(text_signature = "()")]
-    const fn new() -> Self {
+    const fn new(_args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> Self {
         Self
     }
 
@@ -619,6 +664,38 @@ fn publish_snapshot(
         }
     }
     Ok(())
+}
+
+/// Publishes one progress snapshot, swallowing whatever the sink raised.
+///
+/// A sink that fails must not abandon a plan that is going fine: Python's
+/// `write_telemetry` swallowed every I/O error for the same reason, and a
+/// loading screen that has gone away is not a planning failure.
+fn report_progress(
+    publisher: Option<&Py<PyAny>>,
+    algorithm: &str,
+    progress: &arco_planning::continuous::PlannerProgress,
+) {
+    Python::attach(|py| {
+        let Ok(module) = py.import("arco.planning.continuous.telemetry") else {
+            return;
+        };
+        let Ok(kind) = module.getattr("PlannerTelemetry") else {
+            return;
+        };
+        // `inf` is what Python carried before any node had been placed,
+        // and the loading screen renders it as an unknown distance.
+        let snapshot = kind.call1((
+            algorithm,
+            "exploring",
+            progress.iteration,
+            progress.max_iterations,
+            progress.best_distance_to_goal,
+        ));
+        if let Ok(snapshot) = snapshot {
+            let _ignored = publish_snapshot(py, publisher, &snapshot);
+        }
+    });
 }
 
 // ---------------------------------------------------------------------
@@ -1003,6 +1080,20 @@ pub(crate) struct PyAStar {
 
 #[pymethods]
 impl PyAStar {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base. The arguments are
+    /// ignored here because `__new__` has already read them.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
     /// Builds a planner over `grid`.
     #[new]
     #[pyo3(signature = (grid, grid_type = "manhattan"))]
@@ -1103,6 +1194,20 @@ pub(crate) struct PyRouteRouter {
 
 #[pymethods]
 impl PyRouteRouter {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base. The arguments are
+    /// ignored here because `__new__` has already read them.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
     /// Builds a router over `graph`.
     #[new]
     #[pyo3(signature = (graph, activation_radius = None, planner = None))]
@@ -1802,7 +1907,14 @@ sampling_planner!(PyRrtPlanner, arco_planning::continuous::RrtPlanner<SharedOccu
                 held.setup.failure.clone(),
             )
         };
-        let outcome = detached(py, &failure, || planner.plan(&from, &to, &mut generator))?;
+        let publisher = slf.borrow().setup.publisher.as_ref().map(|sink| sink.clone_ref(py));
+        let outcome = detached(py, &failure, || {
+            planner
+                .plan_observed(&from, &to, &mut generator, &mut |progress| {
+                    report_progress(publisher.as_ref(), "RRT*", &progress);
+                })
+                .map(|(outcome, _tree)| outcome)
+        })?;
         match LastCall::record(&slf.borrow().last, outcome) {
             Some(path) => Ok(Some(as_path(py, &path)?.unbind())),
             None => Ok(None),
@@ -1972,7 +2084,14 @@ sampling_planner!(PySstPlanner, arco_planning::continuous::SstPlanner<SharedOccu
                 held.setup.failure.clone(),
             )
         };
-        let outcome = detached(py, &failure, || planner.plan(&from, &to, &mut generator))?;
+        let publisher = slf.borrow().setup.publisher.as_ref().map(|sink| sink.clone_ref(py));
+        let outcome = detached(py, &failure, || {
+            planner
+                .plan_observed(&from, &to, &mut generator, &mut |progress| {
+                    report_progress(publisher.as_ref(), "SST", &progress);
+                })
+                .map(|(outcome, _tree)| outcome)
+        })?;
         match LastCall::record(&slf.borrow().last, outcome) {
             Some(path) => Ok(Some(as_path(py, &path)?.unbind())),
             None => Ok(None),
@@ -1999,6 +2118,20 @@ pub(crate) struct PyTrajectoryPruner {
 
 #[pymethods]
 impl PyTrajectoryPruner {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base. The arguments are
+    /// ignored here because `__new__` has already read them.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
     /// Builds a pruner over `occupancy`.
     #[new]
     #[pyo3(signature = (occupancy, step_size, collision_check_count = 10))]
@@ -2006,7 +2139,10 @@ impl PyTrajectoryPruner {
     fn new(
         occupancy: &Bound<'_, PyAny>,
         step_size: &Bound<'_, PyAny>,
-        collision_check_count: usize,
+        // Signed, because Python raised `ValueError` for a negative count
+        // and `usize` makes PyO3 reject it with `OverflowError` before the
+        // check below ever runs.
+        collision_check_count: i64,
     ) -> PyResult<Self> {
         if collision_check_count < 1 {
             return Err(pyo3::exceptions::PyValueError::new_err(format!(
@@ -2038,7 +2174,7 @@ impl PyTrajectoryPruner {
             shared: SharedOccupancy::new(BoundOccupancy::adopt(occupancy, failure.clone())),
             step_size: read,
             failure,
-            collision_check_count,
+            collision_check_count: usize::try_from(collision_check_count).unwrap_or_default(),
         })
     }
 
@@ -2104,6 +2240,33 @@ impl PyTrajectoryPruner {
 /// `==` and `repr` compare and print the nine declared fields in order.
 /// `turn_rates` is published beside them and left out of both, since
 /// adding a field to either would change what a caller already compares.
+/// One of the five default cost terms, as a handle carrying its name.
+///
+/// Python built five term objects in the constructor and a caller reads
+/// `[t.name for t in optimizer.cost_terms]`. The terms themselves are an
+/// enum inside the crate with no Python representation, so what crosses
+/// the boundary is the name and nothing else. Passing one back into
+/// `cost_terms=` is refused rather than silently ignored.
+#[pyclass(
+    frozen,
+    skip_from_py_object,
+    name = "DefaultCostTerm",
+    module = "arco._arco"
+)]
+#[derive(Debug, Clone)]
+pub(crate) struct PyDefaultTerm {
+    /// Which of the five this is.
+    #[pyo3(get)]
+    name: String,
+}
+
+#[pymethods]
+impl PyDefaultTerm {
+    fn __repr__(&self) -> String {
+        format!("DefaultCostTerm(name={:?})", self.name)
+    }
+}
+
 #[pyclass(get_all, set_all, name = "TrajectoryResult", module = "arco._arco")]
 #[derive(Debug)]
 pub(crate) struct PyTrajectoryResult {
@@ -2135,6 +2298,52 @@ pub(crate) struct PyTrajectoryResult {
 
 #[pymethods]
 impl PyTrajectoryResult {
+    /// Builds a result directly, as the Python dataclass allowed.
+    ///
+    /// Every field defaults, because `TrajectoryResult()` with no
+    /// arguments is what the dataclass gave and what the pipeline tests
+    /// build when they stand in for an optimizer.
+    #[new]
+    #[pyo3(signature = (
+        states = None,
+        commands = None,
+        durations = None,
+        cost = 0.0,
+        is_feasible = true,
+        optimizer_success = true,
+        optimizer_status_code = 0,
+        optimizer_status_text = String::new(),
+        optimizer_iteration_count = 0,
+        turn_rates = None,
+    ))]
+    #[expect(clippy::too_many_arguments, reason = "one per dataclass field")]
+    fn new(
+        py: Python<'_>,
+        states: Option<Py<PyList>>,
+        commands: Option<Py<PyList>>,
+        durations: Option<Vec<f64>>,
+        cost: f64,
+        is_feasible: bool,
+        optimizer_success: bool,
+        optimizer_status_code: i32,
+        optimizer_status_text: String,
+        optimizer_iteration_count: usize,
+        turn_rates: Option<Vec<f64>>,
+    ) -> Self {
+        Self {
+            states: states.unwrap_or_else(|| PyList::empty(py).unbind()),
+            commands: commands.unwrap_or_else(|| PyList::empty(py).unbind()),
+            durations: durations.unwrap_or_default(),
+            cost,
+            is_feasible,
+            optimizer_success,
+            optimizer_status_code,
+            optimizer_status_text,
+            optimizer_iteration_count,
+            turn_rates: turn_rates.unwrap_or_default(),
+        }
+    }
+
     /// The result, written the way the dataclass printed it.
     fn __repr__(slf: &Bound<'_, Self>) -> PyResult<String> {
         let mut written = String::from("TrajectoryResult(");
@@ -2225,6 +2434,20 @@ pub(crate) struct PyTrajectoryOptimizer {
 
 #[pymethods]
 impl PyTrajectoryOptimizer {
+    /// Absorbs a subclass calling `super().__init__(...)`.
+    ///
+    /// A compiled class does its construction in `__new__`, so `__init__`
+    /// falls through to `object.__init__`, which refuses arguments. A
+    /// Python subclass forwarding its own arguments upward then fails on
+    /// a line that worked against the pure-Python base. The arguments are
+    /// ignored here because `__new__` has already read them.
+    #[pyo3(signature = (*_args, **_kwargs))]
+    #[expect(
+        clippy::unused_self,
+        reason = "Python calls this on an instance and the body reads nothing"
+    )]
+    const fn __init__(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) {}
+
     /// Builds an optimizer over `occupancy`.
     #[new]
     #[pyo3(signature = (
@@ -2380,10 +2603,23 @@ impl PyTrajectoryOptimizer {
         self.settings.cost_tolerance
     }
 
-    /// The ordered cost terms, or `None` when the defaults are in use.
+    /// The ordered cost terms.
+    ///
+    /// The five defaults are reported by name when the caller supplied
+    /// none, because Python built them eagerly in the constructor and a
+    /// caller reading `len(optimizer.cost_terms)` is reading that list.
     #[getter]
-    fn cost_terms(&self, py: Python<'_>) -> Option<Py<PyList>> {
-        self.terms.as_ref().map(|listed| listed.clone_ref(py))
+    fn cost_terms(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
+        if let Some(listed) = self.terms.as_ref() {
+            return Ok(listed.clone_ref(py));
+        }
+        let named: Vec<PyDefaultTerm> = ["time", "deviation", "velocity", "collision", "dynamics"]
+            .into_iter()
+            .map(|name| PyDefaultTerm {
+                name: name.to_owned(),
+            })
+            .collect();
+        Ok(PyList::new(py, named)?.unbind())
     }
 
     /// Optimizes a trajectory along `reference_path`.
@@ -2616,7 +2852,14 @@ fn py_none(py: Python<'_>) -> Py<PyAny> {
 /// Returns whatever reading the key raised.
 fn number(section: &Bound<'_, PyAny>, key: &str, fallback: f64) -> PyResult<f64> {
     let read = section.call_method1("get", (key, fallback))?;
-    read.extract::<f64>()
+    // Coerced rather than extracted, because the Python original wrapped
+    // every value in `float(...)` and the shipped configuration relies on
+    // it: PyYAML follows the 1.1 spec, where an exponent needs a sign, so
+    // `1.0e2` in `config/optimizer.yml` parses as the string "1.0e2" and
+    // four of the five weights arrive as text.
+    read.call_method0("__float__")
+        .or_else(|_not_a_number| read.py().get_type::<pyo3::types::PyFloat>().call1((read,)))?
+        .extract::<f64>()
 }
 
 /// Reads a count out of a configuration section, or its default.
@@ -2626,7 +2869,12 @@ fn number(section: &Bound<'_, PyAny>, key: &str, fallback: f64) -> PyResult<f64>
 /// Returns whatever reading the key raised.
 fn count(section: &Bound<'_, PyAny>, key: &str, fallback: usize) -> PyResult<usize> {
     let read = section.call_method1("get", (key, fallback))?;
-    read.extract::<usize>()
+    // Coerced for the reason [`number`] is: the Python original wrapped
+    // every count in `int(...)`.
+    read.py()
+        .get_type::<pyo3::types::PyInt>()
+        .call1((read,))?
+        .extract::<usize>()
 }
 
 /// Reads a string out of a configuration section, or its default.

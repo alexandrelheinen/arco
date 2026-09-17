@@ -24,7 +24,7 @@
 
 use arco_control::limits::CommandLimits;
 use arco_core::Error;
-use arco_core::protocols::{Command, VehicleModel as _};
+use arco_core::protocols::{Command, VehicleModel};
 use arco_guidance::interpolation::{
     BSplineInterpolator, Interpolator as _, MovingAverageInterpolator,
 };
@@ -127,20 +127,20 @@ impl PyInterpolator {
     /// :class:`MovingAverageInterpolator`, or override this method.
     ///
     /// Args:
-    ///     path: A list of discrete waypoints.
+    ///     `path`: A list of discrete waypoints.
     ///
     /// Returns:
     ///     A list of waypoints representing the interpolated trajectory.
     ///
     /// Raises:
-    ///     NotImplementedError: On the base class.
+    ///     `NotImplementedError`: On the base class.
     #[pyo3(signature = (path))]
     #[expect(
         clippy::unused_self,
         reason = "Python calls this on an instance whatever the body reads"
     )]
     fn interpolate(&self, path: &Bound<'_, PyAny>) -> PyResult<Py<PyList>> {
-        let _unused = path;
+        let _ = path;
         Err(PyNotImplementedError::new_err(
             "Interpolator.interpolate is not implemented on the base class",
         ))
@@ -157,10 +157,10 @@ impl PyInterpolator {
 /// actually smooths.
 ///
 /// Args:
-///     degree: Degree of the B-spline polynomial. At least 1.
+///     `degree`: Degree of the B-spline polynomial. At least 1.
 ///
 /// Raises:
-///     ValueError: If *degree* is zero, which describes a step function
+///     `ValueError`: If *degree* is zero, which describes a step function
 ///         rather than a curve through the waypoints.
 #[pyclass(extends = PyInterpolator, subclass, name = "BSplineInterpolator", module = "arco._arco")]
 #[derive(Debug)]
@@ -197,13 +197,13 @@ impl PyBSplineInterpolator {
     /// Returns the waypoints it was given, per the note on the class.
     ///
     /// Args:
-    ///     path: A list of discrete waypoints.
+    ///     `path`: A list of discrete waypoints.
     ///
     /// Returns:
     ///     A list of ``(x, y)`` tuples representing the trajectory.
     ///
     /// Raises:
-    ///     ValueError: If a waypoint is not a finite pair of numbers.
+    ///     `ValueError`: If a waypoint is not a finite pair of numbers.
     #[pyo3(signature = (path))]
     fn interpolate<'py>(
         &self,
@@ -226,11 +226,11 @@ impl PyBSplineInterpolator {
 /// clearance after smoothing rather than assuming it survived.
 ///
 /// Args:
-///     iterations: Number of smoothing passes. At least 1.
-///     window: Odd window size in waypoints. At least 3.
+///     `iterations`: Number of smoothing passes. At least 1.
+///     `window`: Odd window size in waypoints. At least 3.
 ///
 /// Raises:
-///     ValueError: If *window* is even or smaller than 3, or if
+///     `ValueError`: If *window* is even or smaller than 3, or if
 ///         *iterations* is zero.
 #[pyclass(extends = PyInterpolator, subclass, name = "MovingAverageInterpolator", module = "arco._arco")]
 #[derive(Debug)]
@@ -280,14 +280,14 @@ impl PyMovingAverageInterpolator {
     /// Smooth a discrete path with repeated moving-average passes.
     ///
     /// Args:
-    ///     path: A list of discrete waypoints, ``(x, y)``-like.
+    ///     `path`: A list of discrete waypoints, ``(x, y)``-like.
     ///
     /// Returns:
     ///     A list of ``(x, y)`` tuples with identical first and last
     ///     points. Inputs shorter than 3 points come back unchanged.
     ///
     /// Raises:
-    ///     ValueError: If a waypoint is not a finite pair of numbers.
+    ///     `ValueError`: If a waypoint is not a finite pair of numbers.
     #[pyo3(signature = (path))]
     fn interpolate<'py>(
         &self,
@@ -327,14 +327,14 @@ impl PyExplorationPrimitive {
     /// :class:`DubinsPrimitive`, or override this method.
     ///
     /// Args:
-    ///     from_state: The starting state.
-    ///     to_state: The target state.
+    ///     `from_state`: The starting state.
+    ///     `to_state`: The target state.
     ///
     /// Returns:
     ///     A list of states representing the path segment.
     ///
     /// Raises:
-    ///     NotImplementedError: On the base class.
+    ///     `NotImplementedError`: On the base class.
     #[pyo3(signature = (from_state, to_state))]
     #[expect(
         clippy::unused_self,
@@ -345,7 +345,7 @@ impl PyExplorationPrimitive {
         from_state: &Bound<'_, PyAny>,
         to_state: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyList>> {
-        let _unused = (from_state, to_state);
+        let _ = (from_state, to_state);
         Err(PyNotImplementedError::new_err(
             "ExplorationPrimitive.steer is not implemented on the base class",
         ))
@@ -366,11 +366,11 @@ impl PyExplorationPrimitive {
 /// :meth:`is_feasible`.
 ///
 /// Args:
-///     turning_radius: Minimum turning radius for the robot (meters).
+///     `turning_radius`: Minimum turning radius for the robot (meters).
 ///         Must be finite and positive.
 ///
 /// Raises:
-///     ValueError: If *turning_radius* is not finite and positive.
+///     `ValueError`: If *turning_radius* is not finite and positive.
 #[pyclass(extends = PyExplorationPrimitive, subclass, name = "DubinsPrimitive", module = "arco._arco")]
 #[derive(Debug)]
 pub(crate) struct PyDubinsPrimitive {
@@ -406,14 +406,14 @@ impl PyDubinsPrimitive {
     /// Returns the two endpoints, per the note on the class.
     ///
     /// Args:
-    ///     from_state: The starting state, ``(x, y)`` or longer.
-    ///     to_state: The target state, of the same length.
+    ///     `from_state`: The starting state, ``(x, y)`` or longer.
+    ///     `to_state`: The target state, of the same length.
     ///
     /// Returns:
     ///     A list of state tuples representing the path segment.
     ///
     /// Raises:
-    ///     ValueError: If a state is shorter than two components, carries
+    ///     `ValueError`: If a state is shorter than two components, carries
     ///         a value that is not a real number, or the two disagree in
     ///         length.
     #[pyo3(signature = (from_state, to_state))]
@@ -437,13 +437,13 @@ impl PyDubinsPrimitive {
     /// minimum radius is feasible, since the radius is a floor.
     ///
     /// Args:
-    ///     state: Kinematic state, ``(x, y)`` or longer.
+    ///     `state`: Kinematic state, ``(x, y)`` or longer.
     ///
     /// Returns:
     ///     ``True`` if the state satisfies the turning-radius constraint.
     ///
     /// Raises:
-    ///     ValueError: If the state is shorter than two components or
+    ///     `ValueError`: If the state is shorter than two components or
     ///         carries a value that is not a real number. A NaN compares
     ///         false against every bound, so an unchecked state would be
     ///         reported feasible, per deviation A-21.
@@ -473,17 +473,17 @@ impl PyDubinsPrimitive {
 /// ``max_turn_rate_change``.
 ///
 /// Args:
-///     x: Initial x position in world frame (meters).
-///     y: Initial y position in world frame (meters).
-///     heading: Initial heading angle (radians).
-///     max_speed: Maximum forward speed (m/s).
-///     min_speed: Minimum forward speed; 0.0 prevents reversing (m/s).
-///     max_turn_rate: Maximum absolute turn rate (rad/s).
-///     max_acceleration: Maximum rate of speed change (m/s^2).
-///     max_turn_rate_dot: Maximum rate of turn-rate change (rad/s^2).
+///     `x`: Initial x position in world frame (meters).
+///     `y`: Initial y position in world frame (meters).
+///     `heading`: Initial heading angle (radians).
+///     `max_speed`: Maximum forward speed (m/s).
+///     `min_speed`: Minimum forward speed; 0.0 prevents reversing (m/s).
+///     `max_turn_rate`: Maximum absolute turn rate (rad/s).
+///     `max_acceleration`: Maximum rate of speed change (m/s^2).
+///     `max_turn_rate_dot`: Maximum rate of turn-rate change (rad/s^2).
 ///
 /// Raises:
-///     ValueError: If a pose component is not a real number, or the
+///     `ValueError`: If a pose component is not a real number, or the
 ///         limits describe a box no command could sit in.
 #[pyclass(subclass, name = "DubinsVehicle", module = "arco._arco")]
 #[derive(Debug)]
@@ -568,10 +568,31 @@ impl PyDubinsVehicle {
         VehicleModel::speed(&self.inner)
     }
 
+    /// Places the vehicle at `value` metres per second.
+    ///
+    /// Writable because starting a run part way through a manoeuvre needs
+    /// the speed as an input rather than an output, which is what callers
+    /// were assigning `_speed` to do. Checked against the limits, which
+    /// assigning an attribute never was.
+    #[setter]
+    fn set_speed(&mut self, value: f64) -> PyResult<()> {
+        let turn_rate = VehicleModel::turn_rate(&self.inner);
+        self.inner.set_motion(value, turn_rate).or_raise()
+    }
+
     /// Current turn rate (rad/s).
     #[getter]
     fn turn_rate(&self) -> f64 {
         VehicleModel::turn_rate(&self.inner)
+    }
+
+    /// Places the vehicle at `value` radians per second.
+    ///
+    /// Writable for the reason [`DubinsVehicle::set_speed`] is.
+    #[setter]
+    fn set_turn_rate(&mut self, value: f64) -> PyResult<()> {
+        let speed = VehicleModel::speed(&self.inner);
+        self.inner.set_motion(speed, value).or_raise()
     }
 
     /// Maximum forward speed (m/s).
@@ -677,12 +698,12 @@ impl PyDubinsVehicle {
     /// Reset vehicle state to a new pose with zero speed and turn rate.
     ///
     /// Args:
-    ///     x: New x position (meters).
-    ///     y: New y position (meters).
-    ///     heading: New heading angle (radians).
+    ///     `x`: New x position (meters).
+    ///     `y`: New y position (meters).
+    ///     `heading`: New heading angle (radians).
     ///
     /// Raises:
-    ///     ValueError: If a component is not a real number.
+    ///     `ValueError`: If a component is not a real number.
     #[pyo3(signature = (x = 0.0, y = 0.0, heading = 0.0))]
     fn reset(&mut self, x: f64, y: f64, heading: f64) -> PyResult<()> {
         self.inner.reset(x, y, heading).or_raise()
@@ -695,15 +716,15 @@ impl PyDubinsVehicle {
     /// at the start of the step.
     ///
     /// Args:
-    ///     speed_cmd: Desired speed command (m/s).
-    ///     turn_rate_cmd: Desired turn rate command (rad/s).
-    ///     dt: Time step duration (s).
+    ///     `speed_cmd`: Desired speed command (m/s).
+    ///     `turn_rate_cmd`: Desired turn rate command (rad/s).
+    ///     `dt`: Time step duration (s).
     ///
     /// Returns:
     ///     Updated pose as ``(x, y, heading)``.
     ///
     /// Raises:
-    ///     ValueError: If a command is not a real number, or *dt* falls
+    ///     `ValueError`: If a command is not a real number, or *dt* falls
     ///         outside the configured interval band, per deviation A-17.
     #[pyo3(signature = (speed_cmd, turn_rate_cmd, dt))]
     fn step(
@@ -732,17 +753,17 @@ impl PyDubinsVehicle {
     /// law, since it points at the goal once and never looks again.
     ///
     /// Args:
-    ///     start: Starting position ``(x, y)`` or state ``(x, y, theta, ...)``.
-    ///     goal: Target position ``(x, y)`` or state.
-    ///     speed: Desired traversal speed (m/s).
-    ///     duration: Time budget for the segment (s). Must be positive.
+    ///     `start`: Starting position ``(x, y)`` or state ``(x, y, theta, ...)``.
+    ///     `goal`: Target position ``(x, y)`` or state.
+    ///     `speed`: Desired traversal speed (m/s).
+    ///     `duration`: Time budget for the segment (s). Must be positive.
     ///
     /// Returns:
     ///     Command vector ``(speed_cmd, turn_rate_cmd)`` as a numpy array
     ///     of shape ``(2,)``.
     ///
     /// Raises:
-    ///     ValueError: If a state is shorter than two components or
+    ///     `ValueError`: If a state is shorter than two components or
     ///         carries a value that is not a real number, or if *duration*
     ///         is not finite and strictly positive, per deviation A-21.
     #[pyo3(signature = (start, goal, speed, duration))]
@@ -770,14 +791,14 @@ impl PyDubinsVehicle {
     /// turn-rate bound.
     ///
     /// Args:
-    ///     state: Kinematic state ``(x, y, theta)`` or extended state
+    ///     `state`: Kinematic state ``(x, y, theta)`` or extended state
     ///         ``(x, y, theta, speed, turn_rate)``.
     ///
     /// Returns:
     ///     ``True`` if the state satisfies all dynamic constraints.
     ///
     /// Raises:
-    ///     ValueError: If the state is shorter than two components or
+    ///     `ValueError`: If the state is shorter than two components or
     ///         carries a value that is not a real number, per deviation
     ///         A-21.
     #[pyo3(signature = (state))]

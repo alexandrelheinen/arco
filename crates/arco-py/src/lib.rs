@@ -59,6 +59,7 @@ use pyo3::prelude::*;
 
 mod core;
 mod errors;
+mod guidance;
 mod hooks;
 mod kinematics;
 mod mapping;
@@ -83,6 +84,7 @@ fn _arco(module: &Bound<'_, PyModule>) -> PyResult<()> {
     core::register(module)?;
     mapping::register(module)?;
     kinematics::register(module)?;
+    guidance::register(module)?;
     planning::register(module)?;
     runtime::register(module)?;
     Ok(())

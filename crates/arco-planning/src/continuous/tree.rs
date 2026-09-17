@@ -187,6 +187,37 @@ impl Tree {
     }
 }
 
+/// How often a planner reports progress, in iterations.
+///
+/// Matches `TELEMETRY_WRITE_INTERVAL` in `arco.planning.continuous
+/// .telemetry`, because the loading screen was written against that
+/// cadence and a different one changes how the bar moves.
+pub const PROGRESS_INTERVAL: usize = 100;
+
+/// Where a sampling planner has got to.
+///
+/// Reported every [`PROGRESS_INTERVAL`] iterations rather than every
+/// iteration: a progress bar needs tens of updates over a run, and a
+/// caller-supplied sink costs a crossing per call, which ADR-004 is about
+/// keeping off the inner loop.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PlannerProgress {
+    /// Iterations completed.
+    pub iteration: usize,
+    /// Iterations the budget allows.
+    pub max_iterations: usize,
+    /// Closest any node has come to the goal, in the planner's metric.
+    pub best_distance_to_goal: f64,
+    /// How many nodes the tree holds.
+    pub tree_size: usize,
+}
+
+/// A sink for [`PlannerProgress`].
+///
+/// A trait object rather than a generic parameter, so a planner carrying
+/// one is not a different type from a planner without.
+pub type ProgressObserver<'a> = &'a mut dyn FnMut(PlannerProgress);
+
 /// The tree a sampling planner grew, for a caller that wants to draw it.
 ///
 /// A plain snapshot rather than a handle: the planner has finished by the

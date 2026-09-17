@@ -33,7 +33,7 @@ def test_mpc_tracking_loop_metrics_schema() -> None:
         max_acceleration=1.5,
         max_turn_rate_dot=2.0,
     )
-    vehicle._speed = 0.4
+    vehicle.speed = 0.4
     tracker = DubinsPathFollowingMPC(
         vehicle_limits=DubinsVehicleLimits(
             max_speed=1.0,

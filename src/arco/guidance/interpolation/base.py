@@ -1,25 +1,10 @@
-"""Interpolator: abstract base for path interpolation."""
+"""The interpolator base, re-exported from the compiled extension.
 
-from __future__ import annotations
+The implementation is the ``Interpolator`` trait in the ``arco-guidance`` crate, registered
+back under its Python spelling by the binding layer and reaching callers
+through :mod:`arco._arco`.
+"""
 
-from abc import ABC, abstractmethod
-from typing import Any, List
+from arco._arco import Interpolator
 
-
-class Interpolator(ABC):
-    """Abstract base for interpolation (e.g., B-splines, shortcutting).
-
-    Used to convert discrete node sequences to continuous trajectories.
-    """
-
-    @abstractmethod
-    def interpolate(self, path: List[Any]) -> List[Any]:
-        """Return a continuous trajectory from a discrete path.
-
-        Args:
-            path: A list of discrete waypoints.
-
-        Returns:
-            A list of waypoints representing the interpolated trajectory.
-        """
-        pass
+__all__ = ["Interpolator"]
