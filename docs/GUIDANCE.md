@@ -46,11 +46,10 @@ Feedback controllers that generate control inputs to track a reference trajector
     cruise `min(v_cruise, ω_max/|κ(s)|)`
   - Lag coupling is structural (`weight_lag > 0` enforced): it glues the
     virtual progress to the vehicle, so no projection blending or
-    progress-monotonicity constraints are needed inside the NLP
-  - CasADi + IPOPT backend via optional extra: `pip install arco[mpc]`
-  - Cubic B-spline reference interpolants and a straight runway extension
-    past the goal keep IPOPT convergent at polyline kinks and at the end
-    of the path
+    progress-monotonicity constraints are needed inside the program
+  - A straight runway extension past the goal keeps the progress bounds
+    from pinching against the arc-length cap on the last meters of the
+    path
   - Anti-stall: a parked warm start is replaced by a reference-rollout
     initial guess so the solver can escape stopped equilibria at sharp
     kinks (turn in place, then drive)

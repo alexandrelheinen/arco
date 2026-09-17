@@ -80,7 +80,6 @@ pip install -e ".[dev]"
 Optional extras:
 
 ```bash
-pip install -e ".[mpc]"     # CasADi path-following / joint-space MPC
 pip install -e ".[tools]"   # pygame + OpenGL for arcosim
 ```
 

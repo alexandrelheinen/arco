@@ -23,8 +23,10 @@ rather than from the CLI, which never had them.
 
 ```bash
 pip install arco[tools,pygame]   # pyyaml + pygame >= 2.0 + PyOpenGL >= 3.1
-pip install arco[mpc]            # CasADi, for scenarios with tracker: mpc
 ```
+
+Scenarios with `tracker: mpc` need nothing extra: the path-following and
+joint-space controllers are built into the compiled `arco._arco` extension.
 
 A display server (or `xvfb-run`) is needed for every mode, including stills:
 the frame comes out of an OpenGL context.
@@ -99,8 +101,9 @@ Chrome colors live under `ui.chrome_*` in `src/arco/config/colors.yml`.
 - Uses **45 s** clips: at 30 fps × 0.1 s sim steps that is 135 simulated
   seconds — enough for every racer (A* needs ~115 s on its windy grid
   route) to reach the goal on camera.
-- Caches pip and installs CasADi (`arco[mpc]`) only for scenarios whose YAML
-  sets `tracker: mpc` (`city`, `ppp`, `rrp`).
+- Caches pip; no separate install step is needed for a scenario whose YAML
+  sets `tracker: mpc` (`city`, `ppp`, `rrp`), since the path-following and
+  joint-space controllers ship in the compiled `arco._arco` extension.
 
 City race notes when `simulator.tracker: mpc`:
 

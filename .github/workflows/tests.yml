@@ -39,8 +39,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install package with dev and mpc dependencies
-        run: pip install -e ".[dev,mpc]"
+      - name: Install package with dev dependencies
+        run: pip install -e ".[dev]"
 
       - name: Run unit tests
         run: bash scripts/run_tests.sh

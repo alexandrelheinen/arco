@@ -25,11 +25,6 @@ dev = [
     "graphviz",
     "pydocstyle"
 ]
-# Removed in phase 7 when the LTV reformulation of ADR-002 lands.
-# See docs/rust/DEVIATIONS.md entry A-01.
-mpc = [
-    "casadi>=3.6",
-]
 tools = [
     "arco",
     "pygame>=2.0.0",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import queue
 import time
 from pathlib import Path
@@ -13,6 +14,20 @@ from arco.middleware.subscriber import BusSubscriber
 from arco.middleware.types import GuidanceFrame, MappingFrame, PlanFrame
 from arco.pipeline.node import PipelineNode
 from arco.pipeline.runner import PipelineRunner
+
+
+def _await_finish(node, timeout: float = 2.0) -> None:
+    """Wait for a node whose ``run`` returns on its own, then stop it.
+
+    ``stop`` raises the stop flag before it joins, so a node that polls
+    ``stop_requested`` would exit before doing its work. Waiting on
+    ``is_running`` first is the public way to say "let it finish".
+    """
+    deadline = time.monotonic() + timeout
+    while node.is_running and time.monotonic() < deadline:
+        time.sleep(0.005)
+    node.stop(timeout=timeout)
+
 
 # ---------------------------------------------------------------------------
 # Helper nodes and subscribers
@@ -108,7 +123,7 @@ def test_register_node_wires_bus(config_path: Path) -> None:
     node = _MappingNode("mapping")
     runner.register_node(node)
     runner.start()
-    node._thread.join(timeout=2.0)
+    _await_finish(node)
 
     received = q.get(timeout=1.0)
     assert isinstance(received, MappingFrame)
@@ -126,8 +141,8 @@ def test_register_multiple_nodes(config_path: Path) -> None:
     runner.start()
 
     # Wait for all threads to finish.
-    for node in runner._nodes:
-        node._thread.join(timeout=2.0)
+    for node in runner.nodes:
+        _await_finish(node)
 
     assert isinstance(mapping_q.get(timeout=1.0), MappingFrame)
     assert isinstance(plan_q.get(timeout=1.0), PlanFrame)
@@ -188,8 +203,8 @@ def test_attach_subscriber_before_start(config_path: Path) -> None:
 
     runner.register_node(_GuidanceNode("guidance"))
     runner.start()
-    for node in runner._nodes:
-        node._thread.join(timeout=2.0)
+    for node in runner.nodes:
+        _await_finish(node)
 
     frame = sub.next_frame(GuidanceFrame, block=True, timeout=1.0)
     assert isinstance(frame, GuidanceFrame)
@@ -230,11 +245,11 @@ def test_full_chain_without_frontend(config_path: Path) -> None:
     runner.register_node(_GuidanceNode("guidance"))
     runner.start()
 
-    for node in runner._nodes:
-        node._thread.join(timeout=2.0)
+    for node in runner.nodes:
+        _await_finish(node)
 
     # All nodes must have exited cleanly.
-    for node in runner._nodes:
+    for node in runner.nodes:
         assert not node.is_running
 
 

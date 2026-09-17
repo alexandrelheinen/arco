@@ -74,7 +74,7 @@ class PathFollowingMPCConfig:
         weight_terminal: Terminal contouring / heading weight.
         contour_deadzone: Lateral free band (m).  Contouring cost is zero
             for ``|e_lat| ≤ contour_deadzone`` and quadratic on the excess.
-        max_solver_iter_count: IPOPT iteration budget.
+        max_solver_iter_count: Interior-point iteration budget.
     """
 
     horizon_step_count: int = 20

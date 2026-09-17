@@ -167,7 +167,9 @@ Look-ahead search is O(n_path) per call.
 **Files**: `src/arco/control/mpc/path_following.py`,
 `src/arco/control/mpc/joint_space.py`
 
-CasADi + IPOPT NLPs solved each control step (optional `arco[mpc]` extra).
+Each control step solves a short sequence of convex quadratic programs,
+linearized about the previous solution and solved by Clarabel; no optional
+dependency is required.
 Path-following MPC is a classical **MPCC contouring controller**: virtual
 progress speed \(v_s\) with a curve-limited cap, contouring / lag error
 split at \(p(s)\), linear progress reward, Dubins dynamics, soft obstacle
@@ -177,7 +179,8 @@ horizon, vehicle limits, κ shaping):
 [control_tracking_params.md](control_tracking_params.md).  Joint-space MPC
 tracks a carrot in configuration space with soft obstacle barriers.
 
-Dominant cost: NLP construction + IPOPT solve per tick.
+Dominant cost: building and solving the convex program per tick, up to a
+few sequential iterations.
 
 ---
 
@@ -203,8 +206,8 @@ O(log n_obs) average.
 | `PurePursuitController.control` | Full path scan each tick | O(n_path) | Monotonic segment index | Yes (easy) |
 | `CartesianGraph.find_nearest_node` | Linear over nodes | O(n) | Static KD-tree for road graphs | Yes (easy) |
 | Segment collision sampling | Fixed `collision_check_count` | O(k) | Adaptive / AABB prefilter | Partially |
-| `TrajectoryOptimizer.optimize` | Dense scipy L-BFGS-B in Python | many evals | Warm-start; tighten weights; optional CasADi | Partially |
-| Path-following / joint MPC | Rebuild + solve NLP each step | IPOPT/tick | Warm-start; longer control period; acados later | Partially |
+| `TrajectoryOptimizer.optimize` | Dense scipy L-BFGS-B in Python | many evals | Warm-start; tighten weights | Partially |
+| Path-following / joint MPC | Rebuild + solve a QP sequence each step | QP solve/tick | Warm-start; longer control period | Partially |
 | `BSplineInterpolator.interpolate` | No-op stub | n/a | Implement with `splprep`/`splev` | Yes (feature, not micro-opt) |
 
 ### Notes
@@ -215,8 +218,9 @@ O(log n_obs) average.
 - SST witnesses only grow, so witness KD-trees only need rebuild-on-growth.
 - Pure Pursuit and `plan`/`get_tree` dedup are the cheapest wins.
 - MPC / optimizer improvements depend on solver backend choices more than on
-  micro-optimizing Python loops; an acados backend is a follow-up on the
-  [roadmap](ROADMAP.md), not a drop-in rewrite of the CasADi formulation.
+  micro-optimizing Python loops; further backend changes are a follow-up on
+  the [roadmap](ROADMAP.md), not a drop-in rewrite of the current
+  Clarabel-based formulation.
 - Unknown / out of scope here: GPU collision checking, exact continuous
   collision detection for curved Dubins segments, and distributed planning.
 

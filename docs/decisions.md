@@ -348,3 +348,43 @@ difference is that this port uses a central difference where `scipy`
 defaults to a forward one, which costs one extra evaluation per variable
 and buys an order of accuracy. The collision term dominates the cost of
 an evaluation, not the count of them.
+
+## Parallel planning has no batch entry point
+
+`FR-PERF-04` in [rust/SPEC.md](rust/SPEC.md) asks that independent
+planning problems run in parallel on every core, and the spec left the
+shape of it open: either a batch entry point the Python library never had,
+or a guarantee that a caller's own thread pool gets real parallelism.
+
+No batch entry point is added. Every other requirement in that spec exists
+to keep the public surface identical, and `arco.planning.plan_batch` would
+be new surface invented by the port rather than asked for by a caller.
+Parallelism is therefore the caller's to arrange with
+`concurrent.futures`, and what the port owes is a planner that releases
+the interpreter lock while it searches.
+
+It releases it: a Python thread keeps counting while a plan is running,
+which `tests/rust/test_batch_parallel.py` asserts.
+
+Thread-pool scaling does not follow, and the measurement is worth writing
+down because it contradicts what releasing the lock is supposed to buy.
+Four plans that take 0.375 seconds each in isolation take about 5.1
+seconds each when run concurrently on four threads of an idle sixteen-core
+machine. The same four in separate processes take 0.107 seconds each, so
+the machine has the cores and the work is parallelizable. The interpreter
+switch interval makes no difference, which rules out lock handoff, and a
+pure native call with no Python callbacks in its inner loop degrades the
+same way, which rules out the progress callback.
+
+One contributor is identified and is not the whole story. A binding that
+takes a large array copies it into a `Vec` before releasing the lock, so
+the copy is serialized across threads: shrinking the input from two
+hundred thousand rows to twenty thousand takes the degradation from eight
+times to two and a half. Borrowing the caller's buffer with
+`PyReadonlyArray2`, which
+[languages/rs.md](../.guidelines/languages/rs.md) already asks for, would
+remove that part.
+
+The speedup assertion in `tests/rust/test_batch_parallel.py` is
+`xfail(strict=True)` until this is understood, so the day it starts
+passing the marker fails and forces someone to read this entry again.

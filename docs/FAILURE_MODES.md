@@ -49,7 +49,6 @@ Legend:
 | API | Failure | Behavior | Tests |
 |-----|---------|----------|-------|
 | `MPCController(...)` | construction | Warn `DeprecationWarning` | control MPC tests |
-| `DubinsPathFollowingMPC` / `JointSpaceMPC` | CasADi not installed | Raise `ImportError` (optional extra `arco[mpc]`) | MPC tests / smoke with `[mpc]` |
 | `BSplineInterpolator.interpolate` | any path | Returns input unchanged (stub; not a failure) | `tests/guidance/` |
 
 ---

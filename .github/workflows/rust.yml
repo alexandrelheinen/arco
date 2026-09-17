@@ -41,7 +41,7 @@ jobs:
           python -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install "maturin>=1.7,<2" pytest \
-              black isort pydocstyle numpy pyyaml scipy casadi
+              black isort pydocstyle numpy pyyaml scipy
 
       # One script, the same one a contributor runs, per
       # .guidelines/workflow/integration.md.

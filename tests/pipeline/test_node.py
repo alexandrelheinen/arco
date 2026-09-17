@@ -12,6 +12,19 @@ from arco.middleware.bus import InMemoryBus
 from arco.middleware.types import MappingFrame
 from arco.pipeline.node import PipelineNode
 
+def _await_finish(node, timeout: float = 2.0) -> None:
+    """Wait for a node whose ``run`` returns on its own, then stop it.
+
+    ``stop`` raises the stop flag before it joins, so a node that polls
+    ``stop_requested`` would exit before doing its work. Waiting on
+    ``is_running`` first is the public way to say "let it finish".
+    """
+    deadline = time.monotonic() + timeout
+    while node.is_running and time.monotonic() < deadline:
+        time.sleep(0.005)
+    node.stop(timeout=timeout)
+
+
 # ---------------------------------------------------------------------------
 # Concrete node fixtures
 # ---------------------------------------------------------------------------
@@ -87,14 +100,14 @@ def test_node_starts_background_thread():
     node.start()
     time.sleep(0.02)
     assert node.is_running
-    node.stop(timeout=2.0)
+    _await_finish(node)
 
 
 def test_node_is_not_running_after_stop():
     node = _LoopingNode()
     node.start()
     time.sleep(0.02)
-    node.stop(timeout=2.0)
+    _await_finish(node)
     assert not node.is_running
 
 
@@ -105,7 +118,7 @@ def test_start_twice_is_idempotent():
     time.sleep(0.02)
     # There should be exactly one live thread.
     assert node.is_running
-    node.stop(timeout=2.0)
+    _await_finish(node)
 
 
 def test_stop_before_start_is_no_op():
@@ -118,20 +131,20 @@ def test_node_can_be_restarted():
     node = _LoopingNode()
     node.start()
     time.sleep(0.02)
-    node.stop(timeout=2.0)
+    _await_finish(node)
     assert not node.is_running
 
     node.start()
     time.sleep(0.02)
     assert node.is_running
-    node.stop(timeout=2.0)
+    _await_finish(node)
 
 
 def test_finite_node_exits_on_completion():
     node = _CountingNode(count=3)
     node.start()
     # Wait for the thread to finish naturally.
-    node._thread.join(timeout=2.0)
+    _await_finish(node)
     assert not node.is_running
 
 
@@ -147,7 +160,7 @@ def test_node_publishes_to_attached_bus():
     node = _CountingNode(count=3)
     node.attach_bus(bus)
     node.start()
-    node._thread.join(timeout=2.0)
+    _await_finish(node)
 
     received = []
     while True:
@@ -163,7 +176,7 @@ def test_node_publishes_to_attached_bus():
 def test_node_without_bus_does_not_raise():
     node = _CountingNode(count=2)
     node.start()
-    node._thread.join(timeout=2.0)
+    _await_finish(node)
     # If no bus is attached, publish is a no-op; must not raise.
 
 
@@ -175,7 +188,7 @@ def test_node_without_bus_does_not_raise():
 def test_node_exception_does_not_crash_process():
     node = _ErrorNode()
     node.start()
-    node._thread.join(timeout=2.0)
+    _await_finish(node)
     assert not node.is_running  # Thread exited after the exception.
 
 
@@ -188,7 +201,7 @@ def test_stop_requested_set_by_stop():
     node = _LoopingNode()
     node.start()
     time.sleep(0.02)
-    node.stop(timeout=2.0)
+    _await_finish(node)
     assert node.stop_requested
 
 
@@ -197,7 +210,7 @@ def test_looping_node_respects_stop_request():
     node.start()
     time.sleep(0.05)
     count_before = node.iteration_count
-    node.stop(timeout=2.0)
+    _await_finish(node)
     count_after = node.iteration_count
     # Node must have stopped; iteration count must not grow further.
     time.sleep(0.05)

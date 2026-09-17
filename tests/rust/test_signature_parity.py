@@ -38,7 +38,9 @@ _CAPTURE = (
 def snapshot() -> dict[str, str]:
     """The recorded pre-port signatures, keyed by dotted import path."""
     if not BASELINE.exists():
-        pytest.skip(f"no baseline at {BASELINE}; run benches/capture_baseline.py")
+        pytest.skip(
+            f"no baseline at {BASELINE}; run benches/capture_baseline.py"
+        )
     return json.loads(BASELINE.read_text())["signatures"]
 
 
@@ -109,7 +111,13 @@ def _comparable(signature: str) -> str:
     survive this normalization untouched, so a real change still fails.
     """
     stripped = _RETURN.sub("", _ANNOTATION.sub("", signature))
-    return re.sub(r"\s+", "", stripped.replace(", /", "").replace("(self,", "(").replace("(self)", "()"))
+    return re.sub(
+        r"\s+",
+        "",
+        stripped.replace(", /", "")
+        .replace("(self,", "(")
+        .replace("(self)", "()"),
+    )
 
 
 def test_no_public_signature_changes(snapshot, current):
@@ -121,5 +129,6 @@ def test_no_public_signature_changes(snapshot, current):
         and _comparable(snapshot[name]) != _comparable(current[name])
     }
     assert not changed, "\n".join(
-        f"{name}\n  was: {was}\n  now: {now}" for name, (was, now) in changed.items()
+        f"{name}\n  was: {was}\n  now: {now}"
+        for name, (was, now) in changed.items()
     )

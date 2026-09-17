@@ -77,9 +77,9 @@ The port replaces the Python implementation crate by crate, so each name below c
 
 | State | Meaning | Distinct names |
 |---|---|---|
-| ported | A crate holds the equivalent type, trait or function | 57 |
+| ported | A crate holds the equivalent type, trait or function | 68 |
 | partial | A crate holds part of the behavior and the rest stays Python | 2 |
-| in progress | The crate exists and the port is being written | 11 |
+| in progress | The crate exists and the port is being written | 0 |
 | none | No crate holds it, and the port does not plan one | 30 |
 | namespace | A subpackage name re-exported by `arco/__init__.py` | 8 |
 
@@ -97,7 +97,7 @@ The names marked `none` are what phase 10 has to account for before `src/arco/` 
 | Middleware frames | 3 | Plain data, and the Rust bus carries the frame type as a generic parameter |
 | `DStarLite`, `DStarPlanner` | 2 | Stubs raising `NotImplementedError`, kept as placeholders by [ROADMAP.md](ROADMAP.md) |
 | `load_road_graph` | 1 | The JSON network reader has no crate-side counterpart, though `RoadGraph` itself is ported |
-| `Controller` | 1 | Scalar base class, and the crate carries the role in `PidController` and the `PathTracker` trait |
+| `MPCTracker` | 1 | Duck-typed abstract base; `DubinsPathFollowingMPC` is registered onto it as a virtual subclass, but the interface itself holds no crate-side counterpart |
 | **Total** | **30** | |
 
 ## Reading the tables
@@ -872,32 +872,32 @@ Construct with `PlanningPipeline(planner: "Optional['ContinuousPlanner']" = None
 
 Control subpackage: feedback controllers, tracking, and object-centric control.
 
-The MPC names carry two deviations a caller has to read before relying on an exact output. A-01 removes `casadi` from the dependency list, and A-02 replaces the nonlinear program with a linearized one solved by Clarabel, which returns a different and also valid solution for the same input. A-09 adds saturation, rate limiting and anti-windup to every command leaving the layer, and A-17 and A-18 add validation of the elapsed interval.
+The MPC names carry deviations a caller has to read before relying on an exact output. A-01 removes `casadi` from the dependency list, and A-02 replaces the nonlinear program with a sequence of linearized programs solved by Clarabel, which returns a different and also valid solution for the same input. A-30 turns the obstacle keep-out into a half-space through the nominal position with a penalized slack, so `obstacle_barrier_power` is accepted but no longer shapes the barrier. A-31 reports the surrogate convex objective in `cost`, comparable across steps of one controller but not against a value the earlier nonlinear solver printed. A-32 replaces the earlier solver's status strings in `solver_status` with `solved`, `solved_inexact`, `invalid_state`, `infeasible`, `unbounded`, `budget_exhausted` and `numerical`. A-09 adds saturation, rate limiting and anti-windup to every command leaving the layer, and A-17 and A-18 add validation of the elapsed interval.
 
 | Name | Kind | Defined in | Also exported by | Rust state | Rust counterpart |
 |---|---|---|---|---|---|
 | `ActuatorArray` | class | `arco.control.actuator` | none | ported | arco-control `ActuatorArray`, `ActuatorSettings`, `GraspMatrix` |
 | `ArtificialPotentialField` | class | `arco.control.avoidance` | none | ported | arco-control `ArtificialPotentialField` |
 | `CircleBody` | class | `arco.control.rigid_body.circle` | `arco.control.rigid_body` | ported | arco-control `CircleBody` |
-| `Controller` | abstract class | `arco.control.base` | `arco.guidance` | none | none |
-| `DubinsPathFollowingMPC` | class | `arco.control.mpc.path_following` | `arco.control.mpc` | in progress | arco-control `mpc`, `QpProblem`, `QpSolution` |
+| `Controller` | abstract class | `arco.control.base` | `arco.guidance` | ported | arco-py `Controller` |
+| `DubinsPathFollowingMPC` | class | `arco.control.mpc.path_following` | `arco.control.mpc` | ported | arco-control `mpc`, `QpProblem`, `QpSolution` |
 | `DubinsVehicleLimits` | data class | `arco.control.mpc.path_following` | `arco.control.mpc` | ported | arco-control `CommandLimits` |
-| `JointSpaceMPC` | class | `arco.control.mpc.joint_space` | `arco.control.mpc` | in progress | arco-control `mpc` |
-| `JointSpaceMPCConfig` | data class | `arco.control.mpc.joint_space` | `arco.control.mpc` | in progress | arco-control `mpc` |
+| `JointSpaceMPC` | class | `arco.control.mpc.joint_space` | `arco.control.mpc` | ported | arco-control `mpc` |
+| `JointSpaceMPCConfig` | data class | `arco.control.mpc.joint_space` | `arco.control.mpc` | ported | arco-control `mpc` |
 | `JointSpaceTracker` | class | `arco.control.joint_tracker` | none | ported | arco-control `JointSpaceTracker`, `JointTrackerSettings` |
-| `MPCController` | class | `arco.control.mpc.controller` | `arco.control.mpc`, `arco.guidance` | in progress | arco-control `MpcController`, per C-01 |
-| `MPCStepResult` | data class | `arco.control.mpc.result` | `arco.control.mpc` | in progress | arco-control `mpc` |
-| `MPCTracker` | abstract class | `arco.control.mpc.base` | `arco.control.mpc` | in progress | arco-control `mpc` |
-| `MPCTrackingLoop` | class | `arco.control.mpc.tracking_loop` | `arco.control.mpc` | in progress | arco-control `mpc` |
-| `PathFollowingMPCConfig` | data class | `arco.control.mpc.path_following` | `arco.control.mpc` | in progress | arco-control `mpc` |
+| `MPCController` | class | `arco.control.mpc.controller` | `arco.control.mpc`, `arco.guidance` | ported | arco-py `MpcController`, per C-01 |
+| `MPCStepResult` | data class | `arco.control.mpc.result` | `arco.control.mpc` | ported | arco-control `mpc` |
+| `MPCTracker` | abstract class | `arco.control.mpc.base` | `arco.control.mpc` | none | none |
+| `MPCTrackingLoop` | class | `arco.control.mpc.tracking_loop` | `arco.control.mpc` | ported | arco-control `mpc` |
+| `PathFollowingMPCConfig` | data class | `arco.control.mpc.path_following` | `arco.control.mpc` | ported | arco-control `mpc` |
 | `PIDController` | class | `arco.control.pid` | `arco.guidance` | ported | arco-control `PidController`, `PidGains`, `AntiWindup` |
 | `PurePursuitController` | class | `arco.control.pure_pursuit` | `arco.guidance` | ported | arco-control `PurePursuitTracker` |
-| `ReferencePath` | class | `arco.control.mpc.reference_path` | `arco.control.mpc` | in progress | arco-control `ReferencePath` |
+| `ReferencePath` | class | `arco.control.mpc.reference_path` | `arco.control.mpc` | ported | arco-control `ReferencePath` |
 | `RigidBody` | abstract class | `arco.control.rigid_body.base` | `arco.control.rigid_body` | ported | arco-control `RigidBody` (trait), `BodyState` |
 | `SquareBody` | class | `arco.control.rigid_body.square` | `arco.control.rigid_body` | ported | arco-control `SquareBody` |
 | `TrackingLoop` | class | `arco.control.tracking` | `arco.guidance` | ported | arco-control `TrackingLoop`, `TrackingSettings` |
-| `forward_cone_factor` | function | `arco.control.mpc.costs` | `arco.control.mpc` | in progress | arco-control `mpc` |
-| `obstacle_barrier` | function | `arco.control.mpc.costs` | `arco.control.mpc` | in progress | arco-control `mpc` |
+| `forward_cone_factor` | function | `arco.control.mpc.costs` | `arco.control.mpc` | ported | arco-control `mpc` |
+| `obstacle_barrier` | function | `arco.control.mpc.costs` | `arco.control.mpc` | ported | arco-control `mpc` |
 
 ### Functions of `arco.control`
 
@@ -1260,13 +1260,13 @@ Five of the eleven entries are controllers `arco.control` defines: `Controller`,
 | Name | Kind | Defined in | Also exported by | Rust state | Rust counterpart |
 |---|---|---|---|---|---|
 | `BSplineInterpolator` | class | `arco.guidance.interpolation.bspline` | `arco.guidance.interpolation` | ported | arco-guidance `BSplineInterpolator` |
-| `Controller` | abstract class | `arco.control.base` | `arco.control` | none | none |
+| `Controller` | abstract class | `arco.control.base` | `arco.control` | ported | arco-py `Controller` |
 | `DubinsPrimitive` | class | `arco.guidance.primitive.dubins` | `arco.guidance.primitive` | ported | arco-guidance `DubinsPrimitive` |
 | `DubinsVehicle` | class | `arco.guidance.vehicle` | none | ported | arco-guidance `DubinsVehicle`, arco-control `CommandLimits` |
 | `ExplorationPrimitive` | abstract class | `arco.guidance.primitive.base` | `arco.guidance.primitive` | ported | arco-guidance `ExplorationPrimitive` (trait) |
 | `Interpolator` | abstract class | `arco.guidance.interpolation.base` | `arco.guidance.interpolation` | ported | arco-guidance `Interpolator` (trait) |
 | `MovingAverageInterpolator` | class | `arco.guidance.interpolation.moving_average` | `arco.guidance.interpolation` | ported | arco-guidance `MovingAverageInterpolator` |
-| `MPCController` | class | `arco.control.mpc.controller` | `arco.control`, `arco.control.mpc` | in progress | arco-control `MpcController`, per C-01 |
+| `MPCController` | class | `arco.control.mpc.controller` | `arco.control`, `arco.control.mpc` | ported | arco-py `MpcController`, per C-01 |
 | `PIDController` | class | `arco.control.pid` | `arco.control` | ported | arco-control `PidController`, `PidGains`, `AntiWindup` |
 | `PurePursuitController` | class | `arco.control.pure_pursuit` | `arco.control` | ported | arco-control `PurePursuitTracker` |
 | `TrackingLoop` | class | `arco.control.tracking` | `arco.control` | ported | arco-control `TrackingLoop`, `TrackingSettings` |
