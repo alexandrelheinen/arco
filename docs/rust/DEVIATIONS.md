@@ -845,3 +845,21 @@ The serialization helpers on `PlanningPipeline` are compiled, and they
 call numpy rather than writing the archive themselves: `.npz` is numpy's
 format, and a second implementation would be a second definition of it to
 keep in step with a caller's `numpy.load`.
+
+### A-38: an infinite distance reaches the telemetry file as null
+
+**Status:** accepted, phase 10.
+
+A planner reports an infinite best distance to the goal until it has
+placed a node that reaches one, and the loading screen renders that as an
+unknown distance. `json.dumps` wrote it as the bare token `Infinity`,
+which is not JSON and which `json.loads` accepts because it wrote it.
+
+The port writes null instead, because `serde_json` refuses to emit a token
+no JSON parser has to accept. `read_telemetry` reads a null, or a missing
+field, back as an infinity, so the round trip through the file is whole
+and the loading screen sees what it saw before.
+
+The difference is visible to anything else reading that file with a
+strict parser, which now succeeds where it previously failed on the
+`Infinity` token.

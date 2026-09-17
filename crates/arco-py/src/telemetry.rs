@@ -169,7 +169,7 @@ impl PyPlannerTelemetry {
             "step_name": self.step_name,
             "iteration": self.iteration,
             "max_iterations": self.max_iterations,
-            "best_dist_to_goal": self.best_dist_to_goal,
+            "best_dist_to_goal": finite_or_null(self.best_dist_to_goal),
             "criteria": criteria,
         })
     }
@@ -198,7 +198,15 @@ impl PyPlannerTelemetry {
             step_name: value.get("step_name")?.as_str()?.to_owned(),
             iteration: value.get("iteration")?.as_i64()?,
             max_iterations: value.get("max_iterations")?.as_i64()?,
-            best_dist_to_goal: value.get("best_dist_to_goal")?.as_f64()?,
+            // A planner that has placed no node yet reports an infinite
+            // distance, which JSON cannot carry: `serde_json` refuses it
+            // and writes null. Reading null back as infinity is what
+            // keeps the round trip whole, per deviation A-38.
+            best_dist_to_goal: value
+                .get("best_dist_to_goal")
+                .map_or(f64::INFINITY, |found| {
+                    found.as_f64().unwrap_or(f64::INFINITY)
+                }),
             criteria,
         })
     }
@@ -257,6 +265,20 @@ impl PyPlannerTelemetry {
             self.best_dist_to_goal,
             self.criteria,
         )
+    }
+}
+
+/// The value JSON can carry, or null when the number is not finite.
+///
+/// A planner reports an infinite distance to the goal until it has placed
+/// a node that reaches one, and neither JSON nor `serde_json` can write
+/// an infinity. Null is what the file carries, and the reader turns it
+/// back into an infinity. Deviation A-38.
+fn finite_or_null(value: f64) -> serde_json::Value {
+    if value.is_finite() {
+        serde_json::json!(value)
+    } else {
+        serde_json::Value::Null
     }
 }
 
