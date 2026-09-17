@@ -249,10 +249,18 @@ fn the_radial_axis_appears_only_once_it_is_asked_for() {
     assert!(array.radii().is_none());
     assert!(array.reference_radii().is_none());
 
+    assert!(array.radii_velocities().is_none());
+
     array.init_radii(&body).expect("a valid body");
     let nominal = body.bounding_radius() + array.settings().standoff;
     for &radius in array.radii().expect("the axis now exists") {
         assert!((radius - nominal).abs() < 1e-12);
+    }
+    // The axis starts at rest, so a caller reading the rates straight
+    // after it appears sees zeros rather than whatever the angular axis
+    // happened to be doing.
+    for &rate in array.radii_velocities().expect("the axis now exists") {
+        assert!(rate.abs() < 1e-12, "{rate}");
     }
 }
 

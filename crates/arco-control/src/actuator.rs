@@ -333,6 +333,12 @@ impl ActuatorArray {
         self.radial.as_ref().map(|axis| axis.reference.as_slice())
     }
 
+    /// Radial rates, meters per second, once the radial axis exists.
+    #[must_use]
+    pub fn radii_velocities(&self) -> Option<&[f64]> {
+        self.radial.as_ref().map(|axis| axis.velocity.as_slice())
+    }
+
     /// Overwrites the placement angles, leaving the rates alone.
     ///
     /// # Errors
