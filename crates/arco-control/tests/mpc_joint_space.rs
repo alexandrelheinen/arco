@@ -728,3 +728,50 @@ fn an_occupancy_describing_another_space_is_refused() {
         Err(Error::DimensionMismatch { .. })
     ));
 }
+
+#[test]
+fn an_obstacle_on_the_route_is_gone_around_rather_than_driven_into() {
+    // Deviation A-33. The supporting hyperplane of A-30 has its normal
+    // pointing back along the route when the obstacle sits on it, so the
+    // only motion it permits is braking, and a symmetric approach carries
+    // no lateral gradient to break the tie. The run below is the case
+    // that showed it: the machine drove through the obstacle at a tenth
+    // of the clearance it was asked to keep.
+    let interval = 0.05;
+    let obstacle = [1.0, 0.0];
+    let clearance = 0.35;
+    let field = KdTreeOccupancy::new(&[obstacle.to_vec()], clearance).expect("a valid field");
+    let settings = JointMpcSettings {
+        step_interval: interval,
+        horizon_step_count: 12,
+        weight_obstacle: 100.0,
+        weight_tracking: 15.0,
+        ..settings(2)
+    };
+
+    let mut controller = JointSpaceMpc::new(settings, Some(field)).expect("valid settings");
+    controller.reset(&[0.0, 0.0]).expect("a valid reset");
+
+    let mut closest = f64::INFINITY;
+    for _step in 0..120 {
+        let taken = controller
+            .step(&[2.0, 0.0], interval)
+            .expect("a valid step");
+        let distance = closest_approach_to(&taken.configuration, &obstacle);
+        closest = closest.min(distance);
+    }
+    assert!(
+        closest >= 0.8 * clearance,
+        "the machine closed to {closest} against a clearance of {clearance}"
+    );
+}
+
+/// How far one configuration sits from a point.
+fn closest_approach_to(configuration: &[f64], point: &[f64]) -> f64 {
+    configuration
+        .iter()
+        .zip(point)
+        .map(|(here, there)| (here - there) * (here - there))
+        .sum::<f64>()
+        .sqrt()
+}

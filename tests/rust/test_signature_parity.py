@@ -83,6 +83,14 @@ _EXEMPT = frozenset(
         "arco.planning.TrajectoryResult.__init__",
         "arco.planning.continuous.TrajectoryResult.__init__",
         "arco.planning.continuous.optimizer.TrajectoryResult.__init__",
+        # The same factory-default problem, on the dataclass the two
+        # predictive controllers return: `predicted_xy` defaulted to an
+        # empty list built per call, and the compiled constructor spells
+        # that default `None` and builds the same empty list. Every
+        # argument name, its position and its meaning are unchanged.
+        "arco.control.MPCStepResult.__init__",
+        "arco.control.mpc.MPCStepResult.__init__",
+        "arco.control.mpc.result.MPCStepResult.__init__",
     }
 )
 

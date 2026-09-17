@@ -1,38 +1,13 @@
-"""MPCStepResult: diagnostics returned by one MPC tracking step."""
+"""MPCStepResult, re-exported from the compiled extension.
 
-from __future__ import annotations
+The implementation is ``PyMpcStepResult`` in the ``arco-py`` crate,
+registered back under its Python spelling by the binding layer. Deviation
+A-31: ``cost`` reports the surrogate convex objective the port solves, so
+it is comparable across steps of one controller and not against a number
+the CasADi implementation printed. Deviation A-32: ``solver_status``
+carries the convex solver's vocabulary rather than IPOPT's.
+"""
 
-from dataclasses import dataclass, field
+from arco._arco import MPCStepResult
 
-
-@dataclass
-class MPCStepResult:
-    """Result of a single :class:`~arco.control.mpc.base.MPCTracker` step.
-
-    Attributes:
-        speed_cmd: Commanded forward speed (m/s).
-        turn_rate_cmd: Commanded turn rate (rad/s).
-        cross_track_error: Signed lateral error to the reference (m).
-        heading_error: Heading error wrapped to ``(−π, π]`` (rad).
-        progress: Arc-length progress along the reference (m).
-        predicted_clearance_min: Minimum predicted obstacle distance over
-            the horizon (m).  ``inf`` when no occupancy map is set.
-        solver_success: Whether the NLP solver returned a usable solution.
-        solver_status: Solver status string (e.g. IPOPT return status).
-        solve_time_s: Wall-clock solve time in seconds.
-        cost: Optimal (or fallback) cost value.
-        predicted_xy: Predicted ``(x, y)`` samples over the horizon
-            (including the current pose).  Empty on solver failure.
-    """
-
-    speed_cmd: float
-    turn_rate_cmd: float
-    cross_track_error: float
-    heading_error: float
-    progress: float
-    predicted_clearance_min: float
-    solver_success: bool
-    solver_status: str
-    solve_time_s: float
-    cost: float
-    predicted_xy: list[tuple[float, float]] = field(default_factory=list)
+__all__ = ["MPCStepResult"]
