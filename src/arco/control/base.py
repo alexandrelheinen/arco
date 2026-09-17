@@ -1,26 +1,15 @@
-"""Controller: abstract base for feedback controllers."""
+"""Controller: abstract base for feedback controllers, from the extension.
 
-from abc import ABC, abstractmethod
+The implementation is ``PyController`` in the ``arco-py`` binding layer,
+wrapping the controller role that ``arco-control`` carries in
+``PidController`` and the ``PathTracker`` trait, and reaching callers
+through :mod:`arco._arco`. The compiled class keeps the abstract-base
+semantics of the Python version: ``control`` stays abstract, so
+constructing the base raises :class:`TypeError` and a subclass has to
+implement it. Deviation A-24: an override reached from inside a loop
+crosses the interpreter lock on every call.
+"""
 
+from arco._arco import Controller
 
-class Controller(ABC):
-    """Abstract base for feedback controllers.
-
-    Subclasses interpret ``state`` and ``reference`` according to their
-    specific control law (e.g., path position for pure pursuit, error
-    signal for PID, predicted trajectory for MPC).
-    """
-
-    @abstractmethod
-    def control(self, state: float, reference: float) -> float:
-        """Compute control command to track reference from current state.
-
-        Args:
-            state: The current state value (interpretation depends on
-                the concrete controller subclass).
-            reference: The reference/target value to track.
-
-        Returns:
-            Control command as a float.
-        """
-        pass
+__all__ = ["Controller"]

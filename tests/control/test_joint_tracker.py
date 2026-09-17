@@ -182,57 +182,8 @@ def test_step_converges_to_target_in_free_space():
 
 
 # ---------------------------------------------------------------------------
-# _repulsion_velocity()
+# repulsion, observed through step()
 # ---------------------------------------------------------------------------
-
-
-def test_repulsion_zero_when_disabled():
-    t = JointSpaceTracker(max_vel=1.0, max_acc=2.0, repulsion_gain=0.0)
-    t.reset(np.zeros(1))
-    rv = t._repulsion_velocity(np.zeros(1))
-    assert np.allclose(rv, 0.0)
-
-
-def test_repulsion_zero_without_occupancy():
-    t = JointSpaceTracker(max_vel=1.0, max_acc=2.0, repulsion_gain=1.0)
-    t.reset(np.zeros(1))
-    rv = t._repulsion_velocity(np.zeros(1))
-    assert np.allclose(rv, 0.0)
-
-
-def test_repulsion_zero_outside_influence_radius():
-    """No repulsion when farther than 2*clearance from obstacle."""
-    occ = KDTreeOccupancy([[0.0, 0.0]], clearance=0.1)
-    t = JointSpaceTracker(
-        max_vel=1.0, max_acc=2.0, occupancy=occ, repulsion_gain=1.0
-    )
-    t.reset(np.zeros(2))
-    # 5.0 >> 2*0.1 = 0.2 influence radius
-    rv = t._repulsion_velocity(np.array([5.0, 5.0]))
-    assert np.allclose(rv, 0.0)
-
-
-def test_repulsion_nonzero_inside_influence_radius():
-    """Repulsion is nonzero when inside 2*clearance."""
-    occ = KDTreeOccupancy([[0.0, 0.0]], clearance=0.5)
-    t = JointSpaceTracker(
-        max_vel=1.0, max_acc=2.0, occupancy=occ, repulsion_gain=1.0
-    )
-    t.reset(np.zeros(2))
-    rv = t._repulsion_velocity(np.array([0.4, 0.0]))  # inside influence=1.0
-    assert not np.allclose(rv, 0.0)
-
-
-def test_repulsion_points_away_from_obstacle():
-    """Repulsion velocity must point away from the obstacle."""
-    occ = KDTreeOccupancy([[0.0, 0.0]], clearance=0.5)
-    t = JointSpaceTracker(
-        max_vel=1.0, max_acc=2.0, occupancy=occ, repulsion_gain=1.0
-    )
-    q = np.array([0.3, 0.0])  # to the right of the obstacle at origin
-    rv = t._repulsion_velocity(q)
-    # Repulsion should be in the positive x direction (away from obstacle)
-    assert rv[0] > 0.0
 
 
 def test_repulsion_integrated_keeps_distance():

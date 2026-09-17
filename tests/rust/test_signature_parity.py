@@ -86,7 +86,7 @@ _EXEMPT = frozenset(
     }
 )
 
-_ANNOTATION = re.compile(r":\s*(\"[^\"]*\"|'[^']*')")
+_ANNOTATION = re.compile(r":\s*(\"[^\"]*\"|'[^']*'|[^,)=]+)")
 _RETURN = re.compile(r"\s*->\s*.*$")
 
 
