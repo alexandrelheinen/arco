@@ -286,11 +286,11 @@ footprint collisions.
 | Global MPC defaults | `src/arco/config/mpc.yml` |
 | City vehicle limits | `src/arco/simulator/sim/city_race_style.py` |
 | YAML → config wiring | `src/arco/simulator/sim/tracking.py` |
-| Contouring NLP | `src/arco/control/mpc/path_following.py` |
-| Path κ / progress | `src/arco/control/mpc/reference_path.py` |
+| Contouring controller | `crates/arco-control/src/mpc/path_following.rs` |
+| Path κ / progress | `crates/arco-control/src/mpc/reference.rs` |
 | Math formulation | [control_mpcc.md](control_mpcc.md) |
 | PPP / RRP joint MPC horizon | `map/ppp.yml`, `map/rrp.yml` (`timestep` + `mpc.horizon.dt`) |
-| Joint-space NLP | `src/arco/control/mpc/joint_space.py` |
+| Joint-space controller | `crates/arco-control/src/mpc/joint_space.rs` |
 
 **PPP / RRP:** these scenarios override the global 0.1 s simulator timestep
 with **0.05 s** (gantry / arm tuning).  The joint-space MPC horizon

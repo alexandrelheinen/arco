@@ -10,7 +10,7 @@ A class may contain more than one core block.
 
 ## 1. A\* Search (`AStarPlanner.plan_with_diagnostics`)
 
-**File**: `src/arco/planning/discrete/astar.py`
+**File**: `crates/arco-planning/src/discrete/astar.rs`
 
 Priority-queue best-first graph search. Frontier entries are
 `(f, direction_penalty, h, insertion_counter, node)`:
@@ -37,7 +37,7 @@ colinear steps.
 
 ## 2. RRT\* Expansion (`RRTPlanner.plan` / `get_tree`)
 
-**File**: `src/arco/planning/continuous/rrt.py`
+**File**: `crates/arco-planning/src/continuous/rrt.rs`
 
 ```
 for iteration in range(max_sample_count):
@@ -64,7 +64,7 @@ Rewire radius follows the Karaman & Frazzoli schedule when not fixed.
 
 ## 3. SST Expansion (`SSTPlanner._run`)
 
-**File**: `src/arco/planning/continuous/sst.py`
+**File**: `crates/arco-planning/src/continuous/sst.rs`
 
 ```
 for iteration in range(max_sample_count):
@@ -89,14 +89,18 @@ Witness cells keep only the cheapest active representative (sparsification).
 
 ## 4. Trajectory Optimizer (`TrajectoryOptimizer.optimize`)
 
-**File**: `src/arco/planning/continuous/optimizer.py`
+**File**: `crates/arco-planning/src/continuous/optimizer.rs`
 
 Two-stage numerical refinement of a reference path:
 
 1. **Stage 1** — place interior waypoints on the reference, initialize
    segment durations `tᵢ ∝ Lᵢ / v_cruise`, optional IK commands.
-2. **Stage 2** — `scipy.optimize.minimize` (L-BFGS-B / SLSQP) jointly
-   adjusts durations and interior positions.
+2. **Stage 2** — an `argmin` quasi-Newton solve jointly adjusts durations
+   and interior positions. Deviation A-08 records that this reaches a
+   different local minimum than the `scipy` solve it replaced, so the cost
+   achieved is comparable and the solution vector is not. The decision log
+   also explains why the decision variable is the logarithm of a duration
+   rather than the duration.
 
 Composite cost (weights from `arco/config/optimizer.yml`):
 
@@ -113,7 +117,7 @@ Collision distances use `KDTreeOccupancy.query_distances`.
 
 ## 5. Trajectory Pruner (`TrajectoryPruner.prune`)
 
-**File**: `src/arco/planning/continuous/pruner.py`
+**File**: `crates/arco-planning/src/continuous/pruner.rs`
 
 BFS over a shortcut graph: edge `(i, j)` exists iff `path[i]→path[j]` is
 collision-free. Returns a minimum-hop subsequence. Consecutive planner
@@ -130,7 +134,7 @@ feasible.
 
 ## 6. Dubins Steering (`DubinsPrimitive`)
 
-**File**: `src/arco/guidance/primitive/dubins.py`
+**File**: `crates/arco-guidance/src/primitive/dubins.rs`
 
 Computes shortest CSC/CCC paths for a forward-only car with fixed turning
 radius. Used as an exploration / steering primitive for kinodynamic-style
@@ -143,7 +147,7 @@ of Dubins word types).
 
 ## 7. Control Loops
 
-### PID (`PIDController`) — `src/arco/control/pid.py`
+### PID (`PIDController`) — `crates/arco-control/src/pid.rs`
 
 ```
 e = reference - state
@@ -154,7 +158,7 @@ u = Kp·e + Ki·integral + Kd·derivative
 
 O(1) per `control()` call.
 
-### Pure Pursuit (`PurePursuitController`) — `src/arco/control/pure_pursuit.py`
+### Pure Pursuit (`PurePursuitController`) — `crates/arco-control/src/pursuit.rs`
 
 1. Find look-ahead point at distance `L_d` on the path.
 2. Curvature `κ = 2 · sin(α) / L_d`.
@@ -164,8 +168,8 @@ Look-ahead search is O(n_path) per call.
 
 ### Path-following / joint-space MPC
 
-**Files**: `src/arco/control/mpc/path_following.py`,
-`src/arco/control/mpc/joint_space.py`
+**Files**: `crates/arco-control/src/mpc/path_following.rs`,
+`crates/arco-control/src/mpc/joint_space.rs`
 
 Each control step solves a short sequence of convex quadratic programs,
 linearized about the previous solution and solved by Clarabel; no optional
@@ -186,11 +190,17 @@ few sequential iterations.
 
 ## 8. Occupancy Queries (`KDTreeOccupancy`)
 
-**File**: `src/arco/mapping/kdtree.py`
+**File**: `crates/arco-mapping/src/occupancy.rs`
 
-`scipy.spatial.KDTree` nearest-neighbor queries for `is_occupied` and
-`query_distances`. Build is O(n_obs · log n_obs); each query is
-O(log n_obs) average.
+A native KD-tree answers `is_occupied` and `query_distances`. Build is
+O(n_obs · log n_obs); each query is O(log n_obs) average.
+
+The tree replaced `scipy.spatial.cKDTree`, and the trade is measured: a
+single query is about 25 times faster and a build is slower, reaching 3.5
+times slower at fifty thousand obstacles. A planner builds once and queries
+thousands of times, so a whole solve comes out far ahead; a caller that
+rebuilds the map as the world changes is the workload where that accounting
+would need checking.
 
 ---
 
@@ -198,23 +208,24 @@ O(log n_obs) average.
 
 | Location | Current | Complexity | Proposed fix | Known how? |
 |----------|---------|------------|--------------|------------|
-| `RRTPlanner._nearest` | Linear scan | O(n) | Periodic scipy KD-tree rebuild | Yes |
-| `RRTPlanner._near` | Linear scan | O(n) | KD-tree range query (same index) | Yes |
+| `RrtPlanner::nearest_index` | Linear scan | O(n) | Periodic rebuild of the crate's own KD-tree | Yes |
+| `RrtPlanner::collect_near` | Linear scan | O(n) | KD-tree range query (same index) | Yes |
 | `RRTPlanner.plan` vs `get_tree` | Duplicated expansion loop | n/a | Have `plan` delegate to `get_tree` | Yes (easy) |
 | `SSTPlanner._select_active` | Linear over active set | O(\|active\|) | KD-tree over active positions | Yes |
 | `SSTPlanner._nearest_witness` | Linear over witnesses | O(\|witnesses\|) | KD-tree over witness positions | Yes |
 | `PurePursuitController.control` | Full path scan each tick | O(n_path) | Monotonic segment index | Yes (easy) |
 | `CartesianGraph.find_nearest_node` | Linear over nodes | O(n) | Static KD-tree for road graphs | Yes (easy) |
 | Segment collision sampling | Fixed `collision_check_count` | O(k) | Adaptive / AABB prefilter | Partially |
-| `TrajectoryOptimizer.optimize` | Dense scipy L-BFGS-B in Python | many evals | Warm-start; tighten weights | Partially |
+| `TrajectoryOptimizer::optimize` | Dense quasi-Newton with a differenced gradient | many evals | Warm-start; analytic Jacobian | Partially |
 | Path-following / joint MPC | Rebuild + solve a QP sequence each step | QP solve/tick | Warm-start; longer control period | Partially |
-| `BSplineInterpolator.interpolate` | No-op stub | n/a | Implement with `splprep`/`splev` | Yes (feature, not micro-opt) |
+| `BSplineInterpolator::interpolate` | Returns the path unchanged | n/a | Implement the smoothing | Yes (feature, not micro-opt) |
 
 ### Notes
 
-- `scipy.spatial.KDTree` is already a dependency (via scipy) but is immutable.
-  For growing RRT*/SST trees, rebuild every `M ≈ sqrt(N_max)` inserts to keep
-  amortized insert cost reasonable.
+- The crate's KD-tree is built once and is immutable. For growing RRT*/SST
+  trees, rebuild every `M ≈ sqrt(N_max)` inserts to keep the amortized insert
+  cost reasonable. The measured build cost above is what that rebuild
+  interval has to pay for.
 - SST witnesses only grow, so witness KD-trees only need rebuild-on-growth.
 - Pure Pursuit and `plan`/`get_tree` dedup are the cheapest wins.
 - MPC / optimizer improvements depend on solver backend choices more than on

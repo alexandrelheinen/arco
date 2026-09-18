@@ -22,7 +22,7 @@ RRT* extends the basic RRT algorithm with two key improvements:
 
 ## Implementation Status
 
-✅ **Fully Implemented** in `src/arco/planning/continuous/rrt.py`
+✅ **Fully Implemented** in `crates/arco-planning/src/continuous/rrt.rs`, reached from Python as `arco.planning.RRTPlanner`
 
 ### What's Implemented
 - [x] Core RRT* algorithm with adaptive rewiring radius

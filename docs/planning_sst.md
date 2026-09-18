@@ -23,7 +23,7 @@ SST addresses the challenge of kinodynamic planning (planning with dynamics cons
 
 ## Implementation Status
 
-✅ **Fully Implemented** in `src/arco/planning/continuous/sst.py`
+✅ **Fully Implemented** in `crates/arco-planning/src/continuous/sst.rs`, reached from Python as `arco.planning.SSTPlanner`
 
 ### What's Implemented
 - [x] Core SST algorithm with witness-based sparsification
