@@ -38,8 +38,8 @@ See [GUIDANCE.md](GUIDANCE.md) for details.
 - Full contouring joint-space MPC (path progress state) beyond carrot NMPC
 
 ### Tools
-- `arcosim` — unified CLI for real-time simulation and static image generation
-  (`--image` mode) from scenario YAML files (pygame/PyOpenGL + matplotlib)
+- `arcosim` — unified CLI for real-time simulation, video recording, and still-frame
+  generation (`--still` mode) from scenario YAML files (pygame/PyOpenGL)
 - Built-in scenarios: `city`, `ppp`, `rrp`, `occ`
 
 See [VISUALIZATION.md](VISUALIZATION.md) for details.

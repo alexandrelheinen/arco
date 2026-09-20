@@ -42,7 +42,7 @@ Check that the compiled module answers before spending time on a scenario.
 The simulator needs the display extras on top of the library.
 
 ```bash
-.venv/bin/pip install -e ".[tools,pygame]"
+.venv/bin/pip install -e ".[tools]"
 ```
 
 Run a scenario. The maps live in `map/`.
@@ -166,8 +166,7 @@ pip install -e ".[dev]"
 Optional extras:
 
 ```bash
-pip install -e ".[tools]"         # static image mode only
-pip install -e ".[tools,pygame]"  # full arcosim, real-time and static
+pip install -e ".[tools]"  # arcosim simulator, real-time and video/stills
 ```
 
 Python 3.10+. See [docs/STACK.md](docs/STACK.md) for details.
@@ -209,7 +208,7 @@ arcosim map/city.yml
 ```
 
 ```bash
-arcosim map/ppp.yml --image --record output/ppp.png
+arcosim map/ppp.yml --still 300 -o output/ppp.png
 ```
 
 ## Contributing
