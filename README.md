@@ -225,4 +225,4 @@ Follow [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/guidelines.md](docs/guidelin
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+Apache-2.0 License. See [LICENSE](LICENSE).
