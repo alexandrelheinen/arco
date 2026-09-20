@@ -2,8 +2,10 @@
 
 ## Rationale
 
-See [entity_formats.md](entity_formats.md) for the research note that
-justifies the design choices below.
+The entity model uses a lightweight dataclass hierarchy inspired by robotics
+conventions (URDF link-joint structures and MJCF geometry taxonomy),
+avoiding external physics engine dependencies while providing typed representations
+for agents, kinematic chains, and objects.
 
 ## Hierarchy
 

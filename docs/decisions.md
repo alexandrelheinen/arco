@@ -324,8 +324,8 @@ consumers.
 **Date:** 2026-09-16. **Status:** accepted.
 
 `scipy.optimize.minimize` has no equivalent in the Rust ecosystem, and
-[docs/rust/PLAN.md](rust/PLAN.md) named `argmin` for the replacement.
-Phase 5 adopts it, with two consequences worth writing down.
+the Rust port adopted `argmin` for the replacement.
+Phase 5 adopted it, with two consequences worth writing down.
 
 `argmin` offers no box constraint on a quasi-Newton solver, where
 `scipy`'s L-BFGS-B held segment durations above a floor with one. The

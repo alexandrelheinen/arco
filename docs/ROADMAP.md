@@ -22,9 +22,9 @@ See [PLANNING.md](PLANNING.md) for details.
 
 ### Guidance / control layer
 - Controllers: `PIDController`, `PurePursuitController`, `TrackingLoop`
-- Path-following MPC (shipped): `DubinsPathFollowingMPC`, `MPCTrackingLoop`,
+- Path-following MPC: `DubinsPathFollowingMPC`, `MPCTrackingLoop`,
   `ReferencePath` under `arco.control.mpc`
-- Joint-space MPC (shipped): `JointSpaceMPC` drop-in for `JointSpaceTracker`
+- Joint-space MPC: `JointSpaceMPC` drop-in for `JointSpaceTracker`
   (PPP / RRP carrot tracking; select via `simulator.tracker: mpc`)
 - Deprecated stub: scalar `MPCController` (use `DubinsPathFollowingMPC`)
 - Interpolation: `BSplineInterpolator` for smooth trajectory generation
@@ -50,7 +50,6 @@ See [VISUALIZATION.md](VISUALIZATION.md) for details.
   (`RevoluteJoint`, `PrismaticJoint`), `EndEffector`, `Object`
 - Geometry descriptors: `BoxGeometry`, `SphereGeometry` (JSON-serialisable)
 - `KinematicChain` — Links, Joints, and an EndEffector
-- Format research note: [entity_formats.md](entity_formats.md)
 
 See [ENTITY_MODEL.md](ENTITY_MODEL.md) for details.
 

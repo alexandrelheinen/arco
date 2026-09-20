@@ -168,11 +168,9 @@ it does not, the output changes, and phase 6 records which controllers
 were affected and by how much.
 
 This is the one place the port deliberately improves an algorithm rather
-than translating it, which otherwise contradicts the rule in
-[PLAN.md](PLAN.md#what-this-plan-does-not-do). The exception is taken
-because shipping a controller that winds up is a defect, not a feature to
-preserve, and because a differential test against a winding-up reference
-would lock the defect in.
+than translating it. The exception is taken because shipping a controller
+that winds up is a defect, not a feature to preserve, and because a
+differential test against a winding-up reference would lock the defect in.
 
 ### A-10: tolerances become named domain constants
 

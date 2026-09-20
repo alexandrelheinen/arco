@@ -55,9 +55,7 @@ the script sources `cargo llvm-cov show-env` rather than calling
 `cargo llvm-cov` directly. Running `pytest` against an uninstrumented
 build reports an empty profile.
 
-For the port itself, read [docs/rust/PLAN.md](docs/rust/PLAN.md) before
-starting a phase and [docs/rust/STYLE.md](docs/rust/STYLE.md) before
-writing Rust.
+Read [docs/rust/STYLE.md](docs/rust/STYLE.md) before writing Rust.
 
 ## Coding Rules
 

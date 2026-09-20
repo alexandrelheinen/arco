@@ -212,8 +212,16 @@ cache/
 # ARCO illustration gallery solver cache
 tools/output/gallery_cache/
 
+# Agents
+.claude/
+.claude/worktrees/
+
+# Simulation run output
+/output/
+
 # Rust
 /target/
 **/*.rs.bk
 # Coverage instrumentation drops these in the working directory.
-*.profraw
+**/*.profraw
+**/*.profdata

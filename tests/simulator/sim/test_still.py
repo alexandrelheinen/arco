@@ -1,4 +1,4 @@
-"""Tests for the arcosim still-frame sink (docs/still_frames.md).
+"""Tests for the arcosim still-frame sink.
 
 These tests must not import pygame or PyOpenGL: CI unit jobs install
 ``arco`` without the display extras, so :mod:`arco.simulator.sim.still`

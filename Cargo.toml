@@ -2,8 +2,7 @@
 #
 # The crate graph mirrors the Python package tree and is acyclic by
 # construction, so Cargo rejects an upward dependency at compile time.
-# See docs/rust/SPEC.md for the layering and docs/rust/PLAN.md for the
-# order the crates are filled in.
+# See docs/rust/SPEC.md for the layering and architecture.
 
 [workspace]
 resolver = "3"

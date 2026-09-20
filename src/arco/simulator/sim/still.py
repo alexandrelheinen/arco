@@ -9,8 +9,6 @@ selected frames as PNG instead of encoding an MP4.
 
 Nothing else about the run changes.  With no active request every helper
 returns the previous behaviour, so release recordings are untouched.
-
-See `docs/still_frames.md` for the specification and acceptance criteria.
 """
 
 from __future__ import annotations

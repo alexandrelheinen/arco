@@ -68,7 +68,7 @@ def test_dispatch_sets_simulator_fast_record(
 
 
 # ---------------------------------------------------------------------------
-# Still-frame flags — docs/still_frames.md
+# Still-frame flags
 # ---------------------------------------------------------------------------
 
 

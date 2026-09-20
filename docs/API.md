@@ -1621,7 +1621,6 @@ The `arcosim` console script resolves to `arco.simulator.__main__:main`.
 ## Related documents
 
 - [rust/SPEC.md](rust/SPEC.md), the requirements this inventory is evidence for
-- [rust/PLAN.md](rust/PLAN.md), the phase order that consumes it
 - [rust/DEVIATIONS.md](rust/DEVIATIONS.md), every accepted difference between the two implementations
 - [decisions.md](decisions.md), the decision log, including ADR-015 on configuration globals
 - [FAILURE_MODES.md](FAILURE_MODES.md), constructor and planning failure contracts

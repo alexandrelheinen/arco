@@ -5,8 +5,7 @@ Status: reviewed
 See [.guidelines/workflow/sdd.md](../../.guidelines/workflow/sdd.md) for how
 this fits the overall process, and
 [.guidelines/workflow/integration.md](../../.guidelines/workflow/integration.md)
-for how it feeds the V-cycle. The ordered implementation plan lives in
-[PLAN.md](PLAN.md); every adaptation this spec permits is recorded in
+for how it feeds the V-cycle. Every adaptation this spec permits is recorded in
 [DEVIATIONS.md](DEVIATIONS.md).
 
 ## Intent
@@ -544,11 +543,10 @@ expected in, and the type carries it where the trait bounds allow.
 
 ### Migration shape
 
-Every module is ported bottom up, and the Python source it replaces stays
-in the tree behind a feature switch until its differential test passes.
-Deletion of a Python module happens in a separate commit from the landing
-of its Rust replacement, so a revert is a one-commit operation.
-[PLAN.md](PLAN.md) gives the order.
+Every module was ported bottom up, and the Python source it replaced was
+kept behind a feature switch until its differential test passed.
+Deletion of Python modules happened in separate commits from the landing
+of their Rust replacements.
 
 ## Open questions
 

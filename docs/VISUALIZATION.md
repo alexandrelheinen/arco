@@ -10,8 +10,7 @@ scenario through the ARCO pipeline and renders it.
 - **Interactive** (default): a window with live animation.
 - **Video** (`-o FILE.mp4`): headless MP4 recording through ffmpeg.
 - **Still frames** (`-o FILE.png --still FRAME`): the same render, with the
-  selected frames written as PNG instead of encoded. See
-  [still_frames.md](still_frames.md).
+  selected frames written as PNG instead of encoded.
 
 The matplotlib layer under `src/arco/simulator/viewer/` is a library used by
 the pipeline frontends; it has no `arcosim` entry point. Earlier revisions of

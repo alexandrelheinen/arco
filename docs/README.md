@@ -19,11 +19,9 @@
 - [Illustration gallery](GALLERY.md) — 16:9 plates for decks, pages and papers
 - [Pipeline](PIPELINE.md)
 - [Entity model](ENTITY_MODEL.md)
-- [Entity format research](entity_formats.md)
 
 ## Rust port
 - [Spec](rust/SPEC.md) — scope, acceptance criteria, traceability ids
-- [Plan](rust/PLAN.md) — phase order and exit criteria
 - [Rust conventions](rust/STYLE.md) — naming, docs, tooling, PyO3 rules
 - [Port deviations](rust/DEVIATIONS.md) — where the port does not mirror Python
 

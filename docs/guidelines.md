@@ -237,8 +237,7 @@ This check is **mandatory** before any commit that touches a public API.
 
 ARCO's algorithm core is compiled Rust behind PyO3 bindings, so the
 Python package keeps its historical import paths and call syntax. See
-[docs/rust/SPEC.md](rust/SPEC.md) for the scope and acceptance criteria,
-[docs/rust/PLAN.md](rust/PLAN.md) for the order of work, and
+[docs/rust/SPEC.md](rust/SPEC.md) for the scope and architecture, and
 [docs/decisions.md](decisions.md) for why the approach was chosen.
 
 The authoritative Rust coding standard is
