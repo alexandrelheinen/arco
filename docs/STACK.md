@@ -44,21 +44,17 @@ pip install arco[dev]
 | `black` | Code formatter (line length 79, target py312) |
 | `isort` | Import sorter (black-compatible profile) |
 | `matplotlib` | Plot generation in example scripts |
-| `pyyaml` | YAML config loading |
-| `pylint` | Static analysis |
+| `graphviz` | Graph rendering |
 | `pydocstyle` | Docstring style checker (Google convention) |
 
 ### `tools` — visualization tools (arcosim)
 
 ```bash
-pip install arco[tools]        # static image mode only (matplotlib)
-pip install arco[tools,pygame] # full arcosim (adds pygame + PyOpenGL)
+pip install arco[tools]
 ```
 
 | Package | Role |
 |---------|------|
-| `matplotlib` | Static figure generation (`arcosim --image`) |
-| `pyyaml` | Scenario YAML loading |
 | `pygame >= 2.0` | Real-time simulation window (arcosim) |
 | `PyOpenGL >= 3.1` | OpenGL rendering in arcosim |
 
@@ -89,8 +85,7 @@ python -m maturin develop
 For the visualization tools:
 
 ```bash
-pip install -e ".[tools]"         # static image mode only
-pip install -e ".[tools,pygame]"  # full arcosim (real-time + static)
+pip install -e ".[tools]"
 ```
 
 ## Running the test suite
