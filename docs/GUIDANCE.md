@@ -4,19 +4,23 @@ The guidance layer in ARCO provides components for trajectory shaping and feedba
 
 ## Architecture
 
-Guidance owns interpolation, primitives, and vehicle models. Feedback
-controllers live in `arco.control` (re-exported from `arco.guidance` for
-convenience).
+Guidance owns interpolation, primitives, and vehicle models (`crates/arco-guidance/`). Feedback controllers live in control (`crates/arco-control/`), re-exported from `arco.guidance` and `arco.control` on the Python side for convenience:
 
 ```
-src/arco/guidance/
-├── interpolation/    ← Path smoothing
-├── primitive/        ← Kinematic exploration primitives
-└── vehicle.py        ← Vehicle kinematic models
+crates/arco-guidance/src/
+├── interpolation/    ← Path smoothing (BSpline, MovingAverage)
+├── primitive/        ← Kinematic motion primitives (Dubins)
+└── vehicle.rs        ← Vehicle kinematic models (DubinsVehicle)
 
-src/arco/control/
-├── pid.py / pure_pursuit.py / tracking.py
-└── mpc/              ← Path-following and joint-space MPC
+crates/arco-control/src/
+├── pid.rs            ← PID controller
+├── pure_pursuit.rs   ← Pure pursuit geometric tracking
+├── avoidance.rs      ← Artificial potential field avoidance
+├── tracking.rs       ← Closed-loop tracking integration
+└── mpc/              ← Path-following MPCC and joint-space MPC (Clarabel QP)
+
+src/arco/guidance/ & src/arco/control/
+                      ← Python re-export facades from arco._arco
 ```
 
 ## Components

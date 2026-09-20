@@ -4,15 +4,21 @@ The mapping layer in ARCO provides spatial data structures and obstacle-query in
 
 ## Architecture
 
-The mapping layer is organized into three main categories:
+The mapping algorithms are implemented in Rust in the `arco-mapping` crate (`crates/arco-mapping/`), with the Python package (`src/arco/mapping/`) re-exporting the compiled classes through `arco._arco`:
 
 ```
+crates/arco-mapping/src/
+├── lib.rs
+├── graph/            ← Graph topology hierarchy (Graph, WeightedGraph, CartesianGraph, RoadGraph)
+├── grid/             ← Discrete grid structures (GridCells, ManhattanGrid, EuclideanGrid)
+└── occupancy.rs      ← Continuous-space KD-tree occupancy map
+
 src/arco/mapping/
-├── __init__.py
-├── graph/            ← Graph topology hierarchy
-├── grid/             ← Discrete grid structures
-├── occupancy.py      ← Continuous-space obstacle interface (abstract)
-└── kdtree.py         ← KDTree-based occupancy implementation
+├── __init__.py       ← Re-exports from arco._arco
+├── graph/            ← Python re-exports & JSON road graph loader
+├── grid/             ← Python re-exports for Grid, ManhattanGrid, EuclideanGrid
+├── occupancy.py      ← Python Occupancy base class for Python subclassing
+└── kdtree.py         ← Re-exports KDTreeOccupancy from compiled extension
 ```
 
 ## Components
@@ -83,22 +89,19 @@ Both grids inherit from the `Grid` abstract base class (`grid/base.py`).
 
 ```python
 from arco.mapping import ManhattanGrid, EuclideanGrid
-import numpy as np
 
-# Create grid (0 = free, 1 = occupied)
-grid_data = np.zeros((100, 100), dtype=np.uint8)
-grid_data[40:60, 40:60] = 1  # Add obstacle
+# Create grid of given shape
+manhattan = ManhattanGrid((100, 100))
+euclidean = EuclideanGrid((100, 100))
 
-# Manhattan grid (4-connected)
-manhattan = ManhattanGrid(shape=(100, 100))
-manhattan.data = grid_data
-
-# Euclidean grid (8-connected)
-euclidean = EuclideanGrid(shape=(100, 100))
-euclidean.data = grid_data
+# Mark cells occupied (1) or free (0)
+for x in range(40, 60):
+    for y in range(40, 60):
+        manhattan.set_occupied((x, y))
+        euclidean.set_occupied((x, y))
 
 # Query neighbors
-neighbors = manhattan.neighbors(index=0)
+neighbors = manhattan.neighbors((50, 39))
 # Use with A* planner
 ```
 
