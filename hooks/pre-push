@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # hooks/pre-push
 #
-# Git pre-push hook — blocks the push when formatting or unit tests fail.
-# Runs the two fastest mandatory CI gates:
-#   1. check_formatting.sh  — black + isort (blocking)
-#   2. run_tests.sh         — pytest unit tests
+# Git pre-push hook — blocks the push when formatting, lints, or tests fail.
+# Runs the fast validation gate:
+#   scripts/validate.sh --fast
 #
 # Install once per clone:
 #   bash scripts/install_hooks.sh
@@ -16,24 +15,14 @@ set -uo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 SCRIPTS="$REPO_ROOT/scripts"
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  pre-push: running formatting + tests"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  pre-push: running fast validation (Rust + Python) "
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-FAILED=0
-
-if ! bash "$SCRIPTS/check_formatting.sh"; then
-    echo "❌  Formatting check failed — push blocked."
-    FAILED=1
+if ! bash "$SCRIPTS/validate.sh" --fast; then
+    echo "❌  Pre-push validation failed — push blocked."
+    exit 1
 fi
 
-if ! bash "$SCRIPTS/run_tests.sh"; then
-    echo "❌  Unit tests failed — push blocked."
-    FAILED=1
-fi
-
-if [ "$FAILED" -eq 0 ]; then
-    echo "✅  Formatting and tests passed — push allowed."
-fi
-
-exit "$FAILED"
+echo "✅  Pre-push validation passed — push allowed."
+exit 0
