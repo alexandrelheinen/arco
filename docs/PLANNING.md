@@ -18,24 +18,27 @@ The planning layer in ARCO provides algorithms for finding feasible paths throug
   `NotImplementedError`. Full implementation is not planned — see
   [ROADMAP.md](ROADMAP.md).
 
-## Directory Structure
+## Architecture & Directory Structure
+
+The core search and sampling loops are implemented in Rust in the `arco-planning` crate (`crates/arco-planning/`), re-exported through the PyO3 binding layer in `src/arco/planning/`:
+
 ```
-src/arco/planning/
-├── __init__.py
-├── cost.py              ← PlannerCost (default distance + heuristic)
+crates/arco-planning/src/
+├── lib.rs
 ├── discrete/
-│   ├── __init__.py
-│   ├── base.py          ← DiscretePlanner (inherits PlannerCost)
-│   ├── astar.py         ← A* planner implementation
-│   ├── dstar.py         ← D* Lite stub
-│   ├── route.py         ← Route planning (A* for road networks)
-│   └── api.py           ← Public API wrappers (AStar, DStarLite)
+│   ├── astar.rs         ← A* priority-queue graph search
+│   └── route.rs         ← Road network routing with projection
 └── continuous/
-    ├── __init__.py
-    ├── base.py          ← ContinuousPlanner (inherits PlannerCost)
-    ├── rrt.py           ← RRT* planner implementation
-    ├── sst.py           ← SST planner implementation
-    └── optimizer.py     ← TrajectoryOptimizer (two-stage refinement)
+    ├── rrt.rs           ← RRT* tree expansion and rewiring
+    ├── sst.rs           ← Stable Sparse Tree expansion
+    ├── optimizer.rs     ← Trajectory optimization (argmin)
+    └── pruner.rs        ← Shortcut trajectory pruning
+
+src/arco/planning/
+├── __init__.py          ← Re-exports planners from arco._arco
+├── cost.py              ← Re-exports PlannerCost
+├── discrete/            ← Re-exports AStarPlanner, RouteRouter, DStarLite stub
+└── continuous/          ← Re-exports RRTPlanner, SSTPlanner, TrajectoryOptimizer
 ```
 
 ## Cost Functions

@@ -18,14 +18,16 @@ This "read file A → write file B" discipline means:
 - Unit-testing a step requires only providing input files and checking output
   files.
 
-## Current State vs. Target State
+## Architecture & Runtime
 
-| Aspect | Current | Target |
-|--------|---------|--------|
-| Process model | Single Python process (in-memory) | One OS process per step |
-| IPC | Python function calls / shared objects | File I/O |
-| Telemetry | JSON temp-file polling | Dedicated telemetry channel |
-| Restart | Full re-run required | Per-step restart from last written file |
+In-process pipeline execution and message passing are implemented in Rust in the `arco-runtime` crate (`crates/arco-runtime/`), providing a thread-safe, bounded, typed message bus (`InMemoryBus`), lifecycle-managed nodes (`PipelineNode`), and the orchestrator (`PipelineRunner`). On the Python side, these are exposed via `arco.middleware` and `arco.pipeline`.
+
+| Aspect | Current Architecture | Future / Distributed Options |
+|--------|----------------------|------------------------------|
+| Process model | In-process threaded nodes (`arco-runtime`) | Multi-process worker nodes |
+| Messaging | Typed, bounded thread-safe bus (`Bus`) | IPC / network channels |
+| Telemetry | Dedicated publisher channel (`TelemetryPublisher`) | Dashboard / streaming endpoints |
+| Execution | Coordinated runner lifecycle (`PipelineRunner`) | Distributed workflow runners |
 
 ## Pipeline Steps
 
