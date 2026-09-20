@@ -9,11 +9,12 @@ The algorithms are compiled Rust reached through a Python interface, so
 
 <br clear="left">
 
+Algorithms can be visualized in the [illustration gallery](docs/GALLERY.md), where every curve solver output,
+AI is only used for the illustration design. See an example below, and access the for the other six plates,
+the light-background print set, and how to regenerate them.
+
 ![RRT* growing across an obstacle field, with the optimised trajectory it feeds](docs/images/gallery/nocturne/01_field.png)
 
-Every curve above is solver output. See the
-[illustration gallery](docs/GALLERY.md) for the other six plates, the
-light-background print set, and how to regenerate them.
 
 ## Quick start
 
