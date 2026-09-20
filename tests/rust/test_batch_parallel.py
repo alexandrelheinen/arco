@@ -95,7 +95,7 @@ def test_planning_lets_another_python_thread_run() -> None:
 )
 @pytest.mark.xfail(
     _UNDER_WSL,
-    strict=True,
+    strict=False,
     reason=(
         "Under WSL2 four concurrent plans each take an order of magnitude "
         "longer than one alone on an idle sixteen-core machine, while the "
