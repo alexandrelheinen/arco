@@ -57,7 +57,7 @@ J = w_time · T²
 | Velocity penalty | `w_velocity · Σ (v − v_cruise)²` | Prevents degenerate *T → 0* solutions; keeps speed near cruise. |
 | Collision penalty | `w_collision · Σ c(p, obs)` | Penalises obstacle penetration using the KD-tree nearest-obstacle query. |
 
-All four weights are configurable in `tools/config/optimizer.yml`.
+All four weights are configurable in `src/arco/config/optimizer.yml`.
 
 ---
 
@@ -152,17 +152,25 @@ class TrajectoryResult:
 
 ## Configuration
 
-All tuning parameters live in `tools/config/optimizer.yml`:
+All tuning parameters live in `src/arco/config/optimizer.yml`:
 
 ```yaml
-cruise_speed: 1.0       # Target speed (world units / s)
-weight_time: 10.0       # Time cost weight (dominant)
-weight_deviation: 1.0   # Deviation cost weight
-weight_velocity: 1.0    # Velocity cost weight
-weight_collision: 5.0   # Collision cost weight
-time_relaxation: 1.5    # α — 50 % slack on initial times
-method: L-BFGS-B        # scipy optimizer method
-sample_count: 3         # Intermediate collision samples per segment
+weight:
+  time: 1.0e2
+  deviation: 1.0e-2
+  velocity: 1.0e0
+  collision: 1.0e4
+  dynamics: 1.0e4
+
+collision_barrier:
+  scale: 1.0
+  power: 4.0
+
+method:
+  name: L-BFGS-B
+  sample_count: 3
+  max_iter: 100
+  ftol: 1.0e-3
 ```
 
 ---
@@ -192,15 +200,11 @@ print(f"Total time: {sum(result.durations):.2f} s")
 print(f"Final cost: {result.cost:.4f}")
 ```
 
-A fully worked visualization example is in
-`tools/examples/trajectory_optimization.py`.
-
----
-
 ## References
 
 - Ratliff, N., Zucker, M., Bagnell, J. A. & Srinivasa, S. (2009).
   CHOMP: Gradient optimization techniques for efficient motion planning.
   *ICRA 2009*.
-- `scipy.optimize.minimize` documentation.
+- `argmin` crate (L-BFGS quasi-Newton solver).
+- Deviation A-08 in `docs/rust/DEVIATIONS.md`.
 - Project architecture: `docs/guidelines.md`.

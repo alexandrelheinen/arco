@@ -32,7 +32,7 @@ planner waypoints  →  ReferencePath (κ, s)  →  online tracker (MPC or PP)
 
 Optional **trajectory optimization** (`TrajectoryOptimizer`) can sit between
 planning and tracking in other pipelines; its weights live in
-`tools/config/optimizer.yml` and are documented in
+`src/arco/config/optimizer.yml` and are documented in
 [planning_optimizer.md](planning_optimizer.md).  The city race currently
 feeds planner polylines **directly** into the online tracker.
 
@@ -187,11 +187,10 @@ prefer tuning weights before densifying samples.
 
 | Key | Where | Role |
 |-----|--------|------|
-| `solver.max_iter_count` | `config/mpc.yml` → `max_solver_iter_count` | IPOPT iteration cap |
+| `solver.max_iter_count` | `src/arco/config/mpc.yml` → `max_solver_iter_count` | Clarabel QP iteration cap |
 
-UI strings such as `Optim: 0: CONVERGENCE: RELAT…` report **IPOPT return
-status**, not “tracking quality”.  Relative convergence with a badly
-shaped cost still yields drunk trajectories.
+UI strings report **Clarabel solver status** (`solved`, `solved_inexact`,
+`infeasible`, etc. per deviation A-32), not “tracking quality”.
 
 ---
 

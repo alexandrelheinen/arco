@@ -16,22 +16,22 @@ defaults.
 
 ## 2. Code Formatting
 
-Formatting is enforced on **production code only** (`src/` and `tools/`).
+Formatting is enforced on **Python package code** (`src/`).
 Test files (`tests/`) are excluded — they are not production code and do not
 need to be perfectly formatted or documented.
 
-Run **both** formatters before every commit:
+Run **both** formatters before committing Python changes:
 
 ```bash
-python -m black --target-version py312 --line-length 79 src/ tools/
-python -m isort --line-length 79 src/ tools/
+python -m black --target-version py312 --line-length 79 src/
+python -m isort --line-length 79 src/
 ```
 
 - `black` target version: `py312`, line length: `79`. This is an accepted
   per-project override of [.guidelines/languages/py.md](../.guidelines/languages/py.md),
   which defaults to line-length 88.
 - `isort` default profile (no extra configuration needed).
-- CI enforces these rules on `src/` and `tools/` only.
+- CI enforces these rules on `src/` via `scripts/check_formatting.sh`.
 
 ## 3. Testing
 
@@ -113,7 +113,7 @@ catch simulator-level import/runtime issues:
 bash scripts/check_formatting.sh
 bash scripts/run_tests.sh
 # Requires xvfb + ffmpeg:
-for s in astar city rr vehicle ppp rrp occ; do
+for s in city occ ppp rrp; do
   bash scripts/run_smoke_test.sh "$s"
 done
 ```
@@ -233,26 +233,10 @@ simulator `scenes/`, standalone `examples/`, tests, and any other consumer —
 
 This check is **mandatory** before any commit that touches a public API.
 
-## 12. pyreverse — Module Name Conflicts with `__init__` Re-exports
+## 12. Rust
 
-`pyreverse` (pylint ≤ 3.x) crashes with `KeyError: 'arco.X.module'` when a
-package's `__init__.py` contains a `from .module import …` statement **and**
-the module name is not pre-registered in pyreverse's internal `module_info`
-table.  This tends to occur for top-level modules (not sub-packages) added to
-packages that use `__init__.py` as a re-export hub.
-
-### Prevention rule
-
-Whenever a new **module file** (not a sub-package) is added to a package whose
-`__init__.py` re-exports it, add `--ignore=<filename>.py` to both `pyreverse`
-invocations in `.github/workflows/generate_images.yml`.  Alternatively,
-restructure the new module as a sub-package (a folder with its own
-`__init__.py`) so pyreverse handles it like a package, not a module.
-
-## 13. Rust
-
-ARCO is porting its algorithm core to Rust behind PyO3 bindings, so the
-Python package keeps its current import paths and call syntax. See
+ARCO's algorithm core is compiled Rust behind PyO3 bindings, so the
+Python package keeps its historical import paths and call syntax. See
 [docs/rust/SPEC.md](rust/SPEC.md) for the scope and acceptance criteria,
 [docs/rust/PLAN.md](rust/PLAN.md) for the order of work, and
 [docs/decisions.md](decisions.md) for why the approach was chosen.
@@ -271,7 +255,7 @@ says how much of that a given module owes, with the procedure for
 recording a deviation. ARCO assigns a criticality level per crate in
 [docs/rust/STYLE.md](rust/STYLE.md#1-criticality-per-crate).
 
-Rules from sections 1 through 12 above that describe the domain rather
+Rules from sections 1 through 11 above that describe the domain rather
 than the language carry over unchanged: maps are nouns, planners take the
 `-er` suffix, planners accept a map as their first argument, and the
 graph hierarchy keeps its four levels. Rules that describe Python
