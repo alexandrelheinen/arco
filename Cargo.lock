@@ -40,7 +40,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "arco-control"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arco-core",
  "arco-mapping",
@@ -50,7 +50,7 @@ dependencies = [
 
 [[package]]
 name = "arco-core"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -60,7 +60,7 @@ dependencies = [
 
 [[package]]
 name = "arco-guidance"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arco-control",
  "arco-core",
@@ -68,21 +68,21 @@ dependencies = [
 
 [[package]]
 name = "arco-kinematics"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arco-core",
 ]
 
 [[package]]
 name = "arco-mapping"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arco-core",
 ]
 
 [[package]]
 name = "arco-planning"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arco-core",
  "arco-mapping",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "arco-py"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arco-control",
  "arco-core",
@@ -109,14 +109,14 @@ dependencies = [
 
 [[package]]
 name = "arco-runtime"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arco-core",
 ]
 
 [[package]]
 name = "arco-testing"
-version = "0.5.0"
+version = "0.6.0"
 
 [[package]]
 name = "argmin"
