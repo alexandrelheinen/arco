@@ -14,6 +14,7 @@ import numpy as np
 
 from .. import ramps
 from ..canvas import Canvas
+from ..quiet import soften
 from ..solution import Solution, cost_to_come
 from ..stage import world_stage
 from ..theme import Theme
@@ -34,6 +35,7 @@ def render(
     output: Path,
     width_in: float = 16.0,
     dpi: int = 240,
+    quiet: bool = False,
 ) -> None:
     """Render the cover plate.
 
@@ -44,7 +46,11 @@ def render(
         output: Destination PNG path.
         width_in: Figure width in inches.
         dpi: Output resolution.
+        quiet: Draw the solver picture only. Skips the poster chrome
+            and the lamp under the speed ribbon.
     """
+    if quiet:
+        theme = soften(theme)
     run = solution.rrt(SAMPLES)
     refine = solution.refinement(SAMPLES)
 
@@ -77,10 +83,18 @@ def render(
         ramps.speed(theme),
         width=4.6,
         zorder=14,
-        halo=theme.accent,
+        halo=None if quiet else theme.accent,
     )
-    canvas.terminal(ax, world.start, theme.ice, "start", radius=1.9)
-    canvas.terminal(ax, world.goal, theme.accent, "goal", radius=1.9)
+    canvas.terminal(
+        ax, world.start, theme.ice, "" if quiet else "start", radius=1.9
+    )
+    canvas.terminal(
+        ax, world.goal, theme.accent, "" if quiet else "goal", radius=1.9
+    )
+
+    if quiet:
+        canvas.save(output)
+        return
 
     fastest = float(refine.dense_speed.max())
     slowest = float(refine.dense_speed.min())

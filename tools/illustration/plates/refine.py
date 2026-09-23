@@ -15,6 +15,7 @@ import numpy as np
 
 from .. import ramps
 from ..canvas import Canvas
+from ..quiet import FULL_BLEED, soften
 from ..solution import Solution
 from ..stage import corridor_bounds, world_stage
 from ..theme import Theme
@@ -35,6 +36,7 @@ def render(
     output: Path,
     width_in: float = 16.0,
     dpi: int = 240,
+    quiet: bool = False,
 ) -> None:
     """Render the refinement plate.
 
@@ -45,14 +47,18 @@ def render(
         output: Destination PNG path.
         width_in: Figure width in inches.
         dpi: Output resolution.
+        quiet: Draw the three curves only. Skips the speed chart and
+            the poster chrome.
     """
+    if quiet:
+        theme = soften(theme)
     refine = solution.refinement(SAMPLES)
     canvas = Canvas(theme, width_in=width_in, dpi=dpi)
     bounds = corridor_bounds(_focus(refine.dense), pad=0.20)
     ax = world_stage(
         canvas,
         world,
-        rect=(0.0, 0.215, 1.0, 0.785),
+        rect=FULL_BLEED if quiet else (0.0, 0.215, 1.0, 0.785),
         bounds=bounds,
         grid_spacing=10.0,
         grid_alpha=0.6,
@@ -101,10 +107,18 @@ def render(
         ramps.speed(theme),
         width=5.2,
         zorder=16,
-        halo=theme.accent,
+        halo=None if quiet else theme.accent,
     )
-    canvas.terminal(ax, world.start, theme.ice, "start", radius=1.6)
-    canvas.terminal(ax, world.goal, theme.accent, "goal", radius=1.6)
+    canvas.terminal(
+        ax, world.start, theme.ice, "" if quiet else "start", radius=1.6
+    )
+    canvas.terminal(
+        ax, world.goal, theme.accent, "" if quiet else "goal", radius=1.6
+    )
+
+    if quiet:
+        canvas.save(output)
+        return
 
     _speed_strip(canvas, refine)
 

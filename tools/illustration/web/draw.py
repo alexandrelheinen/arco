@@ -1,7 +1,8 @@
-"""Drawing the web plates. Flat fills, no chrome, no type.
+"""Mark, crop, and the flat gesture drawings.
 
-Stroke widths are chosen for a 1600×900 master that is later shown near
-320 px: a hairline on the master disappears on the card.
+The release set is rendered by :mod:`illustration.web.render` from the
+gallery plates. This module still draws the three-arc mark and the
+Open Graph crop, and keeps the earlier flat plates for their tests.
 """
 
 from __future__ import annotations
@@ -45,13 +46,14 @@ def _pyplot():
     return plt
 
 
-def render_mark(ground: Ground, path: Path, dpi: int = DPI) -> None:
+def render_mark(ground, path: Path, dpi: int = DPI) -> None:
     """Draw the three-arc mark and write it to *path*.
 
     Args:
-        ground: Color ground.
+        ground: Object with ``background``, ``rrt``, ``sst`` and
+            ``astar``. A web ground or a gallery theme both qualify.
         path: Destination PNG.
-        dpi: Raster resolution. 512 px at the default.
+        dpi: Raster resolution. The mark stays 512 px.
     """
     fig, ax = _canvas(MARK_SIZE, MARK_SIZE, ground, dpi)
     span = np.linspace(np.deg2rad(206), np.deg2rad(334), 160)

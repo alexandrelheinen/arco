@@ -14,6 +14,7 @@ import numpy as np
 
 from .. import ramps
 from ..canvas import Canvas
+from ..quiet import soften
 from ..solution import Solution, cost_to_come
 from ..stage import world_bounds
 from ..theme import Theme, text_font
@@ -38,6 +39,7 @@ def render(
     output: Path,
     width_in: float = 16.0,
     dpi: int = 240,
+    quiet: bool = False,
 ) -> None:
     """Render the growth plate.
 
@@ -48,13 +50,21 @@ def render(
         output: Destination PNG path.
         width_in: Figure width in inches.
         dpi: Output resolution.
+        quiet: Draw the three trees only. Skips the length chart, the
+            panel captions and the poster chrome.
     """
+    if quiet:
+        theme = soften(theme)
     runs = [solution.rrt(budget) for budget in BUDGETS]
     canvas = Canvas(theme, width_in=width_in, dpi=dpi)
     bounds = world_bounds(world)
+    # The chart occupied the lower band. Without it the three panels
+    # sit in the middle, still square in figure fraction so the 16:9
+    # basin is not letterboxed inside a tall frame.
+    panel_y = (1.0 - PANEL_SIZE) / 2.0 if quiet else PANEL_Y
 
     for run, left in zip(runs, PANEL_X):
-        rect = (left, PANEL_Y, PANEL_SIZE, PANEL_SIZE)
+        rect = (left, panel_y, PANEL_SIZE, PANEL_SIZE)
         ax = canvas.stage(bounds, rect=rect, zorder=2)
         canvas.blobs(ax, world.outlines)
         canvas.tree(
@@ -71,15 +81,22 @@ def render(
             canvas.glow(ax, run.path, theme.accent, width=1.7, zorder=12)
         canvas.terminal(ax, world.start, theme.ice, radius=1.6)
         canvas.terminal(ax, world.goal, theme.accent, radius=1.6)
-        summary = (
-            "no route yet" if run.path is None else f"route {run.length:.0f} m"
-        )
-        _caption(
-            canvas,
-            rect,
-            f"{run.sample_count:,} samples".replace(",", " "),
-            f"{len(run.nodes)} nodes · {summary}",
-        )
+        if not quiet:
+            summary = (
+                "no route yet"
+                if run.path is None
+                else f"route {run.length:.0f} m"
+            )
+            _caption(
+                canvas,
+                rect,
+                f"{run.sample_count:,} samples".replace(",", " "),
+                f"{len(run.nodes)} nodes · {summary}",
+            )
+
+    if quiet:
+        canvas.save(output)
+        return
 
     _convergence(canvas, runs)
 

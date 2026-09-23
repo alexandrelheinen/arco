@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from ..canvas import Canvas
+from ..quiet import soften
 from ..solution import Solution
 from ..stage import world_stage
 from ..theme import Theme
@@ -34,6 +35,7 @@ def render(
     output: Path,
     width_in: float = 16.0,
     dpi: int = 240,
+    quiet: bool = False,
 ) -> None:
     """Render the comparison plate.
 
@@ -44,7 +46,10 @@ def render(
         output: Destination PNG path.
         width_in: Figure width in inches.
         dpi: Output resolution.
+        quiet: Draw the three searches only, with no poster chrome.
     """
+    if quiet:
+        theme = soften(theme)
     rrt = solution.rrt(SAMPLES)
     sst = solution.sst(SAMPLES)
     astar = solution.astar()
@@ -88,8 +93,16 @@ def render(
         if path is not None:
             canvas.glow(ax, np.asarray(path), color, width=width, zorder=14)
 
-    canvas.terminal(ax, world.start, theme.ice, "start", radius=1.9)
-    canvas.terminal(ax, world.goal, theme.accent, "goal", radius=1.9)
+    canvas.terminal(
+        ax, world.start, theme.ice, "" if quiet else "start", radius=1.9
+    )
+    canvas.terminal(
+        ax, world.goal, theme.accent, "" if quiet else "goal", radius=1.9
+    )
+
+    if quiet:
+        canvas.save(output)
+        return
 
     canvas.chrome(
         TITLE,

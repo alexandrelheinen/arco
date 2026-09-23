@@ -21,9 +21,9 @@ def test_generate_release_images_dry_run_lists_the_set() -> None:
     )
     out = result.stdout
     assert "tools/render_web.py" in out
-    assert "arc-dark.png" in out
-    assert "arc-og.png" in out
-    assert "mark-light.png" in out
+    assert "field-nocturne.png" in out
+    assert "field-og.png" in out
+    assert "mark-atlas.png" in out
 
 
 def test_publish_release_images_dry_run_requires_every_file(
@@ -49,9 +49,9 @@ def test_publish_release_images_dry_run_requires_every_file(
         text=True,
     )
     assert "would upload" in ok.stdout
-    assert "arc-og.png" in ok.stdout
+    assert "field-og.png" in ok.stdout
 
-    (tmp_path / "arc-dark.png").unlink()
+    (tmp_path / "field-nocturne.png").unlink()
     missing = subprocess.run(
         ["bash", str(script), "v0.0.0", str(tmp_path), "--dry-run"],
         check=False,
@@ -59,7 +59,7 @@ def test_publish_release_images_dry_run_requires_every_file(
         text=True,
     )
     assert missing.returncode == 1
-    assert "arc-dark.png" in missing.stdout
+    assert "field-nocturne.png" in missing.stdout
 
 
 def test_release_workflow_renders_and_attaches_images() -> None:
