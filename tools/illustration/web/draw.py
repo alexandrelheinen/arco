@@ -10,14 +10,9 @@ import os
 from pathlib import Path
 from typing import Sequence, Tuple
 
-os.environ.setdefault("MPLBACKEND", "Agg")
+import numpy as np
 
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-from matplotlib.collections import LineCollection  # noqa: E402
-from matplotlib.patches import Polygon, Rectangle  # noqa: E402
-
-from .budget import cap_edges  # noqa: E402
+from .budget import cap_edges
 from .scene import Basin, Flood  # noqa: E402
 from .solve import BasinRuns, FloodRun  # noqa: E402
 from .theme import Ground  # noqa: E402
@@ -33,6 +28,21 @@ CURVE_PT = 7.2
 TREE_PT = 3.4
 MARK_PT = 14.0
 BANDS = 5
+
+
+def _pyplot():
+    """Import pyplot after selecting a headless backend.
+
+    Matplotlib is a dev extra. Importing it here keeps ``og_crop`` usable
+    from the release-gate test run, which does not install that extra.
+
+    Returns:
+        The pyplot module.
+    """
+    os.environ.setdefault("MPLBACKEND", "Agg")
+    import matplotlib.pyplot as plt
+
+    return plt
 
 
 def render_mark(ground: Ground, path: Path, dpi: int = DPI) -> None:
@@ -244,7 +254,7 @@ def _canvas(width_px: int, height_px: int, ground: Ground, dpi: int):
     Returns:
         ``(figure, axes)`` with the axes covering the figure.
     """
-    fig = plt.figure(
+    fig = _pyplot().figure(
         figsize=(width_px / dpi, height_px / dpi),
         dpi=dpi,
         facecolor=ground.background,
@@ -263,6 +273,8 @@ def _bodies(ax, basin: Basin, ground: Ground) -> None:
         basin: Scene outlines.
         ground: Color ground.
     """
+    from matplotlib.patches import Polygon
+
     for outline in basin.outlines:
         ax.add_patch(
             Polygon(
@@ -304,6 +316,8 @@ def _tree(ax, nodes: np.ndarray, parents, color) -> None:
         parents: Parent index per node.
         color: RGBA color applied to every kept edge.
     """
+    from matplotlib.collections import LineCollection
+
     edges = cap_edges(nodes, parents)
     if not edges:
         return
@@ -334,6 +348,8 @@ def _ribbon(ax, curve: np.ndarray, speed: np.ndarray, color: str) -> None:
         speed: Speed per point, length ``N``.
         color: Stroke color.
     """
+    from matplotlib.collections import LineCollection
+
     weights = np.clip((speed[:-1] - 2.5) / (8.0 - 2.5), 0.0, 1.0)
     widths = 3.2 + weights * 9.0
     segments = np.stack([curve[:-1], curve[1:]], axis=1)
@@ -358,6 +374,8 @@ def _cell(ax, index: Sequence[int], cell: float, color: str) -> None:
         cell: Cell edge in world units.
         color: Fill color.
     """
+    from matplotlib.patches import Rectangle
+
     i, j = int(index[0]), int(index[1])
     ax.add_patch(
         Rectangle(
@@ -459,7 +477,7 @@ def _write(fig, path: Path, dpi: int) -> None:
     _reject_type(fig)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=dpi, facecolor=fig.get_facecolor())
-    plt.close(fig)
+    _pyplot().close(fig)
 
 
 def _reject_type(fig) -> None:

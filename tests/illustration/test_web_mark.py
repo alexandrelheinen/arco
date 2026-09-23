@@ -5,7 +5,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import matplotlib.image as mpimage
+import pytest
+
+pytest.importorskip(
+    "matplotlib",
+    reason="the mark render needs matplotlib, a dev extra",
+)
+import matplotlib.image as mpimage  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))

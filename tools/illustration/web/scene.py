@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from typing import List, Sequence, Tuple
 
 import numpy as np
-from matplotlib.path import Path as MplPath
 
 from arco.mapping import EuclideanGrid, KDTreeOccupancy
 
@@ -190,6 +189,8 @@ def _solid_points(outline: np.ndarray, step: float) -> np.ndarray:
     Returns:
         ``(M, 2)`` point cloud covering the disc.
     """
+    from matplotlib.path import Path as MplPath
+
     path = MplPath(outline)
     low, high = outline.min(axis=0), outline.max(axis=0)
     gx, gy = np.meshgrid(
