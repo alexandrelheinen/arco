@@ -14,6 +14,7 @@ import numpy as np
 from matplotlib.collections import LineCollection
 
 from ..canvas import Bounds, Canvas
+from ..quiet import soften
 from ..solution import Solution
 from ..stage import world_stage
 from ..theme import Theme
@@ -33,6 +34,7 @@ def render(
     output: Path,
     width_in: float = 16.0,
     dpi: int = 240,
+    quiet: bool = False,
 ) -> None:
     """Render the reachability plate.
 
@@ -43,7 +45,10 @@ def render(
         output: Destination PNG path.
         width_in: Figure width in inches.
         dpi: Output resolution.
+        quiet: Draw the fan only, with no poster chrome.
     """
+    if quiet:
+        theme = soften(theme)
     fan = solution.reachability()
     canvas = Canvas(theme, width_in=width_in, dpi=dpi)
     points = np.vstack(fan.curves)
@@ -101,7 +106,13 @@ def render(
         width=2.0,
         zorder=18,
     )
-    canvas.terminal(ax, fan.origin[:2], theme.accent, "pose", radius=0.9)
+    canvas.terminal(
+        ax, fan.origin[:2], theme.accent, "" if quiet else "pose", radius=0.9
+    )
+
+    if quiet:
+        canvas.save(output)
+        return
 
     canvas.chrome(
         TITLE,

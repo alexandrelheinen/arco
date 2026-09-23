@@ -1,19 +1,19 @@
 """Render the quiet web image set.
 
-Every file is a PNG with no title, legend or metric. Solver output is
-cached under ``tools/output/web_cache``. The release workflow runs this
-and uploads the directory.
+Each file is a gallery plate with the type, the side chart and the wide
+bloom removed. Solver output is cached under ``tools/output/gallery_cache``.
+The release workflow runs this and uploads the directory.
 
 Output::
 
     <output>/<plate>-<ground>.png
-    <output>/arc-og.png
+    <output>/field-og.png
 
 Usage::
 
     python3 tools/render_web.py --list
     python3 tools/render_web.py --output /tmp/release_images
-    python3 tools/render_web.py --plate mark --ground dark
+    python3 tools/render_web.py --plate wavefront --ground nocturne
 """
 
 from __future__ import annotations
@@ -70,16 +70,10 @@ def parse_args(argv=None) -> argparse.Namespace:
         help="Plate to render; repeatable. Defaults to every plate.",
     )
     parser.add_argument(
-        "--samples",
-        type=int,
-        default=None,
-        help="Sample budget for both RRT* and SST. Defaults to the release budget.",
-    )
-    parser.add_argument(
         "--dpi",
         type=int,
-        default=100,
-        help="Raster resolution. 100 gives a 1600 x 900 master.",
+        default=120,
+        help="Raster resolution. 120 gives a 1920 x 1080 master.",
     )
     return parser.parse_args(argv)
 
@@ -104,8 +98,6 @@ def main(argv=None) -> int:
         args.output,
         grounds=args.ground,
         plates=args.plate,
-        rrt_samples=args.samples,
-        sst_samples=args.samples,
         dpi=args.dpi,
     )
     return 0

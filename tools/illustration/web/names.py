@@ -1,8 +1,8 @@
 """Filenames published with a GitHub release.
 
 One list, so the renderer, the publish script and the tests cannot
-drift apart. ``arc-og.png`` is the center crop of ``arc-dark.png``,
-not a separate composition.
+drift apart. The plates are the gallery drawings. ``field-og.png`` is
+the center crop of ``field-nocturne.png``, not a separate composition.
 """
 
 from __future__ import annotations
@@ -11,15 +11,18 @@ from typing import Tuple
 
 PLATES: Tuple[str, ...] = (
     "mark",
-    "arc",
-    "branch",
-    "flood",
-    "pair",
-    "track",
-    "ribbon",
+    "field",
+    "wavefront",
+    "growth",
+    "contest",
+    "refine",
+    "pursuit",
+    "reachability",
 )
-GROUNDS: Tuple[str, ...] = ("dark", "light")
-OG_NAME = "arc-og.png"
+GROUNDS: Tuple[str, ...] = ("nocturne", "atlas")
+OG_PLATE = "field"
+OG_GROUND = "nocturne"
+OG_NAME = "field-og.png"
 
 
 def plate_filenames() -> Tuple[str, ...]:

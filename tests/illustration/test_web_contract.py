@@ -45,15 +45,16 @@ def test_cap_edges_returns_a_short_tree_unchanged() -> None:
 
 
 def test_release_filenames_cover_both_grounds_and_the_og_crop() -> None:
-    """The release set is fourteen plates plus the Open Graph crop."""
+    """The release set is the gallery plates, the mark, and the crop."""
     names = release_filenames()
-    assert names[0] == "mark-dark.png"
-    assert names[1] == "mark-light.png"
-    assert "arc-dark.png" in names
-    assert "ribbon-light.png" in names
-    assert names[-1] == "arc-og.png"
-    assert len(names) == 15
-    assert len(set(names)) == 15
+    assert names[0] == "mark-nocturne.png"
+    assert names[1] == "mark-atlas.png"
+    assert "field-nocturne.png" in names
+    assert "wavefront-atlas.png" in names
+    assert "reachability-atlas.png" in names
+    assert names[-1] == "field-og.png"
+    assert len(names) == 17
+    assert len(set(names)) == 17
 
 
 def test_basin_discs_survive_the_open_graph_crop() -> None:

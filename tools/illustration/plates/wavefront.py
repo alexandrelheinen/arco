@@ -15,6 +15,7 @@ from scipy.ndimage import distance_transform_edt, gaussian_filter
 
 from .. import ramps
 from ..canvas import Canvas
+from ..quiet import soften
 from ..solution import Solution
 from ..stage import world_stage
 from ..theme import Theme
@@ -34,6 +35,7 @@ def render(
     output: Path,
     width_in: float = 16.0,
     dpi: int = 240,
+    quiet: bool = False,
 ) -> None:
     """Render the A* expansion plate.
 
@@ -44,7 +46,10 @@ def render(
         output: Destination PNG path.
         width_in: Figure width in inches.
         dpi: Output resolution.
+        quiet: Draw the field and the route only, with no poster chrome.
     """
+    if quiet:
+        theme = soften(theme)
     run = solution.astar()
     canvas = Canvas(theme, width_in=width_in, dpi=dpi)
     ax = world_stage(canvas, world, grid_spacing=10.0, grid_alpha=0.5)
@@ -74,8 +79,16 @@ def render(
     )
 
     canvas.glow(ax, run.path, theme.astar, width=2.6, zorder=14)
-    canvas.terminal(ax, world.start, theme.ice, "start", radius=1.9)
-    canvas.terminal(ax, world.goal, theme.accent, "goal", radius=1.9)
+    canvas.terminal(
+        ax, world.start, theme.ice, "" if quiet else "start", radius=1.9
+    )
+    canvas.terminal(
+        ax, world.goal, theme.accent, "" if quiet else "goal", radius=1.9
+    )
+
+    if quiet:
+        canvas.save(output)
+        return
 
     share = 100.0 * len(run.expanded) / max(run.cell_count, 1)
     canvas.chrome(

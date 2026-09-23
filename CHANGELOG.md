@@ -3,6 +3,17 @@
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The images a published release attaches are the seven gallery plates
+  (`field`, `wavefront`, `growth`, `contest`, `refine`, `pursuit`,
+  `reachability`) on the nocturne and atlas grounds, plus the mark and
+  `field-og.png`. They keep the distance field, the trees and the
+  routes, and drop the title, the legend, the side chart and the wide
+  bloom. The flat gesture set shipped in 0.6.0 is no longer rendered.
+
 ## [0.6.0] - 2026-09-23
 
 A published release now carries a quiet image set for the web. Each file

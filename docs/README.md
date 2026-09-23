@@ -17,7 +17,7 @@
 ## Tools and design
 - [Visualization (`arcosim`)](VISUALIZATION.md)
 - [Illustration gallery](GALLERY.md) — 16:9 plates for decks and papers
-- [Web images (proposal)](proposals/web-illustrations.md) — quieter set for thumbnails and pages, pending acceptance
+- [Web images](proposals/web-illustrations.md) — the seven plates without type, attached to a release
 - [Pipeline](PIPELINE.md)
 - [Entity model](ENTITY_MODEL.md)
 
