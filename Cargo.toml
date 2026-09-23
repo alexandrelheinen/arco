@@ -9,7 +9,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.98.1"
 license = "Apache-2.0"
@@ -18,14 +18,14 @@ repository = "https://github.com/alexandrelheinen/arco"
 description = "Algorithms for Robotic Control and Optimization"
 
 [workspace.dependencies]
-arco-core = { path = "crates/arco-core", version = "0.5.0" }
-arco-mapping = { path = "crates/arco-mapping", version = "0.5.0" }
-arco-kinematics = { path = "crates/arco-kinematics", version = "0.5.0" }
-arco-runtime = { path = "crates/arco-runtime", version = "0.5.0" }
-arco-planning = { path = "crates/arco-planning", version = "0.5.0" }
-arco-control = { path = "crates/arco-control", version = "0.5.0" }
-arco-guidance = { path = "crates/arco-guidance", version = "0.5.0" }
-arco-testing = { path = "crates/arco-testing", version = "0.5.0" }
+arco-core = { path = "crates/arco-core", version = "0.6.0" }
+arco-mapping = { path = "crates/arco-mapping", version = "0.6.0" }
+arco-kinematics = { path = "crates/arco-kinematics", version = "0.6.0" }
+arco-runtime = { path = "crates/arco-runtime", version = "0.6.0" }
+arco-planning = { path = "crates/arco-planning", version = "0.6.0" }
+arco-control = { path = "crates/arco-control", version = "0.6.0" }
+arco-guidance = { path = "crates/arco-guidance", version = "0.6.0" }
+arco-testing = { path = "crates/arco-testing", version = "0.6.0" }
 
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }

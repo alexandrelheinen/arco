@@ -3,6 +3,20 @@
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-09-23
+
+A published release now carries a quiet image set for the web. Each file
+is one gesture and contains no title, number, or legend. The seven deck
+plates are unchanged.
+
+### Added
+
+- `tools/render_web.py` renders `mark`, `arc`, `branch`, `flood`,
+  `pair`, `track`, and `ribbon` on a dark ground and a light ground,
+  plus `arc-og.png`, a 1200×630 crop of the dark cover.
+- Publishing a release renders that set and attaches the PNG files.
+  The simulator videos are attached by the same workflow, as before.
+
 ## [0.5.0] - 2026-09-18
 
 The library is compiled. Every planner, controller, map and guidance
