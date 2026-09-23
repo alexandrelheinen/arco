@@ -211,6 +211,10 @@ cache/
 
 # ARCO illustration gallery solver cache
 tools/output/gallery_cache/
+tools/output/web_cache/
+
+# Quiet web plates are attached to the GitHub release, not committed.
+docs/images/web/*.png
 
 # Agents
 .claude/

@@ -7,9 +7,10 @@ wide release header.
 
 They are the wrong asset for a thumbnail. Each plate carries a title,
 a subtitle, a legend and run metrics, plus a tree dense enough to turn
-to texture at card size. A quieter set for the web is proposed in
-[proposals/web-illustrations.md](proposals/web-illustrations.md) and is
-not rendered yet.
+to texture at card size. The quieter set lives in
+[proposals/web-illustrations.md](proposals/web-illustrations.md). A
+published release renders it and attaches the PNG files; it is not
+committed under `docs/images/`.
 
 Every curve on every plate is solver output. The trees come from
 `RRTPlanner.get_tree` / `SSTPlanner.get_tree`, the wavefront from
