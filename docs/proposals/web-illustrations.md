@@ -1,9 +1,8 @@
 # Imagens para a web
 
-Proposta para validação. As sete pranchas de
-[GALLERY.md](../GALLERY.md) continuam como estão. Este arquivo descreve
-um segundo jogo, mais quieto, para thumbnail, Open Graph e figuras de
-página. Nada aqui é renderizado até as decisões do final serem aceitas.
+Jogo quieto para thumbnail, Open Graph e figuras de página. As sete
+pranchas de [GALLERY.md](../GALLERY.md) continuam sendo o conjunto de
+slide e artigo. Cada release publicada gera este jogo e anexa os PNG.
 
 ## O que pesa nas pranchas atuais
 
@@ -343,30 +342,50 @@ artigo. A página aponta para a galeria se precisar deles.
 As curvas continuam sendo saída de solver. O que muda é o mundo (menos
 corpos), o quanto da árvore se desenha, e a ausência de cromo.
 
-## Produção, depois do aceite
+## Produção
 
-Um segundo modo do renderizador da galeria, não um desenho feito à mão
-e não uma ilustração gerada por modelo:
+O renderizador é `tools/render_web.py`. O mundo é um
+`KDTreeOccupancy` e uma `EuclideanGrid` comuns, menores que a bacia da
+galeria. A exportação não chama `Canvas.chrome`. Os dois fundos saem
+da mesma geometria. A árvore desenhada para em 80 arestas, as mais
+longas. Os PNG não entram no git: a release é que os carrega.
 
-- mundo pequeno, próprio deste jogo, ainda um `KDTreeOccupancy` e uma
-  `EuclideanGrid` comuns
-- exportação sem `Canvas.chrome`
-- dois fundos, mesma geometria
-- teto de segmentos aplicado na hora de desenhar
-- arquivos em `docs/images/web/`
+```bash
+python3 tools/render_web.py --output /tmp/release_images
+bash scripts/generate_release_images.sh --out-dir /tmp/release_images
+```
 
-A galeria de sete pranchas não é reestilizada por esta proposta.
+O cache do solver fica em `tools/output/web_cache/`.
 
-## Para validar
+## Release
 
-1. Thumbnail e Open Graph seguem o Sinal, e a figura clara segue o
-   Traço, com a mesma geometria.
-2. O PNG não leva tipo. Título, número e nome do algoritmo ficam no
-   HTML.
-3. O jogo são estes seis gestos mais a marca: `arc`, `branch`,
-   `flood`, `pair`, `track`, `ribbon`.
+`.github/workflows/release.yml` dispara ao publicar uma release, no
+mesmo evento dos vídeos do simulador. O job `generate-images` renderiza
+o jogo. O job `publish-images` anexa cada arquivo com
+`scripts/publish_release_images.sh`. A lista de nomes vem de
+`python3 tools/render_web.py --list`, que também inclui `arc-og.png`,
+o recorte 1200×630 de `arc-dark.png`.
+
+Os arquivos numa release `vX.Y.Z`:
+
+- `mark-dark.png`, `mark-light.png`
+- `arc-dark.png`, `arc-light.png`, `arc-og.png`
+- `branch-dark.png`, `branch-light.png`
+- `flood-dark.png`, `flood-light.png`
+- `pair-dark.png`, `pair-light.png`
+- `track-dark.png`, `track-light.png`
+- `ribbon-dark.png`, `ribbon-light.png`
+
+A galeria de sete pranchas não é reestilizada por este jogo e não é
+anexada por esse job.
+
+## Regras que o render segue
+
+1. O fundo escuro é o Sinal e o fundo claro é o Traço, com a mesma
+   geometria.
+2. O PNG não leva tipo.
+3. O jogo são os seis gestos mais a marca.
 4. A galeria de sete pranchas permanece para slide e artigo.
-5. As cores de algoritmo são as de `colors.yml`. O neon da galeria
-   noturna não entra no card.
-6. O ícone atual (`docs/images/arco.svg`) fica até a marca de três
-   arcos ser aceita no lugar dele.
+5. As cores de algoritmo saem de `colors.yml`.
+6. `docs/images/arco.svg` não é substituído. A marca de três arcos
+   viaja só como arquivo da release.

@@ -127,6 +127,7 @@ Run the same gates CI uses:
 | `scripts/run_tests.sh` | pytest unit tests |
 | `scripts/run_smoke_test.sh <scenario>` | short headless `arcosim` recording |
 | `scripts/generate_videos.sh` | full-length simulation videos (`--release` for CI) |
+| `scripts/generate_release_images.sh` | quiet web PNG set, attached by the release workflow |
 
 ```bash
 bash scripts/validate.sh

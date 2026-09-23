@@ -99,3 +99,78 @@ jobs:
           bash scripts/publish_release_videos.sh \
             "${{ github.event.release.tag_name }}" \
             /tmp/sim_videos
+
+  # -----------------------------------------------------------------------
+  # Quiet web set: one gesture per PNG, no type in the file. Spec in
+  # docs/proposals/web-illustrations.md. Runs beside the video jobs.
+  # -----------------------------------------------------------------------
+  generate-images:
+    name: Generate release images
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install package with dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Render web images
+        env:
+          MPLBACKEND: Agg
+        run: |
+          bash scripts/generate_release_images.sh \
+            --out-dir /tmp/release_images
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-images
+          path: /tmp/release_images/
+          retention-days: 1
+
+  publish-images:
+    name: Publish images to release
+    needs: generate-images
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-images
+          path: /tmp/release_images
+
+      - name: Publish images to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/publish_release_images.sh \
+            "${{ github.event.release.tag_name }}" \
+            /tmp/release_images
