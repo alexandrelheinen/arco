@@ -2,8 +2,14 @@
 
 Seven 16:9 plates, in two themes, rendered from real runs of the shipped
 planners and controllers. They exist to illustrate the library in places
-where a screen recording does not fit: a pitch deck, a project page, a
-paper figure, a release header.
+where a screen recording does not fit: a pitch deck, a paper figure, a
+wide release header.
+
+They are the wrong asset for a thumbnail. Each plate carries a title,
+a subtitle, a legend and run metrics, plus a tree dense enough to turn
+to texture at card size. A quieter set for the web is proposed in
+[proposals/web-illustrations.md](proposals/web-illustrations.md) and is
+not rendered yet.
 
 Every curve on every plate is solver output. The trees come from
 `RRTPlanner.get_tree` / `SSTPlanner.get_tree`, the wavefront from
