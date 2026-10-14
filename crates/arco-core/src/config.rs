@@ -46,7 +46,7 @@ use crate::Error;
 /// assert!((weights.contour - 10.0).abs() < 1e-12);
 /// ```
 pub fn parse_yaml<T: DeserializeOwned>(source: &str, text: &str) -> Result<T, Error> {
-    serde_yaml_ng::from_str(text).map_err(|failure| {
+    yaml_serde::from_str(text).map_err(|failure| {
         let message = failure.to_string();
         // serde names an absent field rather than describing it, so the
         // caller gets the key it is missing instead of a parser trace.
