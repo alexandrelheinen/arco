@@ -46,25 +46,24 @@ use crate::Error;
 /// assert!((weights.contour - 10.0).abs() < 1e-12);
 /// ```
 pub fn parse_yaml<T: DeserializeOwned>(source: &str, text: &str) -> Result<T, Error> {
-    serde_yaml_ng::from_str(text).map_err(|failure| {
-        let message = failure.to_string();
-        // serde names an absent field rather than describing it, so the
-        // caller gets the key it is missing instead of a parser trace.
-        if let Some(key) = missing_field(&message) {
-            Error::MissingConfigurationKey { key }
-        } else {
-            Error::ConflictingArguments {
-                message: format!("cannot parse {source}: {message}"),
+    serde_saphyr::from_str(text).map_err(|failure| {
+        // A snippet wrapper sits outside the parse error. The caller gets
+        // the absent key when that is what failed.
+        let inner = match &failure {
+            serde_saphyr::Error::WithSnippet { error, .. } => error.as_ref(),
+            other => other,
+        };
+        match inner {
+            serde_saphyr::Error::SerdeMissingField { field, .. } => {
+                Error::MissingConfigurationKey {
+                    key: (*field).to_owned(),
+                }
             }
+            _ => Error::ConflictingArguments {
+                message: format!("cannot parse {source}: {failure}"),
+            },
         }
     })
-}
-
-/// Extracts the field name from a serde missing-field message.
-fn missing_field(message: &str) -> Option<String> {
-    let rest = message.strip_prefix("missing field `")?;
-    let (key, _) = rest.split_once('`')?;
-    Some(key.to_owned())
 }
 
 /// Reads and parses a YAML file.
@@ -102,6 +101,19 @@ mod tests {
                 heading: 2.0
             }
         );
+    }
+
+    #[test]
+    fn a_scientific_exponent_is_a_float() {
+        // Shipped optimizer weights use this form (`time: 1.0e2`). The
+        // scalar has to arrive as a float.
+        #[derive(Debug, Deserialize)]
+        struct Weight {
+            time: f64,
+        }
+
+        let parsed: Weight = parse_yaml("optimizer.yml", "time: 1.0e2\n").unwrap();
+        assert!((parsed.time - 100.0).abs() < 1e-12);
     }
 
     #[test]

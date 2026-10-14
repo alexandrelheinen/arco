@@ -29,7 +29,9 @@ arco-testing = { path = "crates/arco-testing", version = "0.6.0" }
 
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
-serde_yaml_ng = "0.10"
+# Safe-Rust YAML deserializer. `serde_yaml_ng` depends on `unsafe-libyaml`,
+# which is unmaintained (RUSTSEC-2024-0449) and has no fixed release.
+serde-saphyr = { version = "2", default-features = false, features = ["deserialize"] }
 criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
 argmin = { version = "0.11", default-features = false }
 argmin-math = { version = "0.5", default-features = false, features = ["primitives", "vec"] }
