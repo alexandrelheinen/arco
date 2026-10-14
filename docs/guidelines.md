@@ -136,7 +136,7 @@ before concluding the session.
 
 ---
 
-## 8. Shared Configuration Files — Consumer Audit Rule
+## 8. Shared Configuration Files, Consumer Audit Rule
 
 Whenever a **shared configuration file** (any file under `src/arco/config/`,
 including `colors.yml`, `astar.yml`, etc.) is **restructured** (keys renamed,
@@ -216,7 +216,7 @@ When plotting multi-step simulations (e.g. Lyapunov functions, V(t)):
   `np.arange(N) * dt` — *not* a cumulative sum of per-waypoint optimizer
   durations (which has length equal to the number of waypoints, not steps).
 
-## 11. Adding a Required Constructor Parameter — All Call-Sites Rule
+## 11. Adding a Required Constructor Parameter, All Call-Sites Rule
 
 When a constructor parameter is changed from optional to **required** (i.e. it
 gains no default value), every call site in the entire codebase — including
