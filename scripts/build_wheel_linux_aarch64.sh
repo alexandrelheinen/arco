@@ -48,10 +48,25 @@ if ! "$PYTHON" -c "import maturin" >/dev/null 2>&1 && ! have maturin; then
     exit 127
 fi
 
-if ! "$PYTHON" -c "import ziglang" >/dev/null 2>&1 && ! have zig; then
-    echo "missing required tool: zig (ziglang)" >&2
-    echo "install it with: $PYTHON -m pip install ziglang" >&2
-    exit 127
+if ! have zig; then
+    # ziglang from PyPI ships the binary next to the package, not on PATH.
+    ZIG_FROM_PIP="$("$PYTHON" - <<'PY'
+import pathlib
+import sys
+try:
+    import ziglang
+except ImportError:
+    sys.exit(1)
+print(pathlib.Path(ziglang.__file__).resolve().parent)
+PY
+)" || true
+    if [ -n "${ZIG_FROM_PIP:-}" ] && [ -x "$ZIG_FROM_PIP/zig" ]; then
+        export PATH="$ZIG_FROM_PIP:$PATH"
+    else
+        echo "missing required tool: zig (ziglang)" >&2
+        echo "install it with: $PYTHON -m pip install ziglang" >&2
+        exit 127
+    fi
 fi
 
 export PATH="$HOME/.cargo/bin:$PATH"
