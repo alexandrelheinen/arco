@@ -397,3 +397,15 @@ to potentially fail under WSL2 and virtualized CI runners, so it is marked
 with non-strict `xfail` on those environments. A regression on a dedicated
 machine still fails the suite, while WSL2 and CI environments do not produce
 spurious test failures.
+
+## Wheels are built and verified locally while Actions credit is expired
+
+GitHub Actions credit for this repository expired on 2026-10-31, so the
+`wheels.yml` workflow does not run. The linux aarch64 abi3 wheel
+(`FR-BUILD-06` through `FR-BUILD-09`) is therefore built with
+`scripts/build_wheel_linux_aarch64.sh` and verified with
+`scripts/verify_wheel_aarch64.sh` on the contributor machine. Local logs
+and the SHA-256 of the verified wheel are the evidence until credit
+returns and the dormant `linux-aarch64` matrix entry can run in CI. The
+release attach step remains a human-driven upload after explicit release
+words; nothing in CI publishes.
