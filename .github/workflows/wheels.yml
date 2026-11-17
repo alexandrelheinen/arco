@@ -199,6 +199,12 @@ jobs:
             runner: windows-latest
 
     steps:
+      # Checkout only for scripts/wheel_smoke.py.  The package under test
+      # still comes from the wheel in site-packages: PYTHONPATH is unset,
+      # so src/ is not on sys.path and import arco cannot see the tree.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -223,44 +229,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --only-binary=:all: "${wheels[0]}"
 
-      # The job checks out nothing, so an import can only resolve from
-      # site-packages.  Walking every layer is also what proves the
-      # configuration files listed under [tool.maturin] include landed in
-      # the wheel, since arco.config reads them at import time.
-      - name: Import the installed package
+      # Shared with scripts/verify_wheel_aarch64.sh so CI and the local
+      # aarch64 path run the same smoke (FR-BUILD-01 / FR-BUILD-08).
+      - name: Smoke the installed wheel
         shell: bash
         run: |
           set -euo pipefail
-          python -c "
-          import arco
-          from arco import control, guidance, kinematics, mapping
-          from arco import middleware, pipeline, planning, protocols
-          from arco._arco import version
-          print('arco', version(), 'imported on', __import__('sys').version.split()[0])
-          "
-
-      - name: Plan a path through the installed wheel
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -c "
-          import numpy as np
-          from arco.mapping import KDTreeOccupancy
-          from arco.planning import AStar, RRTPlanner
-
-          grid = np.zeros((20, 20), dtype=np.uint8)
-          assert AStar(grid, grid_type='euclidean').search((0, 0), (19, 19))
-
-          occupancy = KDTreeOccupancy(np.array([[5.0, 5.0]]), clearance=0.5)
-          planner = RRTPlanner(
-              occupancy,
-              [(0.0, 10.0), (0.0, 10.0)],
-              max_sample_count=500,
-              seed=7,
-          )
-          assert planner.plan(np.array([0.5, 0.5]), np.array([9.5, 9.5]))
-          print('planners answered from the installed wheel')
-          "
+          python scripts/wheel_smoke.py
 
   # -----------------------------------------------------------------------
   # One artifact holding every wheel and the sdist, so a human downloads
