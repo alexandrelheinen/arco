@@ -5,6 +5,14 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Local linux aarch64 abi3 wheel tooling: `scripts/build_wheel_linux_aarch64.sh`,
+  `scripts/verify_wheel_aarch64.sh`, `tools/wheel_check.py`, shared
+  `scripts/wheel_smoke.py`, and `docs/build-aarch64.md`. The dormant
+  `linux-aarch64` entry in `wheels.yml` is ready for when Actions credit
+  returns.
+
 ### Changed
 
 - The images a published release attaches are the seven gallery plates

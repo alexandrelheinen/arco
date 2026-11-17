@@ -18,6 +18,7 @@
 - [Visualization (`arcosim`)](VISUALIZATION.md)
 - [Illustration gallery](GALLERY.md) — 16:9 plates for decks and papers
 - [Web images](proposals/web-illustrations.md) — the seven plates without type, attached to a release
+- [Linux aarch64 wheel](build-aarch64.md) — local cross-build and verify for the Pi
 - [Pipeline](PIPELINE.md)
 - [Entity model](ENTITY_MODEL.md)
 
