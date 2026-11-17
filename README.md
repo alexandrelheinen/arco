@@ -88,6 +88,7 @@ Python process running at full CPU, competing with whatever you start next.
 - [Tech stack](docs/STACK.md)
 - [Mapping](docs/MAPPING.md) · [Planning](docs/PLANNING.md) · [Guidance](docs/GUIDANCE.md)
 - [Visualization (`arcosim`)](docs/VISUALIZATION.md) · [Illustration gallery](docs/GALLERY.md)
+- [Linux aarch64 wheel](docs/build-aarch64.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Rust port](docs/rust/SPEC.md) · [Port deviations](docs/rust/DEVIATIONS.md)
 - [Contributing](CONTRIBUTING.md)
