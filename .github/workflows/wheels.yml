@@ -1,9 +1,12 @@
 name: Wheels
 
-# Builds the distributable artifacts: one abi3 wheel per platform plus a
-# source distribution, then proves each wheel installs and imports on an
-# interpreter that compiles nothing.  FR-BUILD-01 and FR-BUILD-02 in
-# docs/rust/SPEC.md name this workflow as their evidence.
+# Builds the distributable artifacts: one abi3 wheel per platform (five
+# targets, including linux-aarch64) plus a source distribution, then
+# proves each wheel installs and imports on an interpreter that compiles
+# nothing.  FR-BUILD-01, FR-BUILD-02 and FR-BUILD-06 in docs/rust/SPEC.md
+# name this workflow as their evidence.  While Actions credit is expired
+# the linux-aarch64 entry is dormant; local build/verify scripts are the
+# evidence (see docs/build-aarch64.md).
 #
 # Nothing here publishes and nothing here reads a secret.  The artifacts
 # are uploaded to the run and go no further; attaching them to a release
@@ -68,6 +71,8 @@ jobs:
         include:
           - target: linux-x86_64
             runner: ubuntu-latest
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
           - target: macos-x86_64
             runner: macos-13
           - target: macos-aarch64
@@ -131,7 +136,7 @@ jobs:
   # -----------------------------------------------------------------------
   # Source distribution, for a platform with no wheel.  It builds from a
   # Rust toolchain rather than shipping one, which is the reason it exists
-  # alongside the four wheels.
+  # alongside the five wheels.
   # -----------------------------------------------------------------------
   sdist:
     name: Source distribution
@@ -182,6 +187,7 @@ jobs:
         # them.
         target:
           - linux-x86_64
+          - linux-aarch64
           - macos-x86_64
           - macos-aarch64
           - windows-x86_64
@@ -191,6 +197,8 @@ jobs:
         include:
           - target: linux-x86_64
             runner: ubuntu-latest
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
           - target: macos-x86_64
             runner: macos-13
           - target: macos-aarch64
@@ -263,8 +271,8 @@ jobs:
           ls -l dist
           wheels=(dist/*.whl)
           sdists=(dist/*.tar.gz)
-          if [ "${#wheels[@]}" -ne 4 ] || [ "${#sdists[@]}" -ne 1 ]; then
-            echo "::error::expected 4 wheels and 1 sdist, found ${#wheels[@]} and ${#sdists[@]}"
+          if [ "${#wheels[@]}" -ne 5 ] || [ "${#sdists[@]}" -ne 1 ]; then
+            echo "::error::expected 5 wheels and 1 sdist, found ${#wheels[@]} and ${#sdists[@]}"
             exit 1
           fi
 
