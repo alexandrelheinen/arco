@@ -178,6 +178,29 @@ reused. Domains: `API`, `CORE`, `MPC`, `PERF`, `RNG`, `BUILD`, `TEST`,
   existing formatting gate on the remaining Python sources.
 - `FR-BUILD-05`: When the Rust crates build, `cargo build` shall emit no
   warnings.
+- `FR-BUILD-06`: When a user runs `pip install` of the published ARCO wheel
+  on Linux aarch64 with glibc 2.17 or later and CPython 3.10 or later, the
+  system shall install a prebuilt wheel with no Rust toolchain present.
+- `FR-BUILD-07`: When `scripts/build_wheel_linux_aarch64.sh` runs on an
+  x86_64 Linux host with the documented prerequisites, it shall produce
+  exactly one file
+  `dist/arco-<version>-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl`
+  from the pinned toolchain, and exit non-zero with a clear message if
+  any prerequisite is missing.
+- `FR-BUILD-08`: When `scripts/verify_wheel_aarch64.sh <wheel>` runs, it
+  shall fail unless the filename tags are correct
+  (`tools/wheel_check.py`) and, on aarch64 CPython 3.10 and 3.12,
+  `pip install --only-binary=:all:` succeeds and
+  `scripts/wheel_smoke.py` imports `arco`, `control`, `guidance`,
+  `kinematics`, `mapping`, `middleware`, `pipeline`, `planning`,
+  `protocols`, prints `arco._arco.version()`, and solves the A* and RRT
+  smoke problems; the script shall print the architecture reported by
+  `uname -m` inside each container so the evidence shows `aarch64`.
+- `FR-BUILD-09`: The wheel shall be attached to a GitHub release, with
+  its SHA-256 in a `SHA256SUMS` asset and in the release notes, only
+  after Alexandre writes the explicit release words; the attached file
+  shall be byte-identical to the verified one (hash compared after
+  upload).
 
 ### Testing
 
@@ -329,6 +352,10 @@ under a known input change is not.
 | `FR-BUILD-03` | `scripts/validate.sh` self-check |
 | `FR-BUILD-04` | `.github/workflows/tests.yml` |
 | `FR-BUILD-05` | `.github/workflows/tests.yml` |
+| `FR-BUILD-06` | `scripts/verify_wheel_aarch64.sh` log (both interpreters) |
+| `FR-BUILD-07` | `tests/tools/test_wheel_check.py`, build log |
+| `FR-BUILD-08` | `tests/tools/test_wheel_check.py`, `tests/tools/test_wheel_smoke.py` |
+| `FR-BUILD-09` | release step report (hashes before and after upload) |
 | `FR-TEST-01` | the whole existing `tests/` suite |
 | `FR-TEST-02` | `tests/rust/differential/` |
 | `FR-TEST-03` | `cargo llvm-cov` gate in CI |
